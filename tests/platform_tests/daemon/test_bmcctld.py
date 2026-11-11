@@ -720,7 +720,7 @@ def _bmcctld_check_expected_status(duthost, expected_status):
 
 def _bmcctld_check_restarted(duthost, pre_pid):
     _, pid = duthost.get_pmon_daemon_status(BMCCTLD_DAEMON_NAME)
-    return pid > pre_pid
+    return pid != -1 and pid != pre_pid
 
 
 @pytest.fixture(scope="module")
@@ -770,8 +770,8 @@ def test_pmon_bmcctld_stop_and_start_status(bmcctld_check_daemon_status, duthost
     pytest_assert(post_status == _expected_running_status,
                   "{} expected {} after restart but is {}".format(
                       BMCCTLD_DAEMON_NAME, _expected_running_status, post_status))
-    pytest_assert(post_pid > pre_pid,
-                  "Restarted {} pid {} should be greater than pre-stop pid {}".format(
+    pytest_assert(post_pid != pre_pid,
+                  "Restarted {} pid {} should differ from pre-stop pid {}".format(
                       BMCCTLD_DAEMON_NAME, post_pid, pre_pid))
 
 
@@ -792,8 +792,8 @@ def test_pmon_bmcctld_term_and_start_status(bmcctld_check_daemon_status, duthost
     pytest_assert(post_status == _expected_running_status,
                   "{} expected {} after SIGTERM but is {}".format(
                       BMCCTLD_DAEMON_NAME, _expected_running_status, post_status))
-    pytest_assert(post_pid > pre_pid,
-                  "Restarted {} pid {} should be greater than pre-term pid {}".format(
+    pytest_assert(post_pid != pre_pid,
+                  "Restarted {} pid {} should differ from pre-term pid {}".format(
                       BMCCTLD_DAEMON_NAME, post_pid, pre_pid))
 
 
@@ -814,6 +814,6 @@ def test_pmon_bmcctld_kill_and_start_status(bmcctld_check_daemon_status, duthost
     pytest_assert(post_status == _expected_running_status,
                   "{} expected {} after SIGKILL but is {}".format(
                       BMCCTLD_DAEMON_NAME, _expected_running_status, post_status))
-    pytest_assert(post_pid > pre_pid,
-                  "Restarted {} pid {} should be greater than pre-kill pid {}".format(
+    pytest_assert(post_pid != pre_pid,
+                  "Restarted {} pid {} should differ from pre-kill pid {}".format(
                       BMCCTLD_DAEMON_NAME, post_pid, pre_pid))

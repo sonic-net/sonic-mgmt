@@ -14,14 +14,13 @@ from tests.transceiver.attribute_parser.attribute_keys import (
 )
 from tests.transceiver.common import scenario_ops
 from tests.transceiver.common.attribute_helpers import (
-    LANE_NUM_PLACEHOLDER, MEDIA_LANE_MASK_KEY, OPERATIONAL_SUFFIX,
-    resolve_breakout_lanes,
+    LANE_NUM_PLACEHOLDER, MEDIA_LANE_MASK_KEY, OPERATIONAL_SUFFIX, THRESHOLD_SUFFIX,
+    parse_min_max_range, resolve_breakout_lanes,
 )
 from tests.transceiver.common.db_helpers import (
     check_entry_freshness,
-    get_state_db_table,
     parse_numeric,
-    resolve_port_namespace,
+    read_state_db_table_for_ports,
 )
 
 logger = logging.getLogger(__name__)
@@ -29,7 +28,6 @@ logger = logging.getLogger(__name__)
 STATE_DB_SENSOR_TABLE = "TRANSCEIVER_DOM_SENSOR"
 STATE_DB_THRESHOLD_TABLE = "TRANSCEIVER_DOM_THRESHOLD"
 
-THRESHOLD_SUFFIX = "_threshold_range"
 CONSISTENCY_SUFFIX = "_consistency_variation_threshold"
 CONSISTENCY_MODE_ABSOLUTE = "absolute"
 CONSISTENCY_MODE_PERCENT = "percent"
@@ -336,30 +334,6 @@ def format_dom_port_failure(
         lane_context,
         "\n  ".join(field_failures),
     )
-
-
-def parse_min_max_range(mapped_field):
-    """Return ``(min_value, max_value, error)`` for a DOM ``{"min", "max"}`` range."""
-    attr_name = mapped_field.source_attr
-    attr_value = mapped_field.attr_value
-
-    if not isinstance(attr_value, dict):
-        return None, None, "{} must be a dict with min/max in DOM_ATTRIBUTES".format(attr_name)
-
-    min_value = parse_numeric(attr_value.get("min"))
-    max_value = parse_numeric(attr_value.get("max"))
-    if min_value is None or max_value is None:
-        return None, None, "{} missing numeric min/max in DOM_ATTRIBUTES".format(attr_name)
-    if not math.isfinite(min_value) or not math.isfinite(max_value):
-        return None, None, "{} has non-finite min/max in DOM_ATTRIBUTES".format(attr_name)
-    if min_value > max_value:
-        return None, None, "{} has invalid range [{}, {}]".format(
-            attr_name,
-            attr_value.get("min"),
-            attr_value.get("max"),
-        )
-
-    return min_value, max_value, None
 
 
 def _parse_threshold_range(attr_name, attr_value):
@@ -769,70 +743,14 @@ def validate_dom_plan_fields(
     return failures, checked_field_count, checked_port_count
 
 
-def _read_dom_table_data(duthost, ports, table_name):
-    """Return ``({port: data_or_None}, errors)`` for a current DOM STATE_DB table.
-
-    A value of ``None`` means the namespace-level table read failed, while an
-    empty dict means the table read succeeded and the port entry was absent.
-    """
-    ports = list(ports)
-    table_data_by_port = {port: {} for port in ports}
-    errors = []
-    ports_by_namespace = defaultdict(list)
-
-    for port in ports:
-        namespace = resolve_port_namespace(duthost, port)
-        ports_by_namespace[namespace].append(port)
-
-    for namespace, namespace_ports in ports_by_namespace.items():
-        dom_table, err = get_state_db_table(
-            duthost,
-            table_name,
-            namespace=namespace,
-        )
-        if err:
-            errors.append(
-                "{} namespace {} ({} port(s) under test): {}".format(
-                    table_name,
-                    namespace or "default",
-                    len(namespace_ports),
-                    err,
-                )
-            )
-            logger.warning(
-                "Failed to read %s namespace %s for %d port(s): %s",
-                table_name,
-                namespace or "default",
-                len(namespace_ports),
-                err,
-            )
-            for port in namespace_ports:
-                table_data_by_port[port] = None
-            continue
-
-        for port in namespace_ports:
-            table_data_by_port[port] = dom_table.get(port, {}) or {}
-
-    logger.debug(
-        "Read %s data for %d port(s) across %d namespace(s); "
-        "%d port(s) returned data",
-        table_name,
-        len(ports),
-        len(ports_by_namespace),
-        sum(1 for port_data in table_data_by_port.values() if port_data),
-    )
-
-    return table_data_by_port, errors
-
-
 def read_dom_sensor_data(duthost, ports):
     """Return ``({port: data_or_None}, errors)`` for current DOM sensor data."""
-    return _read_dom_table_data(duthost, ports, STATE_DB_SENSOR_TABLE)
+    return read_state_db_table_for_ports(duthost, ports, STATE_DB_SENSOR_TABLE)
 
 
 def read_dom_threshold_data(duthost, ports):
     """Return ``({port: data_or_None}, errors)`` for current DOM threshold data."""
-    return _read_dom_table_data(duthost, ports, STATE_DB_THRESHOLD_TABLE)
+    return read_state_db_table_for_ports(duthost, ports, STATE_DB_THRESHOLD_TABLE)
 
 
 def verify_dom_thresholds_after_operation(duthost, port_attributes_dict, ports):

@@ -236,10 +236,20 @@ def wait_for_peer_memory_recovery(dut, asic_index, neighbor_ips, baseline):
 
 
 @pytest.fixture(scope='module')
+def pre_flap_stats(duthosts):
+    """Snapshot all linecards before any parametrized case withdraws routes."""
+    return {
+        dut.hostname: get_cpu_stats(dut)
+        for dut in duthosts.frontend_nodes
+    }
+
+
+@pytest.fixture(scope='module')
 def setup(
     tbinfo,
     nbrhosts,
     duthosts,
+    pre_flap_stats,
     enum_frontend_dut_hostname,
     enum_rand_one_frontend_asic_index
 ):
@@ -330,8 +340,7 @@ def setup(
 
     logger.info('Setup_info: {}'.format(setup_info))
 
-    # Keep the full RIB baseline before either test withdraws routes.
-    setup_info['pre_flap_stats'] = get_cpu_stats(duthost)
+    setup_info['pre_flap_stats'] = pre_flap_stats[duthost.hostname]
 
     yield setup_info
 
