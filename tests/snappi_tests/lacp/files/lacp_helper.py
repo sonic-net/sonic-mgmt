@@ -2,6 +2,7 @@ import logging
 from tabulate import tabulate
 from statistics import mean
 import json
+import math
 from tests.common.utilities import wait
 from tests.common.helpers.assertions import pytest_assert  # noqa: F401
 logger = logging.getLogger(__name__)
@@ -493,10 +494,12 @@ def get_lacp_add_remove_link_physically(snappi_api,
             wait(TIMEOUT, "For Link to go down")
             print_port_stats(snappi_api, all_port_names, tgen_ports)
             flows = get_flow_stats(snappi_api)
+            tx_frate, rx_frate = [], []
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
                 rx_frate.append(flow.frames_rx_rate)
-            assert sum(tx_frate) == sum(rx_frate), \
+            # Rates are sampled floats; allow 0.1% jitter instead of requiring exact equality
+            assert math.isclose(sum(tx_frate), sum(rx_frate), rel_tol=1e-3), \
                 "Traffic has not converged after link flap: TxFrameRate:{},RxFrameRate:{}"\
                 .format(sum(tx_frate), sum(rx_frate))
             logger.info("Traffic has converged after link flap")
