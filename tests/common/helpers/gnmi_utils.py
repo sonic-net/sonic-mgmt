@@ -456,8 +456,7 @@ def delete_gnmi_certs(localhost):
 
 
 def dump_gnmi_log(duthost):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    dut_command = "docker exec %s cat /root/gnmi.log" % (env.gnmi_container)
+    dut_command = "sudo cat /var/log/gnmi.log"
     res = duthost.shell(dut_command, module_ignore_errors=True)
     logger.info("GNMI log: " + res['stdout'])
     return res['stdout']
