@@ -9,17 +9,15 @@ import json
 import ptf
 import ptf.packet as scapy
 from ptf.base_tests import BaseTest
-from ptf.mask import Mask
 from ptf.testutils import (
     test_params_get,
     dp_poll,
     send_packet,
     simple_tcp_packet,
-    simple_vxlan_packet,
 )
 
 MAX_DEVIATION = 0.25
-_PLACEHOLDER_MAC = "00:aa:bb:cc:dd:ee"
+MIN_ENDPOINT_COVERAGE = 0.9
 
 logger = logging.getLogger(__name__)
 
@@ -63,12 +61,6 @@ class VxlanTunnelFgEcmpTest(BaseTest):
         _port2 = params.get("ptf_ingress_port_vnet2")
         self.ptf_ingress_port_vnet2 = int(_port2) if _port2 is not None else None
         self.ptf_src_ip_vnet2 = params.get("ptf_src_ip_vnet2")
-
-        # mac_address / vni override verification params
-        _expected_vni = params.get("expected_vni")
-        self.expected_vni = int(_expected_vni) if _expected_vni is not None else None
-        # endpoint_to_mac is a dict {endpoint_ip: mac_string}
-        self.endpoint_to_mac = params.get("endpoint_to_mac", {})
 
         self.expected_egress_ports = [int(p) for p in params.get("expected_egress_ports", [])]
 
@@ -146,37 +138,6 @@ class VxlanTunnelFgEcmpTest(BaseTest):
             pktlen=100,
         )
 
-    def _build_expected_for_endpoint(self, inner_pkt, endpoint, vni, inner_dst_mac):
-        inner_exp = inner_pkt.copy()
-        inner_exp[scapy.Ether].src = self.router_mac
-        inner_exp[scapy.Ether].dst = inner_dst_mac
-        inner_exp[scapy.IP].ttl -= 1
-
-        encap = simple_vxlan_packet(
-            eth_src=self.router_mac,
-            eth_dst=_PLACEHOLDER_MAC,
-            ip_src=self.dut_vtep,
-            ip_dst=endpoint,
-            ip_id=0,
-            ip_ttl=128,
-            udp_sport=12345,
-            udp_dport=self.vxlan_port,
-            with_udp_chksum=False,
-            vxlan_vni=vni,
-            inner_frame=inner_exp,
-        )
-        encap[scapy.IP].flags = 0x2
-
-        m = Mask(encap)
-        m.set_ignore_extra_bytes()
-        m.set_do_not_care_scapy(scapy.Ether, "src")
-        m.set_do_not_care_scapy(scapy.Ether, "dst")
-        m.set_do_not_care_scapy(scapy.IP, "ttl")
-        m.set_do_not_care_scapy(scapy.IP, "id")
-        m.set_do_not_care_scapy(scapy.IP, "chksum")
-        m.set_do_not_care_scapy(scapy.UDP, "sport")
-        return m
-
     def _check_distribution(self, hit_count_map):
         deviation_max = 0.0
         for endpoint, exp_flows in self.exp_flow_count.items():
@@ -216,6 +177,7 @@ class VxlanTunnelFgEcmpTest(BaseTest):
             flow_map[self.dst_ip] = {}
             self.tcp_sport = 1234
             self.tcp_dport = 5000
+            batch_hits = 0
 
             for i in range(self.num_packets):
                 sport, dport = self._next_ports()
@@ -224,7 +186,12 @@ class VxlanTunnelFgEcmpTest(BaseTest):
                     flow_key = "{}:{}".format(sport, dport)
                     flow_map[self.dst_ip][flow_key] = endpoint
                     hit_count_map[endpoint] = hit_count_map.get(endpoint, 0) + 1
+                    batch_hits += 1
                 if (i + 1) % 100 == 0:
+                    assert batch_hits > 0, (
+                        f"No valid VXLAN response for any of flows {i - 99}-{i + 1}"
+                    )
+                    batch_hits = 0
                     logger.info(f"  created {i + 1}/{self.num_packets} flows")
 
             total = len(flow_map[self.dst_ip])
@@ -242,6 +209,15 @@ class VxlanTunnelFgEcmpTest(BaseTest):
                     f"Flows landed on endpoints not in configured set: {sorted(stray)}"
                 )
                 assert total > 0, "No flows were captured at all"
+                coverage = len(hit_count_map) / len(self.endpoints)
+                logger.info(
+                    f"Endpoint coverage: {len(hit_count_map)}/{len(self.endpoints)} "
+                    f"({coverage:.1%}, minimum {MIN_ENDPOINT_COVERAGE:.0%})"
+                )
+                assert coverage >= MIN_ENDPOINT_COVERAGE, (
+                    f"Only {len(hit_count_map)}/{len(self.endpoints)} endpoints "
+                    f"({coverage:.1%}) were reached, minimum is {MIN_ENDPOINT_COVERAGE:.0%}"
+                )
 
             if not self.exp_flow_count:
                 break
@@ -328,8 +304,8 @@ class VxlanTunnelFgEcmpTest(BaseTest):
     def _add_endpoint(self, flow_map):
         """
         After a new endpoint is added to the DUT config:
-        - At most MAX_DEVIATION (~10%) of flows may move to
-          the new endpoint.
+        - At least one and at most MAX_DEVIATION of flows may move
+          to the new endpoint.
         - Flows that do not move to the new endpoint must stay on their
           current endpoint
         """
@@ -361,14 +337,14 @@ class VxlanTunnelFgEcmpTest(BaseTest):
             +
             f"moved to new endpoint {self.add_endpoint}."
         )
-        if unexpected_moves:
-            logger.warning(
-                f"  {len(unexpected_moves)} flow(s) moved to an endpoint other than "
-                f"{self.add_endpoint} (unexpected with FG ECMP)"
-            )
-            for flow_key, old_ep, new_ep in unexpected_moves[:5]:
-                logger.warning(f"    flow={flow_key} {old_ep} -> {new_ep}")
-
+        assert not unexpected_moves, (
+            f"{len(unexpected_moves)} flow(s) moved to an endpoint other than "
+            f"{self.add_endpoint}. First few: " +
+            "; ".join(f"flow={k} {o}->{n}" for k, o, n in unexpected_moves[:5])
+        )
+        assert moved_to_new > 0, (
+            f"New endpoint {self.add_endpoint} received no flows"
+        )
         assert disruption_rate <= MAX_DEVIATION, (
             f"Too many flows disrupted by adding endpoint {self.add_endpoint}: "
             "{}/{} = {} ".format(moved_to_new, total, "{:.1%}".format(disruption_rate))
@@ -439,95 +415,6 @@ class VxlanTunnelFgEcmpTest(BaseTest):
             f"Newly added endpoint(s) received no flows: {missing_added}"
         )
 
-    def _verify_mac_vni(self):
-        assert self.expected_vni is not None, "expected_vni param is required"
-        assert self.endpoint_to_mac, "endpoint_to_mac param is required"
-        assert self.dut_vtep, "dut_vtep param is required to build expected packet"
-
-        # Normalize configured MACs to lowercase for the Mask constructor.
-        endpoint_to_mac_norm = {ep: mac.lower() for ep, mac in self.endpoint_to_mac.items()}
-        for ep in self.endpoints:
-            assert ep in endpoint_to_mac_norm, f"No mac_address configured for endpoint {ep}"
-
-        src_mac = self.dataplane.get_mac(0, self.send_port)
-        endpoint_hits = {ep: 0 for ep in self.endpoints}
-        mismatch_count = 0
-        no_response = 0
-
-        self.tcp_sport = 1234
-        self.tcp_dport = 5000
-
-        for i in range(self.num_packets):
-            sport, dport = self._next_ports()
-            inner = self._build_inner_tcp(sport, dport, src_mac, self.src_ip)
-            send_packet(self, self.send_port, inner)
-
-            matched = False
-            deadline = time.time() + 2.0
-            while time.time() < deadline:
-                remaining = deadline - time.time()
-                res = dp_poll(self, device_number=0, timeout=min(remaining, 1.0))
-                if not isinstance(res, self.dataplane.PollSuccess):
-                    break
-
-                pkt = scapy.Ether(res.packet)
-                if scapy.IP not in pkt or scapy.UDP not in pkt:
-                    continue
-                if pkt[scapy.UDP].dport != self.vxlan_port:
-                    continue
-                outer_dst = pkt[scapy.IP].dst
-                if outer_dst not in self.endpoints:
-                    logger.error(f"Received VXLAN pkt to unexpected endpoint {outer_dst}")
-                    continue
-
-                if self.expected_egress_ports and res.port not in self.expected_egress_ports:
-                    raise AssertionError(
-                        f"VXLAN-encap packet to {outer_dst} received on PTF port "
-                        f"{res.port}, expected one of {self.expected_egress_ports}"
-                    )
-
-                expected_mac = endpoint_to_mac_norm[outer_dst]
-                exp = self._build_expected_for_endpoint(
-                    inner, outer_dst, self.expected_vni, expected_mac,
-                )
-
-                if exp.pkt_match(pkt):
-                    endpoint_hits[outer_dst] += 1
-                    matched = True
-                    break
-
-                mismatch_count += 1
-                logger.error(
-                    f"Packet mismatch for endpoint={outer_dst}, "
-                    f"expected_mac={expected_mac}, expected_vni={self.expected_vni}.\n"
-                    f"\nExpected\n{exp}\n\nReceived\n{pkt}\n"
-                )
-                break
-
-            if not matched and mismatch_count == 0:
-                no_response += 1
-
-            if (i + 1) % 100 == 0:
-                logger.info(
-                    f"  verified {i + 1}/{self.num_packets} flows, "
-                    f"hits={endpoint_hits} mismatches={mismatch_count} "
-                    f"no_response={no_response}"
-                )
-
-        logger.info(
-            f"verify_mac_vni done: hits={endpoint_hits} "
-            f"mismatches={mismatch_count} no_response={no_response}"
-        )
-
-        assert mismatch_count == 0, (
-            f"{mismatch_count} packet(s) did not match expected MAC/VNI encapsulation"
-        )
-        assert no_response < self.num_packets, (
-            f"All {self.num_packets} flows produced no VXLAN response"
-        )
-        missing = [ep for ep, c in endpoint_hits.items() if c == 0]
-        assert not missing, f"No packets observed for endpoints: {missing}"
-
     def _verify_endpoint_unreachable(self):
         assert self.forbidden_endpoints, "forbidden_endpoints param is required"
 
@@ -591,7 +478,8 @@ class VxlanTunnelFgEcmpTest(BaseTest):
 
         vnet1_misses = []
         self.tcp_sport, self.tcp_dport = 1234, 5000
-        for _ in range(self.num_packets):
+        batch_hits = 0
+        for i in range(self.num_packets):
             sport, dport = self._next_ports()
             endpoint = self._send_and_capture_endpoint(
                 sport, dport,
@@ -599,14 +487,18 @@ class VxlanTunnelFgEcmpTest(BaseTest):
                 src_ip=self.src_ip,
                 valid_endpoints=all_endpoints,
             )
-            if endpoint is None:
-                continue
-            if endpoint not in self.endpoints:
-                vnet1_misses.append((sport, dport, endpoint))
+            if endpoint is not None:
+                batch_hits += 1
+                if endpoint not in self.endpoints:
+                    vnet1_misses.append((sport, dport, endpoint))
+            if (i + 1) % 100 == 0:
+                assert batch_hits > 0, f"No valid Vnet1 response for any of flows {i - 99}-{i + 1}"
+                batch_hits = 0
 
         vnet2_misses = []
         self.tcp_sport, self.tcp_dport = 1234, 5000
-        for _ in range(self.num_packets):
+        batch_hits = 0
+        for i in range(self.num_packets):
             sport, dport = self._next_ports()
             endpoint = self._send_and_capture_endpoint(
                 sport, dport,
@@ -614,10 +506,13 @@ class VxlanTunnelFgEcmpTest(BaseTest):
                 src_ip=self.ptf_src_ip_vnet2,
                 valid_endpoints=all_endpoints,
             )
-            if endpoint is None:
-                continue
-            if endpoint not in self.vnet2_endpoints:
-                vnet2_misses.append((sport, dport, endpoint))
+            if endpoint is not None:
+                batch_hits += 1
+                if endpoint not in self.vnet2_endpoints:
+                    vnet2_misses.append((sport, dport, endpoint))
+            if (i + 1) % 100 == 0:
+                assert batch_hits > 0, f"No valid Vnet2 response for any of flows {i - 99}-{i + 1}"
+                batch_hits = 0
 
         assert not vnet1_misses, (
             f"Vnet1 flows reached wrong endpoints (expected only {self.endpoints}): "
@@ -639,9 +534,6 @@ class VxlanTunnelFgEcmpTest(BaseTest):
     def runTest(self):
         if self.test_case == "conflicting_dest_prefix":
             self._conflicting_dest_prefix()
-            return
-        if self.test_case == "verify_mac_vni":
-            self._verify_mac_vni()
             return
         if self.test_case == "verify_endpoint_unreachable":
             self._verify_endpoint_unreachable()

@@ -18,14 +18,22 @@ VNI = 1000
 VNET2_VNI = 2000
 ROUTE_OVERRIDE_VNI = 5001
 PREFIX = "150.0.3.1/24"
-BUCKET_SIZE = 511
+MAC_VNI_PREFIX = "150.0.4.1/24"
+LARGE_PREFIX = "150.0.5.1/24"
+BUCKET_SIZE = 100
+FLOWS_PER_BUCKET = 10
 NUM_INITIAL_ENDPOINTS = 10
-LARGE_ENDPOINT_COUNT = 511
+LARGE_ENDPOINT_COUNTS = {
+    "8101": 511,
+    "8102": 511,
+    "8223": 2048,
+}
+LARGE_ROUTE_PROGRAM_WAIT = 60
 ENDPOINT_BASE_IP = "100.0.1."
 VNET2_ENDPOINT_BASE_IP = "100.0.2."
 VNET2_DUT_IP = "202.0.1.1"
 VNET2_PTF_IP = "202.0.1.101"
-NUM_FLOWS = 1000
+NUM_FLOWS = BUCKET_SIZE * FLOWS_PER_BUCKET
 CONFIG_DB_PATH = '/etc/sonic/config_db.json'
 PERSIST_MAP_FILE = '/tmp/vxlan_tunnel_fg_ecmp_persist_map.json'
 PTF_PARAMS_FILE = '/tmp/vxlan_tunnel_fg_ecmp_ptf_params.json'
@@ -127,54 +135,21 @@ def set_route_tunnel_regular(duthost, endpoints):
     time.sleep(3)
 
 
-def set_route_tunnel(duthost, endpoints, bucket_size=BUCKET_SIZE, vnet_name=VNET_NAME, vni=VNI):
+def set_route_tunnel(duthost, endpoints, bucket_size=BUCKET_SIZE, vnet_name=VNET_NAME, vni=VNI,
+                     prefix=PREFIX, mac_list=None):
     logger.info(
-        f"Programming route {vnet_name}|{PREFIX} -> {len(endpoints)} endpoints, "
-        f"buckets={bucket_size}, vni={vni}"
+        f"Programming route {vnet_name}|{prefix} -> {len(endpoints)} endpoints, "
+        f"buckets={bucket_size}, vni={vni}, macs={bool(mac_list)}"
     )
-    vni_str = ",".join([str(vni)] * len(endpoints))
-    apply_chunk(
-        duthost,
-        {"VNET_ROUTE_TUNNEL": {
-            f"{vnet_name}|{PREFIX}": {
-                "endpoint": ",".join(endpoints),
-                "vni": vni_str,
-                "consistent_hashing_buckets": str(bucket_size),
-            }
-        }},
-        "route_tunnel",
-    )
-    time.sleep(3)
-
-
-def set_route_tunnel_with_mac_vni(duthost, endpoints, mac_list, vni):
-    assert len(mac_list) == len(endpoints), (
-        f"mac_list length {len(mac_list)} must equal endpoints length {len(endpoints)}"
-    )
-    logger.info(
-        f"Programming FG ECMP route {PREFIX} with vni={vni}, "
-        f"endpoints={endpoints}, mac_list={mac_list}"
-    )
-
-    duthost.shell(
-        f"sonic-db-cli CONFIG_DB del 'VNET_ROUTE_TUNNEL|{VNET_NAME}|{PREFIX}'"
-    )
-    time.sleep(3)
-
-    vni_str = ",".join([str(vni)] * len(endpoints))
-    mac_str = ",".join(mac_list)
-    apply_chunk(
-        duthost,
-        {"VNET_ROUTE_TUNNEL": {
-            f"{VNET_NAME}|{PREFIX}": {
-                "endpoint": ",".join(endpoints),
-                "vni": vni_str,
-                "mac_address": mac_str,
-                "consistent_hashing_buckets": str(BUCKET_SIZE),
-            }
-        }},
-        "route_tunnel",
-    )
+    route = {
+        "endpoint": ",".join(endpoints),
+        "vni": ",".join([str(vni)] * len(endpoints)),
+        "consistent_hashing_buckets": str(bucket_size),
+    }
+    if mac_list:
+        assert len(mac_list) == len(endpoints), "mac_list must have one MAC per endpoint"
+        route["mac_address"] = ",".join(mac_list)
+    apply_chunk(duthost, {"VNET_ROUTE_TUNNEL": {f"{vnet_name}|{prefix}": route}}, "route_tunnel")
     time.sleep(3)
 
 
@@ -220,7 +195,10 @@ def vxlan_setup_one_vnet(duthost, ptfhost, tbinfo, cfg_facts,
     dut_vtep = get_loopback_ip(cfg_facts)
     logger.info(f"Creating VXLAN tunnel {TUNNEL_NAME} with source {dut_vtep}")
 
-    apply_chunk(duthost, {"VXLAN_TUNNEL": {TUNNEL_NAME: {"src_ip": dut_vtep}}}, "vxlan_tunnel")
+    tunnel_entry = {"src_ip": dut_vtep}
+    if duthost.facts.get("asic_type") == "cisco-8000":
+        tunnel_entry["ttl_mode"] = "pipe"
+    apply_chunk(duthost, {"VXLAN_TUNNEL": {TUNNEL_NAME: tunnel_entry}}, "vxlan_tunnel")
     apply_chunk(duthost, {"VNET": {VNET_NAME: {"vni": str(VNI), "vxlan_tunnel": TUNNEL_NAME}}}, "vnet")
 
     ptf_port_index = port_indexes[ingress_if]
@@ -340,7 +318,7 @@ def common_setup_teardown(
         cleanup(duthost, ptfhost)
 
 
-def run_regular_ecmp_ptf_test(ptfhost, endpoints, params, num_packets):
+def run_regular_ecmp_ptf_test(ptfhost, endpoints, params, num_packets, **kwargs):
     logger.info(f"Regular ECMP PTF test: {len(endpoints)} endpoints, {num_packets} packets")
     endpoints_file = "/tmp/ptf_endpoints.json"
     ptfhost.copy(content=json.dumps(endpoints), dest=endpoints_file)
@@ -350,6 +328,7 @@ def run_regular_ecmp_ptf_test(ptfhost, endpoints, params, num_packets):
         "endpoints_file": endpoints_file,
         "num_packets": num_packets,
     })
+    ptf_params.update(kwargs)
     params_path = "/tmp/ptf_regular_ecmp_params.json"
     ptfhost.copy(content=json.dumps(ptf_params), dest=params_path)
 
@@ -456,7 +435,7 @@ def test_vxlan_fg_ecmp(ptfhost, common_setup_teardown):
     vnet2_endpoints = generate_endpoint_list(VNET2_ENDPOINT_BASE_IP, NUM_INITIAL_ENDPOINTS)
     run_vxlan_ptf_test(
         ptfhost,
-        endpoints,  # Vnet1 endpoints
+        swapped_endpoints,
         setup,
         "conflicting_dest_prefix",
         num_packets=NUM_FLOWS,
@@ -468,27 +447,46 @@ def test_vxlan_fg_ecmp(ptfhost, common_setup_teardown):
 
 def test_vxlan_fg_ecmp_large_endpoints(ptfhost, common_setup_teardown):
     """
-    Validate FG ECMP behavior with a large endpoint set (128 endpoints).
+    Validate FG ECMP behavior with the platform's maximum endpoint count,
+    using one bucket per endpoint.
     """
     logger.info("Running test_vxlan_fg_ecmp_large_endpoints")
     setup, duthost, _ = common_setup_teardown
 
-    endpoints = generate_large_endpoint_list(LARGE_ENDPOINT_COUNT)
-    set_route_tunnel(duthost, endpoints)
-
-    run_vxlan_ptf_test(
-        ptfhost, endpoints, setup, "create_flows",
-        num_packets=NUM_FLOWS,
-        check_distribution=False,
-        require_all_endpoints_hit=False,
+    platform = duthost.facts.get("platform", "").lower()
+    endpoint_count = next(
+        (count for key, count in LARGE_ENDPOINT_COUNTS.items() if key in platform), None
     )
+    pytest_require(endpoint_count, f"No large endpoint count defined for platform {platform}")
 
-    run_vxlan_ptf_test(
-        ptfhost, endpoints, setup, "verify_consistent_hash",
-        num_packets=NUM_FLOWS,
-        check_distribution=False,
-        require_all_endpoints_hit=False,
-    )
+    endpoints = generate_large_endpoint_list(endpoint_count)
+    num_flows = len(endpoints) * FLOWS_PER_BUCKET
+    set_route_tunnel(duthost, endpoints, bucket_size=len(endpoints), prefix=LARGE_PREFIX)
+    time.sleep(LARGE_ROUTE_PROGRAM_WAIT)
+    dst_ip = LARGE_PREFIX.split("/")[0]
+
+    try:
+        run_vxlan_ptf_test(
+            ptfhost, endpoints, setup, "create_flows",
+            num_packets=num_flows,
+            check_distribution=False,
+            require_all_endpoints_hit=False,
+            dst_ip=dst_ip,
+        )
+
+        run_vxlan_ptf_test(
+            ptfhost, endpoints, setup, "verify_consistent_hash",
+            num_packets=num_flows,
+            check_distribution=False,
+            require_all_endpoints_hit=False,
+            dst_ip=dst_ip,
+        )
+    finally:
+        duthost.shell(
+            f"sonic-db-cli CONFIG_DB del "
+            f"'VNET_ROUTE_TUNNEL|{VNET_NAME}|{LARGE_PREFIX}'"
+        )
+        time.sleep(3)
 
 
 def test_transition_regular_to_fg_ecmp(ptfhost, common_setup_teardown):
@@ -559,30 +557,18 @@ def test_vxlan_fg_ecmp_mac_vni(ptfhost, common_setup_teardown):
     setup, duthost, _ = common_setup_teardown
 
     endpoints = generate_endpoint_list()
-    # Deterministic, unique MACs (one per endpoint).
-    mac_list = [
-        "52:54:00:{}:{}:aa".format(
-            hex(i // 256)[2:].zfill(2),
-            hex(i % 256)[2:].zfill(2),
-        )
-        for i in range(len(endpoints))
-    ]
-    endpoint_to_mac = dict(zip(endpoints, mac_list))
+    mac_list = [f"52:54:00:{i // 256:02x}:{i % 256:02x}:aa" for i in range(len(endpoints))]
 
-    set_route_tunnel_with_mac_vni(duthost, endpoints, mac_list, ROUTE_OVERRIDE_VNI)
+    set_route_tunnel(duthost, endpoints, vni=ROUTE_OVERRIDE_VNI, prefix=MAC_VNI_PREFIX, mac_list=mac_list)
     try:
-        run_vxlan_ptf_test(
-            ptfhost,
-            endpoints,
-            setup,
-            "verify_mac_vni",
-            num_packets=NUM_FLOWS,
-            expected_vni=ROUTE_OVERRIDE_VNI,
-            endpoint_to_mac=endpoint_to_mac,
+        run_regular_ecmp_ptf_test(
+            ptfhost, endpoints, setup, num_packets=len(endpoints) * FLOWS_PER_BUCKET,
+            mac_vni_verify="yes", vni=ROUTE_OVERRIDE_VNI, mac_address=mac_list,
+            dst_ip=MAC_VNI_PREFIX.split("/")[0],
         )
     finally:
         duthost.shell(
             f"sonic-db-cli CONFIG_DB del "
-            f"'VNET_ROUTE_TUNNEL|{VNET_NAME}|{PREFIX}'"
+            f"'VNET_ROUTE_TUNNEL|{VNET_NAME}|{MAC_VNI_PREFIX}'"
         )
         time.sleep(3)
