@@ -192,6 +192,33 @@ def _spec():
     }
 
 
+def test_host_command_failures_keep_independent_stderr_evidence(tmp_path, monkeypatch):
+    failures = iter((b"original create failure", b"follow-up capture failure"))
+    monkeypatch.setattr(host.subprocess, "run", lambda *args, **kwargs: SimpleNamespace(
+        returncode=7, stdout=b"", stderr=next(failures)))
+    messages = []
+    for _ in range(2):
+        with pytest.raises(host.HostActionError) as raised:
+            host.command(["docker", "inspect", "synthetic-container"], tmp_path)
+        messages.append(str(raised.value))
+    logs = list(tmp_path.rglob("*.log"))
+    assert len(logs) == 2 and len(set(messages)) == 2
+    assert {path.read_bytes() for path in logs} == {b"original create failure", b"follow-up capture failure"}
+    assert all(any(str(path) in message for path in logs) for message in messages)
+
+
+def test_host_command_evidence_write_failure_keeps_the_exit_code(tmp_path, monkeypatch):
+    monkeypatch.setattr(host.subprocess, "run", lambda *args, **kwargs: SimpleNamespace(
+        returncode=7, stdout=b"", stderr=b"original create failure"))
+
+    def unavailable(*args):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(host, "atomic_bytes", unavailable)
+    with pytest.raises(host.HostActionError, match=r"rc 7.*evidence could not be saved.*disk full"):
+        host.command(["docker", "create", "synthetic-image"], tmp_path)
+
+
 @pytest.mark.parametrize("available", [False, True])
 def test_management_only_ptf_requires_a_frozen_no_path_result(available):
     spec = _spec()
@@ -267,6 +294,17 @@ def test_host_readback_observes_actual_vlan_not_desired_snapshot(tmp_path, monke
     changed, owner = host.capture(spec, tmp_path)
     assert changed["endpoints"][0]["vlan"] == 201 and changed != host.candidate_state(spec)
     assert all(arguments[0] in ("ip", "nsenter") for arguments in calls)
+
+
+def test_unverified_failure_receipt_cannot_grant_host_ownership(tmp_path, monkeypatch):
+    spec, operation, root, namespace, container, calls = _observed_host(tmp_path, monkeypatch)
+    container["Config"]["Labels"].pop(host.OPERATION)
+    for row in root + namespace:
+        row.pop("ifalias", None)
+    host.atomic_json(tmp_path / "host-receipt.json", {
+        "operation_id": operation, "completed": False, "error": "original host command failure"})
+    observed, owner = host.capture(spec, tmp_path)
+    assert observed["unowned_interfaces"] and owner is None
 
 
 def test_created_interfaces_verify_ownership_when_add_or_namespace_move_loses_alias(tmp_path, monkeypatch):
@@ -359,6 +397,46 @@ def test_partial_create_records_intent_before_write_and_observed_failure(tmp_pat
         host.perform(None, host.candidate_state(spec), "scenario:add:host", spec, tmp_path)
     receipt = json.loads((tmp_path / "host-receipt.json").read_text())
     assert not receipt["completed"] and receipt["observed_sha256"] == host.digest(partial)
+
+
+@pytest.mark.parametrize("capture_fails,receipt_fails", [(False, False), (True, False), (True, True)])
+def test_host_failure_retains_the_original_cause(tmp_path, monkeypatch, capture_fails, receipt_fails):
+    spec, failed = _spec(), []
+    original = host.HostActionError("original host command failure")
+
+    def command(*args):
+        failed.append(True)
+        raise original
+
+    def capture(*args):
+        if failed and capture_fails:
+            raise OSError("capture unavailable")
+        return None, None
+
+    save = host.atomic_json
+
+    def record(path, value):
+        if receipt_fails and path.name == "host-receipt.json":
+            raise OSError("receipt unavailable")
+        save(path, value)
+
+    monkeypatch.setattr(host, "command", command)
+    monkeypatch.setattr(host, "capture", capture)
+    monkeypatch.setattr(host, "atomic_json", record)
+    message = r"original host command failure.*receipt unavailable" if receipt_fails else str(original)
+    with pytest.raises(host.HostActionError, match=message) as raised:
+        host.perform(None, host.candidate_state(spec), "scenario:add:host", spec, tmp_path)
+    if receipt_fails:
+        assert raised.value.__cause__ is original
+    else:
+        assert raised.value is original
+        receipt = json.loads((tmp_path / "host-receipt.json").read_text())
+        assert not receipt["completed"] and receipt["error"] == str(original)
+        assert receipt["error_type"] == "HostActionError"
+        if capture_fails:
+            assert receipt["capture_error"] == "capture unavailable" and "observed_sha256" not in receipt
+        else:
+            assert receipt["observed_sha256"] == host.digest(None)
 
 
 def test_reserved_old_vlan_remnant_blocks_before_create(tmp_path, monkeypatch):

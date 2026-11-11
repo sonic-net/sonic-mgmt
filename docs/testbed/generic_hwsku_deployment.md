@@ -257,8 +257,10 @@ Reports include generated physical/traffic coverage and availability, keep
 Restoration failure is exit code 4, not success. Both failed restoration and
 unverified possibly-applied writes emit a private `recovery-required.json` hold.
 Preserve all recovery evidence.
-Native failure receipts retain the first operation error even if its follow-up
-capture fails, and transaction restore errors retain their causal messages.
+Device and host failure receipts retain the first operation error even if its
+follow-up capture fails, and transaction restore errors retain their causal
+messages. Each failed host command keeps separate private stderr evidence, so
+a subsequent capture failure cannot overwrite the original command's output.
 The adapter does not acquire/release platform reservations: the approved caller
 must retain/quarantine affected resources on failed restoration. **Do not use a
 mutating scheduler profile that unconditionally releases an unsafe bed.**

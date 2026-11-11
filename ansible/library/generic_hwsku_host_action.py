@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import socket
 import subprocess
+import tempfile
 
 from generic_hwsku_device_action import atomic_bytes, atomic_json, digest, write_result
 
@@ -30,9 +31,14 @@ class HostActionError(ValueError):
 def command(arguments, directory):
     result = subprocess.run(arguments, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
     if result.returncode:
-        atomic_bytes(directory / "command-stderr.log", result.stderr)
+        try:
+            log = Path(tempfile.mkdtemp(prefix="command-failure-", dir=str(directory))) / "stderr.log"
+            atomic_bytes(log, result.stderr)
+        except OSError as error:
+            raise HostActionError("Host command failed (rc {}); failure evidence could not be saved: {}".format(
+                result.returncode, error)) from error
         raise HostActionError("Host command failed (rc {}); private evidence: {}".format(
-            result.returncode, directory / "command-stderr.log"))
+            result.returncode, log))
     return result.stdout
 
 
@@ -198,7 +204,7 @@ def capture(spec, directory):
     receipt = directory / "host-receipt.json"
     if receipt.is_file():
         recorded = json.loads(receipt.read_text())
-        if recorded["observed_sha256"] == digest(value):
+        if recorded.get("observed_sha256") == digest(value):
             return value, recorded["operation_id"]
     return value, next(iter(observed_operations)) if len(observed_operations) == 1 and not unowned else None
 
@@ -303,10 +309,19 @@ def perform(before, after, operation_id, spec, directory):
                 command(namespace + ["ip", "link", "set", "dev", row["host_interface"], "name", name], directory)
                 command(namespace + ["ip", "link", "set", "dev", name, "alias", tag, "up"], directory)
                 command(namespace + ["ip", "address", "add", row["ptf_address"], "dev", name], directory)
-    except (OSError, ValueError, KeyError, TypeError):
-        actual, _ = capture(spec, directory)
-        atomic_json(directory / "host-receipt.json", {
-            "operation_id": operation_id, "observed_sha256": digest(actual), "completed": False})
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        receipt = {"operation_id": operation_id, "completed": False,
+                   "error_type": type(error).__name__, "error": str(error)}
+        try:
+            actual, _ = capture(spec, directory)
+            receipt["observed_sha256"] = digest(actual)
+        except (OSError, ValueError, KeyError, TypeError) as capture_error:
+            receipt["capture_error"] = str(capture_error)
+        try:
+            atomic_json(directory / "host-receipt.json", receipt)
+        except OSError as receipt_error:
+            raise HostActionError("{}; native host failure receipt could not be saved: {}".format(
+                error, receipt_error)) from error
         raise
     actual, _ = capture(spec, directory)
     atomic_json(directory / "host-receipt.json", {
