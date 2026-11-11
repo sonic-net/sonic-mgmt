@@ -37,10 +37,10 @@ def verify_shared_prime_routes_during_graceful_restart(
     """Verify prefix preservation for a shared-daemon GR disruption.
 
     Equivalent ECMP paths learned from several logical peers can be compacted in
-    the global BGP RIB while all per-neighbor Adj-RIBs remain stale. Require every
-    prefix learned from the prime to retain at least one stale prime path; the
-    caller separately checks each logical peer's prefix counters against its
-    pre-restart count.
+    the global BGP RIB while every per-neighbor accepted-route counter remains
+    stale. Require every prefix learned from the prime to retain at least one
+    stale prime path; the caller separately checks each logical peer's exact
+    prefix counters against its pre-restart count.
     """
     expected_prefixes = set()
     for neighbor_routes in prime_neighbor_routes.values():
@@ -72,33 +72,14 @@ def verify_shared_prime_routes_during_graceful_restart(
                 "restarting prime.".format(prefix))
 
 
-def verify_shared_prime_peer_routes_during_graceful_restart(
-        routes_before, routes_during):
-    """Verify every logical peer retained its exact prefix inventory as stale."""
-    for bgp_neighbor, expected_routes in routes_before.items():
-        actual_routes = routes_during.get(bgp_neighbor, {})
-        missing_prefixes = set(expected_routes) - set(actual_routes)
-        if missing_prefixes:
-            pytest.fail(
-                "BGP neighbor {} lost routes during prime-wide graceful "
-                "restart: {}".format(
-                    bgp_neighbor, sorted(missing_prefixes)))
-        for prefix in expected_routes:
-            paths = actual_routes[prefix]
-            matching_paths = [
-                path for path in paths
-                if path.get('peerId') == bgp_neighbor
-            ]
-            if not matching_paths:
-                pytest.fail(
-                    "Route to prefix {} no longer originates from logical peer "
-                    "{} during prime-wide graceful restart.".format(
-                        prefix, bgp_neighbor))
-            if any(not path.get('stale', False) for path in matching_paths):
-                pytest.fail(
-                    "Route to prefix {} from logical peer {} is not stale "
-                    "during prime-wide graceful restart.".format(
-                        prefix, bgp_neighbor))
+def shared_prime_prefix_counter_snapshots_match(previous, current):
+    """Return whether every peer's non-empty counter snapshot is unchanged."""
+    return (
+        previous is not None
+        and previous == current
+        and all(counters.get("All RIB", 0) > 0
+                for counters in current.values())
+    )
 
 
 def shared_prime_prefix_counters_preserved(
@@ -181,6 +162,43 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
                     if name in counters
                 }
         return snapshots
+
+    def _snapshot_shared_prime_state_when_stable(duthost, bgp_neighbors):
+        """Capture routes only after every peer's counters stop changing."""
+        state = {
+            "previous_counters": None,
+            "routes": None,
+            "counters": None,
+        }
+
+        def _capture_if_stable():
+            counters = _snapshot_rib_counters(duthost, bgp_neighbors)
+            if not shared_prime_prefix_counter_snapshots_match(
+                    state["previous_counters"], counters):
+                state["previous_counters"] = counters
+                return False
+
+            routes = {
+                bgp_neighbor: _get_learned_bgp_routes_from_neighbor(
+                    duthost, bgp_neighbor)
+                for bgp_neighbor in bgp_neighbors
+            }
+            counters_after_routes = _snapshot_rib_counters(
+                duthost, bgp_neighbors)
+            state["previous_counters"] = counters_after_routes
+            if not shared_prime_prefix_counter_snapshots_match(
+                    counters, counters_after_routes):
+                return False
+
+            state["routes"] = routes
+            state["counters"] = counters_after_routes
+            return True
+
+        pytest_assert(
+            wait_until(300, 10, 0, _capture_if_stable),
+            "shared-prime BGP prefix counters did not stabilize before GR"
+        )
+        return state["routes"], state["counters"]
 
     def _verify_prefix_counters_from_neighbor_during_graceful_restart(
             duthost, bgp_neighbors, expected_all_rib=None):
@@ -318,16 +336,21 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
     # Keep route and accepted-prefix snapshots per DUT session. Shared-prime
     # peers advertise overlapping prefixes; the global BGP RIB may compact
     # equivalent stale ECMP paths, while per-session counters retain exact
-    # collateral-route accounting.
-    prime_neighbor_routes_before_gr = {
-        prime_bgp_neighbor: _get_learned_bgp_routes_from_neighbor(
-            duthost, prime_bgp_neighbor)
-        for prime_bgp_neighbor in prime_bgp_neighbors
-    }
-    prime_prefix_counters_before_gr = (
-        _snapshot_rib_counters(duthost, prime_bgp_neighbors)
-        if is_shared_csonic_prime else None
-    )
+    # collateral-route accounting. Wait for every peer's counters to stabilize
+    # before and after the route reads so an in-progress update burst cannot
+    # create a false pre/during mismatch.
+    if is_shared_csonic_prime:
+        (prime_neighbor_routes_before_gr,
+         prime_prefix_counters_before_gr) = (
+            _snapshot_shared_prime_state_when_stable(
+                duthost, prime_bgp_neighbors))
+    else:
+        prime_neighbor_routes_before_gr = {
+            prime_bgp_neighbor: _get_learned_bgp_routes_from_neighbor(
+                duthost, prime_bgp_neighbor)
+            for prime_bgp_neighbor in prime_bgp_neighbors
+        }
+        prime_prefix_counters_before_gr = None
 
     # verify exabgp sessions to the neighbor are up before GR process
     pytest_assert(
@@ -350,22 +373,18 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
                     prime_bgp_neighbor)
             )
 
-        # A shared cSONiC daemon can compact equivalent stale ECMP paths in the
-        # global RIB. Verify traffic-preserving stale coverage there, then use
-        # exact per-session counters below to prove no logical peer lost routes.
+        # A shared cSONiC daemon can compact equivalent stale ECMP paths in both
+        # the global and per-neighbor accepted-route views. FRR also removes the
+        # pre-policy Adj-RIB-In when the peer enters NSF, so neither route view
+        # can preserve exact peer-to-prefix identity during the outage. Verify
+        # traffic-preserving stale coverage globally, then use each disconnected
+        # session's exact Stale/All RIB counters to prove no peer lost routes;
+        # a disconnected peer cannot add replacement routes during this window.
         rib_after_gr = _get_rib(duthost)
         if is_shared_csonic_prime:
             verify_shared_prime_routes_during_graceful_restart(
                 prime_neighbor_routes_before_gr, rib_after_gr,
                 prime_bgp_neighbors)
-            prime_neighbor_routes_during_gr = {
-                prime_bgp_neighbor: _get_learned_bgp_routes_from_neighbor(
-                    duthost, prime_bgp_neighbor)
-                for prime_bgp_neighbor in prime_bgp_neighbors
-            }
-            verify_shared_prime_peer_routes_during_graceful_restart(
-                prime_neighbor_routes_before_gr,
-                prime_neighbor_routes_during_gr)
         else:
             for neighbor_routes in prime_neighbor_routes_before_gr.values():
                 _verify_bgp_neighbor_routes_during_graceful_restart(
