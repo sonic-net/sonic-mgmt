@@ -7,6 +7,7 @@ import pytest
 from tests.bgp import bgp_helpers
 from tests.bgp import route_checker
 from tests.bgp.test_bgp_gr_helper import get_csonic_prime_peer_names
+from tests.bgp.test_bgp_gr_helper import get_shared_prime_preserved_prefix_counters
 from tests.bgp.test_bgp_gr_helper import shared_prime_prefix_counter_snapshots_match
 from tests.bgp.test_bgp_gr_helper import shared_prime_prefix_counters_preserved
 from tests.bgp.test_bgp_gr_helper import verify_shared_prime_routes_during_graceful_restart
@@ -240,6 +241,21 @@ def test_gr_helper_accepts_compacted_stale_ecmp_paths_for_shared_prime():
 
     verify_shared_prime_routes_during_graceful_restart(
         neighbor_routes, rib, ['10.0.0.1', '10.0.0.5'])
+
+
+def test_gr_helper_excludes_selected_path_count_from_baseline():
+    walk_counters = {
+        'All RIB': 6370,
+        'Valid': 6370,
+        'Useable': 6370,
+        'Used': 1,
+    }
+
+    assert get_shared_prime_preserved_prefix_counters(walk_counters) == {
+        'All RIB': 6370,
+        'Valid': 6370,
+        'Useable': 6370,
+    }
 
 
 def test_gr_helper_requires_stable_non_empty_counter_snapshots():
