@@ -643,11 +643,10 @@ Verify leak status tracking and reporting with a leak injected through the leak 
 **Test Steps**:
 1. When `SYSTEM_LEAK_STATUS:system device_leak_status` is already `CRITICAL` from a real leak, verify `HOST_STATE:switch-host device_status` is set and is not `ONLINE` (injected test leaks never trigger mitigation, so this cannot be driven by injection)
 2. Select one sensor whose `max_minor_duration_sec` will not escalate during the test and inject a `MINOR` test leak
-3. Verify `is_leak()` and `is_test_leak()` return True through the platform API
-4. Wait for `LIQUID_COOLING_INFO|<sensor>` to show `leaking=Yes`, `leak_severity=MINOR`, `leak_sensor_status=Good`, and `SYSTEM_LEAK_STATUS|system device_leak_status=MINOR` (`MAJOR` is a system-level aggregate only, so `device_leak_status` is validated against `MINOR | MAJOR | CRITICAL | None`)
-5. For each `LIQUID_COOLING_INFO` sensor: `leaking` in `Yes | No | N/A`, `leak_sensor_status` in `Good | Fault`, `leak_severity` in `MINOR | CRITICAL | None` (per-sensor; MAJOR is a system-level aggregate only)
-6. Verify each `LEAK_PROFILE` `max_minor_duration_sec` is non-negative (0 means escalation is unsupported)
-7. `finally`: `clear_test_leaks()` and wait for `device_leak_status` to return to `None`
+3. Wait for `LIQUID_COOLING_INFO|<sensor>` to show `leaking=Yes`, `leak_severity=MINOR`, `leak_sensor_status=Good`, and `SYSTEM_LEAK_STATUS|system device_leak_status=MINOR` (`MAJOR` is a system-level aggregate only, so `device_leak_status` is validated against `MINOR | MAJOR | CRITICAL | None`)
+4. For each `LIQUID_COOLING_INFO` sensor: `leaking` in `Yes | No | N/A`, `leak_sensor_status` in `Good | Fault`, `leak_severity` in `MINOR | CRITICAL | None` (per-sensor; MAJOR is a system-level aggregate only)
+5. Verify each `LEAK_PROFILE` `max_minor_duration_sec` is non-negative (0 means escalation is unsupported)
+6. `finally`: `clear_test_leaks()` and wait for `device_leak_status` to return to `None`
 
 ---
 

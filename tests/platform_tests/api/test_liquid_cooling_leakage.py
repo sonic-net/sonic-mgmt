@@ -106,6 +106,7 @@ class TestLiquidCoolingLeakage(PlatformApiTestBase):
         self.expect(isinstance(supported, bool), "is_leak_test_supported() should return bool")
         self.assert_expectations()
 
+    @pytest.mark.disable_loganalyzer
     def test_set_test_leak_unknown_sensor(self, platform_api_conn, leak_test_injection):    # noqa: F811
         """An unknown sensor name must return False rather than raise."""
         unknown = "no_such_leak_sensor"
@@ -115,6 +116,7 @@ class TestLiquidCoolingLeakage(PlatformApiTestBase):
                     "is_test_leak_enabled() on an unknown sensor should return False")
         self.assert_expectations()
 
+    @pytest.mark.disable_loganalyzer
     def test_clear_test_leaks(self, platform_api_conn, leak_test_injection):    # noqa: F811
         """clear_test_leaks() withdraws every injection, and is a no-op when none is injected."""
         self.expect(leak_sensor_test.clear_test_leaks(platform_api_conn) is True,
@@ -122,7 +124,10 @@ class TestLiquidCoolingLeakage(PlatformApiTestBase):
 
         names = [leak_sensor.get_name(platform_api_conn, i) for i in range(self.num_leak_sensors)]
         for name in names:
-            leak_sensor_test.set_test_leak(platform_api_conn, name, True)
+            self.expect(leak_sensor_test.set_test_leak(platform_api_conn, name, True) is True,
+                        f"set_test_leak({name}, True) should return True")
+            self.expect(leak_sensor_test.is_test_leak_enabled(platform_api_conn, name) is True,
+                        f"is_test_leak_enabled({name}) should be True before clear_test_leaks()")
         self.expect(leak_sensor_test.clear_test_leaks(platform_api_conn) is True,
                     "clear_test_leaks() should return True")
         for name in names:

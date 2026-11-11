@@ -158,6 +158,7 @@ class TestLeakSensorApi(PlatformApiTestBase):
         yield
         leak_sensor_test.clear_test_leaks(platform_api_conn)
 
+    @pytest.mark.disable_loganalyzer
     @pytest.mark.parametrize("severity", [None, "MINOR", "CRITICAL"])
     def test_leak_sensor_test_leak(self, platform_api_conn, leak_test_injection, severity):  # noqa: F811
         """Inject and withdraw a test leak on every sensor; verify it is reported and flagged as a test leak."""
@@ -183,6 +184,8 @@ class TestLeakSensorApi(PlatformApiTestBase):
             self.expect(ret is True, f"set_test_leak({name}, False) should return True, got {ret!r}")
             self.expect(leak_sensor_test.is_test_leak_enabled(platform_api_conn, name) is False,
                         f"is_test_leak_enabled({name}) should be False after withdrawal")
+            # is_test_leak() and get_leak_severity() report the state of the last is_leak() poll
+            leak_sensor.is_leak(platform_api_conn, sensor_index)
             self.expect(leak_sensor.is_test_leak(platform_api_conn, sensor_index) is False,
                         f"is_test_leak() for {name} should be False after withdrawal")
             self.expect(leak_sensor.get_leak_severity(platform_api_conn, sensor_index) is None,

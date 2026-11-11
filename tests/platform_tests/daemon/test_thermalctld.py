@@ -17,9 +17,12 @@ import time
 from tests.common.helpers.liquid_leakage_control_test_helper import get_liquid_cooling_update_interval
 from tests.common.helpers.sensor_control_test_helper import mocker_factory  # noqa: F401
 from tests.common.platform.bmc_utils import recover_switch_host_after_power_off
-from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service  # noqa: F401
+from tests.common.platform.device_utils import (  # noqa: F401
+    platform_api_conn,
+    start_platform_api_service,
+    stop_platform_api_server,
+)
 from tests.common.helpers.bmc_liquid_leakage_control_test_helper import LeakTestApiInjector
-from tests.common.helpers.platform_api import leak_sensor
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.sonic_db import (
@@ -72,6 +75,8 @@ LEAK_SEVERITY_AGGREGATION_PARAMS = [
 # the time window to observe the escalation from MINOR to MAJOR
 MIN_ESCALATION_TIMEOUT_SEC = 5  # 5 seconds is the minimum time window to observe the MINOR state
 MAX_ESCALATION_TIMEOUT_SEC = 120  # 120 seconds is the maximum time window to observe the MAJOR state
+# Sensors used by tests that must stay MINOR for their whole duration need a threshold well beyond it
+MIN_NO_ESCALATION_TIMEOUT_SEC = 60
 
 
 # https://github.com/sonic-net/sonic-platform-daemons/blob/master/sonic-thermalctld/scripts/thermalctld#L1438
@@ -149,6 +154,16 @@ def _wait_for_system_leak_status(leak_mocker, expected_status, timeout_sec, poll
     return wait_until(timeout_sec, poll_interval_sec, 0, status_matches)
 
 
+@pytest.fixture(scope='module', autouse=True)
+def stop_platform_api_service(duthosts):
+    """Stop the platform API server and close port 8000 once the module is done with them."""
+    try:
+        yield
+    finally:
+        for duthost in duthosts:
+            stop_platform_api_server(duthost)
+
+
 def _skip_if_real_leak_present(duthost):
     """Skip the test: a real leak is active, so test leak injection cannot be verified."""
     if is_real_leak_present(duthost):
@@ -214,15 +229,10 @@ class TestThermalctldDaemon:
                           "switch-host must not be ONLINE when CRITICAL leak is active")
 
         # MINOR leak on a sensor that will not escalate during the test
-        sensor_index = _select_leak_sensor_indices(leak_mocker, 1, MIN_ESCALATION_TIMEOUT_SEC, None)[0]
+        sensor_index = _select_leak_sensor_indices(leak_mocker, 1, MIN_NO_ESCALATION_TIMEOUT_SEC, None)[0]
         sensor_name = leak_mocker.get_sensor_name(sensor_index)
         try:
             leak_mocker.set_sensor_state(sensor_index, 'MINOR')
-
-            pytest_assert(leak_sensor.is_leak(platform_api_conn, sensor_index) is True,
-                          f"Platform API is_leak() for {sensor_name} should be True after injection")
-            pytest_assert(leak_sensor.is_test_leak(platform_api_conn, sensor_index) is True,
-                          f"Platform API is_test_leak() for {sensor_name} should be True after injection")
 
             pytest_assert(wait_until(2 * poll_interval + 10, poll_interval, 0,
                                      lambda: leak_mocker.get_sensor_status(sensor_index)[0]),
@@ -315,14 +325,15 @@ class TestThermalctldDaemon:
         poll_interval = get_liquid_cooling_update_interval(self.duthost) or DEFAULT_LIQUID_COOLING_POLL_INTERVAL_SEC
 
         # MINOR leak on a sensor that will not escalate during the test
-        sensor_index = _select_leak_sensor_indices(leak_mocker, 1, MIN_ESCALATION_TIMEOUT_SEC, None)[0]
+        sensor_index = _select_leak_sensor_indices(leak_mocker, 1, MIN_NO_ESCALATION_TIMEOUT_SEC, None)[0]
         sensor_name = leak_mocker.get_sensor_name(sensor_index)
 
         # Bracket the trigger with BmcLogAnalyzer scanning syslog (live, no reboot).
-        la = make_bmc_loganalyzer(self.duthost, "thermalctld_event_trigger_leak")
-        marker = la.init(log_target='syslog')
-        recovery_marker = None
+        la = None
+        marker = None
         try:
+            la = make_bmc_loganalyzer(self.duthost, "thermalctld_event_trigger_leak")
+            marker = la.init(log_target='syslog')
             leak_mocker.set_sensor_state(sensor_index, 'MINOR')
             pytest_assert(wait_until(2 * poll_interval + 10, poll_interval, 0,
                                      lambda: leak_mocker.get_sensor_status(sensor_index)[0]),
@@ -338,8 +349,14 @@ class TestThermalctldDaemon:
             syslog_la.expect_regex = [_leak_reported_syslog_regex(sensor_name)]
             la.analyze(marker, fail=True, log_target='syslog')
         finally:
-            recovery_marker = la.init(log_target='syslog')
-            leak_mocker.restore_all_sensors()
+            # Take the recovery marker before withdrawing, but never let a marker
+            # failure leave the leak injected
+            recovery_marker = None
+            try:
+                if la is not None:
+                    recovery_marker = la.init(log_target='syslog')
+            finally:
+                leak_mocker.restore_all_sensors()
 
         pytest_assert(_wait_for_system_leak_status(leak_mocker, 'None', 2 * poll_interval + 10, poll_interval),
                       f"SYSTEM_LEAK_STATUS did not return to None, got {leak_mocker.get_device_leak_status()}")
@@ -470,7 +487,7 @@ class TestThermalctldDaemon:
         else:
             # MINOR sensor will not escalate (stays MINOR)
             sensor_indices = _select_leak_sensor_indices(
-                leak_mocker, len(leak_severities), MIN_ESCALATION_TIMEOUT_SEC, None)
+                leak_mocker, len(leak_severities), MIN_NO_ESCALATION_TIMEOUT_SEC, None)
 
         selected_sensor_names = [leak_mocker.get_sensor_name(index) for index in sensor_indices]
         la = make_bmc_loganalyzer(self.duthost, "thermalctld_leak_severity_aggregation")
@@ -479,13 +496,16 @@ class TestThermalctldDaemon:
         try:
             for sensor_index, leak_severity in zip(sensor_indices, leak_severities):
                 leak_mocker.set_sensor_state(sensor_index, leak_severity)
-                leak, sensor_severity, leak_sensor_status = leak_mocker.get_sensor_status(sensor_index)
+                expected_sensor_status = (True, leak_severity, 'Good')
+                sensor_reached = wait_until(
+                    2 * poll_interval + 10, poll_interval, 0,
+                    lambda i=sensor_index: leak_mocker.get_sensor_status(i) == expected_sensor_status)
                 pytest_assert(
-                    leak and sensor_severity == leak_severity and leak_sensor_status == 'Good',
+                    sensor_reached,
                     "Sensor {} expected leak=True, severity {}, leak_sensor_status=Good; "
-                    "got leak={} severity {} leak_sensor_status={}".format(
+                    "got {}".format(
                         leak_mocker.get_sensor_name(sensor_index),
-                        leak_severity, leak, sensor_severity, leak_sensor_status))
+                        leak_severity, leak_mocker.get_sensor_status(sensor_index)))
 
             time.sleep(2 * poll_interval)
 

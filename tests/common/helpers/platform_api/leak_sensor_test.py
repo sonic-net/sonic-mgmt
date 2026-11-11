@@ -12,6 +12,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# DUT management address -> whether the platform supports leak test injection
+_leak_test_supported_cache = {}
+
 
 def leak_sensor_test_api(conn, name, args=None, kwargs=None):
     if args is None:
@@ -35,9 +38,29 @@ def is_real_leak_present(conn):
                for i in range(liquid_cooling.get_num_leak_sensors(conn)))
 
 
+def is_leak_test_available(conn):
+    """True if LiquidCoolingBase.get_leak_sensor_test() returns a test object rather than None.
+
+    A platform returns None when injection is unavailable, for example when it cannot
+    guarantee that leak mitigation is disabled.
+    """
+    from tests.common.helpers.platform_api import liquid_cooling
+    return liquid_cooling.liquid_cooling_api(conn, 'get_leak_sensor_test') is not None
+
+
 def is_leak_test_supported(conn):
-    """LeakageSensorTestBase.is_leak_test_supported()"""
-    return leak_sensor_test_api(conn, 'is_leak_test_supported')
+    """LiquidCoolingBase.get_leak_sensor_test() is not None and LeakageSensorTestBase.is_leak_test_supported()
+
+    Platform support is static, so the answer is looked up once per DUT and cached for the session.
+    A failed lookup raises and is not cached.
+    """
+    key = conn.host
+    if key not in _leak_test_supported_cache:
+        supported = False
+        if is_leak_test_available(conn):
+            supported = bool(leak_sensor_test_api(conn, 'is_leak_test_supported'))
+        _leak_test_supported_cache[key] = supported
+    return _leak_test_supported_cache[key]
 
 
 def set_test_leak(conn, sensor_name, enable, severity=None):
