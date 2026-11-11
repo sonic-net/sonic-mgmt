@@ -70,10 +70,7 @@ def _read_table(duthost, db, table, namespace, sep="|"):
     if result["rc"] != 0:
         pytest.fail("Failed to read {} {} in namespace {}: {}".format(
             db, table, namespace or "default", (result.get("stderr") or "").strip()))
-    try:
-        raw = json.loads(result["stdout"] or "{}")
-    except ValueError as exc:
-        pytest.fail("Could not parse '{}' output: {}".format(cmd, exc))
+    raw = json.loads(result["stdout"] or "{}")
     prefix = table + sep
     return {key[len(prefix):]: entry.get("value", {}) for key, entry in raw.items()}
 
