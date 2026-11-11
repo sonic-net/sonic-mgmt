@@ -2,7 +2,7 @@ import logging
 from tabulate import tabulate
 from statistics import mean
 import json
-from tests.common.utilities import wait, wait_until
+from tests.common.utilities import wait
 from tests.common.helpers.assertions import pytest_assert  # noqa: F401
 logger = logging.getLogger(__name__)
 
@@ -158,16 +158,12 @@ def duthost_bgp_config(duthost,
     """
     global temp_tg_port
     temp_tg_port = tgen_ports
-    # setup_bgp_testbed is module scoped, so a previous parametrized run in the same module
-    # leaves its PortChannels behind. Restore the backed up config before configuring again.
+    # The DUT config does not depend on any test parameter (only the TGEN LACP timers change), and
+    # setup_bgp_testbed is module scoped, so reuse the config left by a previous parametrized run.
+    # The fixture restores the initial config once the last test of the module is done.
     if duthost.shell("redis-cli -n 4 exists 'PORTCHANNEL|PortChannel2'")['stdout'].strip() == '1':
-        logger.info('PortChannel2 left over from a previous run, restoring the initial config')
-        error = duthost.command("sudo config reload /etc/sonic/bgp_backup.json -f -y")['stderr']
-        if 'Error' in error:
-            pytest_assert('Error' not in duthost.shell("sudo config reload /etc/sonic/bgp_backup.json -y")['stderr'],
-                          'Error while reloading config in {} !!!!!'.format(duthost.hostname))
-        pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
-                      "Not all critical services are fully started")
+        logger.info('PortChannel2 already configured by a previous run, keeping the DUT config')
+        return
     for i in range(0, port_count):
         intf_config = (
             "sudo config interface ip remove %s %s/%s \n"
