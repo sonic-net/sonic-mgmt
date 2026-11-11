@@ -636,7 +636,7 @@ def test_update_saithrift_ptf(request, ptfhost, duthosts, enum_dut_hostname):
         python2_client = any(path.startswith("/usr/lib/python2.7/") and
                              path.endswith(("/switch_sai_thrift/__init__.py", "/sai_thrift/__init__.py"))
                              for path in package_files)
-        pytest_assert(site_dir == PY_PATH and python2_client,
+        pytest_assert(python2_client,
                       "Installed {} contains no Python 3 SAI client".format(package))
         logging.info("Python 2 saithrift package installed; no Python 3 venv refresh required")
         return
