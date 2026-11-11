@@ -43,7 +43,7 @@ import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.platform.cpo_dom_field_catalog import (
+from tests.platform_tests.mellanox.cpo_dom_field_catalog import (
     CPO_LAST_UPDATE_FUTURE_TOLERANCE_SEC,
     CPO_LAST_UPDATE_MAX_AGE_SEC,
     CPO_ELS_COMPANION_TABLES,
