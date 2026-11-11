@@ -30,6 +30,7 @@ from tests.common.portstat_utilities import parse_portstat
 from collections import defaultdict
 from tests.conftest import parse_override
 from tests.common.utilities import wait_until
+from tabulate import tabulate
 
 logger = logging.getLogger(__name__)
 
@@ -126,11 +127,7 @@ def get_lossless_buffer_size(host_ans):
     is_cisco8000_platform = True if 'cisco-8000' in host_ans.facts['platform_asic'] else False
 
     # Checking if platform is Broadcom-DNX.
-    is_broadcom_dnx = (
-            True
-            if "platform_asic" in host_ans.facts and host_ans.facts["platform_asic"] == "broadcom-dnx"
-            else False
-            )
+    is_broadcom_dnx = is_broadcom_dnx_device(host_ans)
 
     if "BUFFER_POOL" not in list(config_facts.keys()):
         return None
@@ -509,7 +506,7 @@ def config_wred(host_ans, kmin, kmax, pmax, kdrop=None, profile=None, asic_value
     color = 'green'
 
     # Broadcom DNX ASIC only supports RED.
-    if "platform_asic" in host_ans.facts and host_ans.facts["platform_asic"] == "broadcom-dnx":
+    if is_broadcom_dnx_device(host_ans):
         color = 'red'
 
     kmax_arg = '-{}max'.format(color[0])
@@ -1208,6 +1205,107 @@ def get_egress_queue_count(duthost, port, priority):
     return int(total_pkts.replace(',', '')), int(total_bytes.replace(',', ''))
 
 
+def get_wred_counter(duthost, port, priority):
+    """
+    Get WRED counters for UC<priority> on a port, parsed from
+    `show queue wredcounters`. Mirrors the parsing style of
+    get_egress_queue_count.
+
+    Columns in `show queue wredcounters` after split:
+        0: Port  1: TxQ  2: WredDrp/pkts  3: WredDrp/bytes
+        4: EcnMarked/pkts  5: EcnMarked/bytes
+
+    Args:
+        duthost (Ansible host instance): device under test
+        port (str): port name
+        priority (int): priority of flow (queue UC index)
+    Returns:
+        tuple (int, int, int, int):
+            (wred_drp_pkts, wred_drp_bytes, ecn_marked_pkts, ecn_marked_bytes)
+    """
+    if duthost.is_multi_asic:
+        asic = duthost.get_port_asic_instance(port).get_asic_namespace()
+        raw_out = duthost.shell(
+            # Anchor on a non-digit so UC{p} doesn't also match UC{p}0..UC{p}9.
+            "show queue wredcounters {} -n {} | sed -n '/UC{}[^0-9]/p'".format(port, asic, priority)
+        )['stdout']
+    else:
+        raw_out = duthost.shell(
+            "show queue wredcounters {} | sed -n '/UC{}[^0-9]/p'".format(port, priority)
+        )['stdout']
+
+    parts = raw_out.split()
+
+    def _safe(idx):
+        if idx >= len(parts):
+            return 0
+        v = parts[idx]
+        if v == "N/A":
+            return 0
+        return int(v.replace(',', ''))
+
+    return _safe(2), _safe(3), _safe(4), _safe(5)
+
+
+def log_dut_counters(entries, priorities, label=""):
+    """Log DUT queue, TX/RX and WRED/ECN counter tables -- visibility into what happened
+    on the DUT after a traffic run.
+
+    Args:
+        entries (list): list of (role, duthost, port) tuples.
+        priorities (list): UC queue indices (lossless priorities) to report.
+        label (str): extra context appended to each table title.
+    """
+    queue_rows, txrx_rows, wred_rows = [], [], []
+    for role, host, port in entries:
+        tx_ok, tx_drp = get_tx_frame_count(host, port)
+        rx_ok, rx_drp = get_rx_frame_count(host, port)
+        txrx_rows.append([role, port, tx_ok, tx_drp, rx_ok, rx_drp])
+        for prio in priorities:
+            q_pkts, q_bytes = get_egress_queue_count(host, port, prio)
+            wd_pkts, wd_bytes, ecn_pkts, ecn_bytes = get_wred_counter(host, port, prio)
+            queue_rows.append([role, port, 'UC{}'.format(prio), q_pkts, q_bytes])
+            wred_rows.append([role, port, 'UC{}'.format(prio),
+                              wd_pkts, wd_bytes, ecn_pkts, ecn_bytes])
+
+    logger.info("Queue counters %s:\n%s", label, tabulate(
+        queue_rows, headers=['Role', 'Port', 'TxQ', 'Counter/pkts', 'Counter/bytes'], tablefmt='psql'))
+    logger.info("TX/RX counters %s:\n%s", label, tabulate(
+        txrx_rows, headers=['Role', 'Port', 'TX_OK', 'TX_DRP', 'RX_OK', 'RX_DRP'], tablefmt='psql'))
+    logger.info("WRED/ECN counters %s:\n%s", label, tabulate(
+        wred_rows,
+        headers=['Role', 'Port', 'TxQ', 'WredDrp/pkts', 'WredDrp/bytes', 'EcnMarked/pkts', 'EcnMarked/bytes'],
+        tablefmt='psql'))
+
+
+def log_prio_dscp_map(prio_dscp_map, lossless_prio_list, test_prios=None):
+    """Log the DUT's priority (TC) -> DSCP mapping, flagging lossless and test-traffic prios.
+
+    Args:
+        prio_dscp_map (dict): priority -> list of DSCPs.
+        lossless_prio_list (list): priorities that are lossless.
+        test_prios (list): priorities carrying this run's test traffic (marked in the table).
+    """
+    if not prio_dscp_map:
+        logger.info("prio_dscp_map unavailable on this DUT; skipping DSCP map dump")
+        return
+
+    lossless_prio_list = lossless_prio_list or []
+    test_prios = test_prios or []
+    rows = []
+    per_line = 30
+    for prio in sorted(prio_dscp_map.keys()):
+        sorted_dscps = sorted(prio_dscp_map[prio])
+        dscps = '\n'.join(
+            ', '.join(str(d) for d in sorted_dscps[i:i + per_line])
+            for i in range(0, len(sorted_dscps), per_line))
+        is_lossless = 'yes' if prio in lossless_prio_list else 'no'
+        used = '<-- this run' if prio in test_prios else ''
+        rows.append([prio, dscps, is_lossless, used])
+    logger.info("------- DUT configured priority (TC) vs. DSCP mapping ------\n%s", tabulate(
+        rows, headers=['Priority (TC)', 'DSCP(s)', 'Lossless', 'Test traffic'], tablefmt='psql'))
+
+
 class packet_capture(Enum):
     """
     ENUM of packet capture settings
@@ -1406,7 +1504,7 @@ def start_pfcwd_fwd(duthost, asic_value=None):
 
 def clear_counters(duthost, port=None, namespace=None):
     """
-    Clear PFC, Queuecounters, Drop and generic counters from SONiC CLI.
+    Clear PFC, Queue, WRED/ECN, Drop and generic counters from SONiC CLI.
     Args:
         duthost (Ansible host instance): Device under test
         port (str): port name
@@ -1418,11 +1516,13 @@ def clear_counters(duthost, port=None, namespace=None):
     duthost.command("sudo sonic-clear counters \n")
     duthost.command("sudo sonic-clear pfccounters \n")
     duthost.command("sudo sonic-clear priority-group drop counters \n")
+    duthost.command("sudo sonic-clear queue wredcounters \n")
     duthost.command("sudo sonic-clear queue watermark all \n")
     duthost.command("sudo sonic-clear  priority-group drop counters \n")
     duthost.command("sonic-clear counters \n")
     duthost.command("sonic-clear pfccounters \n")
     duthost.command("sonic-clear queuecounters \n")
+    duthost.command("sonic-clear queue wredcounters \n")
     duthost.command("sonic-clear queue watermark all \n")
 
     if (duthost.is_multi_asic):

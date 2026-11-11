@@ -128,8 +128,22 @@ def test_dequeue_ecn(request,
     pytest_assert(len(ip_pkts) == data_flow_pkt_count,
                   'Only capture {}/{} IP packets'.format(len(ip_pkts), data_flow_pkt_count))
 
-    # Check if the first packet is ECN marked
-    pytest_assert(is_ecn_marked(ip_pkts[0]), "The first packet should be marked")
+    # On VOQ (Broadcom DNX) switches, when PFC is sent to the egress port, a few
+    # packets build up in the egress block before congestion builds in the ingress
+    # VOQ. ECN marking is done on dequeue from the ingress VOQ, based on the VOQ's
+    # congestion level at that moment, so packets already in the egress block are
+    # not marked once PFC is removed. run_ecn_test derives the count from its
+    # device poll (snappi_extra_params.egress_offset); it stays 0 on other
+    # platforms, keeping the original first-packet check.
+    egress_offset = snappi_extra_params.egress_offset
+    if egress_offset:
+        logger.info("Skipping first %d egress-resident (slip-through) packets", egress_offset)
+        pytest_assert(egress_offset < data_flow_pkt_count,
+                      'Egress slip-through count {} swallowed the whole burst'.format(egress_offset))
+
+    # Check if the first marking candidate is ECN marked
+    pytest_assert(is_ecn_marked(ip_pkts[egress_offset]),
+                  "The first packet (index {} after slip-through) should be marked".format(egress_offset))
 
     # Check if the last packet is not ECN marked
     pytest_assert(not is_ecn_marked(ip_pkts[-1]),
