@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 import os
@@ -97,6 +98,35 @@ def config_reload_after_tests(duthosts, enum_rand_one_per_hwsku_hostname):
     config_reload(duthost)
 
 
+@pytest.fixture(autouse=True, scope="module")
+def fast_system_health_polling(duthosts, enum_rand_one_per_hwsku_hostname,
+                               check_image_version, config_reload_after_tests):
+    """Use fast polling for the module, then restore the original health policy.
+
+    ConfigFileContext reloads policy on the next healthd cycle. Restart once
+    here so an existing platform interval (300s on BMC) cannot outlast a test's
+    timeout. Per-test contexts then restore this fast module-level baseline.
+    Depend on config_reload_after_tests so policy restoration precedes reload.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    config_path = DUT_CONFIG_FILE.format(duthost.facts['platform'])
+    original = base64.b64decode(duthost.slurp(src=config_path)['content']).decode('utf-8')
+    config = json.loads(original)
+    config['polling_interval'] = FAST_INTERVAL
+
+    try:
+        duthost.copy(content=json.dumps(config, indent=4), dest=config_path)
+        duthost.command('systemctl restart system-health.service')
+        wait_system_health_boot_up(duthost)
+        yield
+    finally:
+        # Also restore if setup fails after changing the config. Keep this
+        # backup separate from the .bak used by per-test ConfigFileContext.
+        duthost.copy(content=original, dest=config_path)
+        duthost.command('systemctl restart system-health.service')
+        wait_system_health_boot_up(duthost)
+
+
 @pytest.fixture(scope="function")
 def ignore_log_analyzer_by_vendor(request, duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -154,6 +184,14 @@ def test_service_checker(duthosts, enum_rand_one_per_hwsku_hostname):
 def test_service_checker_with_process_exit(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     wait_system_health_boot_up(duthost)
+    # On BMC platforms healthd polls every 300s, so derive a longer wait from the configured
+    # polling_interval to cross a poll loop boundary. Other platforms keep the original WAIT_TIMEOUT.
+    polling_interval = get_system_health_config(duthost, 'polling_interval', FAST_INTERVAL)
+    wait_timeout = (
+        max(WAIT_TIMEOUT, polling_interval * 2)
+        if duthost.is_bmc()
+        else WAIT_TIMEOUT
+    )
     with ConfigFileContext(duthost, os.path.join(FILES_DIR, IGNORE_DEVICE_CHECK_CONFIG_FILE)):
         processes_status = duthost.all_critical_process_status()
         containers = [x for x in list(processes_status.keys()) if "syncd" not in x and "database" not in x and
@@ -172,7 +210,7 @@ def test_service_checker_with_process_exit(duthosts, enum_rand_one_per_hwsku_hos
                 category = '{}:{}'.format(container, critical_process)
                 expected_values = ["Process '{}' in container '{}' is not running".format(critical_process, container),
                                    "'{}' is not running".format(critical_process)]
-                result = wait_until(WAIT_TIMEOUT, 10, 2, check_system_health_info_any_of, duthost, category,
+                result = wait_until(wait_timeout, 10, 2, check_system_health_info_any_of, duthost, category,
                                     expected_values)
 
                 assert result is True, '{} is not recorded'.format(

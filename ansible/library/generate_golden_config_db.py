@@ -980,6 +980,25 @@ class GenerateGoldenConfigDBModule(object):
 
         return ha_config
 
+    def _set_bgp_confed_config(self, config):
+        """Write BGP confederation config for both FRR config daemons.
+
+        bgpcfgd reads BGP_DEVICE_GLOBAL.CONFED; frrcfgd only reads
+        BGP_GLOBALS.<vrf>.confed_id / confed_peers. Emit both so the DUT gets
+        confederation regardless of which daemon the image runs.
+        """
+        peers = str(self.bgp_confd_peers).split()
+
+        bgp_device_global = config.setdefault("BGP_DEVICE_GLOBAL", {})
+        bgp_device_global["CONFED"] = {
+            "asn": str(self.bgp_confd_asn),
+            "peers": ";".join(peers)
+        }
+
+        bgp_globals_default = config.setdefault("BGP_GLOBALS", {}).setdefault("default", {})
+        bgp_globals_default["confed_id"] = str(self.bgp_confd_asn)
+        bgp_globals_default["confed_peers"] = peers
+
     def generate_ut2_golden_config_db(self):
         full_config = {}
         if self.num_asics > 1:
@@ -996,19 +1015,11 @@ class GenerateGoldenConfigDBModule(object):
                     full_config[asic_name].update(macsec_config[asic_name])
 
                 if self.bgp_confd_asn and self.bgp_confd_peers:
-                    bgp_device_global = full_config[asic_name].setdefault("BGP_DEVICE_GLOBAL", {})
-                    bgp_device_global["CONFED"] = {
-                        "asn": str(self.bgp_confd_asn),
-                        "peers": str(self.bgp_confd_peers).replace(' ', ';')
-                    }
+                    self._set_bgp_confed_config(full_config[asic_name])
         else:
             full_config.update(macsec_config)
             if self.bgp_confd_asn and self.bgp_confd_peers:
-                bgp_device_global = full_config.setdefault("BGP_DEVICE_GLOBAL", {})
-                bgp_device_global["CONFED"] = {
-                    "asn": str(self.bgp_confd_asn),
-                    "peers": str(self.bgp_confd_peers).replace(' ', ';')
-                }
+                self._set_bgp_confed_config(full_config)
 
         return json.dumps(full_config, indent=4)
 
@@ -1182,9 +1193,14 @@ class GenerateGoldenConfigDBModule(object):
         non-storage backend devices; it is enabled everywhere else. The knob is
         consumed by ipinip.json.j2 in swss, which runs per ASIC, so on multi-ASIC
         platforms the entry is injected into each ASIC namespace's CONFIG_DB.
+
+        config load_minigraph --override_config replaces each golden table as a
+        whole (delete-then-write), so the minigraph SYSTEM_DEFAULTS entries are
+        seeded into the golden table to avoid dropping existing entries such as
+        tunnel_qos_remap and mux_tunnel_egress_acl.
         """
-        metadata = json.loads(self.get_config_from_minigraph()).get(
-            "DEVICE_METADATA", {}).get("localhost", {})
+        minigraph_config = json.loads(self.get_config_from_minigraph())
+        metadata = minigraph_config.get("DEVICE_METADATA", {}).get("localhost", {})
         switch_type = metadata.get("switch_type")
         device_type = metadata.get("type")
         is_storage_device = metadata.get("storage_device") == "true"
@@ -1202,14 +1218,30 @@ class GenerateGoldenConfigDBModule(object):
             enable_ip_decap = False
 
         ip_decap_value = {"ip_decap": {"status": "enabled" if enable_ip_decap else "disabled"}}
+
+        def _seed_and_set(system_defaults, seed):
+            # Carry minigraph entries that aren't already in the golden table, then
+            # apply the computed ip_decap policy (which overrides any existing one).
+            for key, value in seed.items():
+                system_defaults.setdefault(key, copy.deepcopy(value))
+            system_defaults.update(ip_decap_value)
+
         ori_config_db = json.loads(config)
         if multi_asic.is_multi_asic():
             for asic in range(multi_asic.get_num_asics()):
                 ns = "asic{}".format(asic)
-                ori_config_db.setdefault(ns, {}).setdefault(
-                    "SYSTEM_DEFAULTS", {}).update(ip_decap_value)
+                # Same command load_minigraph uses (no -p): works for fabric ASICs
+                # on chassis supervisors, which have no per-ASIC port_config.ini.
+                rc, out, err = self.module.run_command(
+                    "sonic-cfggen -H -m -j /etc/sonic/init_cfg.json -n {} --print-data".format(ns))
+                if rc != 0:
+                    self.module.fail_json(
+                        msg="Failed to get config from minigraph for namespace {}: {}".format(ns, err))
+                seed = json.loads(out).get("SYSTEM_DEFAULTS", {})
+                _seed_and_set(ori_config_db.setdefault(ns, {}).setdefault("SYSTEM_DEFAULTS", {}), seed)
         else:
-            ori_config_db.setdefault("SYSTEM_DEFAULTS", {}).update(ip_decap_value)
+            _seed_and_set(ori_config_db.setdefault("SYSTEM_DEFAULTS", {}),
+                          minigraph_config.get("SYSTEM_DEFAULTS", {}))
         return json.dumps(ori_config_db, indent=4)
 
     def generate_drh_golden_config_db(self):

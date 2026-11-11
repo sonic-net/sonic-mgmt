@@ -14,6 +14,7 @@ import re
 import logging
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.snmp_helpers import format_snmp_cli_target, resolve_snmp_host
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -226,6 +227,7 @@ def test_snmp_queue_counters(duthosts,
     global ORIG_CFG_DB, CFG_DB_PATH
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
+    hostip = format_snmp_cli_target(resolve_snmp_host(duthost, hostip))
     asic = duthost.asic_instance(enum_frontend_asic_index)
     int_facts = asic.interface_facts()['ansible_facts']
     interface = get_asic_interface(int_facts, duthost)

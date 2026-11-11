@@ -20,6 +20,10 @@ logger = logging.getLogger(__name__)
 ECMP_INCREMENT = 8
 TEST_ROUTE_PREFIX = "10.100.0.0/24"
 CRM_POLL_WAIT = 15
+FEC_LOG_POLL_TIMEOUT = 90
+FEC_LOG_POLL_INTERVAL = 5
+NHG_LOGGER = "LOGGER|SAI_API_NEXT_HOP_GROUP"
+SAI_LOG_LEVEL_APPLY_WAIT = 2
 
 pytestmark = [
     pytest.mark.asic('broadcom'),
@@ -42,8 +46,8 @@ def get_syslog_marker(duthost):
 
 def collect_fec_logs(duthost, syncd_name, marker):
     """Return list of num_fec(N) values from syslog after marker."""
-    cmd = ("awk '/{marker}/,0' /var/log/syslog | "
-           "grep '{syncd}.*num_fec'").format(marker=marker, syncd=syncd_name)
+    cmd = ("awk '/{marker}/,0' /var/log/syslog | grep '{syncd}#' | "
+           "grep -E 'num_fec\\([0-9]+\\)'").format(marker=marker, syncd=syncd_name)
     result = duthost.shell(cmd, module_ignore_errors=True)
     values = []
     for line in result.get("stdout_lines", []):
@@ -51,6 +55,25 @@ def collect_fec_logs(duthost, syncd_name, marker):
         if m:
             values.append(int(m.group(1)))
     return values
+
+
+def wait_for_fec_value(duthost, syncd_name, marker, expected):
+    """Poll syslog until syncd logs num_fec(expected) after marker."""
+    return wait_until(FEC_LOG_POLL_TIMEOUT, FEC_LOG_POLL_INTERVAL, 0,
+                      lambda: expected in collect_fec_logs(duthost, syncd_name, marker))
+
+
+def set_sai_nhg_loglevel(duthost, asichost, level):
+    """Set the SAI NEXT_HOP_GROUP log level in this ASIC's CONFIG_DB; return the previous level.
+
+    syncd of a multi-ASIC DUT only watches the CONFIG_DB of its own namespace,
+    so the LOGGER entry must be written through asichost.sonic_db_cli.
+    """
+    prev = duthost.command('{} CONFIG_DB HGET "{}" LOGLEVEL'.format(
+        asichost.sonic_db_cli, NHG_LOGGER), module_ignore_errors=True).get("stdout", "").strip()
+    duthost.command('{} CONFIG_DB HSET "{}" LOGLEVEL {}'.format(
+        asichost.sonic_db_cli, NHG_LOGGER, level))
+    return prev or "SAI_LOG_LEVEL_NOTICE"
 
 
 def get_crm_nhg_member_used(asichost):
@@ -70,6 +93,14 @@ def get_crm_nhg_member_used(asichost):
         # CRM DB query may fail on platforms without CRM support; return None to indicate unknown
         pass
     return None
+
+
+def wait_for_crm_above(asichost, threshold):
+    """Wait up to 3 CRM polling cycles for nexthop_group_member_used to exceed threshold."""
+    def _above():
+        val = get_crm_nhg_member_used(asichost)
+        return val is not None and val > threshold
+    return wait_until(3 * CRM_POLL_WAIT, 5, 0, _above)
 
 
 def find_oper_up_intf(asichost, tbinfo):
@@ -171,6 +202,7 @@ def test_ecmp_increment_fec_lifecycle(duthosts, enum_rand_one_per_hwsku_frontend
     original_poll_interval = int(parsed[0]) if parsed else 300
     logger.info("Original CRM polling interval: %ds", original_poll_interval)
 
+    orig_nhg_loglevel = None
     try:
         # Best-effort pre-cleanup in case a previous run left state behind
         duthost.command("{} route del {}".format(asichost.ip_cmd, TEST_ROUTE_PREFIX), module_ignore_errors=True)
@@ -198,18 +230,24 @@ def test_ecmp_increment_fec_lifecycle(duthosts, enum_rand_one_per_hwsku_frontend
         pytest_assert(crm_baseline is not None, "CRM baseline is None after _crm_ready passed")
         logger.info("CRM baseline: nhg_member_used=%s", crm_baseline)
 
+        # syncd does not log num_fec(N) at the default NOTICE level
+        orig_nhg_loglevel = set_sai_nhg_loglevel(duthost, asichost, "SAI_LOG_LEVEL_DEBUG")
+        logger.info("SAI NEXT_HOP_GROUP log level: %s -> SAI_LOG_LEVEL_DEBUG", orig_nhg_loglevel)
+        time.sleep(SAI_LOG_LEVEL_APPLY_WAIT)
+
         # Phase 1: 2-NH route
         logger.info("=== PHASE 1: Create 2-NH ECMP route ===")
         marker1 = get_syslog_marker(duthost)
         nhops_str = " ".join(["nexthop via {}".format(ip) for ip in nhop_ips[:2]])
         duthost.command("{} route add {} {}".format(asichost.ip_cmd, TEST_ROUTE_PREFIX, nhops_str))
-        time.sleep(CRM_POLL_WAIT)
 
+        fec1_found = wait_for_fec_value(duthost, syncd_name, marker1, ECMP_INCREMENT)
         fec1 = collect_fec_logs(duthost, syncd_name, marker1)
         logger.info("Phase 1 FEC: %s", fec1)
-        pytest_assert(ECMP_INCREMENT in fec1,
+        pytest_assert(fec1_found,
                       "Phase 1: Expected num_fec({}), got {}".format(ECMP_INCREMENT, fec1))
 
+        wait_for_crm_above(asichost, crm_baseline)
         crm1 = get_crm_nhg_member_used(asichost)
         pytest_assert(crm1 is not None and crm1 > crm_baseline,
                       "Phase 1: CRM did not increase ({} -> {})".format(crm_baseline, crm1))
@@ -229,13 +267,14 @@ def test_ecmp_increment_fec_lifecycle(duthosts, enum_rand_one_per_hwsku_frontend
         marker2 = get_syslog_marker(duthost)
         nhops_str = " ".join(["nexthop via {}".format(ip) for ip in nhop_ips[:ECMP_INCREMENT + 1]])
         duthost.command("{} route add {} {}".format(asichost.ip_cmd, TEST_ROUTE_PREFIX, nhops_str))
-        time.sleep(CRM_POLL_WAIT)
 
+        fec2_found = wait_for_fec_value(duthost, syncd_name, marker2, 2 * ECMP_INCREMENT)
         fec2 = collect_fec_logs(duthost, syncd_name, marker2)
         logger.info("Phase 2 FEC: %s", fec2)
-        pytest_assert(any(v == 2 * ECMP_INCREMENT for v in fec2),
+        pytest_assert(fec2_found,
                       "Phase 2: Expected num_fec({}), got {}".format(2 * ECMP_INCREMENT, fec2))
 
+        wait_for_crm_above(asichost, crm1)
         crm2 = get_crm_nhg_member_used(asichost)
         pytest_assert(crm2 is not None and crm2 > crm1,
                       "Phase 2: CRM did not grow ({} -> {})".format(crm1, crm2))
@@ -257,6 +296,8 @@ def test_ecmp_increment_fec_lifecycle(duthosts, enum_rand_one_per_hwsku_frontend
 
     finally:
         # Cleanup regardless of pass/fail
+        if orig_nhg_loglevel:
+            set_sai_nhg_loglevel(duthost, asichost, orig_nhg_loglevel)
         duthost.command("{} route del {}".format(asichost.ip_cmd, TEST_ROUTE_PREFIX),
                         module_ignore_errors=True)
         for ip in nhop_ips:

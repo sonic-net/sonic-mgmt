@@ -53,4 +53,6 @@
       connection: switch
       args:
         login: "{{ switch_login['Arista'] }}"
-  when: root_dev is defined
+  when:
+    - root_dev is defined
+    - dev_vlans | length > 0
