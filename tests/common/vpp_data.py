@@ -8,6 +8,9 @@ from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 
+# Printed by 'show bridge-domain' when the dataplane has no bridge domain configured at all
+NO_BRIDGE_DOMAINS_MSG = "no bridge-domains in use"
+
 # Environment file sourced by the syncd container when VPP is started
 VPP_SYNCD_ENV_PATH = "/etc/sonic/vpp/syncd_vpp_env"
 

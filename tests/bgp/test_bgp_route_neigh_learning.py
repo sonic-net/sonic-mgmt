@@ -127,9 +127,19 @@ def fixture_setUp(nbrhosts, duthosts, enum_frontend_dut_hostname, ip_version):
                   "-c 'exit-address-family'"
             result = nbrhost.shell(cmd)
             py_assert(result['rc'] == 0, "BGP network not removed")
-            cmd = f"sudo config interface ip remove Loopback1 {prefix}/{mask}"
-            result = nbrhost.shell(cmd)
-            py_assert(result['rc'] == 0, "loopback interface not removed")
+            loopback = "Loopback1"
+            if isinstance(nbrhost, CsonicHost) and nbrhost.bgp_vrf:
+                loopback = "Loopback{}".format(
+                    1001 + data['nbr'][name]['multi_vrf_data']['intf_offset'])
+            result = nbrhost.shell(
+                "sudo config interface ip remove {} {}/{}".format(
+                    loopback, prefix, mask))
+            py_assert(result['rc'] == 0, "loopback address not removed")
+            if isinstance(nbrhost, CsonicHost) and nbrhost.bgp_vrf:
+                nbrhost.shell("sudo config interface vrf unbind {}".format(loopback),
+                              module_ignore_errors=True)
+                nbrhost.shell("sudo config loopback del {}".format(loopback),
+                              module_ignore_errors=True)
         else:
             raise ValueError("Unsupported neighbor type")
 
@@ -158,8 +168,20 @@ def run_bgp_neighbor_route_learning(duthosts, enum_frontend_dut_hostname, data):
         if isinstance(nbrhost, EosHost):
             add_route_to_nbr(data, name, prefix, mask, afi_cfg["afi_cmd_eos"], afi_cfg["loopback_cmd_eos"])
         elif isinstance(nbrhost, (SonicHost, CsonicHost)):
-            # Create and configure loopback interface
-            cmd = f"sudo config interface ip add Loopback1 {prefix}/{mask}"
+            # Create and configure a collision-free loopback in the logical
+            # peer's VRF. Stock SONiC retains the historical Loopback1 path.
+            loopback = "Loopback1"
+            if isinstance(nbrhost, CsonicHost) and nbrhost.bgp_vrf:
+                loopback = "Loopback{}".format(
+                    1001 + data['nbr'][name]['multi_vrf_data']['intf_offset'])
+                nbrhost.shell("sudo config loopback add {}".format(loopback),
+                              module_ignore_errors=True)
+                result = nbrhost.shell(
+                    "sudo config interface vrf bind {} {}".format(
+                        loopback, nbrhost.bgp_vrf))
+                py_assert(result['rc'] == 0, "Failed to bind loopback to logical VRF")
+            cmd = "sudo config interface ip add {} {}/{}".format(
+                loopback, prefix, mask)
             result = nbrhost.shell(cmd)
             py_assert(result['rc'] == 0, "Failed to configure loopback interface")
             # Configure BGP network
