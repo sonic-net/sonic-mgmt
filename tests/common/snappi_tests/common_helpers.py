@@ -1579,8 +1579,8 @@ def get_queue_scheduler_weight_dict(host_ans, asic_value=None, port=None,
         host_ans: Ansible host instance of the device.
             Supports both interface-keyed QUEUE facts and VOQ system-port
             facts keyed by hostname and ``ASIC|interface|queue``.
-        asic_value: asic namespace; pass ``None`` (default) or the string
-            ``"None"`` for single-asic devices.
+        asic_value: ASIC namespace. With ``None`` (default) or ``"None"``,
+            VOQ entries must identify an unambiguous ASIC for the interface.
         port (str, optional): interface name to read ``QUEUE`` for. Defaults
             to the first interface present in ``QUEUE``.
         qos_map_profile (str, optional): name of the profile inside
@@ -1631,19 +1631,29 @@ def get_queue_scheduler_weight_dict(host_ans, asic_value=None, port=None,
 
     if host_ans.hostname in queue_cfg_all:
         system_port_queues = queue_cfg_all[host_ans.hostname]
-        asic_name = asic_value if asic_value not in (None, "None") else (
-            config_facts.get("DEVICE_METADATA", {}).get("localhost", {}).get("asic_name"))
+        asic_name = asic_value if asic_value not in (None, "None") else None
         queue_cfg_all = {}
+        interface_asics = {}
         for key, value in system_port_queues.items():
-            queue_asic, interface, queue = key.split("|")
+            fields = key.split("|")
+            if len(fields) != 3 or not all(fields):
+                raise ValueError("Invalid QUEUE key {!r} for host {}; expected ASIC|interface|queue".
+                                 format(key, host_ans.hostname))
+            queue_asic, interface, queue = fields
             if asic_name is not None and queue_asic.lower() != asic_name.lower():
                 continue
+            if port is not None and interface != port:
+                continue
+            previous_asic = interface_asics.setdefault(interface, queue_asic.lower())
+            if previous_asic != queue_asic.lower():
+                raise ValueError("Ambiguous QUEUE entries for port {}; specify an ASIC namespace".format(interface))
             interface_queues = queue_cfg_all.setdefault(interface, {})
             if queue in interface_queues:
                 raise ValueError("Ambiguous QUEUE entries for port {}; specify an ASIC namespace".format(interface))
             interface_queues[queue] = value
         if not queue_cfg_all:
-            raise KeyError("No QUEUE entries found for host {} ASIC {}".format(host_ans.hostname, asic_name))
+            raise KeyError("No QUEUE entries found for host {} ASIC {} port {}".
+                           format(host_ans.hostname, asic_name, port))
 
     if port is None:
         port = next(iter(queue_cfg_all))

@@ -399,9 +399,12 @@ def generate_background_flows(testbed_config,
 
         bg_flow.size.fixed = bg_flow_config["flow_pkt_size"]
         bg_flow.rate.percentage = bg_flow_config["flow_rate_percent"]
-        bg_flow.duration.fixed_seconds.seconds = bg_flow_config["flow_dur_sec"]
-        bg_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec
-                                                               (bg_flow_config["flow_delay_sec"]))
+        if bg_flow_config.get("flow_traffic_type") == traffic_flow_mode.FIXED_PACKETS:
+            bg_flow.duration.fixed_packets.packets = bg_flow_config["flow_pkt_count"]
+            bg_flow.duration.fixed_packets.delay.nanoseconds = int(sec_to_nanosec(bg_flow_config["flow_delay_sec"]))
+        else:
+            bg_flow.duration.fixed_seconds.seconds = bg_flow_config["flow_dur_sec"]
+            bg_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec(bg_flow_config["flow_delay_sec"]))
 
         bg_flow.metrics.enable = True
         bg_flow.metrics.loss = True
@@ -776,7 +779,8 @@ def _log_in_flight_macsec_flow_stats(in_flight_flow_metrics, data_flow_names, sn
     )
 
 
-def _stop_macsec_data_flows(ixnet, all_flow_names, data_flow_names):
+def _stop_macsec_data_flows(api, all_flow_names, data_flow_names):
+    ixnet = api._ixnetwork
     pause_flow_names = set(all_flow_names) - set(data_flow_names)
     pytest_assert(pause_flow_names,
                   "Cannot stop MACsec data flows without identifying the pause flow")
@@ -804,6 +808,7 @@ def _stop_macsec_data_flows(ixnet, all_flow_names, data_flow_names):
     # items are stopped individually. Stop everything so the pause is released
     # and buffered data can drain before final loss verification. Restarting the
     # pause item resets the Quick Flow Group counters returned by IxNetwork.
+    in_flight_flow_metrics = _capture_in_flight_tgen_stats(api, all_flow_names, ptype=True)
     ixnet.Traffic.StopStatelessTrafficBlocking()
     traffic_state = ixnet.Traffic.State
     logger.info("IxNetwork traffic state after blocking stop: %s", traffic_state)
@@ -811,6 +816,7 @@ def _stop_macsec_data_flows(ixnet, all_flow_names, data_flow_names):
         traffic_state in ('stopped', 'stoppedWaitingForStats'),
         "IxNetwork traffic did not stop; current state is {}".format(traffic_state)
     )
+    return in_flight_flow_metrics
 
 
 def run_traffic(duthost,
@@ -884,9 +890,14 @@ def run_traffic(duthost,
         wait_for_arp(api, max_attempts=30, poll_interval_sec=2)
     else:
         protocolsSummary = StatViewAssistant(ixnet, 'Protocols Summary')
-        for row in protocolsSummary.Rows:
+        protocol_fields = ("Protocol Type", "Sessions Total", "Sessions Up",
+                           "Sessions Down", "Sessions Not Started")
+        protocol_rows = [{field: row[field] for field in protocol_fields}
+                         for row in protocolsSummary.Rows]
+        logger.info("MACsec protocol session statistics: %s", protocol_rows)
+        for row in protocol_rows:
             if row['Sessions Not Started'] != '0' or row['Sessions Down'] != '0':
-                pytest_assert(False, "Not all protocol sessions are up")
+                pytest_assert(False, "Not all protocol sessions are up: {}".format(row))
         rx_dut_port = snappi_extra_params.base_flow_config["rx_port_config"].peer_port
         for i in range(7 * (len(config.ports) - 1)):
             eth_stack = config.devices[i].ethernets[0]
@@ -984,7 +995,9 @@ def run_traffic(duthost,
     if snappi_extra_params.stop_data_flows_before_final_stats:
         logger.info("Stopping transmit on data flows after in-flight stats collection")
         if ptype:
-            _stop_macsec_data_flows(ixnet, all_flow_names, data_flow_names)
+            in_flight_flow_metrics = _stop_macsec_data_flows(api, all_flow_names, data_flow_names)
+            _log_in_flight_stats(
+                api, in_flight_flow_metrics, data_flow_names, ptype, snappi_extra_params)
         else:
             set_flow_transmit_state(api, "stop", flow_names=data_flow_names)
 
@@ -1064,7 +1077,8 @@ def run_traffic(duthost,
             flow_metrics = fetch_flow_metrics_for_macsec(api).Rows
     logger.info("Stopping transmit on all remaining flows")
     if ptype:
-        ixnet.Traffic.StopStatelessTrafficBlocking()
+        if ixnet.Traffic.State not in ('stopped', 'stoppedWaitingForStats'):
+            ixnet.Traffic.StopStatelessTrafficBlocking()
     else:
         set_flow_transmit_state(api, "stop")
     check_for_crc_errors(api, snappi_extra_params)
@@ -1369,8 +1383,11 @@ def verify_background_flow(flow_metrics,
         tx_frames = metric.frames_tx
         rx_frames = metric.frames_rx
 
-        exp_bg_flow_rx_pkts = bg_flow_config["flow_rate_percent"] / 100.0 * speed_gbps \
-            * 1e9 * bg_flow_config["flow_dur_sec"] / 8.0 / bg_flow_config["flow_pkt_size"]
+        if bg_flow_config.get("flow_traffic_type") == traffic_flow_mode.FIXED_PACKETS:
+            exp_bg_flow_rx_pkts = bg_flow_config["flow_pkt_count"]
+        else:
+            exp_bg_flow_rx_pkts = bg_flow_config["flow_rate_percent"] / 100.0 * speed_gbps \
+                * 1e9 * bg_flow_config["flow_dur_sec"] / 8.0 / bg_flow_config["flow_pkt_size"]
         deviation = (rx_frames - exp_bg_flow_rx_pkts) / float(exp_bg_flow_rx_pkts)
 
         pytest_assert(tx_frames == rx_frames,
@@ -1426,8 +1443,11 @@ def verify_basic_test_flow(flow_metrics,
                 # Use the flow rate percent as is
                 flow_rate_percent = data_flow_config["flow_rate_percent"]
 
-            exp_test_flow_rx_pkts = flow_rate_percent / 100.0 * speed_gbps \
-                * 1e9 * data_flow_config["flow_dur_sec"] / 8.0 / data_flow_config["flow_pkt_size"]
+            if data_flow_config.get("flow_traffic_type") == traffic_flow_mode.FIXED_PACKETS:
+                exp_test_flow_rx_pkts = data_flow_config["flow_pkt_count"]
+            else:
+                exp_test_flow_rx_pkts = flow_rate_percent / 100.0 * speed_gbps \
+                    * 1e9 * data_flow_config["flow_dur_sec"] / 8.0 / data_flow_config["flow_pkt_size"]
 
             deviation = (rx_frames - exp_test_flow_rx_pkts) / float(exp_test_flow_rx_pkts)
             pytest_assert(abs(deviation) < tolerance,

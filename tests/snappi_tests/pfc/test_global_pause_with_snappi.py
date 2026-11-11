@@ -1,5 +1,6 @@
 import pytest
 import logging
+import sys
 from tests.common.helpers.assertions import pytest_require, pytest_assert                               # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts, \
     fanout_graph_facts_multidut                                                                         # noqa: F401
@@ -16,8 +17,9 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('multidut-tgen', 'tgen'),
-    pytest.mark.use_running_config_baseline,
 ]
+if "--snappi_macsec" in sys.argv:
+    pytestmark.append(pytest.mark.use_running_config_baseline)
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -60,7 +62,6 @@ def test_global_pause(snappi_api,                           # noqa: F811
 
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
-    snappi_extra_params.snappi_api = snappi_api
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
                  port_config_list=port_config_list,
