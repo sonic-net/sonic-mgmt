@@ -1,5 +1,6 @@
 import pytest
 import logging
+import sys
 from tests.common.helpers.assertions import pytest_require, pytest_assert                               # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts, \
     fanout_graph_facts_multidut                                                                         # noqa: F401
@@ -14,7 +15,11 @@ from tests.snappi_tests.cisco.helper import disable_voq_watchdog                
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
+pytestmark = [
+    pytest.mark.topology('multidut-tgen', 'tgen'),
+]
+if "--snappi_macsec" in sys.argv:
+    pytestmark.append(pytest.mark.use_running_config_baseline)
 
 
 @pytest.fixture(autouse=True, scope='module')
