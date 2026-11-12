@@ -10,10 +10,10 @@
     groups:
       - ptf
 
-# With lacp_servers, DUT.portchannel_config only describes DUT-side LAGs; the PTF bonds come from lacp_servers.
+# With ptf_emulated_lacp_hosts, DUT.portchannel_config only describes DUT-side LAGs; the PTF LAGs come from ptf_emulated_lacp_hosts.
 - name: find downlink portchannel configuration
   set_fact:
-    portchannel_config: "{{ {} if topology['lacp_servers'] is defined else (topology['DUT']['portchannel_config'] | default({})) }}"
+    portchannel_config: "{{ {} if topology['ptf_emulated_lacp_hosts'] is defined else (topology['DUT']['portchannel_config'] | default({})) }}"
 
 - name: find portchannel mode
   set_fact:
@@ -24,7 +24,7 @@
     cmd: start
     portchannel_config: "{{ portchannel_config }}"
     mode: "{{ portchannel_mode }}"
-    lacp_servers: "{{ topology['lacp_servers'] | default([]) }}"
+    ptf_emulated_lacp_hosts: "{{ topology['ptf_emulated_lacp_hosts'] | default([]) }}"
   delegate_to: "{{ ptf_host }}"
   when: ptf_portchannel_action == 'start'
 
@@ -33,7 +33,7 @@
     cmd: stop
     portchannel_config: "{{ portchannel_config }}"
     mode: "{{ portchannel_mode }}"
-    lacp_servers: "{{ topology['lacp_servers'] | default([]) }}"
+    ptf_emulated_lacp_hosts: "{{ topology['ptf_emulated_lacp_hosts'] | default([]) }}"
   delegate_to: "{{ ptf_host }}"
   ignore_unreachable: yes
   when: ptf_portchannel_action == 'stop'
