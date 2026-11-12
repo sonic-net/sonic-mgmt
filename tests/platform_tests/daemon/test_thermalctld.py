@@ -32,6 +32,7 @@ from tests.common.platform.bmc_utils import (
     bmc_log_zgrep,
     get_major_leak_min_sensors,
     is_major_leak_supported,
+    require_liquid_cooling_publisher,
     get_switch_host_or_skip_test,
     get_system_leak_status,
     inject_leak_sensor,
@@ -388,23 +389,27 @@ class TestThermalctldDaemon:
     def test_thermalctld_leak_severity_aggregation(
             self, mocker_factory, leak_severities, expected_system_leak_status, escalation):  # noqa: F811
         """Verify is_leak() → LIQUID_COOLING_INFO → SYSTEM_LEAK_STATUS aggregation."""
-        if get_system_leak_status(self.duthost) == 'CRITICAL':
-            pytest.skip("System leak status is already CRITICAL")
+        baseline = require_liquid_cooling_publisher(self.duthost)
+        if baseline in ('MINOR', 'MAJOR', 'CRITICAL'):
+            pytest.skip("Real system leak status is {}; refusing sensor injection".format(baseline))
 
         # MAJOR_SYSTEM_LEAK is triggered either by MIN-N or more concurrent Minor leaks,
         # or by a single Minor leak persisting beyond max_minor_duration_sec (escalation).
         # MIN-N is platform-defined (get_major_leak_num_min_sensors), user-overridable via
         # LEAK_CONTROL_POLICY|system_major_leak_num_min_sensors. MIN-N 0 turns off only the
         # count rule; the escalation rule is independent of MIN-N.
-        if expected_system_leak_status == 'MAJOR' and not is_major_leak_supported(self.duthost):
+        major_supported = is_major_leak_supported(self.duthost, 'thermalctld')
+        escalation_status = 'MAJOR' if major_supported else 'CRITICAL'
+        if expected_system_leak_status == 'MAJOR' and not major_supported:
             pytest.skip("MAJOR_SYSTEM_LEAK is not supported on this image")
-        min_n = get_major_leak_min_sensors(self.duthost)
+        min_n = get_major_leak_min_sensors(self.duthost) if major_supported else None
+        required_sensors = len(leak_severities)
         if expected_system_leak_status == 'MAJOR' and escalation is not True:
             if min_n is None:
                 pytest.skip("MIN-N is not available (platform API not implemented)")
             if min_n < 2:
                 pytest.skip("Count-based MAJOR_SYSTEM_LEAK is off on this platform (MIN-N < 2)")
-            leak_severities = ['MINOR'] * min_n
+            required_sensors = min_n
 
         leak_mocker = mocker_factory(self.duthost, 'LiquidLeakageMockerBMC')
         if leak_mocker is None:
@@ -416,16 +421,20 @@ class TestThermalctldDaemon:
         if escalation is None:
             # aggregation cases, any sensors will work, as long as they do not escalate too quickly
             sensor_indices = _select_leak_sensor_indices(
-                leak_mocker, len(leak_severities), None, None)
+                leak_mocker, required_sensors, None, None)
         elif escalation is True:
             # A single MINOR sensor persisting > max_minor_duration_sec escalates the
-            # system to MAJOR_SYSTEM_LEAK (not CRITICAL).
+            # system to MAJOR on current daemons, CRITICAL on the legacy contract.
             sensor_indices = _select_leak_sensor_indices(
-                leak_mocker, len(leak_severities), MIN_ESCALATION_TIMEOUT_SEC, MAX_ESCALATION_TIMEOUT_SEC)
+                leak_mocker, required_sensors, MIN_ESCALATION_TIMEOUT_SEC, MAX_ESCALATION_TIMEOUT_SEC)
         else:
             # MINOR sensor will not escalate (stays MINOR)
             sensor_indices = _select_leak_sensor_indices(
-                leak_mocker, len(leak_severities), MIN_ESCALATION_TIMEOUT_SEC, None)
+                leak_mocker, required_sensors, MIN_ESCALATION_TIMEOUT_SEC, None)
+
+        # Capacity/eligibility was checked before constructing a MIN-N-sized list.
+        if expected_system_leak_status == 'MAJOR' and escalation is not True:
+            leak_severities = ['MINOR'] * len(sensor_indices)
 
         selected_sensor_names = [leak_mocker.get_sensor_name(index) for index in sensor_indices]
         la = make_bmc_loganalyzer(self.duthost, "thermalctld_leak_severity_aggregation")
@@ -465,11 +474,11 @@ class TestThermalctldDaemon:
             if escalation is True:
                 time.sleep(leak_mocker.sensors[selected_sensor_names[0]]["max_minor_duration_sec"])
                 escalated = _wait_for_system_leak_status(
-                    leak_mocker, 'MAJOR', 2 * poll_interval, poll_interval)
+                    leak_mocker, escalation_status, 2 * poll_interval, poll_interval)
                 pytest_assert(
                     escalated,
-                    "Expected SYSTEM_LEAK_STATUS=MAJOR after escalation, got {}".format(
-                        leak_mocker.get_device_leak_status()))
+                    "Expected SYSTEM_LEAK_STATUS={} after escalation, got {}".format(
+                        escalation_status, leak_mocker.get_device_leak_status()))
 
             syslog_la = la._get_syslog_analyzer()
             syslog_la.expect_regex = [
@@ -485,7 +494,8 @@ class TestThermalctldDaemon:
 
             recovery_syslog_la = la._get_syslog_analyzer()
             recovery_syslog_la.expect_regex = [
-                _leak_recovered_syslog_regex(name, leak_severity == 'CRITICAL')
+                _leak_recovered_syslog_regex(
+                    name, leak_severity == 'CRITICAL' or (escalation is True and not major_supported))
                 for name, leak_severity in zip(selected_sensor_names, leak_severities)]
             la.analyze(recovery_marker, fail=True, log_target='syslog')
 
