@@ -177,26 +177,34 @@ class FanoutPfcStorm():
         match = re.search(r'\bENABLE_TX=([01])\b', self._bcmltshellCmd(f"lt PC_PFC lookup PORT_ID={port}"))
         return match.group(1) == '1' if match else None
 
-    def _waitPfcTx(self, intf, enabled):
+    def _waitPfcTx(self, intf, enabled, deadline):
         '''
         Wait until orchagent has set PFC transmit on the port in the ASIC to the given state.
 
         Backpressure asserted while PFC transmit is off sends nothing, and keeps
         sending nothing after transmit is enabled, so it must be asserted after.
         '''
-        deadline = time.time() + PFC_TX_ENABLE_TIMEOUT_S
         while self._pfcTxEnabled(intf) != enabled:
             if time.time() > deadline:
                 state = "enabled" if enabled else "disabled"
-                raise RuntimeError(f"PFC transmit not {state} on {intf} within {PFC_TX_ENABLE_TIMEOUT_S}s")
+                raise RuntimeError(
+                    f"PFC transmit not {state} on {intf} within the {PFC_TX_ENABLE_TIMEOUT_S}s "
+                    "shared by the waits for transmit off and on")
             time.sleep(0.2)
 
     def startPfcStorm(self, intfs):
         '''
         Configure PFC on every interface before asserting backpressure on any,
-        so the wait for PFC transmit overlaps across interfaces.
+        so the waits for PFC transmit overlap across interfaces.
+
+        The waits share one PFC_TX_ENABLE_TIMEOUT_S, which a caller's wait after
+        start_storm() must allow for (see test_pfcwd_stat_history). The priority-on
+        commands between the waits do not count against it, because their time grows
+        with the number of interfaces.
         '''
+        xgsSonic = self.os == 'sonic' and self.switchChip.startswith(("Tomahawk6", "Tomahawk5", "Tomahawk4"))
         intfs = [intf for intf in dict.fromkeys(intfs) if intf not in self.intfsEnabled]
+        txWasEnabled = []
         for intf in intfs:
             # Backpressure lives in the ASIC, so a generator that died without
             # running its cleanup left this interface asserting PFC. Starting from
@@ -206,29 +214,37 @@ class FanoutPfcStorm():
             self.intfsEnabled.append(intf)
 
             if self.os == 'sonic':
-                xgs = self.switchChip.startswith(("Tomahawk6", "Tomahawk5", "Tomahawk4"))
-                oldPfcEnable = self._shellCmd(f"redis-cli -n 4 HGET \"PORT_QOS_MAP|{intf}\" \"pfc_enable\"").strip()
-                txWasEnabled = xgs and bool(oldPfcEnable) and self._pfcTxEnabled(intf) is not False
+                if xgsSonic:
+                    oldPfcEnable = self._shellCmd(f"redis-cli -n 4 HGET \"PORT_QOS_MAP|{intf}\" \"pfc_enable\"")
+                    if oldPfcEnable.strip() and self._pfcTxEnabled(intf) is not False:
+                        txWasEnabled.append(intf)
                 self._shellCmd(f"redis-cli -n 4 HSET \"PORT_QOS_MAP|{intf}\" \"pfc_enable\" \"\"")
-                if txWasEnabled:
-                    # Otherwise the wait below could see the old ENABLE_TX=1 before
-                    # this change reaches the ASIC and turns transmit off.
-                    self._waitPfcTx(intf, False)
-                for prio in range(8):
-                    if (1 << prio) & self.priority:
-                        self._shellCmd(f"config interface pfc priority {intf} {prio} on")
             else:
                 self._cliCmd(f"en\nconf\n\nint {intf}\npriority-flow-control on")
                 for prio in range(8):
                     if (1 << prio) & self.priority:
                         self._cliCmd(f"en\nconf\n\nint {intf}\npriority-flow-control priority {prio} no-drop")
 
+        # Otherwise the wait for transmit to come on could see the old ENABLE_TX=1
+        # before the clear above reaches the ASIC and turns transmit off.
+        waitStart = time.time()
+        for intf in txWasEnabled:
+            self._waitPfcTx(intf, False, waitStart + PFC_TX_ENABLE_TIMEOUT_S)
+        waitLeft = PFC_TX_ENABLE_TIMEOUT_S - (time.time() - waitStart)
+
+        if self.os == 'sonic':
+            for intf in intfs:
+                for prio in range(8):
+                    if (1 << prio) & self.priority:
+                        self._shellCmd(f"config interface pfc priority {intf} {prio} on")
+
+        deadline = time.time() + waitLeft
         for intf in intfs:
             mmuPort = self.intfToMmuPort[intf]
             port = self.intfToPort[intf]
             if self.switchChip.startswith(("Tomahawk6", "Tomahawk5", "Tomahawk4")):
                 if self.os == 'sonic':
-                    self._waitPfcTx(intf, True)
+                    self._waitPfcTx(intf, True, deadline)
                 self._bcmltshellCmd(
                     f"pt MMU_INTFO_XPORT_BKP_HW_UPDATE_DISr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP=1")
                 self._bcmltshellCmd(
