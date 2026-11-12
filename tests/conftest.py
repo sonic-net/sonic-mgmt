@@ -765,7 +765,7 @@ def get_specified_device_info(request, device_pattern):
     tbname, tbinfo = get_tbinfo(request)
     testbed_duts = tbinfo['duts']
 
-    if is_parallel_run(request):
+    if device_pattern == '--host-pattern' and is_parallel_run(request):
         return [get_target_hostname(request)]
 
     host_pattern = request.config.getoption(device_pattern)
@@ -915,8 +915,7 @@ def fixture_dpuhosts(enhance_inventory, ansible_adhoc, tbinfo, request, enable_n
     # E.g. run sonic-dpu-mgmt-traffic.sh on NPU to enable NAT
     # sonic-dpu-mgmt-traffic.sh inbound -e --dpus all --ports 5021,5022,5023,5024
     try:
-        host = DutHosts(ansible_adhoc, tbinfo, request, get_specified_dpus(request),
-                        target_hostname=get_target_hostname(request), is_parallel_leader=is_parallel_leader(request))
+        host = DutHosts(ansible_adhoc, tbinfo, request, get_specified_dpus(request))
         return host
     except BaseException as e:
         logger.error("Failed to initialize dpuhosts.")

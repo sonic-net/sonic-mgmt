@@ -7,6 +7,7 @@ import logging
 from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Optional, Sequence
 from unittest.mock import MagicMock
 
 import pytest
@@ -164,7 +165,10 @@ def test_setpackage_wire_metadata_and_local_compatibility():
 def upgrade_functions(events):
     """Load actual helper functions without importing device/Ansible fixtures."""
     source = ast.parse((COMMON / "helpers/upgrade_helpers.py").read_text())
-    names = {"perform_gnoi_upgrade", "_upgrade_one_dpu_via_gnoi"}
+    names = {
+        "perform_gnoi_upgrade", "_upgrade_one_dpu_via_gnoi",
+        "perform_gnoi_upgrade_smartswitch_dpus_parallel",
+    }
     tree = ast.Module(body=[
         node for node in source.body if isinstance(node, ast.FunctionDef) and node.name in names
     ], type_ignores=[])
@@ -174,12 +178,82 @@ def upgrade_functions(events):
 
     scope = {
         "GnoiUpgradeConfig": object, "Dict": dict, "logger": logging.getLogger(__name__),
+        "Optional": Optional, "Sequence": Sequence,
+        "SS_TARGET_TYPE_HDR": "x-sonic-ss-target-type", "SS_TARGET_INDEX_HDR": "x-sonic-ss-target-index",
         "pytest_assert": check, "REBOOT_TYPE_COLD": "cold",
         "reboot_and_check": lambda *args, **kwargs: events.append("reboot"),
         "_get_images_from_sonic_installer_list": lambda host: {"next": "target"},
     }
     exec(compile(tree, "upgrade_helpers.py", "exec"), scope)
     return scope
+
+
+@pytest.mark.parametrize("indices", [(0, 0), ("0", "00")])
+def test_parallel_upgrade_rejects_duplicate_targets_before_workers(indices):
+    scope = upgrade_functions([])
+    scope["SafeThreadPoolExecutor"] = executor = MagicMock()
+    scope["_upgrade_one_dpu_via_gnoi"] = upgrade = MagicMock()
+    configs = [SimpleNamespace(metadata={
+        "x-sonic-ss-target-type": "dpu", "x-sonic-ss-target-index": str(index),
+    }) for index in indices]
+    with pytest.raises(ValueError, match="Duplicate DPU target"):
+        scope["perform_gnoi_upgrade_smartswitch_dpus_parallel"](None, None, None, configs)
+    executor.assert_not_called()
+    upgrade.assert_not_called()
+
+
+def test_parallel_upgrade_accepts_distinct_targets():
+    scope = upgrade_functions([])
+    scope["SafeThreadPoolExecutor"] = executor = MagicMock()
+    configs = [SimpleNamespace(metadata={
+        "x-sonic-ss-target-type": "dpu", "x-sonic-ss-target-index": str(index),
+    }) for index in (0, 1)]
+    result = scope["perform_gnoi_upgrade_smartswitch_dpus_parallel"](None, None, None, configs)
+    assert set(result) == {0, 1}
+    assert executor.return_value.__enter__.return_value.submit.call_count == 2
+
+
+@pytest.mark.parametrize("pattern,expected", [
+    ("all", ["npu-dpu0", "npu-dpu1"]),
+    ("npu-dpu1", ["npu-dpu1"]),
+    (None, []),
+])
+def test_parallel_npu_keeps_dpu_inventory_and_nat_selection(pattern, expected):
+    """The NPU target selector must not replace the DPU host list."""
+    source = ast.parse((COMMON.parents[0] / "conftest.py").read_text())
+    names = {
+        "get_specified_device_info", "get_specified_dpus",
+        "fixture_dpuhosts", "enable_nat_for_dpuhosts",
+    }
+    tree = ast.Module(body=[
+        node for node in source.body if isinstance(node, ast.FunctionDef) and node.name in names
+    ], type_ignores=[])
+    request, adhoc, npu = MagicMock(), MagicMock(), MagicMock()
+    request.config.getoption.return_value = pattern
+    tbinfo = {"duts": ["npu", "npu-dpu0", "npu-dpu1"]}
+    scope = {
+        "pytest": pytest, "logging": logging, "logger": logging.getLogger(__name__),
+        "get_tbinfo": lambda request: ("mock-testbed", tbinfo),
+        "is_parallel_run": lambda request: True, "get_target_hostname": lambda request: "npu",
+        "is_parallel_leader": lambda request: False,
+        "get_duts_from_host_pattern": lambda pattern: pattern.split(","),
+        "DutHosts": MagicMock(), "is_enabled_nat_for_dpu": lambda *args: False,
+        "get_dpu_names_and_ssh_ports": MagicMock(return_value={}),
+        "enable_nat_for_dpus": MagicMock(),
+        "pt_assert": lambda value, message: pytest.fail(message) if not value else None,
+    }
+    exec(compile(tree, "conftest.py", "exec"), scope)
+    assert scope["get_specified_dpus"](request) == expected
+    assert scope["get_specified_device_info"](request, "--host-pattern") == ["npu"]
+    scope["enable_nat_for_dpuhosts"].__wrapped__([npu], adhoc, request)
+    if expected:
+        scope["get_dpu_names_and_ssh_ports"].assert_called_once_with(npu, expected, adhoc)
+        scope["enable_nat_for_dpus"].assert_called_once_with(npu, {}, request)
+    else:
+        scope["get_dpu_names_and_ssh_ports"].assert_not_called()
+        scope["enable_nat_for_dpus"].assert_not_called()
+    scope["fixture_dpuhosts"].__wrapped__(None, adhoc, tbinfo, request, None)
+    scope["DutHosts"].assert_called_once_with(adhoc, tbinfo, request, expected)
 
 
 @pytest.mark.parametrize("dpu,fail,skip_reboot", [

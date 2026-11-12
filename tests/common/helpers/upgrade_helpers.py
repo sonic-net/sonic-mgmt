@@ -502,6 +502,16 @@ def perform_gnoi_upgrade_smartswitch_dpus_parallel(
     if not cfgs:
         raise ValueError("cfgs is empty")
 
+    indices = []
+    for cfg in cfgs:
+        target = dict(cfg.metadata or [])
+        index = target.get(SS_TARGET_INDEX_HDR)
+        if target.get(SS_TARGET_TYPE_HDR) != "dpu" or index is None or not str(index).isdigit():
+            raise ValueError("Each parallel upgrade requires an explicit DPU target")
+        indices.append(int(index))
+    if len(set(indices)) != len(indices):
+        raise ValueError("Duplicate DPU target indices")
+
     workers = max_workers or len(cfgs)
     results: Dict[int, Dict] = {}
 
