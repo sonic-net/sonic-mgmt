@@ -71,6 +71,30 @@ except ImportError:
     pass
 
 
+if six.PY2:
+    _TQM_INIT_PARAMS = inspect.getargspec(TaskQueueManager.__init__).args
+else:
+    _TQM_INIT_PARAMS = inspect.signature(TaskQueueManager.__init__).parameters
+
+
+def _build_tqm(inventory_manager, variable_manager, loader, passwords, callback, forks):
+    kwargs = dict(
+        inventory=inventory_manager,
+        variable_manager=variable_manager,
+        loader=loader,
+        passwords=passwords,
+        forks=forks,
+    )
+    if "stdout_callback" in _TQM_INIT_PARAMS:
+        return TaskQueueManager(stdout_callback=callback, **kwargs)
+
+    tqm = TaskQueueManager(**kwargs)
+    # Ansible 2.19 dispatches only methods registered by the callback loader.
+    callback._init_callback_methods()
+    tqm._callback_plugins = [callback]
+    return tqm
+
+
 class UnsupportedAnsibleModule(Exception):
     pass
 
@@ -368,13 +392,8 @@ class AnsibleHostsBase(object):
             else:
                 callback = ResultCollector()
 
-            tqm = TaskQueueManager(
-                inventory=inventory_manager,
-                variable_manager=variable_manager,
-                loader=loader,
-                passwords=passwords,
-                stdout_callback=callback,
-                forks=options.get("forks")
+            tqm = _build_tqm(
+                inventory_manager, variable_manager, loader, passwords, callback, options.get("forks")
             )
             tqm.run(play)
             return callback.results
