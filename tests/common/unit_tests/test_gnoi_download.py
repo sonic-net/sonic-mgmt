@@ -4,6 +4,8 @@ import ast
 import base64
 import importlib.util
 import logging
+import re
+import threading
 from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
@@ -28,6 +30,7 @@ def load_module(name, path):
 
 POLICY = load_module("gnoi_download", COMMON / "helpers/gnoi_download.py")
 CLIENT = load_module("ptf_gnoi", COMMON / "ptf_gnoi.py")
+THREADS = load_module("multi_thread_utils", COMMON / "helpers/multi_thread_utils.py")
 
 
 @pytest.mark.parametrize("failure", [None, RuntimeError, pytest.skip.Exception])
@@ -109,34 +112,100 @@ def test_policy_dns_pins_and_ipv6(monkeypatch):
             POLICY.image_origin_policy(url)
 
 
-def test_dpu_policy_factory_uses_preinitialized_inventory():
-    """Parallel callers use captured inventory, not dynamic pytest setup."""
+def policy_functions():
     source = ast.parse((COMMON / "fixtures/gnoi_download_policy.py").read_text())
     tree = ast.Module(body=[
         node for node in source.body if isinstance(node, ast.FunctionDef)
     ], type_ignores=[])
+    scope = {
+        "pytest": pytest, "re": re, "snapshot_download_hosts": POLICY.snapshot_download_hosts,
+        "get_dpu_ip": MagicMock(return_value="192.0.2.3"),
+        "temporary_image_policy": MagicMock(), "DutHosts": MagicMock(),
+        "get_duts_from_host_pattern": lambda pattern: pattern.split(","),
+    }
+    exec(compile(tree, "gnoi_download_policy.py", "exec"), scope)
+    return scope
+
+
+def test_dpu_policy_factory_uses_preinitialized_inventory():
+    """Workers match the runtime proxy address without re-querying any DPU."""
+    scope = policy_functions()
     selected, npu = MagicMock(), MagicMock()
     selected.show_ip_interface.return_value = {
         "ansible_facts": {"ip_interfaces": {"eth0-midplane": {"ipv4": "192.0.2.3"}}},
     }
-    configure = MagicMock()
-    scope = {
-        "pytest": pytest, "snapshot_download_hosts": POLICY.snapshot_download_hosts,
-        "get_dpu_ip": MagicMock(return_value="192.0.2.3"),
-        "temporary_image_policy": configure,
-    }
-    exec(compile(tree, "gnoi_download_policy.py", "exec"), scope)
-    factory = scope["gnoi_dpu_download_policy"].__wrapped__([selected])
+    npu.command.return_value = {"stdout": "192.0.2.3\n"}
+    configure = scope["temporary_image_policy"]
+    factory = scope["_download_policy"]([selected])
     selected.show_ip_interface.assert_called_once()
     selected.show_ip_interface.side_effect = RuntimeError("another worker rebooted this DPU")
     target = [("x-sonic-ss-target-type", "dpu"), ("x-sonic-ss-target-index", "3")]
     factory(npu, "http://192.0.2.1/image", target)
     configure.assert_called_with(selected, "http://192.0.2.1/image")
-    scope["get_dpu_ip"].assert_called_once_with(npu, 3)
+    npu.command.assert_called_once_with(argv=[
+        "sonic-db-cli", "STATE_DB", "HGET", "CHASSIS_MIDPLANE_TABLE|DPU3", "ip_address",
+    ])
     factory(npu, "http://192.0.2.1/image")
     configure.assert_called_with(npu, "http://192.0.2.1/image")
     factory(npu, "http://192.0.2.1/image", target)
     selected.show_ip_interface.assert_called_once()
+    configure.reset_mock()
+    for address in ("192.0.2.99", ""):
+        npu.command.return_value = {"stdout": address}
+        with pytest.raises(ValueError):
+            factory(npu, "http://192.0.2.1/image", target)
+    configure.assert_not_called()
+    scope["get_dpu_ip"].assert_not_called()
+
+
+@pytest.mark.parametrize("indices,pattern,expected", [
+    ([3], "all", ["npu-dpu3"]),
+    ([1, 3], "all", ["npu-dpu1", "npu-dpu3"]),
+    ([3], "npu-dpu3", ["npu-dpu3"]),
+    ([], "all", []),
+])
+def test_dpu_policy_initializes_only_selected_hosts(indices, pattern, expected):
+    """An unselected/down DPU must not be constructed or queried."""
+    scope = policy_functions()
+    request, adhoc, npu = MagicMock(), MagicMock(), MagicMock()
+    request.config.getoption.return_value = pattern
+    npu.hostname = "npu"
+    tbinfo = {"duts": ["npu", "npu-dpu1", "npu-dpu3", "npu-dpu4", "other-npu-dpu3"]}
+    hosts = []
+    for i, name in enumerate(expected):
+        host = MagicMock(hostname=name)
+        host.show_ip_interface.return_value = {
+            "ansible_facts": {"ip_interfaces": {"eth0-midplane": {"ipv4": "192.0.2.{}".format(i + 2)}}},
+        }
+        hosts.append(host)
+    scope["DutHosts"].return_value = hosts
+    prepare = scope["gnoi_dpu_download_policy"].__wrapped__(request, adhoc, tbinfo, None)
+    scope["DutHosts"].assert_not_called()
+    request.getfixturevalue.assert_not_called()
+    prepare(npu, indices)
+    if expected:
+        scope["DutHosts"].assert_called_once_with(adhoc, tbinfo, request, expected)
+        request.getfixturevalue.assert_called_once_with("enable_nat_for_dpuhosts")
+    else:
+        scope["DutHosts"].assert_not_called()
+        request.getfixturevalue.assert_not_called()
+    for host in hosts:
+        host.show_ip_interface.assert_called_once()
+
+
+def test_dpu_policy_rejects_unavailable_or_duplicate_selection_before_hosts():
+    scope = policy_functions()
+    request, npu = MagicMock(), MagicMock()
+    request.config.getoption.return_value = "all"
+    npu.hostname = "npu"
+    prepare = scope["gnoi_dpu_download_policy"].__wrapped__(
+        request, None, {"duts": ["npu", "npu-dpu3"]}, None,
+    )
+    for indices in ([1], [3, 3]):
+        with pytest.raises(ValueError):
+            prepare(npu, indices)
+    scope["DutHosts"].assert_not_called()
+    request.getfixturevalue.assert_not_called()
 
 
 def test_setpackage_wire_metadata_and_local_compatibility():
@@ -210,7 +279,52 @@ def test_parallel_upgrade_accepts_distinct_targets():
     }) for index in (0, 1)]
     result = scope["perform_gnoi_upgrade_smartswitch_dpus_parallel"](None, None, None, configs)
     assert set(result) == {0, 1}
-    assert executor.return_value.__enter__.return_value.submit.call_count == 2
+    assert executor.return_value.submit.call_count == 2
+    executor.return_value.shutdown.assert_called_once_with(wait=True)
+
+
+def test_parallel_upgrade_joins_policy_workers_before_raising():
+    """A failed peer cannot return while another worker still holds policy."""
+    scope = upgrade_functions([])
+    scope["SafeThreadPoolExecutor"] = THREADS.SafeThreadPoolExecutor
+    started, failed, release, restored, returned = [threading.Event() for _ in range(5)]
+    errors = []
+
+    def worker(npu, tbinfo, grpc, cfg, *args):
+        if cfg.index == 0:
+            assert started.wait(2)
+            failed.set()
+            raise RuntimeError("download failed")
+        try:
+            started.set()
+            assert release.wait(2)
+        finally:
+            restored.set()
+
+    scope["_upgrade_one_dpu_via_gnoi"] = worker
+    configs = [SimpleNamespace(index=index, metadata={
+        "x-sonic-ss-target-type": "dpu", "x-sonic-ss-target-index": str(index),
+    }) for index in (0, 1)]
+
+    def run():
+        try:
+            scope["perform_gnoi_upgrade_smartswitch_dpus_parallel"](None, None, None, configs)
+        except RuntimeError as error:
+            errors.append(error)
+        finally:
+            returned.set()
+
+    thread = threading.Thread(target=run)
+    thread.start()
+    try:
+        assert failed.wait(2)
+        assert not returned.wait(0.05)
+        assert not restored.is_set()
+    finally:
+        release.set()
+        thread.join(2)
+    assert returned.is_set() and restored.is_set()
+    assert len(errors) == 1 and "download failed" in str(errors[0])
 
 
 @pytest.mark.parametrize("pattern,expected", [

@@ -15,7 +15,9 @@ from tests.common.helpers.upgrade_helpers import (
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.device_utils import resolve_upgrade_dpu_indices
-from tests.common.fixtures.gnoi_download_policy import gnoi_dpu_download_policy  # noqa: F401
+from tests.common.fixtures.gnoi_download_policy import (  # noqa: F401
+    gnoi_download_policy, gnoi_dpu_download_policy,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +152,7 @@ def test_upgrade_one_dpu_via_gnoi(
         cfg=cfg,
         localhost=localhost,
         duthosts=duthosts,
-        download_policy=gnoi_dpu_download_policy,
+        download_policy=gnoi_dpu_download_policy(duthost, [dpu_index]),
     )
 
 
@@ -212,7 +214,7 @@ def test_upgrade_multiple_dpus_via_gnoi_parallel(
         max_workers=workers,
         localhost=localhost,
         duthosts=duthosts,
-        download_policy=gnoi_dpu_download_policy,
+        download_policy=gnoi_dpu_download_policy(duthost, dpu_indices),
     )
 
 
@@ -220,7 +222,7 @@ def test_upgrade_multiple_dpus_via_gnoi_parallel(
 def test_upgrade_smartswitch_all_dpus_then_npu(
     localhost, duthosts, ptfhost, enum_rand_one_per_hwsku_hostname,
     tbinfo, conn_graph_facts, xcvr_skip_list, request,
-    smartswitch_upgrade_params, gnmi_tls, gnoi_dpu_download_policy  # noqa: F811
+    smartswitch_upgrade_params, gnmi_tls, gnoi_download_policy, gnoi_dpu_download_policy  # noqa: F811
 ):
     """
     Full SmartSwitch upgrade: stage all DPUs first, then upgrade the NPU.
@@ -287,7 +289,7 @@ def test_upgrade_smartswitch_all_dpus_then_npu(
         ptf_gnoi=gnmi_tls.gnoi,
         cfgs=dpu_cfgs,
         max_workers=len(dpu_indices),
-        download_policy=gnoi_dpu_download_policy,
+        download_policy=gnoi_dpu_download_policy(duthost, dpu_indices),
     )
     logger.info("Phase 1 complete: image staged on all DPUs")
 
@@ -314,7 +316,7 @@ def test_upgrade_smartswitch_all_dpus_then_npu(
         conn_graph_facts=conn_graph_facts,
         xcvr_skip_list=xcvr_skip_list,
         duthosts=duthosts,
-        download_policy=gnoi_dpu_download_policy,
+        download_policy=gnoi_download_policy,
     )
     logger.info("Phase 2 complete: NPU is back up")
 

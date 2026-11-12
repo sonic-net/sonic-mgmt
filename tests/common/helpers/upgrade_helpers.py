@@ -515,7 +515,8 @@ def perform_gnoi_upgrade_smartswitch_dpus_parallel(
     workers = max_workers or len(cfgs)
     results: Dict[int, Dict] = {}
 
-    with SafeThreadPoolExecutor(max_workers=workers) as executor:
+    executor = SafeThreadPoolExecutor(max_workers=workers)
+    try:
         futs = {}
         for i, cfg in enumerate(cfgs):
             futs[i] = executor.submit(
@@ -525,5 +526,7 @@ def perform_gnoi_upgrade_smartswitch_dpus_parallel(
 
         for i, fut in futs.items():
             results[i] = fut.get()
+    finally:
+        executor.shutdown(wait=True)
 
     return results
