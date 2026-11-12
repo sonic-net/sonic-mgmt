@@ -14,12 +14,25 @@ from srv6_utils import check_bgp_neighbors
 from srv6_utils import check_bgp_neighbors_func
 from srv6_utils import runSendReceive
 from srv6_utils import check_routes
+from srv6_utils import check_v6_route_nhg_chain
+from srv6_utils import check_vrf_route_nhg_chain
 from srv6_utils import recording_fwding_chain
 from srv6_utils import turn_on_off_frr_debug
 from srv6_utils import collect_frr_debugfile
 
 from common_utils import enable_tcpdump
 from common_utils import disable_tcpdump
+
+
+from srv6_utils import *
+from srv6_utils import (
+    apply_config_cmmds_to_vtysh,
+    start_record_collection,
+    stop_record_collection,
+    assert_appdb_nexthop_removed,
+    assert_appdb_nexthop_present,
+    verify_nhg_before_routes,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +140,134 @@ def srv6_config(duthosts, rand_one_dut_hostname, nbrhosts, ptfhost, ptfadapter):
 #
 # Test case: check number of Ethnernet interfaces
 #
+
+# --- PIC Convergence Test Constants ---
+
+# Topology 1: Global Table Recursive Routes (applied on PE3)
+TOPO1_STATIC_ROUTES = [
+    "ipv6 route 1::1/128 2064:100::1d",
+    "ipv6 route 1::1/128 2064:200::1e",
+    "ipv6 route 2::2/128 2064:200::1e",
+    "ipv6 route 3::3/128 1::1",
+    "ipv6 route 3::3/128 2::2",
+    "ipv6 route 4::4/128 1::1",
+]
+
+TOPO1_STATIC_ROUTES_REMOVE = [
+    "no ipv6 route 1::1/128 2064:100::1d",
+    "no ipv6 route 1::1/128 2064:200::1e",
+    "no ipv6 route 2::2/128 2064:200::1e",
+    "no ipv6 route 3::3/128 1::1",
+    "no ipv6 route 3::3/128 2::2",
+    "no ipv6 route 4::4/128 1::1",
+]
+
+# Topology 2: Global Table with Direct + Recursive Mix (applied on PE3)
+TOPO2_STATIC_ROUTES = [
+    "ipv6 route 1::1/128 2064:100::1d",
+    "ipv6 route 1::1/128 2064:200::1e",
+    "ipv6 route 2::2/128 fc06::2",
+    "ipv6 route 3::3/128 fc08::2",
+    "ipv6 route 4::4/128 2::2",
+    "ipv6 route 4::4/128 3::3",
+]
+
+TOPO2_STATIC_ROUTES_REMOVE = [
+    "no ipv6 route 1::1/128 2064:100::1d",
+    "no ipv6 route 1::1/128 2064:200::1e",
+    "no ipv6 route 2::2/128 fc06::2",
+    "no ipv6 route 3::3/128 fc08::2",
+    "no ipv6 route 4::4/128 2::2",
+    "no ipv6 route 4::4/128 3::3",
+]
+
+# P2/P4 outbound: only advertise PE loopbacks with short AS-path (2 hops) to PE3.
+# PE3 inbound: only accept PE loopbacks with short AS-path (3 hops including peer AS).
+P2_OUTBOUND_FILTER = [
+    "ipv6 prefix-list PE_LOOPBACKS seq 5 permit 2064:100::1d/128",
+    "ipv6 prefix-list PE_LOOPBACKS seq 10 permit 2064:200::1e/128",
+    "ipv6 prefix-list PE_LOOPBACKS seq 15 permit 2064:300::1f/128",
+    "bgp as-path access-list SHORT_PATH_OUT permit ^[0-9]+_[0-9]+$",
+    "route-map TO_PE3 permit 10",
+    " match ipv6 address prefix-list PE_LOOPBACKS",
+    " match as-path SHORT_PATH_OUT",
+    "route-map TO_PE3 deny 20",
+    " match ipv6 address prefix-list PE_LOOPBACKS",
+    "route-map TO_PE3 permit 30",
+    "router bgp 65102",
+    " address-family ipv6 unicast",
+    "  neighbor fc08::1 route-map TO_PE3 out",
+]
+
+P2_OUTBOUND_FILTER_REMOVE = [
+    "router bgp 65102",
+    " address-family ipv6 unicast",
+    "  neighbor fc08::1 route-map pass_all out",
+    "exit-address-family",
+    "exit",
+    "no route-map TO_PE3",
+    "no ipv6 prefix-list PE_LOOPBACKS",
+    "no bgp as-path access-list SHORT_PATH_OUT",
+]
+
+P4_OUTBOUND_FILTER = [
+    "ipv6 prefix-list PE_LOOPBACKS seq 5 permit 2064:100::1d/128",
+    "ipv6 prefix-list PE_LOOPBACKS seq 10 permit 2064:200::1e/128",
+    "ipv6 prefix-list PE_LOOPBACKS seq 15 permit 2064:300::1f/128",
+    "bgp as-path access-list SHORT_PATH_OUT permit ^[0-9]+_[0-9]+$",
+    "route-map TO_PE3 permit 10",
+    " match ipv6 address prefix-list PE_LOOPBACKS",
+    " match as-path SHORT_PATH_OUT",
+    "route-map TO_PE3 deny 20",
+    " match ipv6 address prefix-list PE_LOOPBACKS",
+    "route-map TO_PE3 permit 30",
+    "router bgp 65103",
+    " address-family ipv6 unicast",
+    "  neighbor fc06::1 route-map TO_PE3 out",
+]
+
+P4_OUTBOUND_FILTER_REMOVE = [
+    "router bgp 65103",
+    " address-family ipv6 unicast",
+    "  neighbor fc06::1 route-map pass_all out",
+    "exit-address-family",
+    "exit",
+    "no route-map TO_PE3",
+    "no ipv6 prefix-list PE_LOOPBACKS",
+    "no bgp as-path access-list SHORT_PATH_OUT",
+]
+
+PE3_INBOUND_FILTER = [
+    "ipv6 prefix-list PE_LOOPBACKS seq 5 permit 2064:100::1d/128",
+    "ipv6 prefix-list PE_LOOPBACKS seq 10 permit 2064:200::1e/128",
+    "bgp as-path access-list SHORT_PATH permit ^[0-9]+_[0-9]+_[0-9]+$",
+    "route-map FILTER_IN permit 10",
+    " match ipv6 address prefix-list PE_LOOPBACKS",
+    " match as-path SHORT_PATH",
+    " set ipv6 next-hop prefer-global",
+    "route-map FILTER_IN deny 20",
+    " match ipv6 address prefix-list PE_LOOPBACKS",
+    "route-map FILTER_IN permit 30",
+    " set ipv6 next-hop prefer-global",
+    "router bgp 64602",
+    " address-family ipv6 unicast",
+    "  neighbor fc08::2 route-map FILTER_IN in",
+    "  neighbor fc06::2 route-map FILTER_IN in",
+]
+
+PE3_INBOUND_FILTER_REMOVE = [
+    "router bgp 64602",
+    " address-family ipv6 unicast",
+    "  neighbor fc08::2 route-map pass_all_in in",
+    "  neighbor fc06::2 route-map pass_all_in in",
+    "exit-address-family",
+    "exit",
+    "no route-map FILTER_IN",
+    "no ipv6 prefix-list PE_LOOPBACKS",
+    "no bgp as-path access-list SHORT_PATH",
+]
+
+
 def test_interface_on_each_node(duthosts, rand_one_dut_hostname, nbrhosts):
     for vm_name in test_vm_names:
         nbrhost = nbrhosts[vm_name]['host']
@@ -207,6 +348,17 @@ def test_check_routes(duthosts, rand_one_dut_hostname, nbrhosts):
         nbrhost, ["fd00:201:201:11::", "fd00:202:202:22::"],
         ["fc08::2", "fc06::2"], global_route, is_v6
     )
+
+    # NHG chain correlation: zebra Nexthop Group ID -> APPL_STATE_DB ->
+    # APPL_DB ROUTE_TABLE. Single SSH round-trip per route.
+    logger.info("Check NHG chain for VRF1 SRv6 VPN routes")
+    for ip in dut1_ips:
+        check_vrf_route_nhg_chain(nbrhost, "Vrf1", ip)
+
+    logger.info("Check NHG chain for global IPv6 core/loopback routes")
+    for v6_prefix in ["fd00:201:201:11::", "fd00:202:202:22::",
+                      "2064:100::1d", "2064:200::1e"]:
+        check_v6_route_nhg_chain(nbrhost, v6_prefix)
 
 
 #
@@ -481,3 +633,429 @@ def test_traffic_check_remote_bgp_fail_case(tbinfo, duthosts, rand_one_dut_hostn
         check_bgp_neighbors_func, pe3,
         ['2064:100::1d', '2064:200::1e', 'fc08::2', 'fc06::2']),
         "wait for PE3 BGP neighbors up")
+def test_topology1_local_failure(duthosts, nbrhosts):
+    """Test PIC convergence for Topology 1 when local link (Ethernet12) goes down.
+
+    Verifies that fpmsyncd's NHT backwalk removes fc06::2 from all APPDB
+    nexthop groups while keeping fc08::2 present.
+    """
+    duthost = nbrhosts["PE3"]['host']
+    testcase_name = "t1_local"
+
+    apply_config_cmmds_to_vtysh(duthost, TOPO1_STATIC_ROUTES)
+    time.sleep(30)
+
+    zebra_debug_file = "/tmp/zebra_log_t1_local.txt"
+    test_failed = True
+    try:
+        assert_appdb_nexthop_present(duthost, "fc06::2")
+        assert_appdb_nexthop_present(duthost, "fc08::2")
+
+        turn_on_off_frr_debug(duthosts, "", nbrhosts, zebra_debug_file, "PE3", True)
+        start_record_collection(duthost, testcase_name)
+
+        trigger_ts = get_dut_timestamp(duthost)
+        duthost.command("sudo ifconfig Ethernet12 down")
+
+        assert_appdb_nexthop_removed(duthost, "fc06::2", timeout=10)
+        assert_appdb_nexthop_present(duthost, "fc08::2")
+
+        verify_nhg_before_routes(duthost, testcase_name, "fc06::2", trigger_ts)
+        test_failed = False
+
+    finally:
+        # Recovery — bring interface back up
+        duthost.command("sudo ifconfig Ethernet12 up")
+        time.sleep(20)
+
+        try:
+            # Recovery path check: verify NHG re-notification to FPM restores
+            # both nexthops in APPDB (exercises NEXTHOP_GROUP_REINSTALL_FPM_ONLY
+            # when NHG exits KEEP_AROUND state). Skip if the test already failed
+            # to avoid flagging a known bad state.
+            if not test_failed:
+                assert_appdb_nexthop_present(duthost, "fc06::2")
+                assert_appdb_nexthop_present(duthost, "fc08::2")
+        finally:
+            # Cleanup must run even if the recovery asserts above fail.
+            stop_record_collection(duthost, testcase_name)
+            turn_on_off_frr_debug(duthosts, "", nbrhosts, zebra_debug_file, "PE3", False)
+            collect_frr_debugfile(duthosts, "", nbrhosts, zebra_debug_file, "PE3")
+            apply_config_cmmds_to_vtysh(duthost, TOPO1_STATIC_ROUTES_REMOVE)
+
+
+def test_topology1_remote_bgp_failure(duthosts, rand_one_dut_hostname, nbrhosts):
+    """Test VPN route change from 2 paths to 1 path via BGP session shutdown.
+
+    All learnt VPN routes and IPv6 routes from 2064:100::1d would be withdrawn
+    when PE1 shuts its BGP session toward PE3. This tests VPN routes changes
+    from 2 paths to 1 path case.
+    """
+    duthost = nbrhosts["PE3"]['host']
+    testcase_name = "t1_remote_bgp"
+
+    pe1_host = nbrhosts["PE1"]['host']
+
+    apply_config_cmmds_to_vtysh(duthost, TOPO1_STATIC_ROUTES)
+    time.sleep(30)
+    zebra_debug_file = "/tmp/zebra_log_t1_remote_bgp.txt"
+    test_failed = True
+    try:
+        wait_for_vrf_route_recursive_paths(
+                duthost, "Vrf1", "192.100.0.1",
+                ["2064:100::1d", "2064:200::1e"],
+                poll_interval=10, timeout=300,
+                remote_host=pe1_host, remote_clear_target="2064:300::1f")
+        assert_appdb_nexthop_present(duthost, "2064:100::1d")
+        assert_appdb_nexthop_present(duthost, "2064:200::1e")
+
+        turn_on_off_frr_debug(duthosts, "", nbrhosts, zebra_debug_file, "PE3", True)
+        start_record_collection(duthost, testcase_name)
+
+        # Shut BGP session on PE1 toward PE3 — sends NOTIFICATION, immediate withdrawal
+        trigger_ts = get_dut_timestamp(duthost)
+        pe1_host.command("vtysh -c 'configure terminal' -c 'router bgp 64600' "
+                         "-c 'neighbor 2064:300::1f shutdown'")
+
+        assert_appdb_nexthop_removed(duthost, "2064:100::1d", timeout=10)
+        assert_appdb_nexthop_present(duthost, "2064:200::1e")
+
+        verify_no_nhg_update(duthost, testcase_name, trigger_ts)
+        test_failed = False
+
+    finally:
+        try:
+            # Recovery — re-enable BGP session
+            pe1_host.command("vtysh -c 'configure terminal' -c 'router bgp 64600' "
+                             "-c 'no neighbor 2064:300::1f shutdown'")
+            time.sleep(10)
+            pe1_host.command("vtysh -c 'clear bgp 2064:300::1f'", module_ignore_errors=True)
+            duthost.command("vtysh -c 'clear bgp 2064:100::1d'", module_ignore_errors=True)
+            wait_for_vrf_route_recursive_paths(
+                duthost, "Vrf1", "192.100.0.1",
+                ["2064:100::1d", "2064:200::1e"],
+                poll_interval=10, timeout=300,
+                remote_host=pe1_host, remote_clear_target="2064:300::1f")
+
+            # Recovery path check: verify NHG re-notification to FPM restores
+            # both nexthops in APPDB (exercises NEXTHOP_GROUP_REINSTALL_FPM_ONLY
+            # when NHG exits KEEP_AROUND state). Skip if the test already failed
+            # to avoid flagging a known bad state.
+            if not test_failed:
+                assert_appdb_nexthop_present(duthost, "2064:100::1d")
+                assert_appdb_nexthop_present(duthost, "2064:200::1e")
+        finally:
+            stop_record_collection(duthost, testcase_name)
+            turn_on_off_frr_debug(duthosts, "", nbrhosts, zebra_debug_file, "PE3", False)
+            collect_frr_debugfile(duthosts, "", nbrhosts, zebra_debug_file, "PE3")
+            apply_config_cmmds_to_vtysh(duthost, TOPO1_STATIC_ROUTES_REMOVE)
+
+
+
+def test_remote_igp_failure(duthosts, rand_one_dut_hostname, nbrhosts):
+    """Test PIC edge convergence via IGP link failures (unfiltered, realistic).
+
+    When PE1 loses its IGP paths, P2 and P4 briefly advertise transient longer
+    AS-path routes for 2064:100::1d toward PE3 before the final withdrawal
+    arrives. These transient paths trigger PE3 to process unwanted route updates
+    (route-replace events) before it handles the actual :1d withdrawal. This
+    test verifies that even with such transient churn, the dataplane converges
+    correctly: 2064:100::1d is removed from APPDB and 2064:200::1e remains.
+
+    No verify_pic_nhg_switch here because the transient route-replace events
+    from path hunting produce additional swss record entries that make strict
+    NHG ordering verification unreliable.
+    """
+    duthost = nbrhosts["PE3"]['host']
+    p1 = duthosts[rand_one_dut_hostname]
+    p3 = nbrhosts["P3"]['host']
+    pe1_host = nbrhosts["PE1"]['host']
+    testcase_name = "remote_igp"
+
+    debug_cmds = [
+        'debug bgp updates',
+        'debug bgp neighbor-events',
+        'debug bgp zebra',
+        'debug zebra events',
+        'debug zebra rib',
+        'debug zebra rib detailed',
+        'debug zebra nht',
+        'debug zebra nht detailed',
+        'debug zebra dplane',
+        'debug zebra nexthop',
+        'debug zebra nexthop detail',
+        'debug zebra packet',
+        'debug zebra packet detail'
+    ]
+
+    apply_config_cmmds_to_vtysh(duthost, TOPO2_STATIC_ROUTES)
+
+    zebra_debug_file = "/tmp/zebra_bgp_remote_igp.txt"
+    try:
+        wait_for_vrf_route_recursive_paths(
+                    duthost, "Vrf1", "192.100.0.1",
+                    ["2064:100::1d", "2064:200::1e"],
+                    poll_interval=10, timeout=300,
+                    remote_host=pe1_host, remote_clear_target="2064:300::1f")
+        assert_appdb_nexthop_present(duthost, "2064:100::1d")
+        assert_appdb_nexthop_present(duthost, "2064:200::1e")
+
+        # Shut first IGP path: P1 Ethernet112 (PE1-P1 link)
+        p1.command("sudo ifconfig Ethernet112 down")
+
+        # Wait for route replace event to cool down — P2/P4 will send transient
+        # longer-AS-path advertisements for :1d during this window
+        time.sleep(40)
+
+        turn_on_off_frr_debug(duthosts, "", nbrhosts, zebra_debug_file, "PE3", True, debug_cmds)
+        start_record_collection(duthost, testcase_name)
+
+        # Shut second IGP path: P3 Ethernet4 (PE1-P3 link)
+        # This triggers full withdrawal of 2064:100::1d and PIC edge handling
+        p3.command("sudo ifconfig Ethernet4 down")
+
+        assert_appdb_nexthop_removed(duthost, "2064:100::1d", timeout=30)
+        assert_appdb_nexthop_present(duthost, "2064:200::1e")
+
+    finally:
+        try:
+            # Recovery — bring interfaces back up
+            p1.command("sudo ifconfig Ethernet112 up")
+            p3.command("sudo ifconfig Ethernet4 up")
+            time.sleep(30)
+            pe1_host.command("vtysh -c 'clear bgp 2064:300::1f'", module_ignore_errors=True)
+            duthost.command("vtysh -c 'clear bgp 2064:100::1d'", module_ignore_errors=True)
+            wait_for_vrf_route_recursive_paths(
+                duthost, "Vrf1", "192.100.0.1",
+                ["2064:100::1d", "2064:200::1e"],
+                poll_interval=10, timeout=300,
+                remote_host=pe1_host, remote_clear_target="2064:300::1f",
+                local_loopback="2064:300::1f")
+            apply_config_cmmds_to_vtysh(duthost, TOPO2_STATIC_ROUTES_REMOVE)
+        finally:
+            stop_record_collection(duthost, testcase_name)
+            turn_on_off_frr_debug(duthosts, "", nbrhosts, zebra_debug_file, "PE3", False, debug_cmds)
+            collect_frr_debugfile(duthosts, "", nbrhosts, zebra_debug_file, "PE3")
+
+
+def test_remote_igp_failure_filtered(duthosts, rand_one_dut_hostname, nbrhosts):
+    """Test PIC edge convergence via IGP link failures (filtered, controlled).
+
+    Uses route-map on P2/P4 (outbound) to prevent them from publishing transient
+    longer AS-path routes for 2064:100::1d to PE3. Also applies inbound route-map
+    on PE3 to reject any such transient paths. Additionally enables
+    'bgp suppress-fib-pending' so zebra does not react to route changes until FIB
+    install is confirmed, avoiding premature NHG updates.
+
+    With these controls in place, PE3 sees a clean single withdrawal of
+    2064:100::1d (no path hunting). Verifies PIC NHG switch to backup nexthop
+    2064:200::1e without transient churn in swss record.
+    """
+    duthost = nbrhosts["PE3"]['host']
+    p1 = duthosts[rand_one_dut_hostname]
+    p2 = nbrhosts["P2"]['host']
+    p3 = nbrhosts["P3"]['host']
+    p4 = nbrhosts["P4"]['host']
+    pe1_host = nbrhosts["PE1"]['host']
+    testcase_name = "remote_igp_filtered"
+
+    debug_cmds = [
+        'debug bgp updates',
+        'debug bgp neighbor-events',
+        'debug bgp zebra',
+        'debug zebra events',
+        'debug zebra rib',
+        'debug zebra rib detailed',
+        'debug zebra nht',
+        'debug zebra nht detailed',
+        'debug zebra dplane',
+        'debug zebra nexthop',
+        'debug zebra nexthop detail',
+        'debug zebra packet',
+        'debug zebra packet detail'
+    ]
+
+    # Apply AS-path filters to prevent path hunting
+    apply_config_cmmds_to_vtysh(p2, P2_OUTBOUND_FILTER)
+    apply_config_cmmds_to_vtysh(p4, P4_OUTBOUND_FILTER)
+    apply_config_cmmds_to_vtysh(duthost, PE3_INBOUND_FILTER)
+    # Enable suppress-fib-pending so zebra won't react to routes until FIB confirmed
+    duthost.command("vtysh -c 'configure terminal' -c 'router bgp 64602' "
+                    "-c 'bgp suppress-fib-pending'")
+    p2.command("sudo vtysh -c 'clear bgp ipv6 unicast fc08::1 soft out'")
+    p4.command("sudo vtysh -c 'clear bgp ipv6 unicast fc06::1 soft out'")
+    time.sleep(10)
+
+    apply_config_cmmds_to_vtysh(duthost, TOPO2_STATIC_ROUTES)
+
+    zebra_debug_file = "/tmp/zebra_bgp_remote_igp_filtered.txt"
+    try:
+        wait_for_vrf_route_recursive_paths(
+                    duthost, "Vrf1", "192.100.0.1",
+                    ["2064:100::1d", "2064:200::1e"],
+                    poll_interval=10, timeout=300,
+                    remote_host=pe1_host, remote_clear_target="2064:300::1f")
+        assert_appdb_nexthop_present(duthost, "2064:100::1d")
+        assert_appdb_nexthop_present(duthost, "2064:200::1e")
+
+        # Shut first IGP path: P1 Ethernet112 (PE1-P1 link)
+        p1.command("sudo ifconfig Ethernet112 down")
+
+        # Wait for route replace event to cool down
+        time.sleep(40)
+
+        turn_on_off_frr_debug(duthosts, "", nbrhosts, zebra_debug_file, "PE3", True, debug_cmds)
+        start_record_collection(duthost, testcase_name)
+
+        # Shut second IGP path: P3 Ethernet4 (PE1-P3 link)
+        # This triggers full withdrawal of 2064:100::1d and PIC edge handling
+        p3.command("sudo ifconfig Ethernet4 down")
+
+        assert_appdb_nexthop_removed(duthost, "2064:100::1d", timeout=30)
+        assert_appdb_nexthop_present(duthost, "2064:200::1e")
+
+        verify_pic_nhg_switch(duthost, testcase_name, "2064:200::1e")
+
+    finally:
+        try:
+            # Recovery - bring interfaces back up
+            p1.command("sudo ifconfig Ethernet112 up")
+            p3.command("sudo ifconfig Ethernet4 up")
+            time.sleep(30)
+            # Remove suppress-fib-pending and AS-path filters
+            duthost.command("vtysh -c 'configure terminal' -c 'router bgp 64602' "
+                            "-c 'no bgp suppress-fib-pending'")
+            apply_config_cmmds_to_vtysh(p2, P2_OUTBOUND_FILTER_REMOVE)
+            apply_config_cmmds_to_vtysh(p4, P4_OUTBOUND_FILTER_REMOVE)
+            apply_config_cmmds_to_vtysh(duthost, PE3_INBOUND_FILTER_REMOVE)
+            p2.command("sudo vtysh -c 'clear bgp ipv6 unicast fc08::1 soft out'")
+            p4.command("sudo vtysh -c 'clear bgp ipv6 unicast fc06::1 soft out'")
+            pe1_host.command("vtysh -c 'clear bgp 2064:300::1f'", module_ignore_errors=True)
+            duthost.command("vtysh -c 'clear bgp 2064:100::1d'", module_ignore_errors=True)
+            wait_for_vrf_route_recursive_paths(
+                duthost, "Vrf1", "192.100.0.1",
+                ["2064:100::1d", "2064:200::1e"],
+                poll_interval=10, timeout=300,
+                remote_host=pe1_host, remote_clear_target="2064:300::1f",
+                local_loopback="2064:300::1f")
+            apply_config_cmmds_to_vtysh(duthost, TOPO2_STATIC_ROUTES_REMOVE)
+        finally:
+            stop_record_collection(duthost, testcase_name)
+            turn_on_off_frr_debug(duthosts, "", nbrhosts, zebra_debug_file, "PE3", False, debug_cmds)
+            collect_frr_debugfile(duthosts, "", nbrhosts, zebra_debug_file, "PE3")
+
+
+def test_topology2_local_failure(duthosts, nbrhosts):
+    """Test PIC convergence for Topology 2 when local link (Ethernet12) goes down.
+
+    Topology 2 has direct + recursive mix. Verifies fc06::2 removed from APPDB
+    while fc08::2 remains.
+    """
+    duthost = nbrhosts["PE3"]['host']
+    testcase_name = "t2_local"
+
+    apply_config_cmmds_to_vtysh(duthost, TOPO2_STATIC_ROUTES)
+    time.sleep(30)
+    zebra_debug_file = "/tmp/zebra_log_t2_local.txt"
+    test_failed = True
+    try:
+        assert_appdb_nexthop_present(duthost, "fc06::2")
+        assert_appdb_nexthop_present(duthost, "fc08::2")
+
+        turn_on_off_frr_debug(duthosts, "", nbrhosts, zebra_debug_file, "PE3", True)
+        start_record_collection(duthost, testcase_name)
+
+        trigger_ts = get_dut_timestamp(duthost)
+        duthost.command("sudo ifconfig Ethernet12 down")
+
+        assert_appdb_nexthop_removed(duthost, "fc06::2", timeout=10)
+        assert_appdb_nexthop_present(duthost, "fc08::2")
+
+        verify_nhg_before_routes(duthost, testcase_name, "fc06::2", trigger_ts)
+        test_failed = False
+
+    finally:
+        # Recovery — bring interface back up
+        duthost.command("sudo ifconfig Ethernet12 up")
+        time.sleep(20)
+
+        try:
+            # Recovery path check: verify NHG re-notification to FPM restores
+            # both nexthops in APPDB (exercises NEXTHOP_GROUP_REINSTALL_FPM_ONLY
+            # when NHG exits KEEP_AROUND state). Skip if the test already failed
+            # to avoid flagging a known bad state.
+            if not test_failed:
+                assert_appdb_nexthop_present(duthost, "fc06::2")
+                assert_appdb_nexthop_present(duthost, "fc08::2")
+        finally:
+            # Cleanup must run even if the recovery asserts above fail.
+            stop_record_collection(duthost, testcase_name)
+            turn_on_off_frr_debug(duthosts, "", nbrhosts, zebra_debug_file, "PE3", False)
+            collect_frr_debugfile(duthosts, "", nbrhosts, zebra_debug_file, "PE3")
+            apply_config_cmmds_to_vtysh(duthost, TOPO2_STATIC_ROUTES_REMOVE)
+
+
+def test_topology2_remote_bgp_failure(duthosts, rand_one_dut_hostname, nbrhosts):
+    """Test VPN route change from 2 paths to 1 path via BGP session shutdown (Topology 2).
+
+    All learnt VPN routes and IPv6 routes from 2064:100::1d would be withdrawn
+    when PE1 shuts its BGP session toward PE3. Topology 2 has direct + recursive
+    mix. This tests VPN routes changes from 2 paths to 1 path case.
+    """
+    duthost = nbrhosts["PE3"]['host']
+    testcase_name = "t2_remote"
+
+    pe1_host = nbrhosts["PE1"]['host']
+
+    apply_config_cmmds_to_vtysh(duthost, TOPO2_STATIC_ROUTES)
+    time.sleep(30)
+    zebra_debug_file = "/tmp/zebra_log_t2_remote_bgp.txt"
+    test_failed = True
+    try:
+        assert_appdb_nexthop_present(duthost, "2064:100::1d")
+        assert_appdb_nexthop_present(duthost, "2064:200::1e")
+
+        turn_on_off_frr_debug(duthosts, "", nbrhosts, zebra_debug_file, "PE3", True)
+        start_record_collection(duthost, testcase_name)
+
+        # Shut BGP session on PE1 toward PE3 — sends NOTIFICATION, immediate withdrawal
+        trigger_ts = get_dut_timestamp(duthost)
+        pe1_host.command("vtysh -c 'configure terminal' -c 'router bgp 64600' "
+                         "-c 'neighbor 2064:300::1f shutdown'")
+
+        assert_appdb_nexthop_removed(duthost, "2064:100::1d", timeout=10)
+        assert_appdb_nexthop_present(duthost, "2064:200::1e")
+
+        verify_no_nhg_update(duthost, testcase_name, trigger_ts)
+        test_failed = False
+
+    finally:
+        try:
+            # Recovery — re-enable BGP session
+            pe1_host.command("vtysh -c 'configure terminal' -c 'router bgp 64600' "
+                             "-c 'no neighbor 2064:300::1f shutdown'")
+            time.sleep(10)
+            pe1_host.command("vtysh -c 'clear bgp 2064:300::1f'", module_ignore_errors=True)
+            duthost.command("vtysh -c 'clear bgp 2064:100::1d'", module_ignore_errors=True)
+            wait_for_vrf_route_recursive_paths(
+                duthost, "Vrf1", "192.100.0.1",
+                ["2064:100::1d", "2064:200::1e"],
+                poll_interval=10, timeout=300,
+                remote_host=pe1_host, remote_clear_target="2064:300::1f",
+                local_loopback="2064:300::1f")
+
+            # Recovery path check: verify NHG re-notification to FPM restores
+            # both nexthops in APPDB (exercises NEXTHOP_GROUP_REINSTALL_FPM_ONLY
+            # when NHG exits KEEP_AROUND state). Skip if the test already failed
+            # to avoid flagging a known bad state.
+            if not test_failed:
+                assert_appdb_nexthop_present(duthost, "2064:100::1d")
+                assert_appdb_nexthop_present(duthost, "2064:200::1e")
+        finally:
+            stop_record_collection(duthost, testcase_name)
+            turn_on_off_frr_debug(duthosts, "", nbrhosts, zebra_debug_file, "PE3", False)
+            collect_frr_debugfile(duthosts, "", nbrhosts, zebra_debug_file, "PE3")
+            apply_config_cmmds_to_vtysh(duthost, TOPO2_STATIC_ROUTES_REMOVE)
+
+
+
