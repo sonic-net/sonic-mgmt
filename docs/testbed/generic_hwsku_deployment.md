@@ -40,6 +40,9 @@ definition or a static port mapping. The frozen manifest owns those mappings.
 
 Automatically derived inputs:
 
+`protected_peers` may be omitted when empty. Every connected peer must still
+be explicitly controlled or protected; omission does not authorize other peers.
+
 | Input | Source and boundary |
 | --- | --- |
 | Capability and identity | Actual installed image, platform.json, canonical parser and explicit installed base-HWSKU port mapping on each controlled device, with source hashes |
@@ -66,6 +69,10 @@ For an observed `buffer_model: dynamic`, installed templates may emit
 buffermgr; actual APPL profiles, ASIC bindings and reservation limits must still
 converge. Traditional/unknown models cannot use this exception, and protected
 global policy cannot be changed by the generated tables.
+Only a frozen dynamic model with a positive shared-headroom ratio may treat
+`ingress_lossless_pool.xoff: "0"` as automatic sizing. Applied APPL/ASIC values,
+the original PG reservation budget and matching observed/live MMU capacity still
+gate readiness; fixed XOFF values and traditional/unknown models remain exact.
 
 ### One physical layout, separate evidence
 
@@ -113,6 +120,9 @@ inventory/vault arguments and Ansible verbosity options are unchanged:
 No `--generic-request`, separate request path or `--generic` switch is required.
 The controller also exposes `preflight`, `smoke` and `status` through
 `ansible/scripts/generic_hwsku_lifecycle.py`; its `--help` lists the arguments.
+Deployment preflight and mutating commands require the actual scheduler-injected
+`ELASTICTEST_TEST_PLAN_ID`. Missing ownership is rejected before collection or
+freezing inputs; do not invent an ID to bypass reservation admission.
 
 For a standard physical TestPlan, reserve the original physical name and set:
 
@@ -174,6 +184,9 @@ responders. Shared parents/bridges are not reconfigured.
 leaf configuration, ports, cables and transport are not replanned or reapplied.
 Readiness checks selected carriers, actual ASIC port objects, named APPL
 buffer profiles, matching applied ASIC profile/pool attributes and QoS objects.
+Frozen PORT speed and lane assignments must match STATE_DB operational speed
+and actual ASIC PORT attributes. Buffer profiles require one effective static
+or dynamic threshold and the matching ASIC profile threshold mode.
 Every selected port must have an actual ASIC PORT object, not just counter
 mappings. Applied QoS map types and complete key/value entries must match the
 frozen definitions; port PFC bitmaps and combined/asymmetric mode must match
@@ -248,8 +261,19 @@ missing originals or a different plan owner fail safely with retained evidence.
 ## Evidence and failure handling
 
 Private originals, templates, operation readbacks, journal and reports live
-under ignored `.generic_hwsku/<testbed>/`, restricted to their owner. Collection
-attempts use fresh directories, so a failed collection cannot reuse stale facts.
+under ignored `.generic_hwsku/<testbed>/runs/<platform-plan-id>/`, restricted to
+their owner. The per-testbed active index stays locked through each CLI phase
+and its final receipt, preventing a concurrent plan from switching during
+preparation, configuration or recovery. Pytest
+uses the same selector. A different plan starts a fresh directory only after
+the previous restoration report and authenticated terminal journal agree.
+Legacy same-owner workspaces remain recoverable in their original location.
+Old directories and absolute artifact paths are never moved, deleted or rebound;
+failed/unverified restoration blocks a new run instead of being skipped.
+An owner-bound preflight failure may close its claim without restoration only
+when no scenario inputs were frozen and no native intent, transaction or hold
+exists; its read-only diagnostics are retained.
+Collection attempts use fresh directories, so a failed collection cannot reuse stale facts.
 Custom workspace paths never change an existing parent directory's permissions.
 On POSIX, group/world-writable parents are rejected; an existing workspace must
 already satisfy the private ownership/permission contract rather than being

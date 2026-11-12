@@ -88,7 +88,7 @@
             container: "ptf_{{ generic_collect_group }}"
             inventory_name: "{{ inventory_hostname }}"
             image_reference: >-
-              {{ public_docker_registry_host }}/{{ generic_collect_ptf_image_name }}:{{ generic_collect_ptf_image_tag }}
+              {{ ptf_registry_host | default(docker_registry_host) }}/{{ generic_collect_ptf_image_name }}:{{ generic_collect_ptf_image_tag }}
             external_interface: "{{ external_port }}"
             management:
               bridge: "{{ mgmt_bridge }}"

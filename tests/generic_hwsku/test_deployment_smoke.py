@@ -17,7 +17,11 @@ pytestmark = [pytest.mark.topology("generic"), pytest.mark.disable_loganalyzer]
 def generic_deployment_lifecycle(tbinfo):
     """Restore originals after the global module config/core guard finishes."""
     root = Path(__file__).resolve().parents[2]
-    workspace = root / ".generic_hwsku" / tbinfo["conf-name"]
+    sys.path.insert(0, str(root / "ansible" / "scripts"))
+    from generic_hwsku_lifecycle import active_workspace
+
+    workspace = active_workspace(
+        root / ".generic_hwsku" / tbinfo["conf-name"], os.environ.get("ELASTICTEST_TEST_PLAN_ID"))
     invocation = json.loads((workspace / "invocation.json").read_text())
     assert invocation["testbed"] == tbinfo["conf-name"], "Frozen Generic invocation names a different testbed"
 

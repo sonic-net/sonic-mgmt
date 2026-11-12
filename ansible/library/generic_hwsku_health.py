@@ -64,6 +64,63 @@ def reference(value, table):
     return value
 
 
+def automatic_xoff_pools(request):
+    if request.get("buffer_model") != "dynamic":
+        return set()
+    parameters = request.get("lossless_parameters", {})
+    if not isinstance(parameters, dict) or len(parameters) > 1:
+        raise ValueError("Frozen dynamic lossless parameters are ambiguous")
+    if not parameters:
+        return set()
+    row = next(iter(parameters.values()))
+    if not isinstance(row, dict):
+        raise ValueError("Frozen dynamic lossless parameters must contain a row")
+    ratio = str(row.get("over_subscribe_ratio", "0"))
+    if not ratio.isdigit():
+        raise ValueError("Frozen shared-headroom ratio must be a nonnegative integer")
+    pool = request["pools"].get("ingress_lossless_pool", {})
+    return ({"ingress_lossless_pool"} if int(ratio) > 0
+            and pool.get("type") == "ingress" and str(pool.get("xoff")) == "0" else set())
+
+
+def shared_headroom_errors(request, database):
+    pools = automatic_xoff_pools(request)
+    if not pools:
+        return []
+    capacity = database.get_all("STATE_DB", "BUFFER_MAX_PARAM_TABLE|global") or {}
+    frozen, observed = request.get("mmu_size"), capacity.get("mmu_size")
+    if (not all(isinstance(value, str) and value.isdigit() and int(value) > 0 for value in (frozen, observed))
+            or int(frozen) != int(observed)):
+        return ["Automatic shared headroom lacks matching frozen/live MMU capacity"]
+    errors = []
+    for name in sorted(pools):
+        pool = database.get_all("APPL_DB", "BUFFER_POOL_TABLE:" + name) or {}
+        values = [pool.get(field) for field in ("size", "xoff")]
+        if not all(isinstance(value, str) and value.isdigit() for value in values):
+            errors.append(name + ": automatic shared headroom sizing is unresolved")
+        elif sum(int(value) for value in values) > int(frozen):
+            errors.append(name + ": applied pool/shared headroom exceeds verified MMU capacity")
+    return errors
+
+
+def port_matches(request, database, port, asic_port):
+    expected = request.get("port_attributes", {}).get(port, {})
+    speed, lanes = expected.get("speed", ""), expected.get("lanes", "")
+    if not isinstance(speed, str) or not speed.isdigit() or int(speed) <= 0 or not isinstance(lanes, str):
+        return False
+    expected_lanes = [value.strip() for value in lanes.split(",")]
+    count, separator, values = asic_port.get("SAI_PORT_ATTR_HW_LANE_LIST", "").partition(":")
+    actual_lanes = [value.strip() for value in values.split(",")]
+    if (not separator or not count.isdigit()
+            or not all(value.isdigit() for value in expected_lanes + actual_lanes)
+            or int(count) != len(actual_lanes)):
+        return False
+    wanted, actual = set(map(int, expected_lanes)), set(map(int, actual_lanes))
+    operational = database.get_all("STATE_DB", "PORT_TABLE|" + port) or {}
+    return (len(wanted) == len(expected_lanes) and len(actual) == len(actual_lanes) and wanted == actual
+            and asic_port.get("SAI_PORT_ATTR_SPEED") == speed and operational.get("speed") == speed)
+
+
 def profile_matches(database, request, port, index, binding, kind, asic_profile):
     table = "BUFFER_PG_TABLE" if kind == "INGRESS_PRIORITY_GROUP" else "BUFFER_QUEUE_TABLE"
     application = database.get_all("APPL_DB", "{}:{}:{}".format(table, port, binding["selector"])) or {}
@@ -72,12 +129,18 @@ def profile_matches(database, request, port, index, binding, kind, asic_profile)
     if not name or name == "NULL" or (configured != "NULL" and name != configured):
         return False
     profile = database.get_all("APPL_DB", "BUFFER_PROFILE_TABLE:" + name) or {}
-    if (not {"pool", "size"} <= set(profile) or not {"dynamic_th", "static_th"}.intersection(profile)
+    thresholds = {"dynamic_th", "static_th"}.intersection(profile)
+    if (not {"pool", "size"} <= set(profile) or len(thresholds) != 1
             or kind == "INGRESS_PRIORITY_GROUP" and configured == "NULL" and not {"xon", "xoff"} <= set(profile)):
+        return False
+    mode = "DYNAMIC" if "dynamic_th" in thresholds else "STATIC"
+    if asic_profile.get("SAI_BUFFER_PROFILE_ATTR_THRESHOLD_MODE") != "SAI_BUFFER_PROFILE_THRESHOLD_MODE_" + mode:
         return False
     fields = {"size": "RESERVED_BUFFER_SIZE", "xon": "XON_TH", "xoff": "XOFF_TH",
               "xon_offset": "XON_OFFSET_TH", "dynamic_th": "SHARED_DYNAMIC_TH", "static_th": "SHARED_STATIC_TH"}
     configured_profile = request["profiles"].get(configured, {}) if configured != "NULL" else {}
+    if configured_profile and {"dynamic_th", "static_th"}.intersection(configured_profile) != thresholds:
+        return False
     for field, attribute in fields.items():
         if field in configured_profile and str(configured_profile[field]) != str(profile.get(field)):
             return False
@@ -92,8 +155,9 @@ def profile_matches(database, request, port, index, binding, kind, asic_profile)
     if not {"size", "type", "mode"} <= set(pool):
         return False
     configured_pool = request["pools"].get(pool_name, {})
+    automatic = pool_name in automatic_xoff_pools(request)
     if any(field in configured_pool and str(configured_pool[field]) != str(pool.get(field))
-           for field in ("size", "type", "mode", "xoff")):
+           for field in ("size", "type", "mode", "xoff") if not (field == "xoff" and automatic)):
         return False
     pool_id = asic_profile.get("SAI_BUFFER_PROFILE_ATTR_POOL_ID")
     asic_pool = database.get_all("ASIC_DB", "ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_POOL:" + str(pool_id)) or {}
@@ -165,7 +229,7 @@ def pfc_matches(request, port, asic_port):
 
 
 def check(request, database, interface_root=Path("/sys/class/net")):
-    problems, checked = [], 0
+    problems, checked = shared_headroom_errors(request, database), 0
     reservations = {}
     headroom_ports = set(request.get("headroom_ports", request["ports"]))
     for key in database.keys("APPL_DB", "BUFFER_PG_TABLE:*") or []:
@@ -213,6 +277,8 @@ def check(request, database, interface_root=Path("/sys/class/net")):
         if not asic_port:
             problems.append(port + ": actual ASIC port object is absent")
             continue
+        if not port_matches(request, database, port, asic_port):
+            problems.append(port + ": applied PORT speed/lanes disagree with frozen settings")
         for kind, prefix, bindings in (
                 ("INGRESS_PRIORITY_GROUP", "SAI_INGRESS_PRIORITY_GROUP_ATTR_", request["pg"][port]),
                 ("QUEUE", "SAI_QUEUE_ATTR_", request["queues"][port])):
@@ -285,7 +351,7 @@ def main():
             raise ValueError("Readiness device identity or ASIC scope changed")
         load_db_config()
         database = SonicV2Connector(namespace=multi_asic.get_namespace_list()[0])
-        for name in ("COUNTERS_DB", "ASIC_DB", "APPL_DB"):
+        for name in ("COUNTERS_DB", "ASIC_DB", "APPL_DB", "STATE_DB"):
             database.connect(name)
         result = wait_ready(request, database)
         from generic_hwsku_device_action import write_result

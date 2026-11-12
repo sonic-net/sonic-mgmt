@@ -906,6 +906,7 @@ def _windows_security(path, create=False):
 
 
 def _private(path, directory=False, create=False):
+    path = os.fspath(path)
     if create:
         if os.name == "nt":
             _windows_security(path, create=True)
@@ -957,6 +958,41 @@ def _read_json(path):
             return json.load(stream)
     except (ValueError, UnicodeError):
         raise ConflictError("Corrupt durable JSON artifact") from None
+
+
+@contextmanager
+def private_lock(workspace):
+    workspace = os.fspath(workspace)
+    _private(workspace, directory=True)
+    path = os.path.join(workspace, ".lock")
+    if os.path.lexists(path):
+        _private(path)
+    descriptor = os.open(path, os.O_CREAT | os.O_RDWR, 0o600)
+    locked = False
+    try:
+        _private(path)
+        if os.fstat(descriptor).st_size == 0:
+            os.write(descriptor, b"\0")
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        if os.name == "nt":
+            import msvcrt
+            try:
+                msvcrt.locking(descriptor, msvcrt.LK_NBLCK, 1)
+            except OSError:
+                raise ConflictError("Workspace is in use; no lock was stolen") from None
+        else:
+            import fcntl
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                raise ConflictError("Workspace is in use; no lock was stolen") from None
+        locked = True
+        yield
+    finally:
+        if locked and os.name == "nt":
+            os.lseek(descriptor, 0, os.SEEK_SET)
+            msvcrt.locking(descriptor, msvcrt.LK_UNLCK, 1)
+        os.close(descriptor)
 
 
 def read_artifact(reference):
@@ -1072,38 +1108,8 @@ class DeploymentTransaction:
                 hosts[resource["target"]] = record
         return cls(workspace, bundle, backend, hosts, aliases)
 
-    @contextmanager
     def _lock(self):
-        _private(self.workspace, directory=True)
-        path = os.path.join(self.workspace, ".lock")
-        if os.path.lexists(path):
-            _private(path)
-        descriptor = os.open(path, os.O_CREAT | os.O_RDWR, 0o600)
-        locked = False
-        try:
-            _private(path)
-            if os.fstat(descriptor).st_size == 0:
-                os.write(descriptor, b"\0")
-            os.lseek(descriptor, 0, os.SEEK_SET)
-            if os.name == "nt":
-                import msvcrt
-                try:
-                    msvcrt.locking(descriptor, msvcrt.LK_NBLCK, 1)
-                except OSError:
-                    raise ConflictError("Workspace is in use; no lock was stolen") from None
-            else:
-                import fcntl
-                try:
-                    fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                except OSError:
-                    raise ConflictError("Workspace is in use; no lock was stolen") from None
-            locked = True
-            yield
-        finally:
-            if locked and os.name == "nt":
-                os.lseek(descriptor, 0, os.SEEK_SET)
-                msvcrt.locking(descriptor, msvcrt.LK_UNLCK, 1)
-            os.close(descriptor)
+        return private_lock(self.workspace)
 
     def _artifact(self, kind, value):
         envelope = {"kind": kind, "value": value}

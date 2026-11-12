@@ -295,6 +295,13 @@ def perform(kind, before, after, operation_id, request, directory, startup, devi
         raise DeviceActionError("The native write did not converge to its declared resource state")
 
 
+def validate_identity(scenario, device):
+    if (not isinstance(scenario, str) or re.fullmatch(r"[A-Za-z0-9_-]{1,128}", scenario) is None
+            or not isinstance(device, str) or re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", device) is None
+            or device in (".", "..")):
+        raise DeviceActionError("Invalid scenario/device directory identity")
+
+
 def main():
     import fcntl
     from ansible.module_utils.basic import AnsibleModule
@@ -312,9 +319,7 @@ def main():
     try:
         if socket.gethostname().lower() != module.params["device"].lower():
             raise DeviceActionError("Actual device identity differs from the requested action target")
-        for field in ("scenario", "device"):
-            if re.fullmatch(r"[A-Za-z0-9_-]{1,128}", module.params[field]) is None:
-                raise DeviceActionError("Invalid scenario/device directory identity")
+        validate_identity(module.params["scenario"], module.params["device"])
         root = Path("/var/lib/sonic-generic")
         directory = root / module.params["scenario"] / module.params["device"]
         if any(path.is_symlink() for path in [directory] + list(directory.parents)):

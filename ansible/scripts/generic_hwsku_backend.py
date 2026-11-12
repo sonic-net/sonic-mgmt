@@ -18,7 +18,7 @@ sys.path.insert(0, str(ANSIBLE / "library"))
 from generic_hwsku_deployment import (ConflictError, DeploymentTransaction, RestorationError,  # noqa: E402
                                       TransactionError, _buffer_reservations, read_artifact,
                                       render_bundle, render_contexts)
-from generic_hwsku_health import QOS_MAPS, port_bindings, reference  # noqa: E402
+from generic_hwsku_health import QOS_MAPS, automatic_xoff_pools, port_bindings, reference  # noqa: E402
 from generic_hwsku_host_action import candidate_state, validate_spec  # noqa: E402
 
 
@@ -52,6 +52,14 @@ def collected_baselines(facts):
                         "startup": {"data": data, "metadata": {
                             key: startup[key] for key in ("mode", "uid", "gid")}}}
     return result
+
+
+def buffer_health_policy(config, mmu_size):
+    return {
+        "buffer_model": config.get("DEVICE_METADATA", {}).get("localhost", {}).get("buffer_model"),
+        "lossless_parameters": config.get("DEFAULT_LOSSLESS_BUFFER_PARAMETER", {}),
+        "pools": config.get("BUFFER_POOL", {}), "mmu_size": mmu_size,
+    }
 
 
 class AnsibleRunner:
@@ -174,6 +182,8 @@ class NativeBackend:
                         qos[port].update(attributes)
             result = self.device_call(device, "running", "health", request={
                 "device": device, "ports": ports, "qos": qos,
+                "port_attributes": {port: {field: config.get("PORT", {}).get(port, {}).get(field)
+                                           for field in ("speed", "lanes")} for port in ports},
                 "qos_maps": {spec["table"]: config.get(spec["table"], {}) for spec in QOS_MAPS.values()},
                 "pfc_asym": {port: config.get("PORT", {}).get(port, {}).get("pfc_asym", "off") for port in ports},
                 "pg": {port: port_bindings(config, "BUFFER_PG", port) for port in ports},
@@ -181,7 +191,8 @@ class NativeBackend:
                 "headroom_limit": bundle["manifest"]["resources"]["available"][device]["headroom"],
                 "headroom_ports": sorted(set(bundle["ownership"][device]["ports"])
                                          | set(bundle["ownership"][device]["old_ports"])),
-                "profiles": config.get("BUFFER_PROFILE", {}), "pools": config.get("BUFFER_POOL", {})})
+                "profiles": config.get("BUFFER_PROFILE", {}),
+                **buffer_health_policy(config, self.payload["devices"][device].get("mmu_size"))})
             results[device] = result
             if result.get("ready") is not True:
                 raise NativeOperationError("Selected link/buffer/QoS readiness did not converge on {}: {}".format(
@@ -202,9 +213,17 @@ def host_spec(bundle, host, transport_policy):
     if len(bridges) != 1:
         raise PrerequisiteError("The exact existing management bridge was not collected")
     management["mtu"] = bridges[0]["mtu"]
-    management["addresses"] = [str(ipaddress.ip_interface(value)) for value in management["addresses"] if value]
-    for key in ("gateway", "gateway_v6"):
-        management[key] = str(ipaddress.ip_address(management[key])) if management.get(key) else ""
+    interfaces = [ipaddress.ip_interface(value) for value in management["addresses"] if value]
+    management["addresses"] = [str(value) for value in interfaces]
+    families = {value.version for value in interfaces}
+    for key, family in (("gateway", 4), ("gateway_v6", 6)):
+        if family not in families or not management.get(key):
+            management[key] = ""
+        else:
+            gateway = ipaddress.ip_address(management[key])
+            if gateway.version != family:
+                raise PrerequisiteError("The management gateway has the wrong address family")
+            management[key] = str(gateway)
     image = host["container"].get("image_id") or transport_policy.get("image_id")
     if not isinstance(image, str):
         raise PrerequisiteError("No verified installed immutable PTF image identity")
@@ -244,9 +263,12 @@ def verify_shared_pool_capacity(bundle, tables, facts):
         for phase, generated in phases.items():
             config = bundle["deploy_configs"][device] if phase == "deploy" else bundle["add_configs"][device]
             pools = generated.get("BUFFER_POOL", {})
+            observed = facts[device].get("applied_buffers", {}).get("mmu_size")
+            if (automatic_xoff_pools(buffer_health_policy(config, observed))
+                    and (not isinstance(observed, str) or not observed.isdigit() or int(observed) <= 0)):
+                raise PrerequisiteError("Automatic shared headroom requires observed SDK MMU capacity on " + device)
             if all(config.get("BUFFER_POOL", {}).get(name) == row for name, row in pools.items()):
                 continue
-            observed = facts[device].get("applied_buffers", {}).get("mmu_size")
             if not isinstance(observed, str) or not observed.isdigit() or int(observed) <= 0:
                 raise PrerequisiteError("Shared-pool retention requires observed SDK MMU capacity on " + device)
             reservations = _buffer_reservations(generated)
@@ -318,6 +340,7 @@ def prepare_backend(arguments, scope, workspace):
         if device == bundle["dut"]:
             candidates["deploy"] = bundle["deploy_configs"][device]
         devices[device] = {
+            "mmu_size": facts[device].get("applied_buffers", {}).get("mmu_size"),
             "baseline": {"running": baselines[device]["running"],
                          "startup": startup_wire(baselines[device]["startup"])},
             "candidates": candidates,
