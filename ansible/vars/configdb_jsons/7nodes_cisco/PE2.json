@@ -466,7 +466,7 @@
     },
     "SRV6_MY_LOCATORS": {
         "lsid1": {
-            "argu_len": "48",
+            "arg_len": "48",
             "block_len": "32",
             "func_len": "16",
             "node_len": "16",
