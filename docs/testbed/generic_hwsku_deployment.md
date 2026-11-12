@@ -120,6 +120,9 @@ inventory/vault arguments and Ansible verbosity options are unchanged:
 No `--generic-request`, separate request path or `--generic` switch is required.
 The controller also exposes `preflight`, `smoke` and `status` through
 `ansible/scripts/generic_hwsku_lifecycle.py`; its `--help` lists the arguments.
+`status` failures return a read error without creating a workspace or changing
+deployment reports/recovery holds. Host-only cleanup collection has its own
+private index and never replaces the frozen full-device facts reference.
 Deployment preflight and mutating commands require the actual scheduler-injected
 `ELASTICTEST_TEST_PLAN_ID`. Missing ownership is rejected before collection or
 freezing inputs; do not invent an ID to bypass reservation admission.

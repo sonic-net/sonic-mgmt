@@ -42,13 +42,14 @@ def private_json(path, value):
             os.unlink(temporary)
 
 
-def private_workspace(path):
+def private_workspace(path, create=True):
     if any(parent.is_symlink() for parent in [path] + list(path.parents)):
         raise PrerequisiteError("The Generic private workspace must not traverse symlinks")
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if create:
+        path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     if os.name == "posix" and path.parent.stat().st_mode & 0o022:
         raise PrerequisiteError("The Generic workspace parent is group/world writable")
-    _private(str(path), directory=True, create=not path.exists())
+    _private(str(path), directory=True, create=create and not path.exists())
     return path
 
 
@@ -331,7 +332,8 @@ def run_collection(arguments, scope, testbed, workspace, host_only=False):
         "Read-only Ansible collection failed (rc {}); private evidence: {}".format(
             result.returncode, collection / "collect.log")]
     if not errors:
-        private_json(workspace / "collection.json", {"directory": str(collection)})
+        marker = "host-collection.json" if host_only else "collection.json"
+        private_json(workspace / marker, {"directory": str(collection)})
     return facts, host, errors
 
 
@@ -419,7 +421,8 @@ def main(argv=None):
         if arguments.action != "status":
             _validate_owner(owner)
         default = ANSIBLE.parent / ".generic_hwsku" / arguments.testbed
-        base = private_workspace(arguments.workspace or default)
+        base = (private_workspace(arguments.workspace or default, create=False) if arguments.action == "status"
+                else private_workspace(arguments.workspace or default))
         if arguments.workspace is not None:
             registry = base
             if base.parent.name == "runs" and (
@@ -494,6 +497,9 @@ def main(argv=None):
         return 0
     except (OSError, ValueError, KeyError, TypeError, ImportError, RuntimeError,
             yaml.YAMLError, subprocess.CalledProcessError) as error:
+        if arguments.action == "status":
+            print("GENERIC_STATUS_READ_FAILED: {}".format(error), file=sys.stderr)
+            return 2
         attempted = workspace is not None and (workspace / "mutation-attempted.json").is_file()
         retained_recovery = (arguments.action == "remove-topo"
                              and (workspace is None or (workspace / "transaction").exists()))
