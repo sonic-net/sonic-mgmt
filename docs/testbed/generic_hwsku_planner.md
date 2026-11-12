@@ -187,13 +187,3 @@ Errors are explicit: `InvalidInput`, `PrerequisiteError`, `InfeasiblePlan`,
 `SearchBudgetExceeded` and `InvalidManifest`. No error returns a partial
 success manifest, reduces a primary requirement or hides a service shortfall. Successful
 offline planning is neither device readiness nor qualification acceptance.
-
-## Offline validation
-
-```text
-python -m pytest --noconftest ansible/module_utils/test_generic_hwsku.py
-pre-commit run --files ansible/module_utils/generic_hwsku.py ansible/module_utils/test_generic_hwsku.py docs/testbed/generic_hwsku_planner.md
-```
-
-The tests use only synthetic devices, expansions, wiring and policy. They do
-not reserve a lab, reload a DUT or establish hardware/SAI behavior.

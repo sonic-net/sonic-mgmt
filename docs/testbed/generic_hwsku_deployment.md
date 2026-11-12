@@ -279,12 +279,5 @@ mutating scheduler profile that unconditionally releases an unsafe bed.**
 verify lease/health separately. Full generated pytest/L1 and QoS/MMU qualification
 remain separate follow-up stages.
 
-## Offline regression tests
-
-The eight `ansible/module_utils/test_generic_hwsku*.py` files are offline unit
-and regression tests using synthetic facts and simulated native boundaries;
-they are not DUT test modules. They cover planning, rendering, readiness and
-owned recovery. The playbook tests also exercise real Ansible against synthetic
-localhost only. Run them with
-`python -m pytest --noconftest --confcutdir=ansible/module_utils ansible/module_utils/test_generic_hwsku*.py`.
-Only `tests/generic_hwsku/test_deployment_smoke.py` is the physical smoke module.
+The physical smoke entry is `tests/generic_hwsku/test_deployment_smoke.py`.
+Offline self-test suites are not included in this public deployment change.
