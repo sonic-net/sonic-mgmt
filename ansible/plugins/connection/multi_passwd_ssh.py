@@ -1,7 +1,12 @@
 import hashlib
-import imp
 import logging
 import os
+
+try:
+    import importlib.util
+except ImportError:
+    import imp
+    importlib = None
 
 from functools import wraps
 from ansible.errors import AnsibleAuthenticationFailure, AnsibleConnectionFailure
@@ -12,7 +17,12 @@ logger = logging.getLogger(__name__)
 
 # HACK: workaround to import the SSH connection plugin
 _ssh_mod = os.path.join(os.path.dirname(connection.__file__), "ssh.py")
-_ssh = imp.load_source("_ssh", _ssh_mod)
+if importlib is None:
+    _ssh = imp.load_source("_ssh", _ssh_mod)
+else:
+    _ssh_spec = importlib.util.spec_from_file_location("_ssh", _ssh_mod)
+    _ssh = importlib.util.module_from_spec(_ssh_spec)
+    _ssh_spec.loader.exec_module(_ssh)
 
 # Use same options as the builtin Ansible SSH plugin
 DOCUMENTATION = _ssh.DOCUMENTATION
@@ -34,6 +44,8 @@ DOCUMENTATION += """
           description: IPv6 address
           vars:
               - name: ansible_hostv6
+      current_password_hash:
+          description: The hash of currently used password
 """.lstrip("\n")
 
 # Sample error messages that host unreachable:
@@ -73,12 +85,20 @@ def _password_retry(func):
                 # if there is no more altpassword to try, raise
                 if not conn_passwords:
                     raise
+            except AnsibleConnectionFailure as e:
+                # With no_log, SSH hides whether a failure was authentication-related.
+                message = getattr(e, "message", "") or str(e)
+                if not conn_passwords or not any(
+                    marker in message for marker in ("Permission denied", "censored due to no log")
+                ):
+                    raise
             finally:
                 # reset `password` to its original state
                 self.set_option("password", password)
                 self._play_context.password = password
             # This is a retry, so the fd/pipe for sshpass is closed, and we need a new one
-            self.sshpass_pipe = os.pipe()
+            if hasattr(self, "sshpass_pipe"):
+                self.sshpass_pipe = os.pipe()
 
     @wraps(func)
     def wrapped(self, *args, **kwargs):
@@ -99,7 +119,8 @@ def _password_retry(func):
             try_ipv6_addr = (type(e) != AnsibleAuthenticationFailure) and ipv4_addr_unavailable and hostv6
             if try_ipv6_addr:
                 # This is a retry, so the fd/pipe for sshpass is closed, and we need a new one
-                self.sshpass_pipe = os.pipe()
+                if hasattr(self, "sshpass_pipe"):
+                    self.sshpass_pipe = os.pipe()
                 self._play_context.remote_addr = hostv6
                 # args sample:
                 # ( [b'sshpass', b'-d18', b'ssh', b'-o', b'ControlMaster=auto', b'-o', b'ControlPersist=120s', b'-o', b'UserKnownHostsFile=/dev/null', b'-o', b'StrictHostKeyChecking=no', b'-o', b'StrictHostKeyChecking=no', b'-o', b'User="admin"', b'-o', b'ConnectTimeout=60', b'-o', b'ControlPath="/home/user/.ansible/cp/376bdcc730"', 'fc00:1234:5678:abcd::2', b'/bin/sh -c \'echo PLATFORM; uname; echo FOUND; command -v \'"\'"\'python3.10\'"\'"\'; command -v \'"\'"\'python3.9\'"\'"\'; command -v \'"\'"\'python3.8\'"\'"\'; command -v \'"\'"\'python3.7\'"\'"\'; command -v \'"\'"\'python3.6\'"\'"\'; command -v \'"\'"\'python3.5\'"\'"\'; command -v \'"\'"\'/usr/bin/python3\'"\'"\'; command -v \'"\'"\'/usr/libexec/platform-python\'"\'"\'; command -v \'"\'"\'python2.7\'"\'"\'; command -v \'"\'"\'/usr/bin/python\'"\'"\'; command -v \'"\'"\'python\'"\'"\'; echo ENDFOUND && sleep 0\''], None) # noqa: E501
