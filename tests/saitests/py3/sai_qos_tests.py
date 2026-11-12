@@ -209,46 +209,6 @@ def flat_test_port_ids(hierarchy):
             yield from flat_test_port_ids(value)
 
 
-def wait_until(timeout, interval, delay, condition, *args, **kwargs):
-    """Wait until condition is True or timeout. Returns True if condition met, False otherwise."""
-    import traceback
-
-    print("Wait until {} is True, timeout is {} seconds, checking interval is {}, delay is {} seconds".format(
-        condition.__name__, timeout, interval, delay), file=sys.stderr)
-
-    if delay > 0:
-        print("Delay for {} seconds first".format(delay), file=sys.stderr)
-        time.sleep(delay)
-
-    start_time = time.time()
-    elapsed_time = 0
-
-    while elapsed_time < timeout:
-        print("Time elapsed: {:.1f} seconds".format(elapsed_time), file=sys.stderr)
-
-        try:
-            check_result = condition(*args, **kwargs)
-        except Exception as e:
-            exc_info = sys.exc_info()
-            details = traceback.format_exception(*exc_info)
-            print("Exception caught while checking {}: {}, error: {}".format(
-                condition.__name__, "".join(details), e), file=sys.stderr)
-            check_result = False
-
-        if check_result:
-            print("{} is True, exit early with True".format(condition.__name__), file=sys.stderr)
-            return True
-        else:
-            print("{} is False, wait {} seconds and check again".format(
-                condition.__name__, interval), file=sys.stderr)
-            time.sleep(interval)
-            elapsed_time = time.time() - start_time
-
-    print("{} is still False after {} seconds, exit with False".format(
-        condition.__name__, timeout), file=sys.stderr)
-    return False
-
-
 def check_orchagent_ready(test_case):
     """Check if orchagent restart check succeeds"""
     try:
