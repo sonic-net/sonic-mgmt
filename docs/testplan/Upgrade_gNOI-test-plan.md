@@ -1,6 +1,6 @@
 # TestName
 Upgrade Service via gNOI
- 
+
 - [Overview](#overview)
 - [Background](#background)
 - [Scope](#scope)
@@ -25,7 +25,7 @@ The service operates as follows:
 ## Background
 **Components:**
 - **sonic-host-agent(new)** (Client): CLI tool that reads YAML workflows and translates them to gNOI calls
-- **gNOI Server(new)** (Server): Containerized gNOI service with mock platform implementations  
+- **gNOI Server(new)** (Server): Containerized gNOI service with mock platform implementations
 - **HTTP Firmware Server**: Serves test firmware files for download validation
 - **Test Harness**: Coordinates test scenarios and validates results
 
@@ -63,22 +63,22 @@ platform qualification.
 
 Server-side (gNOI)
 - `gnoi.system.System.SetPackage`
-  - Test individually: unit tests and grpcurl (stream semantics, request validation, error paths) against a mock gNOI server.  
+  - Test individually: unit tests and grpcurl (stream semantics, request validation, error paths) against a mock gNOI server.
   - Test combined: trusted HTTP(S) download, private staging, install, optional set-default, then separate reboot. The current backend does not implement resumable sessions or remote-package checksum authentication.
 - `gnoi.system.System.GetStatus`
-  - Test individually: grpcurl/unit tests to verify status payloads and error responses.  
+  - Test individually: grpcurl/unit tests to verify status payloads and error responses.
   - Test combined: assert status reflects progress and post-upgrade health in integration runs.
 - `gnoi.file.File.TransferToRemote` (retired)
   - Test individually: assert `Unimplemented`; never accept a swallowed RPC error as a successful download.
 - `gnoi.file.File.Remove`
-  - Test individually: grpcurl/unit tests for removal behavior and error codes.  
+  - Test individually: grpcurl/unit tests for removal behavior and error codes.
   - Test combined: cleanup step verification after aborted/failed upgrades.
 - `grpc.reflection.v1alpha.ServerReflection`
   - Test individually: grpcurl discovery checks (service listing) as a quick health check.
 
 Agent-side (sonic-host-agent / workflow)
 - `sonic-host-agent apply` (including `--dry-run`)
-  - Test individually: unit tests for YAML parsing, sequencing, CLI flags, and dry-run semantics (use `file://` or local stubs).  
+  - Test individually: unit tests for YAML parsing, sequencing, CLI flags, and dry-run semantics (use `file://` or local stubs).
   - Test combined: run against real gNOI servers + HTTP firmware server to validate end-to-end workflow execution.
 
 workflow yaml example:
@@ -188,7 +188,7 @@ graph LR
     subgraph TestServer ["TestServer"]
     MockKubeSONiC["MockKubeSONiC
 (C# Library)"]
-    end 
+    end
 
     subgraph Device ["SONiC Device"]
         Agent["sonic-host-agent

@@ -2,11 +2,13 @@
 
 import pytest
 
-from tests.common.helpers.gnoi_download import temporary_image_policy, select_download_host
+from tests.common.helpers.gnoi_download import temporary_image_policy, snapshot_download_hosts
 from tests.common.platform.device_utils import get_dpu_ip
 
 
 def _download_policy(dpus=()):
+    hosts = snapshot_download_hosts(dpus)
+
     def configure(npu, image_url, metadata=None):
         host = npu
         target = dict(metadata or [])
@@ -17,7 +19,9 @@ def _download_policy(dpus=()):
             target_ip = get_dpu_ip(npu, int(index))
             if not target_ip:
                 raise ValueError("DPU midplane address is unavailable")
-            host = select_download_host(dpus, target_ip)
+            if target_ip not in hosts:
+                raise ValueError("Cannot map SetPackage target to an inventory DPU")
+            host = hosts[target_ip]
         return temporary_image_policy(host, image_url)
     return configure
 

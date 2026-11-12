@@ -41,7 +41,9 @@ def temporary_image_policy(host, image_url):
         raise ValueError("Refusing to replace non-regular download policy")
     content = None
     if previous.get("exists"):
-        content = base64.b64decode(host.slurp(src=POLICY_PATH)["content"])
+        # AnsibleHostBase serializes bytes as UTF-8. Reject an unrestorable
+        # file before replacing it, rather than failing during teardown.
+        content = base64.b64decode(host.slurp(src=POLICY_PATH)["content"]).decode("utf-8")
     try:
         host.copy(content=policy, dest=POLICY_PATH, owner="root", group="root", mode="0644")
         yield
@@ -55,13 +57,13 @@ def temporary_image_policy(host, image_url):
             )
 
 
-def select_download_host(dpus, target_ip):
-    """Match the proxy target to its real DPU host, never to the NPU."""
-    matches = [
-        dpu for dpu in dpus
-        if dpu.show_ip_interface()["ansible_facts"]["ip_interfaces"]
-        .get("eth0-midplane", {}).get("ipv4") == target_ip
-    ]
-    if len(matches) != 1:
-        raise ValueError("Cannot uniquely map SetPackage target to an inventory DPU")
-    return matches[0]
+def snapshot_download_hosts(dpus):
+    """Capture unique midplane identities before upgrade workers can reboot."""
+    hosts = {}
+    for dpu in dpus:
+        address = (dpu.show_ip_interface()["ansible_facts"]["ip_interfaces"]
+                   .get("eth0-midplane", {}).get("ipv4"))
+        if not address or address in hosts:
+            raise ValueError("Cannot uniquely map SetPackage target to an inventory DPU")
+        hosts[address] = dpu
+    return hosts

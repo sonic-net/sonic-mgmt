@@ -12,6 +12,9 @@ from unittest.mock import MagicMock
 import pytest
 
 
+pytestmark = [pytest.mark.topology("any")]
+
+
 COMMON = Path(__file__).resolve().parents[1]
 
 
@@ -49,7 +52,7 @@ def test_policy_restores_original_state(existing, failure):
         run()
     if existing:
         host.copy.assert_called_with(
-            content=original, dest=POLICY.POLICY_PATH, owner="12", group="34", mode="0600",
+            content=original.decode("utf-8"), dest=POLICY.POLICY_PATH, owner="12", group="34", mode="0600",
         )
         host.file.assert_not_called()
     else:
@@ -67,6 +70,18 @@ def test_policy_restore_after_setup_failure():
     host.file.assert_called_once_with(path=POLICY.POLICY_PATH, state="absent")
 
 
+def test_policy_rejects_unrestorable_bytes_before_overwrite():
+    """Invalid UTF-8 must not leave the temporary allowlist installed."""
+    host = MagicMock()
+    host.stat.return_value = {"stat": {"exists": True, "isreg": True}}
+    host.slurp.return_value = {"content": base64.b64encode(b"\xff\xfe").decode()}
+    with pytest.raises(UnicodeDecodeError):
+        with POLICY.temporary_image_policy(host, "http://192.0.2.1/image"):
+            pytest.fail("must reject before changing policy")
+    host.copy.assert_not_called()
+    host.file.assert_not_called()
+
+
 def test_policy_matches_actual_dpu_not_list_position():
     """DPU inventory ordering cannot send policy to another DPU or the NPU."""
     first, selected = MagicMock(), MagicMock()
@@ -74,11 +89,11 @@ def test_policy_matches_actual_dpu_not_list_position():
         host.show_ip_interface.return_value = {
             "ansible_facts": {"ip_interfaces": {"eth0-midplane": {"ipv4": ip}}},
         }
-    assert POLICY.select_download_host([first, selected], "192.0.2.3") is selected
+    hosts = POLICY.snapshot_download_hosts([first, selected])
+    assert hosts["192.0.2.3"] is selected
+    assert "192.0.2.4" not in hosts
     with pytest.raises(ValueError):
-        POLICY.select_download_host([first, selected], "192.0.2.4")
-    with pytest.raises(ValueError):
-        POLICY.select_download_host([selected, selected], "192.0.2.3")
+        POLICY.snapshot_download_hosts([selected, selected])
 
 
 def test_policy_dns_pins_and_ipv6(monkeypatch):
@@ -105,18 +120,22 @@ def test_dpu_policy_factory_uses_preinitialized_inventory():
     }
     configure = MagicMock()
     scope = {
-        "pytest": pytest, "select_download_host": POLICY.select_download_host,
+        "pytest": pytest, "snapshot_download_hosts": POLICY.snapshot_download_hosts,
         "get_dpu_ip": MagicMock(return_value="192.0.2.3"),
         "temporary_image_policy": configure,
     }
     exec(compile(tree, "gnoi_download_policy.py", "exec"), scope)
     factory = scope["gnoi_dpu_download_policy"].__wrapped__([selected])
+    selected.show_ip_interface.assert_called_once()
+    selected.show_ip_interface.side_effect = RuntimeError("another worker rebooted this DPU")
     target = [("x-sonic-ss-target-type", "dpu"), ("x-sonic-ss-target-index", "3")]
     factory(npu, "http://192.0.2.1/image", target)
     configure.assert_called_with(selected, "http://192.0.2.1/image")
     scope["get_dpu_ip"].assert_called_once_with(npu, 3)
     factory(npu, "http://192.0.2.1/image")
     configure.assert_called_with(npu, "http://192.0.2.1/image")
+    factory(npu, "http://192.0.2.1/image", target)
+    selected.show_ip_interface.assert_called_once()
 
 
 def test_setpackage_wire_metadata_and_local_compatibility():
