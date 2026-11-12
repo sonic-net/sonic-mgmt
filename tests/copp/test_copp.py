@@ -26,6 +26,7 @@ import json
 import random
 import re
 import time
+import datetime
 from collections import namedtuple
 
 from tests.copp import copp_utils
@@ -367,7 +368,7 @@ class TestCoppStats:
     # Stats these tests parse; must be in COPP_POLICER_STATS_SUPPORTED when published.
     REQUIRED_POLICER_STATS = {"SAI_POLICER_STAT_GREEN_PACKETS", "SAI_POLICER_STAT_RED_PACKETS"}
     ARP_TRAP_GROUP = "queue4_group2"
-    # Slack for background traffic in the counter window, which is wider than the send window.
+    # Margin for hardware policer rate granularity above the configured CIR.
     BUDGET_TOLERANCE = 1.05
 
     @staticmethod
@@ -450,7 +451,8 @@ class TestCoppStats:
         Test Flow:
         1. Snapshot per-color packet counters for the ARP trap group
         2. Send ARP traffic above the policer rate (existing PTF infrastructure)
-        3. Derive the conforming budget (CIR * send duration + CBS) and verify that
+        3. Take offered load and send window from the PTF log, bound what the policer
+           may pass (CIR * send window + 2 * CBS) and verify that
            everything offered beyond it was counted Red
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -462,20 +464,19 @@ class TestCoppStats:
         cir, cbs = (int(v) for v in policer)
 
         before = self._get_policer_packets(duthost, group)
-        start = time.monotonic()
         _copp_runner(duthost, ptfhost, "ARP", copp_stats_testbed, dut_type)
-        send_duration = time.monotonic() - start
         time.sleep(15)  # Wait for FlexCounter update - interval is 10s
         after = self._get_policer_packets(duthost, group)
 
+        # Offered load and send window come from the PTF sender, not from the counters under test.
+        offered, send_secs = self._get_ptf_send_stats(ptfhost)
+        # Full bucket at start, refilled at most once more in the pre-send/main-loop gap.
+        conforming_budget = cir * send_secs + 2 * cbs
         delta = {color: after[color] - before[color] for color in after}
-        offered = sum(delta.values())
-        # send_duration includes PTF startup and receive wait, so this over-estimates the budget.
-        conforming_budget = cir * send_duration + cbs
         logger.info(f"{group}: delta={delta} offered={offered} cir={cir} cbs={cbs} "
-                    f"send_duration={send_duration:.1f}s conforming_budget={conforming_budget:.0f}")
+                    f"send_secs={send_secs} conforming_budget={conforming_budget}")
 
-        pytest_assert(offered > 0, f"No ARP packets reached the {group} policer")
+        pytest_assert(offered > 0, "PTF sent no ARP packets")
         expected_red = offered - self.BUDGET_TOLERANCE * conforming_budget
         pytest_assert(expected_red > 0,
                       f"Offered load {offered} does not exceed the conforming budget "
@@ -539,6 +540,20 @@ class TestCoppStats:
             pytest_assert(not other, f"'-n {namespace}' output includes other ASICs: {sorted(other)}")
 
             logger.info(f"Verified namespace filter for {namespace}")
+
+    @staticmethod
+    def _get_ptf_send_stats(ptfhost):
+        """(packets sent, send-window seconds) of the last PolicyTest run, from the PTF log."""
+        log = ptfhost.shell("tail -n 200 /tmp/copp.log")["stdout"]
+        ts = r"(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d) : "
+        pre = re.findall(ts + r"Send (\d+) and receive \d+ packets in the first second", log)
+        main = re.findall(ts + r"Sent out (\d+) packets", log)
+        pytest_assert(pre and main, "PTF send stats not found in /tmp/copp.log")
+        (pre_ts, pre_sent), (main_ts, main_sent) = pre[-1], main[-1]
+        fmt = "%Y-%m-%d %H:%M:%S"
+        main_secs = (datetime.datetime.strptime(main_ts, fmt) - datetime.datetime.strptime(pre_ts, fmt)).seconds
+        # 1s pre-send burst plus the main loop, rounded up for the 1s log resolution.
+        return int(pre_sent) + int(main_sent), 1 + main_secs + 1
 
     def _get_policer_packets(self, duthost, trap_group):
         """Per-color packet counts for a trap group, summed across ASICs on multi-ASIC."""
