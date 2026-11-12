@@ -1,9 +1,5 @@
 # Test Plan — CPO DOM Extensions and STATE_DB Publication
 
-> **Implementation**: [sonic-mgmt PR #29020](https://github.com/sonic-net/sonic-mgmt/pull/29020).
->
-> **Related HLD**: [SONiC PR #2273 — SW-controlled CPO in Joint Mode](https://github.com/sonic-net/SONiC/pull/2273).
-
 ## 1. Scope and Preconditions
 
 Verify that xcvrd publishes OE data in `TRANSCEIVER_*` tables and ELS data in separate `TRANSCEIVER_ELS_*` tables.
