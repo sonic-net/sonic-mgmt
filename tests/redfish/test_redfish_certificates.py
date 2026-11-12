@@ -34,6 +34,7 @@ import requests
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.redfish.redfish_utils import (
+    await_watcher_passes,
     BMCWEB_CONTAINER,
     bmcweb_pid,
     build_cert_chain,
@@ -63,6 +64,7 @@ from tests.redfish.redfish_utils import (
     place_file,
     PRIVILEGED_PATH,
     program_state,
+    programs_running,
     PROVISIONED_MARKER,
     recreate_container,
     REDFISH_CERTS_TABLE,
@@ -99,8 +101,9 @@ FIRMWARE_INVENTORY_PATH = "{}/FirmwareInventory".format(UPDATE_SERVICE_PATH)
 ALTERNATE_PORT = 8443
 WATCHER = "credentials-watcher"
 
-# One reconcile interval plus a settle margin, for the cases that assert
-# nothing happened rather than waiting for something to happen.
+# One reconcile interval plus a settle margin, for the cases that can only
+# wait for the watcher's timer: it is not running, or it watches no delivery
+# path, so await_watcher_passes() cannot wake it.
 RECONCILE_WINDOW = 90
 
 
@@ -235,10 +238,19 @@ def provisioned_on_session_port(bmc_duthost, bmc_tls_certs):
 
 @pytest.fixture
 def provisioned_after_test(bmc_duthost, bmc_tls_certs):
-    """Restore the provisioned, serving state after a destructive case."""
+    """Restore the provisioned, serving state after a destructive case.
+
+    When bmcweb and the watcher both survived the case, re-delivering the
+    certificates is enough, and the device is back once it reports in sync.
+    Otherwise the container is recreated, which also resets systemd's start
+    limit and bmcweb's persistent configuration.
+    """
     yield
     logger.info("Restoring the provisioned state")
     restore_delivered_certs(bmc_duthost, bmc_tls_certs["dir"])
+    if programs_running(bmc_duthost, "bmcweb", WATCHER) and wait_for_staging(bmc_duthost):
+        return
+    logger.info("bmcweb or the watcher is down, or the device is out of sync; recreating the container")
     recreate_container(bmc_duthost)
     wait_for_program(bmc_duthost, "bmcweb", "RUNNING")
     wait_for_staging(bmc_duthost)
@@ -341,8 +353,7 @@ class TestRedfishCertProvisioning:
         deliver_single_file(bmc_duthost, bmc_tls_certs["dir"] / SERVER_CERT_NAME,
                             DELIVERED_SERVER_CRT)
 
-        # Give the watcher more than one reconcile interval to look at it.
-        time.sleep(RECONCILE_WINDOW)
+        pytest_assert(await_watcher_passes(bmc_duthost), "The watcher did not reconcile")
 
         pytest_assert(served_serial(bmc_duthost) == before,
                       "Mismatched pair was staged: serial changed from {}".format(before))
@@ -712,7 +723,7 @@ class TestRedfishNegativeInput:
         before = served_serial(bmc_duthost)
 
         corrupt_delivered_file(bmc_duthost, DELIVERED_SERVER_CRT)
-        time.sleep(RECONCILE_WINDOW)
+        pytest_assert(await_watcher_passes(bmc_duthost), "The watcher did not reconcile")
 
         pytest_assert(served_serial(bmc_duthost) == before,
                       "A corrupt server certificate was staged")
@@ -730,9 +741,9 @@ class TestRedfishNegativeInput:
         pid_before = bmcweb_pid(bmc_duthost)
 
         corrupt_delivered_file(bmc_duthost, DELIVERED_CA_CRT)
-        # Several intervals: a stage-fail retry loop would show up as repeated
-        # restarts over this window, not in a single pass.
-        time.sleep(RECONCILE_WINDOW * 2)
+        # Several passes: a stage-fail retry loop would show up as repeated
+        # restarts across them, not in a single pass.
+        pytest_assert(await_watcher_passes(bmc_duthost, passes=4), "The watcher did not reconcile")
 
         pytest_assert(served_serial(bmc_duthost) == before,
                       "A corrupt CA was staged")
@@ -754,7 +765,7 @@ class TestRedfishNegativeInput:
         before = served_serial(bmc_duthost)
 
         remove_delivered_certs(bmc_duthost)
-        time.sleep(RECONCILE_WINDOW)
+        pytest_assert(await_watcher_passes(bmc_duthost), "The watcher did not reconcile")
 
         pytest_assert(program_state(bmc_duthost, WATCHER) == "RUNNING",
                       "The watcher should stay up when the source is deleted")
@@ -786,7 +797,7 @@ class TestRedfishFirstInstallMismatch:
         deliver_single_file(bmc_duthost, crt, DELIVERED_SERVER_CRT)
         deliver_single_file(bmc_duthost, key, DELIVERED_SERVER_KEY)
         deliver_single_file(bmc_duthost, bmc_tls_certs["dir"] / CA_CERT_NAME, DELIVERED_CA_CRT)
-        time.sleep(RECONCILE_WINDOW)
+        pytest_assert(await_watcher_passes(bmc_duthost), "The watcher did not reconcile")
 
         _, _, rc = bmc_exec("test -f {}".format(PROVISIONED_MARKER))
         pytest_assert(rc != 0,
@@ -856,7 +867,7 @@ class TestRedfishWatcherResilience:
 
         # Same files, delivered again: events fire, content is identical.
         deliver_certs(bmc_duthost, bmc_tls_certs["dir"])
-        time.sleep(RECONCILE_WINDOW)
+        pytest_assert(await_watcher_passes(bmc_duthost), "The watcher did not reconcile")
 
         pytest_assert(bmcweb_pid(bmc_duthost) == pid_before,
                       "bmcweb was bounced for a delivery that changed nothing")

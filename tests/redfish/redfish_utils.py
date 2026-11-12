@@ -5,8 +5,10 @@ import ipaddress
 import logging
 import os
 import shlex
+import shutil
 import socket
 import ssl
+import tempfile
 
 import requests
 from cryptography import x509
@@ -368,13 +370,26 @@ def place_file(duthost, local_path, remote):
 
 def deliver_certs(duthost, cert_dir, server_crt=SERVER_CERT_NAME,
                   server_key=SERVER_KEY_NAME, ca_crt=CA_CERT_NAME):
-    """Place certificates at the configured delivery paths, as an agent would."""
-    for local, remote in (
-        (server_crt, DELIVERED_SERVER_CRT),
-        (server_key, DELIVERED_SERVER_KEY),
-        (ca_crt, DELIVERED_CA_CRT),
-    ):
-        place_file(duthost, cert_dir / local, remote)
+    """Place certificates at the configured delivery paths, as an agent would.
+
+    The three files go over in one copy to a directory beside the delivery
+    directory, then are renamed into place by one command. The watcher sees
+    the trio land within its settle time, so it handles the delivery as one
+    change, and the delivery costs two device calls instead of six.
+    """
+    targets = ((server_crt, DELIVERED_SERVER_CRT),
+               (server_key, DELIVERED_SERVER_KEY),
+               (ca_crt, DELIVERED_CA_CRT))
+    # Outside the delivery directory, so the copy raises no watcher events,
+    # and on the same filesystem, so each rename is atomic.
+    incoming = "{}.incoming".format(DELIVERY_DIR)
+    with tempfile.TemporaryDirectory() as bundle:
+        for local, remote in targets:
+            shutil.copyfile(str(cert_dir / local), os.path.join(bundle, os.path.basename(remote)))
+        duthost.copy(src=bundle + "/", dest=incoming + "/")
+    moves = " && ".join("mv -f {}/{} {}".format(incoming, os.path.basename(remote), remote)
+                        for _, remote in targets)
+    duthost.shell("mkdir -p {} && {} && rm -rf {}".format(DELIVERY_DIR, moves, incoming))
 
 
 def applied_fingerprint(duthost):
@@ -394,6 +409,38 @@ def wait_for_staging(duthost, timeout=STAGING_TIMEOUT, changed_from=None):
         return _in_sync(duthost) and (changed_from is None or
                                       applied_fingerprint(duthost) != changed_from)
     return wait_until(timeout, STAGING_POLL, 0, applied)
+
+
+# A watcher pass ends in publish_status(), which stamps last_update, and is
+# started by any inotify event in a delivery directory or by the watcher's
+# 60 s timer. The timeout allows one timer interval, for an event that lands
+# while a pass is running and is therefore never seen, plus a bmcweb bounce.
+WATCHER_PASS_TIMEOUT = 90
+WATCHER_NUDGE = "{}/.sonic-mgmt-nudge".format(DELIVERY_DIR)
+
+
+def await_watcher_passes(duthost, passes=2):
+    """Wait for the watcher to finish reconcile passes that start after this call.
+
+    For the cases that assert nothing happens: rather than sleeping through a
+    reconcile interval, each pass is started by creating and removing a file
+    in the delivery directory, and is complete when last_update moves. The
+    first pass to finish may be one that was already running, so it proves
+    nothing on its own; every later one began after the call. The file is
+    not one of the configured paths, so it changes no fingerprint.
+
+    Only works while the watcher runs and watches DELIVERY_DIR. Returns False
+    when a pass does not finish within WATCHER_PASS_TIMEOUT.
+    """
+    def moved_from(before):
+        return cert_status(duthost, "last_update") != before
+
+    for _ in range(passes):
+        before = cert_status(duthost, "last_update")
+        duthost.shell("touch {0} && rm -f {0}".format(WATCHER_NUDGE))
+        if not wait_until(WATCHER_PASS_TIMEOUT, 1, 0, moved_from, before):
+            return False
+    return True
 
 
 # Files the suite overwrites or removes. A device that arrives provisioned keeps
@@ -507,6 +554,16 @@ def program_state(duthost, program):
     return parts[1] if len(parts) > 1 else ""
 
 
+def programs_running(duthost, *programs):
+    """True when every named program in the redfish container is RUNNING, read in one call."""
+    states = {}
+    for line in supervisor(duthost, "status", " ".join(programs)).splitlines():
+        fields = line.split()
+        if len(fields) >= 2:
+            states[fields[0]] = fields[1]
+    return all(states.get(program) == "RUNNING" for program in programs)
+
+
 def wait_for_program(duthost, program, state, timeout=BMCWEB_READY_TIMEOUT):
     return wait_until(timeout, BMCWEB_READY_POLL, 0,
                       lambda: program_state(duthost, program) == state)
@@ -558,7 +615,6 @@ def logged_since(duthost, start, text):
 
 def restore_delivered_certs(duthost, cert_dir):
     """Put the generated certificates back at the delivery paths."""
-    duthost.shell("mkdir -p {}".format(DELIVERY_DIR))
     deliver_certs(duthost, cert_dir)
 
 
