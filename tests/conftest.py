@@ -178,6 +178,14 @@ def pytest_addoption(parser):
     parser.addoption("--l47_trafficgen", action="store_true", help="Enable L47 trafficgen config")
     parser.addoption("--save_l47_trafficgen", action="store_true", help="Save L47 trafficgen config")
 
+    # EVPN-MH options
+    parser.addoption(
+        "--evpn-mh-mac-over-fpm",
+        action="store_true",
+        default=False,
+        help="Run EVPN-MH with MAC synchronization over FPM",
+    )
+
     # test_vrf options
     parser.addoption("--vrf_capacity", action="store", default=None, type=int, help="vrf capacity of dut (4-1000)")
     parser.addoption("--vrf_test_count", action="store", default=None, type=int,

@@ -16,6 +16,58 @@ YAML is a read-only dependency: this feature does not add a topology, topology
 alias, EOS template, inventory registration, or shared `vm_topology.py`
 behavior.
 
+## Optional MAC-over-FPM execution mode
+
+The same 16 test functions can qualify either the default kernel MAC-sync path
+or the MAC-over-FPM path. MAC-over-FPM is strictly opt-in:
+
+```text
+# Existing/default execution
+pytest tests/evpn_mh
+
+# Explicit MAC-over-FPM execution
+pytest tests/evpn_mh --evpn-mh-mac-over-fpm
+```
+
+Without `--evpn-mh-mac-over-fpm`, the suite does not write `FDB_SYNC`, save a
+new MAC-sync setting, or restart BGP for mode selection. Preflight requires the
+two ToRs to be in the default kernel mode so that an FPM-configured testbed is
+not reported as a kernel-mode result.
+
+An image whose `DEVICE_METADATA|localhost/subtype` is `L3EvpnMH` forces the
+FPM path. It is therefore accepted only for the flagged execution; the default
+kernel-mode invocation fails preflight instead of silently running in FPM.
+
+With the flag, preflight first verifies that both SONiC images provide the
+MAC-sync CLI, Zebra external-MAC support, the SONiC FPM dataplane module,
+`fpmsyncd`, `fdbsyncd`, and FPM socket inspection. The suite then performs this
+checkpoint-owned setup on both ToRs before any topology mutation:
+
+1. configure `FDB_SYNC|global/mac_sync_mode=fpm` through
+   `config fdb mac-sync-mode fpm` on both ToRs;
+2. prove both CONFIG_DB writes before restarting either ToR;
+3. save the configuration so config reload and cold reboot retain the mode;
+4. restart the BGP service so its container re-renders Zebra's arguments;
+5. require Zebra and `fpmsyncd` in the BGP container and `fdbsyncd` in the
+   SWSS container to be running;
+6. require Zebra to use `dplane_fpm_sonic` and `--kernel-mac-ext-learn`;
+7. require CONFIG_DB to report `fpm` and require the live Zebra to `fpmsyncd`
+   connection on TCP port 2620; and
+8. only then continue with EVPN-MH provisioning and packet tests.
+
+An explicitly requested FPM run fails before functional test execution when
+either image lacks a required capability or either ToR fails readiness. It
+never skips or silently falls back to kernel mode. The config-reload and
+cold-reboot cases revalidate operational FPM mode after the event. At suite
+teardown the existing SONiC checkpoint restores the exact original CONFIG_DB,
+then BGP is restarted again before the restored peer, process, and MAC-sync
+state is accepted.
+
+This flag selects a DUT operating mode; it does not modify the stock
+`dualtor-aa` topology and does not create additional parametrized testcases.
+The target image must already contain the coordinated FRR, SWSS, utilities,
+schema, container-startup, and kernel support required by MAC-over-FPM.
+
 ## Existing-topology role binding
 
 `dualtor-aa` supplies two SONiC DUTs, four T1 neighbor VMs, paired PTF server

@@ -15,6 +15,7 @@ from tests.common.errors import RunAnsibleModuleFail
 from .eos_overlay import (collect_remote_eos_evidence, eos_aliasing_vteps,
                           eos_contains_value)
 from .lag import ptf_bond_member_operational
+from .mac_sync import FPM_MODE, mac_sync_mode_ready
 from .operations import (bounce_ptf_member, interface_down, portchannel_members,
                          portchannel_config_snapshot,
                          restore_interfaces, restore_portchannel_config,
@@ -431,9 +432,10 @@ def _run_cleanup_actions(label, actions):
         raise AssertionError(detail)
 
 
-def _persistence_recovery_actions(duts, topology, segment, dut, timeout):
+def _persistence_recovery_actions(duts, topology, segment, dut, timeout,
+                                  expected_mac_sync_mode):
     """Check the returning DUT even when reload/reboot raises or times out."""
-    return [
+    actions = [
         ("verify overlay recovery", lambda: _require_cleanup(
             wait_evpn_mh_overlay(duts, topology, timeout),
             "overlay did not recover")),
@@ -448,6 +450,16 @@ def _persistence_recovery_actions(duts, topology, segment, dut, timeout):
             120, 5, 0, _affected_dut_control_plane_ready, dut, topology),
             "returning DUT did not recover exact L2/L3 VNI and Type-5 state")),
     ]
+    if expected_mac_sync_mode == FPM_MODE:
+        actions.append((
+            "verify MAC-over-FPM recovery",
+            lambda: _require_cleanup(
+                wait_until(
+                    180, 5, 0, mac_sync_mode_ready, dut, FPM_MODE),
+                "returning DUT did not recover operational MAC-over-FPM mode",
+            ),
+        ))
+    return actions
 
 
 def _rib_prefix_present(dut, topology, prefix):
@@ -1115,7 +1127,8 @@ def test_portchannel_member_flap(ptfhost, evpn_mh_ptf_lag, evpn_mh_ptf_ports,
 
 def test_config_reload(ptfhost, evpn_mh_ptf_lag, evpn_mh_ptf_ports,
                        evpn_mh_control_plane, evpn_mh_topology,
-                       evpn_mh_interfaces, evpn_mh_routed_egress):
+                       evpn_mh_interfaces, evpn_mh_routed_egress,
+                       evpn_mh_mac_sync_mode):
     from tests.common.config_reload import config_reload
 
     _segment_name, segment = _primary_segment(evpn_mh_topology)
@@ -1135,7 +1148,7 @@ def test_config_reload(ptfhost, evpn_mh_ptf_lag, evpn_mh_ptf_ports,
     finally:
         actions = _persistence_recovery_actions(
             evpn_mh_control_plane, evpn_mh_topology, segment,
-            evpn_mh_control_plane[df], 300)
+            evpn_mh_control_plane[df], 300, evpn_mh_mac_sync_mode)
         for prefix in (
                 evpn_mh_topology["mh_ipv4_prefix"],
                 evpn_mh_topology["remote_ipv4_prefix"],
@@ -1161,7 +1174,8 @@ def test_config_reload(ptfhost, evpn_mh_ptf_lag, evpn_mh_ptf_ports,
 def test_continuous_traffic_reboot_df(
         ptfhost, evpn_mh_ptf_lag, evpn_mh_ptf_ports,
         evpn_mh_control_plane, evpn_mh_topology,
-        evpn_mh_interfaces, localhost, evpn_mh_routed_egress):
+        evpn_mh_interfaces, localhost, evpn_mh_routed_egress,
+        evpn_mh_mac_sync_mode):
     _segment_name, segment_definition = _primary_segment(evpn_mh_topology)
     assert _wait_forwarding(
         ptfhost, "remote_routed_bum", evpn_mh_ptf_ports, evpn_mh_topology)
@@ -1239,7 +1253,7 @@ def test_continuous_traffic_reboot_df(
             # window and DF observation, even when the reboot helper raises.
             cleanup_actions.extend(_persistence_recovery_actions(
                 evpn_mh_control_plane, evpn_mh_topology,
-                segment_definition, dut, 360))
+                segment_definition, dut, 360, evpn_mh_mac_sync_mode))
         if observer is not None:
             def join_observer():
                 stop_observer.set()

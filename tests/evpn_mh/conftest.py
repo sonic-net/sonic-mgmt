@@ -40,6 +40,17 @@ from .eos_overlay import (
     snapshot_eos_config,
 )
 from .lag import configure_ptf_segment, remove_ptf_segment
+from .mac_sync import (
+    FPM_MODE,
+    KERNEL_MODE,
+    MacSyncModeError,
+    assert_mac_sync_mode,
+    current_mac_sync_mode,
+    enable_mac_over_fpm,
+    mac_sync_mode_ready,
+    probe_mac_over_fpm_capabilities,
+    restart_bgp_for_mac_sync,
+)
 from .operations import wait_until
 from .provision import (
     clear_evpn_mh_runtime_state,
@@ -72,6 +83,12 @@ collect_ignore_glob = ["unit_tests/test_*.py"]
 
 
 CHECKPOINT_NAME = "evpn_mh_16cases_before_suite"
+
+
+@pytest.fixture(scope="session")
+def evpn_mh_mac_over_fpm(pytestconfig):
+    """Return whether this invocation explicitly selected MAC-over-FPM."""
+    return bool(pytestconfig.getoption("--evpn-mh-mac-over-fpm"))
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -121,7 +138,8 @@ def evpn_mh_interfaces(evpn_mh_duts, evpn_mh_ptf_ports, tbinfo):
 @pytest.fixture(scope="module")
 def evpn_mh_capability_preflight(ptfhost, vmhost, mux_server_info, tbinfo,
                                  evpn_mh_neighbors, evpn_mh_duts,
-                                 conn_graph_facts):
+                                 conn_graph_facts,
+                                 evpn_mh_mac_over_fpm):
     """Perform all non-mutating stock-topology/EOS feasibility checks first."""
     failures = []
     try:
@@ -192,6 +210,25 @@ def evpn_mh_capability_preflight(ptfhost, vmhost, mux_server_info, tbinfo,
         if not _critical_services_ready(dut):
             failures.append(
                 "{} critical services are not fully started".format(role))
+        if evpn_mh_mac_over_fpm:
+            capability_failures = probe_mac_over_fpm_capabilities(dut)
+            failures.extend(
+                "{} MAC-over-FPM {}".format(role, failure)
+                for failure in capability_failures
+            )
+            if not capability_failures:
+                try:
+                    assert_mac_sync_mode(dut, current_mac_sync_mode(dut))
+                except MacSyncModeError as error:
+                    failures.append(
+                        "{} MAC-sync baseline: {}".format(role, error))
+        else:
+            try:
+                assert_mac_sync_mode(dut, KERNEL_MODE)
+            except MacSyncModeError as error:
+                failures.append(
+                    "{} default run is not kernel MAC-sync mode: {}".format(
+                        role, error))
     if failures:
         pytest.fail(
             "EVPN-MH fixture capability preflight failed before mutation: {}".format(
@@ -202,9 +239,24 @@ def evpn_mh_capability_preflight(ptfhost, vmhost, mux_server_info, tbinfo,
 
 
 @pytest.fixture(scope="module")
+def evpn_mh_mac_sync_mode(evpn_mh_duts, evpn_mh_mac_over_fpm,
+                          evpn_mh_capability_preflight,
+                          evpn_mh_config_checkpoint):
+    """Select the suite-wide MAC-sync mode inside checkpoint ownership."""
+    if not evpn_mh_mac_over_fpm:
+        return KERNEL_MODE
+    try:
+        enable_mac_over_fpm(evpn_mh_duts)
+    except MacSyncModeError as error:
+        pytest.fail("MAC-over-FPM setup failed: {}".format(error))
+    return FPM_MODE
+
+
+@pytest.fixture(scope="module")
 def evpn_mh_dualtor_wiring(vmhost, mux_server_info, tbinfo,
                            evpn_mh_capability_preflight, evpn_mh_duts,
-                           conn_graph_facts, evpn_mh_config_checkpoint):
+                           conn_graph_facts, evpn_mh_config_checkpoint,
+                           evpn_mh_mac_sync_mode):
     """Create independent upper/lower PTF legs and restore exact OVS state."""
     rollback_stack = RollbackStack()
     mapping = resolve_mux_overlay(
@@ -380,7 +432,8 @@ def evpn_mh_eos_configured(evpn_mh_neighbors, evpn_mh_duts, tbinfo,
 @pytest.fixture(scope="module")
 def evpn_mh_clean_start(ptfhost, evpn_mh_duts, evpn_mh_ptf_ports,
                         evpn_mh_topology, evpn_mh_capability_preflight,
-                        evpn_mh_config_checkpoint):
+                        evpn_mh_config_checkpoint,
+                        evpn_mh_mac_sync_mode):
     """Clear only task-owned endpoint/runtime learning from interrupted runs."""
     try:
         reap_stale_traffic_jobs(ptfhost)
@@ -541,6 +594,8 @@ def _checkpoint_runtime_ready(dut, expected_config):
         if _bgp_peer_states(dut) != expected_config["bgp_peers"]:
             return False
         if _swss_process_states(dut) != expected_config["swss_processes"]:
+            return False
+        if not mac_sync_mode_ready(dut, expected_config["mac_sync_mode"]):
             return False
     except RuntimeError:
         return False
@@ -731,7 +786,8 @@ def _quiesce_feature_dependencies(dut, role, topology, baseline_json):
 
 @pytest.fixture(scope="module")
 def evpn_mh_config_checkpoint(evpn_mh_duts, evpn_mh_capability_preflight,
-                              evpn_mh_topology):
+                              evpn_mh_topology,
+                              evpn_mh_mac_over_fpm):
     """Capture/checkpoint the stock SONiC baseline before EOS is mutated.
 
     ``evpn_mh_eos_configured`` depends on this fixture so teardown order is
@@ -743,6 +799,7 @@ def evpn_mh_config_checkpoint(evpn_mh_duts, evpn_mh_capability_preflight,
             "persistent": _canonical_persistent_config_db(dut),
             "bgp_peers": _bgp_peer_states(dut),
             "swss_processes": _swss_process_states(dut),
+            "mac_sync_mode": current_mac_sync_mode(dut),
         }
         for role, dut in sorted(evpn_mh_duts.items())
     }
@@ -831,6 +888,18 @@ def evpn_mh_config_checkpoint(evpn_mh_duts, evpn_mh_capability_preflight,
                 )
             )
             continue
+        if evpn_mh_mac_over_fpm:
+            try:
+                # CONFIG_DB rollback alone cannot change Zebra's startup
+                # arguments.  Restart the owning BGP service before grading
+                # the restored baseline.
+                restart_bgp_for_mac_sync(dut)
+            except MacSyncModeError as error:
+                failures.append(
+                    "{} restored MAC-sync mode failed; checkpoint preserved: {}"
+                    .format(dut.hostname, error)
+                )
+                continue
         try:
             # Checkpoint rollback restores CONFIG_DB MUX_CABLE rows, but
             # caclmgrd does not subscribe to those CONFIG_DB changes.  Force
