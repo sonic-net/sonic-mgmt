@@ -32,13 +32,9 @@ def test_file_stat(gnmi_tls):  # noqa: F811
 
 
 def test_file_transfer_to_remote(gnmi_tls):  # noqa: F811
-    """The retired File RPC must not restore an unrestricted downloader."""
+    """Require retirement without giving a legacy server a download target."""
     with pytest.raises(GrpcCallError, match="Unimplemented"):
-        gnmi_tls.gnoi.file_transfer_to_remote(
-            local_path="/var/tmp/unused-image",
-            url="http://images.example/image",
-            protocol="HTTP",
-        )
+        gnmi_tls.gnoi.grpc_client.call_unary("gnoi.file.File", "TransferToRemote", {})
 
 
 def test_gnoi_file_stat_regular_file(gnmi_tls):  # noqa: F811

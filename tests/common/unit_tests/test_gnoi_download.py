@@ -33,6 +33,21 @@ CLIENT = load_module("ptf_gnoi", COMMON / "ptf_gnoi.py")
 THREADS = load_module("multi_thread_utils", COMMON / "helpers/multi_thread_utils.py")
 
 
+def test_retired_file_probe_cannot_trigger_legacy_download():
+    """An old server must receive no destination to download."""
+    source = ast.parse((COMMON.parents[0] / "gnmi/test_gnoi_file.py").read_text())
+    tree = ast.Module(body=[
+        node for node in source.body
+        if isinstance(node, ast.FunctionDef) and node.name == "test_file_transfer_to_remote"
+    ], type_ignores=[])
+    scope = {"pytest": pytest, "GrpcCallError": RuntimeError}
+    exec(compile(tree, "test_gnoi_file.py", "exec"), scope)
+    client = MagicMock()
+    client.call_unary.side_effect = RuntimeError("Unimplemented")
+    scope["test_file_transfer_to_remote"](SimpleNamespace(gnoi=CLIENT.PtfGnoi(client)))
+    client.call_unary.assert_called_once_with("gnoi.file.File", "TransferToRemote", {})
+
+
 @pytest.mark.parametrize("failure", [None, RuntimeError, pytest.skip.Exception])
 @pytest.mark.parametrize("existing", [False, True])
 def test_policy_restores_original_state(existing, failure):
