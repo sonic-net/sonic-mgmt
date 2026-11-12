@@ -104,15 +104,19 @@ def teamd_member_state(duthost, pc_name, port_name):
 
 
 def teamd_member_view(duthost, pc_name, port_name):
-    """Return (selected, lacp_state, link_up) for one teamd member, or None.
+    """Return (selected, macsec_gate, link_up, lacp_state) for one teamd member, or None.
 
-    lacp_state stays "current" and link_up stays true while macsec_gate holds the
-    member out. A link flap or an LACP timeout would show up here.
+    macsec_gate is teamd's runner.macsec_gate (False = teammgrd closed the gate; None if
+    this teamd has no such item). It shows directly why the member is out, independent
+    of LACP timing. lacp_state is informational only: once the last SA is gone the
+    MACsec ACL forwards only EAPOL, so LACPDUs stop and lacp_state leaves "current"
+    after the LACP timeout (~90s slow rate, ~3s fast rate) even when the gate works.
     """
     port = teamd_member_state(duthost, pc_name, port_name)
     try:
         runner = port["runner"]
-        return runner["selected"], runner["state"], bool(port["link"]["up"])
+        return (runner["selected"], runner.get("macsec_gate"),
+                bool(port["link"]["up"]), runner.get("state"))
     except (TypeError, KeyError) as e:
         logger.debug("teamd state for %s/%s incomplete: %s", pc_name, port_name, e)
         return None
@@ -392,10 +396,12 @@ class TestFaultHandling():
         physically up. The DUT can no longer receive peer MKA hellos, so its session times
         out without depending on the neighbor OS.
         teammgrd closes teamd's macsec_gate, so teamd drops the member immediately
-        instead of waiting for the 90s LACP timeout. The physical link stays up and
-        LACP stays current, and teamsyncd keeps publishing status=disabled until the
-        session returns. For a single-member LAG the whole PortChannel goes down, which
-        withdraws the BGP session over it. For a multi-member LAG, PortChannel/BGP stay
+        instead of waiting for the 90s LACP timeout. The physical link stays up,
+        runner.macsec_gate stays False, and teamsyncd keeps publishing status=disabled
+        until the session returns. LACP state is not asserted while MACsec is down:
+        with no SA only EAPOL is forwarded, so LACPDUs stop and LACP times out on its
+        own schedule (~3s on fast rate). For a single-member LAG the whole PortChannel
+        goes down, which withdraws the BGP session over it. For a multi-member LAG, PortChannel/BGP stay
         up only when remaining members still satisfy CONFIG_DB PORTCHANNEL min_links;
         otherwise the LAG (and BGP over it) go down. Removing the block lets MACsec
         recover so the member, LAG and BGP come back.
@@ -547,7 +553,10 @@ class TestFaultHandling():
                 "after the MACsec session expired. ASIC state: {}".format(
                     port_name, asic_disable_state()))
 
-            # (5) teamd holds the member out with the link up and LACP still current.
+            # (5) teamd holds the member out because teammgrd closed macsec_gate, with
+            #     the link up. LACP state is not checked: with no SA the MACsec ACL
+            #     forwards only EAPOL, so LACPDUs stop and LACP leaves "current" after
+            #     its timeout (~3s on fast rate) even though the gate works.
             #     teamsyncd keeps status=disabled on its own. Do not inject APPL_DB:
             #     orchagent follows that table, and a fake "enabled" is not the path
             #     under test.
@@ -561,11 +570,13 @@ class TestFaultHandling():
             def held_out_cleanly():
                 view = teamd_member_view(duthost, pc_name, port_name)
                 return (view is not None and view[0] is False
-                        and view[1] == "current" and view[2] is True)
+                        and view[1] is False and view[2] is True)
             assert held_out_cleanly(), (
-                "LAG member {} is not held out with the link up and LACP current. "
-                "teamd view (selected, lacp_state, link_up): {}".format(
+                "LAG member {} is not held out by a closed macsec_gate with the link up. "
+                "teamd view (selected, macsec_gate, link_up, lacp_state): {}".format(
                     port_name, teamd_member_view(duthost, pc_name, port_name)))
+            logger.info("teamd holds %s out: (selected, macsec_gate, link_up, lacp_state) = %s",
+                        port_name, teamd_member_view(duthost, pc_name, port_name))
 
             def member_left_hold():
                 st = asic_disable_state()
@@ -608,21 +619,30 @@ class TestFaultHandling():
             "MACsec session on {} did not recover after removing the EAPOL block.".format(port_name))
         logger.info("MACsec on %s recovered in %.1fs", port_name, time.time() - t0)
 
-        # Opening the gate re-enables the member through teamsyncd. LACP never
-        # left current, so ASIC, teamd, and the PortChannel must all be back
-        # inside one window measured from MACsec recovery.
+        # teammgrd reopens macsec_gate once an ingress SA returns, and the member is
+        # re-enabled through teamsyncd. LACPDUs flow again with the SAs (teamd also
+        # sends one when the gate changes), so the gate, ASIC, teamd, and the
+        # PortChannel must all be back inside one window measured from MACsec recovery,
+        # whether or not LACP timed out while MACsec was down.
         t0 = time.time()
 
+        def gate_open():
+            view = teamd_member_view(duthost, pc_name, port_name)
+            return view is not None and view[1] is True
+
         def member_recovered():
-            return (asic_disable_state() == (False, False)
+            return (gate_open()
+                    and asic_disable_state() == (False, False)
                     and member_selected()
                     and lag_status() == "Up")
 
         assert wait_until(TestFaultHandling.MEMBER_RECOVERY_TIMEOUT, 1, 0, member_recovered), (
             "PortChannel {} member {} did not fully recover within {}s of MACsec recovery. "
-            "ASIC state: {}, selected: {}, LAG status: {}".format(
+            "ASIC state: {}, teamd view (selected, macsec_gate, link_up, lacp_state): {}, "
+            "LAG status: {}".format(
                 pc_name, port_name, TestFaultHandling.MEMBER_RECOVERY_TIMEOUT,
-                asic_disable_state(), member_selected(), lag_status()))
+                asic_disable_state(), teamd_member_view(duthost, pc_name, port_name),
+                lag_status()))
         logger.info("LAG member %s recovered in %.1fs", port_name, time.time() - t0)
 
         if check_bgp and (want_single or not lag_survives_one_member_down):
