@@ -37,8 +37,9 @@ reason; adding the entry does not prove deployment readiness.
 `vars/topo_generic.yml` is the shared empty
 topology descriptor used by the existing testbed reader, not another testbed
 definition or a static port mapping. The frozen manifest owns those mappings.
-PTF management retains `ptf_ip`, `ptf_ipv6` and the ordinary comma-separated
-`ptf_extra_mgmt_ip` addresses; invalid secondary-address types fail before collection.
+PTF management retains `ptf_ip`, `ptf_ipv6` and `ptf_extra_mgmt_ip` addresses.
+The latter accepts its original YAML list (including `[]`) and legacy comma-separated
+text; malformed field or list-member types fail before collection.
 
 Automatically derived inputs:
 

@@ -314,11 +314,15 @@ def resolve_scheduler_testbed(path, requested, target):
 
 def run_collection(arguments, scope, testbed, workspace, host_only=False):
     extra_management = testbed.get("ptf_extra_mgmt_ip")
-    if extra_management is not None and not isinstance(extra_management, str):
-        raise PrerequisiteError("ptf_extra_mgmt_ip must use the original comma-separated address format")
+    if extra_management is None:
+        extra_management = []
+    elif isinstance(extra_management, str):
+        extra_management = extra_management.split(",") if extra_management else []
+    if (not isinstance(extra_management, list)
+            or any(not isinstance(value, str) for value in extra_management)):
+        raise PrerequisiteError("ptf_extra_mgmt_ip must be a YAML address-string list or comma-separated text")
     management_addresses = [testbed[key] for key in ("ptf_ip", "ptf_ipv6") if testbed.get(key)]
-    if extra_management:
-        management_addresses.extend(extra_management.split(","))
+    management_addresses.extend(extra_management)
     collection = Path(tempfile.mkdtemp(prefix="collection-", dir=str(workspace)))
     # Private directories require owner traversal, not group/world access.
     os.chmod(str(collection), 0o700)  # nosemgrep: insecure-file-permissions
