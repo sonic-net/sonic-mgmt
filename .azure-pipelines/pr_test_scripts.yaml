@@ -771,11 +771,13 @@ t1-lag-vpp:
 
 t0-vpp:
   - acl/test_acl.py
+  - acl/test_src_mac_rewrite.py
   - arp/test_arp_extended.py
   - arp/test_arp_l3_no_rx_drop.py
   - arp/test_arp_update.py
   - arp/test_neighbor_mac_aging.py
   - arp/test_neighbor_mac_noptf.py
+  - arp/test_stress_arp.py
   - arp/test_tagged_arp.py
   - arp/test_unknown_mac.py
   - autorestart/test_container_autorestart.py
@@ -790,6 +792,12 @@ t0-vpp:
   - bgp/test_bgp_stress_link_flap.py
   - bgp/test_bgp_update_timer.py
   - bgp/test_bgpmon.py
+  - bmp/test_bmp_configdb.py
+  - bmp/test_bmp_redis_instance.py
+  - bmp/test_bmp_statedb.py
+  - bmp/test_docker_restart.py
+  - bmp/test_frr_bmp_sanity.py
+  - cacl/test_cacl_application.py
   - cacl/test_cacl_function.py
   - cacl/test_ebtables_application.py
   - clock/test_clock.py
@@ -801,6 +809,9 @@ t0-vpp:
   - database/test_db_scripts.py
   - db_migrator/test_migrate_dns.py
   - decap/test_decap.py
+  - decap/test_subnet_decap.py
+  - dhcp_relay/test_dhcp_counter_stress.py
+  - dhcp_relay/test_dhcp_pkt_recv.py
   - dhcp_relay/test_dhcp_relay.py
   - dhcp_relay/test_dhcp_relay_stress.py
   - disk/test_disk_exhaustion.py
@@ -839,20 +850,39 @@ t0-vpp:
   - gnmi/test_gnoi_os.py
   - gnmi/test_gnoi_system.py
   - hash/test_generic_hash.py
+  - high_frequency_telemetry/test_hft_end_to_end.py
+  - high_frequency_telemetry/test_high_frequency_telemetry.py
   - http/test_http_copy.py
   - iface_loopback_action/test_iface_loopback_action.py
   - iface_namingmode/test_iface_namingmode.py
   - ip/test_ip_packet.py
   - ip/test_mgmt_ipv6_only.py
   - ipfwd/test_dip_sip.py
+  - l2/test_l2_configure.py
   - lldp/test_lldp.py
   - lldp/test_lldp_syncd.py
+  - mclag/test_mclag_l3.py
+  - mvrf/test_mgmtvrf.py
+  - nat/test_dynamic_nat.py
+  - nat/test_static_nat.py
+  - ospf/test_ospf.py
+  - ospf/test_ospf_bfd.py
+  - packet_trimming/test_packet_trimming_asymmetric.py
+  - packet_trimming/test_packet_trimming_config_asymmetric.py
+  - packet_trimming/test_packet_trimming_config_symmetric.py
+  - packet_trimming/test_packet_trimming_symmetric.py
   - pc/test_lag_2.py
   - pc/test_lag_member.py
   - pc/test_lag_member_forwarding.py
   - pc/test_po_cleanup.py
   - pc/test_po_update.py
+  - pc/test_retry_count.py
   - portstat/test_portstat.py
+  - pvst/test_pvst.py
+  - radv/test_radv_ipv6_ra.py
+  - radv/test_radv_restart.py
+  - radv/test_radv_run.py
+  - reboot/test_reboot_blocking_mode.py
   - route/test_default_route.py
   - route/test_duplicate_route.py
   - route/test_forced_mgmt_route.py
@@ -864,25 +894,31 @@ t0-vpp:
   - route/test_route_perf.py
   - route/test_static_route.py
   - sflow/test_sflow.py
+  - span/test_erspan_sampling_truncation.py
   - span/test_port_mirroring.py
   - ssh/test_ssh_stress.py
   - srv6/test_srv6_dataplane.py
   - srv6/test_srv6_static_config.py
   - srv6/test_srv6_vlan_forwarding.py
+  - stress/test_stress_routes.py
   - sub_port_interfaces/test_show_subinterface.py
   - sub_port_interfaces/test_sub_port_interfaces.py
   - sub_port_interfaces/test_sub_port_l2_forwarding.py
   - vlan/test_autostate_disabled.py
   - vlan/test_host_vlan.py
   - vlan/test_secondary_subnet.py
+  - vlan/test_sw_mode.py
   - vlan/test_vlan.py
   - vlan/test_vlan_ping.py
   - vlan/test_vlan_ports_down.py
+  - vxlan/test_scale_ecmp.py
   - vxlan/test_vnet_decap.py
   - vxlan/test_vnet_route_leak.py
   - vxlan/test_vnet_vxlan.py
   - vxlan/test_vxlan_decap.py
   - vxlan/test_vxlan_decap_ttl.py
+  - vxlan/test_vxlan_tunnel_route_scale.py
+  - vxlan/test_vxlan_vnet_bgp_subintf.py
 
 
 multi-asic-t1-lag:
