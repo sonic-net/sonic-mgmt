@@ -8,7 +8,6 @@ import logging
 import itertools
 import collections
 import ipaddress
-import time
 import json
 
 from _pytest.outcomes import OutcomeException
@@ -263,19 +262,25 @@ def ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo):
 
 def check_orch_cpu_utilization(dut, orch_cpu_threshold):
     """
-    Compare orchagent CPU utilization 5 times, with 1 second interval in between and make sure all 5 readings are
-    less than threshold
+    Check five DUT-local, one-second orchagent CPU samples against the threshold.
 
     Args:
         dut: DUT host object
         orch_cpu_threshold: orch cpu threshold
     """
-    for i in range(5):
-        orch_cpu = dut.shell("COLUMNS=512 show processes cpu | grep orchagent | awk '{print $9}'")["stdout_lines"]
-        for line in orch_cpu:
-            if int(float(line)) > orch_cpu_threshold:
-                return False
-        time.sleep(1)
+    samples = dut.monit_process(delay_interval=1, iterations=5, verbose=False)["monit_results"]
+    if len(samples) != 5:
+        logger.warning("Expected 5 CPU samples on %s, received %s", dut.hostname, len(samples))
+        return False
+
+    for index, (processes, _) in enumerate(samples, 1):
+        orch_cpu = {proc["pid"]: proc["cpu_percent"] for proc in processes if proc["name"] == "orchagent"}
+        logger.info("Orchagent CPU sample %s on %s: %s", index, dut.hostname, orch_cpu)
+        if not orch_cpu:
+            logger.warning("No orchagent process in CPU sample %s on %s", index, dut.hostname)
+            return False
+        if any(int(float(cpu)) > orch_cpu_threshold for cpu in orch_cpu.values()):
+            return False
     return True
 
 
@@ -317,9 +322,8 @@ def duthost_shutdown_ebgp(duthost):
         pt_assert(wait_until(60, 2, 5, check_ebgp_routes, 0, 0, duthost),
                   "eBGP routes are not 0 after shutting down all neighbors on {}".format(duthost))
         pt_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
-                  "Orch CPU utilization {} > orch cpu threshold {} after shutdown all eBGP"
-                  .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
-                          orch_cpu_threshold))
+                  "Orchagent CPU readiness check failed after shutdown all eBGP on {}; "
+                  "threshold {}. See CPU samples in the log.".format(duthost.hostname, orch_cpu_threshold))
         shutdown_complete = True
     finally:
         if not shutdown_complete:
@@ -344,9 +348,8 @@ def duthost_startup_ebgp(duthost, v4_routes_count, v6_routes_count):
               "eBGP v4 routes are {}, and v6 route are {}, and not what they were originally after enabling "
               "all neighbors on {}".format(v4_routes_count, v6_routes_count, duthost))
     pt_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
-              "Orch CPU utilization {} > orch cpu threshold {} after startup all eBGP"
-              .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
-                      orch_cpu_threshold))
+              "Orchagent CPU readiness check failed after startup all eBGP on {}; "
+              "threshold {}. See CPU samples in the log.".format(duthost.hostname, orch_cpu_threshold))
 
 
 def restore_ebgp_on_exit(duthost, v4_routes_count, v6_routes_count, exc_type, exc, traceback):
