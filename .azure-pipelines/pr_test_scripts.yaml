@@ -852,6 +852,7 @@ t0-vpp:
   - pc/test_lag_member_forwarding.py
   - pc/test_po_cleanup.py
   - pc/test_po_update.py
+  - portstat/test_portstat.py
   - route/test_default_route.py
   - route/test_duplicate_route.py
   - route/test_forced_mgmt_route.py
