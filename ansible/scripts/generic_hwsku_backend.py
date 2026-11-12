@@ -396,6 +396,8 @@ def legacy_cleanup(arguments, scope, workspace, backend=None):
         raise PrerequisiteError("Original topology cleanup has no matching platform plan owner")
     if retained.get("testbed") != baseline_name:
         raise PrerequisiteError("Retained original-topology cleanup belongs to a different testbed")
+    if type(retained.get("schema_version")) is not int or retained["schema_version"] != 2:
+        raise RestorationError("Cleanup guard predates frozen-input enrollment; retain recovery evidence")
     previous_scope = retained.get("scope")
     if previous_scope is not None and (
             not isinstance(previous_scope, dict)

@@ -122,7 +122,7 @@ def initialize_cleanup_guard(scope, workspace, owner, source=None):
     if source is None:
         source = source_identity()
     private_json(path, {
-        "schema_version": 1, "generic_configuration_started": False, "status": "NOT_STARTED",
+        "schema_version": 2, "generic_configuration_started": False, "status": "NOT_STARTED",
         "testbed": scope["baseline_testbed"], "owner_plan_id": owner,
         "scope": copy.deepcopy(scope), "scope_sha256": digest(scope), "source_sha": source})
 
@@ -143,7 +143,7 @@ def verify_cleanup_host(host, scope):
 def verify_legacy_cleanup(workspace, owner, testbed, report=None):
     cleanup = _read_json(workspace / "legacy-cleanup.json")
     if (not isinstance(cleanup, dict) or type(cleanup.get("schema_version")) is not int
-            or cleanup["schema_version"] != 1 or cleanup.get("status") != "COMPLETE"
+            or cleanup["schema_version"] != 2 or cleanup.get("status") != "COMPLETE"
             or cleanup.get("generic_configuration_started") is not False
             or cleanup.get("owner_plan_id") != owner or not owner
             or not isinstance(cleanup.get("source_sha"), str)
@@ -366,7 +366,8 @@ def preflight(arguments, scope, testbed, workspace):
     guard = workspace / "legacy-cleanup.json"
     if os.path.lexists(guard):
         retained = _read_json(guard)
-        if (not isinstance(retained, dict) or retained.get("generic_configuration_started") is not False
+        if (not isinstance(retained, dict) or type(retained.get("schema_version")) is not int
+                or retained["schema_version"] != 2 or retained.get("generic_configuration_started") is not False
                 or retained.get("owner_plan_id") != owner
                 or not isinstance(retained.get("scope"), dict)
                 or retained.get("scope", {}).get("testbed_definition") != scope.get("testbed_definition")):
