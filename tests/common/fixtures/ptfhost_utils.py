@@ -16,7 +16,7 @@ from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_utils import check_link_status
 from tests.common.dualtor.dual_tor_common import ActiveActivePortID
 from tests.common.dualtor.dual_tor_utils import update_linkmgrd_probe_interval, recover_linkmgrd_probe_interval
-from tests.common.utilities import wait_until, is_ipv6_only_topology, is_lacp_server_sim_topology
+from tests.common.utilities import wait_until, is_ipv6_only_topology, is_ptf_emulated_lacp_hosts_topology
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from pytest_ansible.errors import AnsibleConnectionFailure
 
@@ -128,8 +128,8 @@ def change_mac_addresses(ptfhost, tbinfo):
         Returns:
             None
     """
-    if is_lacp_server_sim_topology(tbinfo):
-        logger.info("LACP server simulator topology, keep the bond member MAC addresses")
+    if is_ptf_emulated_lacp_hosts_topology(tbinfo):
+        logger.info("PTF emulated LACP hosts topology, keep the LAG member MAC addresses")
         return
     logger.info("Change interface MAC addresses on ptfhost '{0}'".format(ptfhost.hostname))
     ptfhost.change_mac_addresses()
@@ -151,8 +151,8 @@ def remove_ip_addresses(ptfhost, tbinfo):
         Returns:
             None
     """
-    if is_lacp_server_sim_topology(tbinfo):
-        logger.info("LACP server simulator topology, keep PTF interfaces and server netns untouched")
+    if is_ptf_emulated_lacp_hosts_topology(tbinfo):
+        logger.info("PTF emulated LACP hosts topology, keep PTF interfaces and host netns untouched")
         yield
         return
 
@@ -255,8 +255,8 @@ ArpResponderInfo = namedtuple("ArpResponderInfo", ["vlan", "responder_cfg"])
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
-    if is_lacp_server_sim_topology(tbinfo):
-        # The server netns answers ARP/ND itself
+    if is_ptf_emulated_lacp_hosts_topology(tbinfo):
+        # The host netns answers ARP/ND itself
         logger.info("LACP server simulator topology, not starting arp_responder")
         yield ArpResponderInfo(vlan=None, responder_cfg={})
         return
@@ -443,8 +443,8 @@ def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo, request):
 @pytest.fixture(scope="module", autouse=True)
 def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request):
     """Run icmp_responder.py over ptfhost."""
-    if is_lacp_server_sim_topology(tbinfo):
-        # The server netns answers ICMP/ARP/ND itself, and there is no linkmgrd
+    if is_ptf_emulated_lacp_hosts_topology(tbinfo):
+        # The host netns answers ICMP/ARP/ND itself, and there is no linkmgrd
         logger.info("LACP server simulator topology, not starting ICMP responder")
         yield
         return
@@ -523,8 +523,8 @@ def pause_garp_service(ptfhost):
 
 @pytest.fixture(scope='module', autouse=True)
 def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
-    if is_lacp_server_sim_topology(tbinfo):
-        logger.info("LACP server simulator topology, not starting GARP service")
+    if is_ptf_emulated_lacp_hosts_topology(tbinfo):
+        logger.info("PTF emulated LACP hosts topology, not starting GARP service")
         yield
         return
 
