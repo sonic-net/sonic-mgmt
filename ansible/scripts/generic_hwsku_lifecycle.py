@@ -313,6 +313,12 @@ def resolve_scheduler_testbed(path, requested, target):
 
 
 def run_collection(arguments, scope, testbed, workspace, host_only=False):
+    extra_management = testbed.get("ptf_extra_mgmt_ip")
+    if extra_management is not None and not isinstance(extra_management, str):
+        raise PrerequisiteError("ptf_extra_mgmt_ip must use the original comma-separated address format")
+    management_addresses = [testbed[key] for key in ("ptf_ip", "ptf_ipv6") if testbed.get(key)]
+    if extra_management:
+        management_addresses.extend(extra_management.split(","))
     collection = Path(tempfile.mkdtemp(prefix="collection-", dir=str(workspace)))
     # Private directories require owner traversal, not group/world access.
     os.chmod(str(collection), 0o700)  # nosemgrep: insecure-file-permissions
@@ -320,7 +326,7 @@ def run_collection(arguments, scope, testbed, workspace, host_only=False):
         "generic_collect_hosts": [] if host_only else [scope["dut"]] + scope["leaves"],
         "generic_collect_cleanup_only": host_only, "generic_collect_dut": scope["dut"],
         "generic_collect_server": testbed["server"], "generic_collect_group": testbed["group-name"],
-        "generic_collect_ptf_addresses": [testbed[key] for key in ("ptf_ip", "ptf_ipv6") if testbed.get(key)],
+        "generic_collect_ptf_addresses": management_addresses,
         "generic_collect_ptf_image_name": testbed["ptf_image_name"],
         "generic_collect_ptf_image_tag": testbed.get("ptf_imagetag", "latest"),
         "generic_local_directory": str(collection),

@@ -37,6 +37,8 @@ reason; adding the entry does not prove deployment readiness.
 `vars/topo_generic.yml` is the shared empty
 topology descriptor used by the existing testbed reader, not another testbed
 definition or a static port mapping. The frozen manifest owns those mappings.
+PTF management retains `ptf_ip`, `ptf_ipv6` and the ordinary comma-separated
+`ptf_extra_mgmt_ip` addresses; invalid secondary-address types fail before collection.
 
 Automatically derived inputs:
 
@@ -52,7 +54,7 @@ be explicitly controlled or protected; omission does not authorize other peers.
 | Resources | Canonical logical-port bound and reclaimed baseline allocations of selected cages only; zero assumed MMU spare |
 | FEC/AN and groups | Canonical output or exact unambiguous lane-owner baseline values; absent values preserve defaults. Shared groups require actual compatibility metadata |
 | Buffer/QoS templates | Installed SKU/platform `buffers_dynamic.json.j2` or `buffers.json.j2`, plus `qos.json.j2`; resolved symlinks and included assets retain source hashes |
-| Cable and neighbors | Frozen cable macro through SONiC's supported hook and actual verified physical neighbors, not invented topology roles |
+| Cable and neighbors | Frozen cable macro through SONiC's supported hook and CSV/canonical mappings; the caller must verify actual peer wiring before admission. This is not LLDP discovery or invented topology roles |
 | Transport | Unchanged CSV VLANs, baseline tagged leaf uplinks, observed parent MTU and immutable installed PTF image identity |
 | Access VLAN and addresses | Unused DUT VLAN plus checked shared benchmark address defaults; this does not create missing transport VLANs |
 
