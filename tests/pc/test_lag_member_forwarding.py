@@ -246,21 +246,18 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
                 return False
 
             # Find LAG_MEMBER entries whose PORT_ID matches our member ports
-            all_member_keys = asichost.shell(
-                "{} ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER:*'".format(
-                    asichost.sonic_db_cli)
+            all_member_keys = asichost.run_sonic_db_cli_cmd(
+                "ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER:*'"
             )["stdout_lines"]
 
             matched = 0
             for key in all_member_keys:
-                port_id = asichost.shell(
-                    "{} ASIC_DB HGET '{}' SAI_LAG_MEMBER_ATTR_PORT_ID".format(
-                        asichost.sonic_db_cli, key)
+                port_id = asichost.run_sonic_db_cli_cmd(
+                    "ASIC_DB HGET '{}' SAI_LAG_MEMBER_ATTR_PORT_ID".format(key)
                 )["stdout"].strip()
                 if port_id in member_port_oids:
-                    egress_disable = asichost.shell(
-                        "{} ASIC_DB HGET '{}' SAI_LAG_MEMBER_ATTR_EGRESS_DISABLE".format(
-                            asichost.sonic_db_cli, key)
+                    egress_disable = asichost.run_sonic_db_cli_cmd(
+                        "ASIC_DB HGET '{}' SAI_LAG_MEMBER_ATTR_EGRESS_DISABLE".format(key)
                     )["stdout"].strip()
                     if egress_disable != "true":
                         return False
