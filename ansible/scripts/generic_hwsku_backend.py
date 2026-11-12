@@ -392,6 +392,11 @@ def legacy_cleanup(arguments, scope, workspace, backend=None):
             raise PrerequisiteError("Original topology cleanup has no matching platform plan owner")
         if retained.get("testbed") != baseline_name:
             raise PrerequisiteError("Retained original-topology cleanup belongs to a different testbed")
+        previous_scope = retained.get("scope")
+        if previous_scope is not None and (
+                not isinstance(previous_scope, dict)
+                or previous_scope.get("testbed_definition") != scope.get("testbed_definition")):
+            raise PrerequisiteError("Original topology cleanup physical binding changed; retain its evidence")
         if retained["status"] == "COMPLETE" and backend is not None:
             backend.host_call("stage")
             return
@@ -422,6 +427,11 @@ def legacy_cleanup(arguments, scope, workspace, backend=None):
     if errors:
         raise NativeOperationError("; ".join(errors))
     verify_cleanup_host(host, scope)
+    previous_host = receipt.get("host")
+    if previous_host is not None and (
+            not isinstance(previous_host, dict)
+            or any(previous_host.get(key) != host[key] for key in ("inventory_name", "hostname"))):
+        raise PrerequisiteError("Original topology cleanup host identity changed; retain its evidence")
     receipt.update(status="COMPLETE", host=host, prior_hold_sha256=digest(retained_hold),
                    meaning="Previous topology cleanup completed; exact native PTF absence verified")
     private_json(path, receipt)
