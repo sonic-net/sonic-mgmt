@@ -71,6 +71,7 @@
     - name: Reuse the ordinary topology's Docker registry configuration
       include_vars: vars/docker_registry.yml
       no_log: true
+      when: not (generic_collect_cleanup_only | default(false))
     - name: Allocate this invocation's host-facts directory
       tempfile:
         state: directory
@@ -88,7 +89,9 @@
             container: "ptf_{{ generic_collect_group }}"
             inventory_name: "{{ inventory_hostname }}"
             image_reference: >-
-              {{ ptf_registry_host | default(docker_registry_host) }}/{{ generic_collect_ptf_image_name }}:{{ generic_collect_ptf_image_tag }}
+              {{ omit if generic_collect_cleanup_only | default(false) else
+                 (ptf_registry_host | default(docker_registry_host)) ~ '/' ~ generic_collect_ptf_image_name ~ ':' ~ generic_collect_ptf_image_tag }}
+            cleanup_only: "{{ generic_collect_cleanup_only | default(false) }}"
             external_interface: "{{ external_port }}"
             management:
               bridge: "{{ mgmt_bridge }}"

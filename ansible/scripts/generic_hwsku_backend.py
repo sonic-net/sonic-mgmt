@@ -371,11 +371,20 @@ def prepare_backend(arguments, scope, workspace):
 
 
 def legacy_cleanup(arguments, scope, workspace, backend=None):
+    from generic_hwsku_lifecycle import _validate_owner, run_collection, source_identity, verify_cleanup_host
+
     path = workspace / "legacy-cleanup.json"
     baseline_name = scope["baseline_testbed"]
-    owner = os.environ.get("ELASTICTEST_TEST_PLAN_ID", "")
+    owner = _validate_owner(os.environ.get("ELASTICTEST_TEST_PLAN_ID", ""))
+    hold = workspace / "recovery-required.json"
+    retained_hold = read_json(hold) if hold.is_file() else None
+    if retained_hold is not None and (
+            not isinstance(retained_hold, dict) or retained_hold.get("owner_plan_id") != owner
+            or retained_hold.get("testbed") != arguments.testbed):
+        raise PrerequisiteError("Original topology cleanup cannot close a foreign reservation hold")
     if path.is_file():
         retained = read_json(path)
+        receipt = dict(retained)
         provenance = workspace / "provenance.json"
         previous_owner = retained.get("owner_plan_id") or (
             read_json(provenance).get("owner_plan_id") if provenance.is_file() else None)
@@ -386,8 +395,11 @@ def legacy_cleanup(arguments, scope, workspace, backend=None):
         if retained["status"] == "COMPLETE" and backend is not None:
             backend.host_call("stage")
             return
-    private_json(path, {"status": "INTENT", "testbed": baseline_name, "owner_plan_id": owner,
-                        "meaning": "Original topology host cleanup, before Generic host baseline"})
+    else:
+        receipt = {"schema_version": 1, "generic_configuration_started": False, "scope": copy.deepcopy(scope),
+                   "scope_sha256": digest(scope), "source_sha": source_identity()}
+    receipt.update(status="INTENT", testbed=baseline_name, owner_plan_id=owner)
+    private_json(path, receipt)
     private_json(workspace / "mutation-attempted.json", {"phase": "legacy_host_cleanup"})
     command = ["bash", str(ANSIBLE / "testbed-cli.sh"), "-t", str(arguments.testbed_file),
                "-m", str(arguments.vm_inventory), "-k", arguments.vm_type,
@@ -405,8 +417,24 @@ def legacy_cleanup(arguments, scope, workspace, backend=None):
             "Previous topology cleanup failed; private evidence: " + str(path.with_suffix(".log")))
     if backend is not None:
         backend.host_call("stage")
-    private_json(path, {"status": "COMPLETE", "testbed": baseline_name, "owner_plan_id": owner,
-                        "meaning": "Previous topology cleanup completed; Generic host baseline is confirmed absent"})
+    _, host, errors = run_collection(
+        arguments, scope, scope["testbed_definition"]["generic"], workspace, True)
+    if errors:
+        raise NativeOperationError("; ".join(errors))
+    verify_cleanup_host(host, scope)
+    receipt.update(status="COMPLETE", host=host, prior_hold_sha256=digest(retained_hold),
+                   meaning="Previous topology cleanup completed; exact native PTF absence verified")
+    private_json(path, receipt)
+
+
+def cleanup_only_report(arguments, workspace, owner):
+    from generic_hwsku_lifecycle import verify_legacy_cleanup
+
+    receipt = verify_legacy_cleanup(workspace, owner, arguments.testbed)
+    return {"status": "LEGACY_CLEANED", "configuration_writes_attempted": True,
+            "generic_configuration_writes_attempted": False, "cleanup_verified": True,
+            "reservation_hold_required": False, "cleanup_sha256": digest(receipt),
+            "meaning": "Original topology removed and absence verified; no Generic configuration started"}
 
 
 def verify_smoke_ready(transaction, backend, report):
@@ -465,19 +493,21 @@ def run_phase(action, arguments, scope, testbed, workspace):
         raise PrerequisiteError("SONIC_GENERIC_BOOTSTRAP_DEPLOY must be 1 or unset")
     bootstrap = bootstrap_option == "1"
     transaction_directory = workspace / "transaction"
+    cleanup_path = workspace / "legacy-cleanup.json"
+    if (not os.path.lexists(transaction_directory) and cleanup_path.is_file()
+            and read_json(cleanup_path).get("generic_configuration_started") is True):
+        raise RestorationError("Generic configuration intent lost its original transaction; retain the reservation")
     if action == "remove-topo" and not (workspace / "backend.json").is_file():
         if transaction_directory.exists():
             raise RestorationError("Frozen native recovery inputs are missing; retain the transaction and reservation")
         legacy_cleanup(arguments, scope, workspace)
-        return {"status": "LEGACY_CLEANED", "configuration_writes_attempted": True,
-                "meaning": "Original topology cleanup completed; no Generic device configuration applied"}
+        return cleanup_only_report(arguments, workspace, owner)
     backend = prepare_backend(arguments, scope, workspace)
     if action in ("deploy-mg", "smoke") and not transaction_directory.exists() and not bootstrap:
         raise PrerequisiteError("add-topo must establish the frozen Generic transaction first")
     if action == "remove-topo" and not transaction_directory.exists():
         legacy_cleanup(arguments, scope, workspace, backend)
-        return {"status": "LEGACY_CLEANED", "configuration_writes_attempted": True,
-                "meaning": "Original host topology removed; no Generic device configuration applied"}
+        return cleanup_only_report(arguments, workspace, owner)
     if action == "remove-topo":
         transaction = DeploymentTransaction.open(transaction_directory, backend)
         if (read_artifact(transaction.status()["bundle"])["bundle_sha256"]
@@ -508,6 +538,9 @@ def run_phase(action, arguments, scope, testbed, workspace):
     legacy_cleanup(arguments, scope, workspace, backend)
     host_resources = {backend.payload["host_target"]: {
         "baseline": None, "candidate": candidate_state(backend.payload["host_spec"])}}
+    cleanup = read_json(cleanup_path)
+    cleanup["generic_configuration_started"] = True
+    private_json(cleanup_path, cleanup)
     transaction = (DeploymentTransaction.open(transaction_directory, backend) if transaction_directory.exists()
                    else DeploymentTransaction(transaction_directory, backend.payload["bundle"], backend,
                                               host_resources, backend.payload["aliases"]))

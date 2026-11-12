@@ -108,9 +108,70 @@ def _unfrozen_workspace(workspace):
         "mutation-attempted.json", "legacy-cleanup.json", "recovery-required.json"))
 
 
+def verify_cleanup_host(host, scope):
+    container = host.get("container", {}) if isinstance(host, dict) else {}
+    definition = scope.get("testbed_definition", {})
+    generic = definition.get("generic", {}) if isinstance(definition, dict) else {}
+    group = generic.get("group-name") if isinstance(generic, dict) else None
+    if (not isinstance(group, str) or not group or not isinstance(container, dict)
+            or container.get("name") != "ptf_" + group
+            or container.get("exists") is not False or container.get("running") is not False
+            or not isinstance(host.get("host_links"), list)
+            or not all(isinstance(host.get(key), str) and host[key] for key in ("inventory_name", "hostname"))):
+        raise PrerequisiteError("Original topology cleanup lacks exact native host/container absence")
+
+
+def verify_legacy_cleanup(workspace, owner, testbed, report=None):
+    cleanup = _read_json(workspace / "legacy-cleanup.json")
+    if (not isinstance(cleanup, dict) or type(cleanup.get("schema_version")) is not int
+            or cleanup["schema_version"] != 1 or cleanup.get("status") != "COMPLETE"
+            or cleanup.get("generic_configuration_started") is not False
+            or cleanup.get("owner_plan_id") != owner or not owner
+            or not isinstance(cleanup.get("source_sha"), str)
+            or re.fullmatch(r"[0-9a-f]{40}", cleanup["source_sha"]) is None
+            or not isinstance(cleanup.get("scope"), dict)):
+        raise PrerequisiteError("Cleanup-only recovery lacks authenticated no-Generic-write evidence")
+    scope = cleanup["scope"]
+    if (scope.get("testbed") != testbed or scope.get("baseline_testbed") != cleanup.get("testbed")
+            or cleanup.get("scope_sha256") != digest(scope)
+            or os.path.lexists(workspace / "transaction")
+            or _read_json(workspace / "mutation-attempted.json") != {"phase": "legacy_host_cleanup"}):
+        raise PrerequisiteError("Cleanup-only recovery conflicts with retained scope or native transaction")
+    verify_cleanup_host(cleanup.get("host"), scope)
+    provenance = workspace / "provenance.json"
+    if os.path.lexists(provenance):
+        frozen, frozen_scope = _read_json(provenance), _read_json(workspace / "scope.json")
+        if (not isinstance(frozen, dict) or not isinstance(frozen_scope, dict)
+                or frozen.get("owner_plan_id") != owner or not isinstance(frozen.get("source_sha"), str)
+                or re.fullmatch(r"[0-9a-f]{40}", frozen["source_sha"]) is None
+                or frozen.get("scope_sha256") != digest(frozen_scope)
+                or frozen_scope.get("testbed_definition") != scope.get("testbed_definition")
+                or report is not None and report.get("scenario_source_sha") != frozen["source_sha"]):
+            raise PrerequisiteError("Cleanup-only recovery disagrees with frozen source/owner/scope")
+    hold = workspace / "recovery-required.json"
+    retained = _read_json(hold) if os.path.lexists(hold) else None
+    if retained is not None and (
+            not isinstance(retained, dict) or retained.get("owner_plan_id") != owner
+            or retained.get("testbed") != testbed):
+        raise PrerequisiteError("Cleanup-only recovery cannot close a foreign reservation hold")
+    if cleanup.get("prior_hold_sha256") != digest(retained):
+        raise PrerequisiteError("Cleanup-only recovery has an unverified newer reservation hold")
+    if report is not None and (
+            report.get("cleanup_verified") is not True
+            or report.get("generic_configuration_writes_attempted") is not False
+            or report.get("reservation_hold_required") is not False
+            or report.get("owner_plan_id") != owner or report.get("testbed") != testbed
+            or report.get("cleanup_sha256") != digest(cleanup)):
+        raise PrerequisiteError("Cleanup-only recovery report does not match its retained evidence")
+    return cleanup
+
+
 def _verify_closed_workspace(workspace, owner, testbed):
     """Authenticate prior terminal recovery; a new plan collects its own baselines."""
     report = _read_json(workspace / "deployment-report.json")
+    if isinstance(report, dict) and report.get("status") == "LEGACY_CLEANED":
+        verify_legacy_cleanup(workspace, owner, testbed, report)
+        return
     if (isinstance(report, dict) and report.get("status") == "NOT_READY"
             and report.get("closed_without_configuration") is True
             and report.get("configuration_writes_attempted") is False
@@ -232,12 +293,13 @@ def resolve_scheduler_testbed(path, requested, target):
     return scope["testbed"]
 
 
-def run_collection(arguments, scope, testbed, workspace):
+def run_collection(arguments, scope, testbed, workspace, host_only=False):
     collection = Path(tempfile.mkdtemp(prefix="collection-", dir=str(workspace)))
     # Private directories require owner traversal, not group/world access.
     os.chmod(str(collection), 0o700)  # nosemgrep: insecure-file-permissions
     variables = {
-        "generic_collect_hosts": [scope["dut"]] + scope["leaves"], "generic_collect_dut": scope["dut"],
+        "generic_collect_hosts": [] if host_only else [scope["dut"]] + scope["leaves"],
+        "generic_collect_cleanup_only": host_only, "generic_collect_dut": scope["dut"],
         "generic_collect_server": testbed["server"], "generic_collect_group": testbed["group-name"],
         "generic_collect_ptf_addresses": [testbed[key] for key in ("ptf_ip", "ptf_ipv6") if testbed.get(key)],
         "generic_collect_ptf_image_name": testbed["ptf_image_name"],
@@ -415,7 +477,7 @@ def main(argv=None):
 
         result = run_phase(arguments.action, arguments, scope, testbed, workspace)
         result.update(testbed=arguments.testbed, action=arguments.action,
-                      source_sha=source_identity(), qualification_pass=False)
+                      source_sha=source_identity(), owner_plan_id=owner, qualification_pass=False)
         if provenance.is_file():
             result["scenario_source_sha"] = read_json(provenance)["source_sha"]
         backend_path = workspace / "backend.json"

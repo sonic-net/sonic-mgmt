@@ -172,6 +172,13 @@ Original DUT/leaf running and startup configurations are captured independently.
 Original host cleanup addresses `generic_hwsku.baseline_testbed`, never the
 Generic entry recursively. Both entries' physical/management binding is frozen;
 changing their shared slot does not silently rebind an existing transaction.
+Cleanup-only failures before transaction creation can release the workspace to
+the next plan only after fresh, host-only PTF-absence readback, authenticated
+owner/scope/source and an explicit no-Generic-configuration guard. This readback
+does not require a usable PTF image or collect DUT/leaf planning facts. The guard
+is durably changed before transaction creation; a missing journal after that
+point cannot be reclassified as cleanup-only. Uninstrumented old receipts need
+inspection, and all old failure/hold artifacts remain retained.
 
 `add-topo` uses one frozen manifest, renders installed buffer/QoS templates
 against candidate PORT/CABLE_LENGTH and physical neighbors, validates complete configs on each image,
