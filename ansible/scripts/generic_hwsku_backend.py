@@ -371,7 +371,8 @@ def prepare_backend(arguments, scope, workspace):
 
 
 def legacy_cleanup(arguments, scope, workspace, backend=None):
-    from generic_hwsku_lifecycle import _validate_owner, run_collection, source_identity, verify_cleanup_host
+    from generic_hwsku_lifecycle import (
+        _read_json, _validate_owner, initialize_cleanup_guard, run_collection, verify_cleanup_host)
 
     path = workspace / "legacy-cleanup.json"
     baseline_name = scope["baseline_testbed"]
@@ -382,27 +383,27 @@ def legacy_cleanup(arguments, scope, workspace, backend=None):
             not isinstance(retained_hold, dict) or retained_hold.get("owner_plan_id") != owner
             or retained_hold.get("testbed") != arguments.testbed):
         raise PrerequisiteError("Original topology cleanup cannot close a foreign reservation hold")
-    if path.is_file():
-        retained = read_json(path)
-        receipt = dict(retained)
-        provenance = workspace / "provenance.json"
-        previous_owner = retained.get("owner_plan_id") or (
-            read_json(provenance).get("owner_plan_id") if provenance.is_file() else None)
-        if not owner or previous_owner != owner:
-            raise PrerequisiteError("Original topology cleanup has no matching platform plan owner")
-        if retained.get("testbed") != baseline_name:
-            raise PrerequisiteError("Retained original-topology cleanup belongs to a different testbed")
-        previous_scope = retained.get("scope")
-        if previous_scope is not None and (
-                not isinstance(previous_scope, dict)
-                or previous_scope.get("testbed_definition") != scope.get("testbed_definition")):
-            raise PrerequisiteError("Original topology cleanup physical binding changed; retain its evidence")
-        if retained["status"] == "COMPLETE" and backend is not None:
-            backend.host_call("stage")
-            return
-    else:
-        receipt = {"schema_version": 1, "generic_configuration_started": False, "scope": copy.deepcopy(scope),
-                   "scope_sha256": digest(scope), "source_sha": source_identity()}
+    if not os.path.lexists(path):
+        initialize_cleanup_guard(scope, workspace, owner)
+    retained = _read_json(path)
+    if not isinstance(retained, dict):
+        raise PrerequisiteError("Original topology cleanup has an invalid retained guard")
+    receipt = dict(retained)
+    provenance = workspace / "provenance.json"
+    previous_owner = retained.get("owner_plan_id") or (
+        read_json(provenance).get("owner_plan_id") if provenance.is_file() else None)
+    if not owner or previous_owner != owner:
+        raise PrerequisiteError("Original topology cleanup has no matching platform plan owner")
+    if retained.get("testbed") != baseline_name:
+        raise PrerequisiteError("Retained original-topology cleanup belongs to a different testbed")
+    previous_scope = retained.get("scope")
+    if previous_scope is not None and (
+            not isinstance(previous_scope, dict)
+            or previous_scope.get("testbed_definition") != scope.get("testbed_definition")):
+        raise PrerequisiteError("Original topology cleanup physical binding changed; retain its evidence")
+    if retained["status"] == "COMPLETE" and backend is not None:
+        backend.host_call("stage")
+        return
     receipt.update(status="INTENT", testbed=baseline_name, owner_plan_id=owner)
     private_json(path, receipt)
     private_json(workspace / "mutation-attempted.json", {"phase": "legacy_host_cleanup"})

@@ -182,6 +182,9 @@ does not require a usable PTF image or collect DUT/leaf planning facts. The guar
 is durably changed before transaction creation; a missing journal after that
 point cannot be reclassified as cleanup-only. Uninstrumented old receipts need
 inspection, and all old failure/hold artifacts remain retained.
+Successful preflight seals this guard before freezing other inputs. A missing
+guard alongside frozen inputs or native recovery state blocks original cleanup
+before any command; partial frozen inputs cannot be recollected as new originals.
 
 `add-topo` uses one frozen manifest, renders installed buffer/QoS templates
 against candidate PORT/CABLE_LENGTH and physical neighbors, validates complete configs on each image,

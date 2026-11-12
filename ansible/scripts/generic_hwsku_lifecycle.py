@@ -21,6 +21,11 @@ from generic_hwsku_deployment import (
     DeploymentTransaction, RestorationError, TransactionError, _private, _read_json, private_lock)
 
 
+FROZEN_INPUTS = (
+    "provenance.json", "inputs.json", "manifest.json", "canonical-ports.json", "runtime-inputs.json",
+    "scope.json", "original-testbed.json", "invocation.json", "backend.json", "transaction")
+
+
 def private_json(path, value):
     descriptor, temporary = tempfile.mkstemp(prefix=".generic-", dir=str(path.parent))
     try:
@@ -103,10 +108,23 @@ def active_workspace(base, owner=None):
 
 
 def _unfrozen_workspace(workspace):
-    return not any(os.path.lexists(workspace / name) for name in (
-        "provenance.json", "inputs.json", "manifest.json", "canonical-ports.json", "runtime-inputs.json",
-        "scope.json", "original-testbed.json", "invocation.json", "backend.json", "transaction",
+    return not any(os.path.lexists(workspace / name) for name in FROZEN_INPUTS + (
         "mutation-attempted.json", "legacy-cleanup.json", "recovery-required.json"))
+
+
+def initialize_cleanup_guard(scope, workspace, owner, source=None):
+    path = workspace / "legacy-cleanup.json"
+    if os.path.lexists(path):
+        return
+    if any(os.path.lexists(workspace / name) for name in FROZEN_INPUTS + (
+            "mutation-attempted.json", "recovery-required.json")):
+        raise RestorationError("Missing cleanup guard with frozen recovery evidence; retain the workspace")
+    if source is None:
+        source = source_identity()
+    private_json(path, {
+        "schema_version": 1, "generic_configuration_started": False, "status": "NOT_STARTED",
+        "testbed": scope["baseline_testbed"], "owner_plan_id": owner,
+        "scope": copy.deepcopy(scope), "scope_sha256": digest(scope), "source_sha": source})
 
 
 def verify_cleanup_host(host, scope):
@@ -343,6 +361,16 @@ def source_identity():
 
 def preflight(arguments, scope, testbed, workspace):
     owner = _validate_owner(os.environ.get("ELASTICTEST_TEST_PLAN_ID", ""))
+    if any(os.path.lexists(workspace / name) for name in FROZEN_INPUTS):
+        raise RestorationError("Frozen recovery inputs cannot be replanned; retain their original evidence")
+    guard = workspace / "legacy-cleanup.json"
+    if os.path.lexists(guard):
+        retained = _read_json(guard)
+        if (not isinstance(retained, dict) or retained.get("generic_configuration_started") is not False
+                or retained.get("owner_plan_id") != owner
+                or not isinstance(retained.get("scope"), dict)
+                or retained.get("scope", {}).get("testbed_definition") != scope.get("testbed_definition")):
+            raise RestorationError("Preflight lacks its original no-configuration cleanup guard")
     source_sha = source_identity()
     rows = connection_rows(ANSIBLE / "files" / ("sonic_" + testbed["inv_name"] + "_links.csv"), scope["dut"])
     facts, host, errors = run_collection(arguments, scope, testbed, workspace)
@@ -364,6 +392,7 @@ def preflight(arguments, scope, testbed, workspace):
         report["blocking_errors"].append(str(error))
         private_json(workspace / "preflight-report.json", report)
         raise
+    initialize_cleanup_guard(scope, workspace, owner, source_sha)
     private_json(workspace / "inputs.json", {"snapshot": snapshot, "settings": settings})
     private_json(workspace / "manifest.json", manifest)
     private_json(workspace / "canonical-ports.json", canonical)
