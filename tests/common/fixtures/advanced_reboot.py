@@ -7,6 +7,7 @@ import logging
 import pytest
 import time
 import os
+import tempfile
 import traceback
 import six
 
@@ -16,6 +17,7 @@ from tests.common.reboot import reboot as rebootDut
 from tests.common.helpers.sad_path import SadOperation
 from tests.ptf_runner import ptf_runner
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.constants import ARP_RESPONDER_PER_SUFFIX_CONFIG_FMT
 from tests.common.utilities import InterruptableThread
 from tests.common.dualtor.data_plane_utils import get_peerhost
 from tests.common.dualtor.dual_tor_utils import show_muxcable_status
@@ -137,6 +139,11 @@ class AdvancedReboot:
         self.new_docker_image = self.request.config.getoption("--new_docker_image")
         self.neighborType = self.request.config.getoption("--neighbor_type")
         self.ceosNeighLacpMultiplier = self.request.config.getoption("--ceos_neighbor_lacp_multiplier")
+        self.csonicNeighLacpMultiplier = self.request.config.getoption("--csonic_neighbor_lacp_multiplier")
+        self.isCsonicNeighbor = self.neighborType == 'csonic'
+        self.csonicNeighPassword = self.creds.get('sonic_password', 'password')
+        if 'sonic' in self.neighborType:
+            self.neighborType = 'sonic'
 
         # Set default reboot limit if it is not given
         if self.rebootLimit is None:
@@ -340,7 +347,7 @@ class AdvancedReboot:
         """
         arp_responder_args = '-e'
         if item is not None:
-            arp_responder_args += ' -c /tmp/from_t1_{0}.json'.format(item)
+            arp_responder_args += ' -c ' + ARP_RESPONDER_PER_SUFFIX_CONFIG_FMT % item
         self.ptfhost.host.options['variable_manager'].extra_vars.update({'arp_responder_args': arp_responder_args})
 
         logger.info('Copying arp responder config file to {0}'.format(self.ptfhost.hostname))
@@ -907,6 +914,22 @@ class AdvancedReboot:
             logger.info('Running revert handler for reboot operation {}'.format(rebootOper))
             rebootOper.revert()
 
+    def __prepareCsonicCredentials(self):
+        fd, local_path = tempfile.mkstemp(prefix="csonic-neighbor-credentials-", suffix=".json")
+        remote_path = "/tmp/{}".format(os.path.basename(local_path))
+        try:
+            with os.fdopen(fd, 'w') as credential_file:
+                json.dump({
+                    "login": "admin",
+                    "password": self.csonicNeighPassword,
+                }, credential_file)
+            os.chmod(local_path, 0o600)
+            self.ptfhost.copy(src=local_path, dest=remote_path, mode='0600')
+        except Exception:
+            os.unlink(local_path)
+            raise
+        return local_path, remote_path
+
     def __runPtfRunner(self, rebootOper=None, ptf_collect_dir="./logs/ptf_collect/"):
         """
         Run single PTF advanced-reboot.ReloadTest
@@ -951,6 +974,8 @@ class AdvancedReboot:
             "neighbor_type": self.neighborType,
             "kvm_support": True,
             "ceos_neighbor_lacp_multiplier": self.ceosNeighLacpMultiplier,
+            "csonic_neighbor": self.isCsonicNeighbor,
+            "csonic_neighbor_lacp_multiplier": self.csonicNeighLacpMultiplier,
             "packet_capture_location": self.rebootData['packet_capture_location']
         }
 
@@ -982,30 +1007,40 @@ class AdvancedReboot:
         else:
             params.update({'logfile_suffix': str(rebootOper)})
 
-        self.__updateAndRestartArpResponder(rebootOper)
+        local_credential_file = None
+        remote_credential_file = None
+        if self.isCsonicNeighbor:
+            local_credential_file, remote_credential_file = self.__prepareCsonicCredentials()
+            params["csonic_neighbor_credentials_file"] = remote_credential_file
 
-        if rebootOper is None and self.other_vendor_nos is True:
-            logger.info('Run advanced-reboot ReloadTest on the PTF host. TestCase: {}, sub-case: '
-                        'Reboot from other vendor nos'.format(self.request.node.name))
-        else:
-            logger.info('Run advanced-reboot ReloadTest on the PTF host. TestCase: {}, '
-                        'sub-case: {}'.format(self.request.node.name, str(rebootOper)))
-        result = ptf_runner(
-            self.ptfhost,
-            "ptftests",
-            "advanced-reboot.ReloadTest",
-            qlen=PTFRUNNER_QLEN,
-            platform_dir="ptftests",
-            platform="remote",
-            params=params,
-            log_file='/tmp/advanced-reboot.ReloadTest.log',
-            ptf_collect_dir=ptf_collect_dir,
-            module_ignore_errors=self.moduleIgnoreErrors,
-            timeout=REBOOT_CASE_TIMEOUT,
-            is_python3=True
-        )
+        try:
+            self.__updateAndRestartArpResponder(rebootOper)
 
-        return result
+            if rebootOper is None and self.other_vendor_nos is True:
+                logger.info('Run advanced-reboot ReloadTest on the PTF host. TestCase: {}, sub-case: '
+                            'Reboot from other vendor nos'.format(self.request.node.name))
+            else:
+                logger.info('Run advanced-reboot ReloadTest on the PTF host. TestCase: {}, '
+                            'sub-case: {}'.format(self.request.node.name, str(rebootOper)))
+            return ptf_runner(
+                self.ptfhost,
+                "ptftests",
+                "advanced-reboot.ReloadTest",
+                qlen=PTFRUNNER_QLEN,
+                platform_dir="ptftests",
+                platform="remote",
+                params=params,
+                log_file='/tmp/advanced-reboot.ReloadTest.log',
+                ptf_collect_dir=ptf_collect_dir,
+                module_ignore_errors=self.moduleIgnoreErrors,
+                timeout=REBOOT_CASE_TIMEOUT,
+                is_python3=True
+            )
+        finally:
+            if local_credential_file:
+                os.unlink(local_credential_file)
+            if remote_credential_file:
+                self.ptfhost.file(path=remote_credential_file, state='absent')
 
     def __restorePrevImage(self):
         """

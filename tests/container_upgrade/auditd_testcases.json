@@ -1,0 +1,5 @@
+{
+	"testcases": [
+		"auditd/test_auditd.py"
+	]
+}

@@ -92,6 +92,14 @@ IPv6 service configurations are defined in:
 - `group_vars/sonic/ipv6.yml` - For lab inventory (depending on the inventory group)
 - `group_vars/vm_host/ipv6.yml` - For vm_host inventory
 
+For inventories with nested groups, set `ipv6_mgmt_config_group` to load the
+intended lab file instead of relying on group ordering:
+
+```yaml
+# group_vars/<lab>/ipv6.yml
+ipv6_mgmt_config_group: <lab>
+```
+
 ## Virtual Testbed IPv6 Addressing Scheme
 
 For virtual testbeds, we use the following IPv6 addressing:
@@ -258,6 +266,53 @@ The local NTP server is configured as the primary NTP source in:
    ```bash
    docker exec sonic-mgmt-ntp chronyc tracking
    ```
+
+## Running Tests in IPv6-Only Management Mode
+
+When running tests against a DUT configured with IPv6-only management, you must tell the test framework to use IPv6 addresses.
+
+### Using run_tests.sh
+
+Use the `-6` flag to enable IPv6-only management mode:
+
+```bash
+./run_tests.sh -6 -n vms-kvm-t0 -d vlab-01 -c bgp/test_bgp_fact.py -f vtestbed.yaml -i ../ansible/veos_vtb
+```
+
+### Using pytest directly
+
+Use the `--ipv6_only_mgmt` option:
+
+```bash
+pytest --ipv6_only_mgmt --testbed vms-kvm-t0 --testbed_file vtestbed.yaml --inventory ../ansible/veos_vtb --host-pattern vlab-01 bgp/test_bgp_fact.py
+```
+
+### What the IPv6-only flag does
+
+When enabled, the test framework will:
+- Use `ansible_hostv6` as the DUT management IP instead of `ansible_host`
+- Skip IPv4 management connectivity sanity checks
+- Use `ping6` for management reachability tests
+- Use `proxy_env_ipv6` instead of `proxy_env` when an IPv6 proxy is configured
+
+Labs that require an HTTP/HTTPS proxy can define an optional
+`proxy_env_ipv6` dictionary in `ansible/group_vars/all/env.yml` or an
+inventory-specific `group_vars/<inventory>/env.yml`. IPv6 literals in proxy
+URLs must be enclosed in square brackets, for example
+`http://[2001:db8::1]:3128`. If `proxy_env_ipv6` is not defined, existing
+proxy behavior is unchanged.
+
+During `deploy-mg --ipv6-only-mgmt`, `proxy_env_ipv6` is used for the DUT
+Docker proxy configuration. During test execution, `--ipv6_only_mgmt` or `-6`
+selects it for tests that consume the shared `creds` fixtures.
+Redeploying without a configured proxy removes the playbook-managed Docker
+proxy drop-in and restores direct access.
+
+### Important notes
+
+- The `--ipv6_only_mgmt` / `-6` flag only affects test execution, not deployment
+- The DUT must already be configured with IPv6 management (via `deploy-mg --ipv6-only-mgmt`)
+- Ensure `ansible_hostv6` is defined in the inventory for all DUTs
 
 ## Reverting to IPv4 Management
 

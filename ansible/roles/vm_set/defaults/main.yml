@@ -1,0 +1,3 @@
+---
+# Path to the managed Python virtual environment on the testbed host.
+sonic_testbed_venv: "/opt/sonic-testbed/venv"

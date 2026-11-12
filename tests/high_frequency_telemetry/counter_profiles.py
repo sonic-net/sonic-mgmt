@@ -1,9 +1,13 @@
 """High frequency telemetry counter configuration keyed by platform and object type.
 
-Each platform maps to counter definitions grouped by `CounterObjectType`.  Tests
-should call `get_support_counter_list(duthost, counter_type)` so they always get
-the counters that are supported on the current DUT platform.  New platforms can
-reference the same sequence by reusing the tuple constant defined above.
+The counters listed here are supported on Spectrum-4 (SN5600 / SPC4) and above.
+``_QUEUE_COUNTERS_SPC6_EXTRA`` are the queue counters that are additionally
+supported only on Spectrum-6 (SN6600 / SPC6) and above.
+
+Each entry in ``SUPPORTED_STATS`` lists exactly the counters that platform
+supports for each object type.
+
+Tests should call ``get_support_counter_list(duthost, counter_type)``.
 """
 
 from __future__ import annotations
@@ -21,43 +25,59 @@ class CounterObjectType(Enum):
 
 _DEFAULT_PLATFORM = "default"
 
-_PORT_COUNTERS_SN5640 = (
+# Counters supported on Spectrum-4 (SN5600 / SPC4) and above
+_PORT_COUNTERS = (
     "IF_IN_OCTETS",
-    # "IF_IN_UCAST_PKTS",
     "IF_IN_DISCARDS",
     "IF_OUT_OCTETS",
-    # "IF_OUT_ERRORS",
-    # "IF_OUT_UCAST_PKTS",
-    # "TRIM_PACKETS"
+    "IF_IN_UCAST_PKTS",
+    "IF_OUT_ERRORS",
+    "IF_OUT_UCAST_PKTS",
 )
 
-_QUEUE_COUNTERS_SN5640 = (
-    # "PACKETS",
+_QUEUE_COUNTERS = (
     "BYTES",
-    # "DROPPED_PACKETS",
     "CURR_OCCUPANCY_CELLS",
     "WATERMARK_CELLS",
     "WRED_ECN_MARKED_PACKETS",
+    "PACKETS",
 )
 
-_INGRESS_PRIORITY_GROUP_COUNTERS_SN5640 = (
-    # "PACKETS",
-    # "BYTES",
+_INGRESS_PRIORITY_GROUP_COUNTERS = (
+    "CURR_OCCUPANCY_CELLS",
+    "WATERMARK_CELLS",
+    "PACKETS",
+    "BYTES",
+)
+
+_BUFFER_POOL_COUNTERS = (
     "CURR_OCCUPANCY_CELLS",
     "WATERMARK_CELLS",
 )
 
-_BUFFER_POOL_COUNTERS_SN5640 = (
-    # "CURR_OCCUPANCY_CELLS",
-    # "WATERMARK_CELLS",
+# Queue counters supported only on Spectrum-6 (SN6600 / SPC6) and above
+_QUEUE_COUNTERS_SPC6_EXTRA = (
+    "DROPPED_PACKETS",
 )
 
 SUPPORTED_STATS: Mapping[str, Mapping[CounterObjectType, Sequence[str]]] = {
+    "x86_64-nvidia_sn5600-r0": {
+        CounterObjectType.PORT: _PORT_COUNTERS,
+        CounterObjectType.QUEUE: _QUEUE_COUNTERS,
+        CounterObjectType.INGRESS_PRIORITY_GROUP: _INGRESS_PRIORITY_GROUP_COUNTERS,
+        CounterObjectType.BUFFER_POOL: _BUFFER_POOL_COUNTERS,
+    },
     "x86_64-nvidia_sn5640-r0": {
-        CounterObjectType.PORT: _PORT_COUNTERS_SN5640,
-        CounterObjectType.QUEUE: _QUEUE_COUNTERS_SN5640,
-        CounterObjectType.INGRESS_PRIORITY_GROUP: _INGRESS_PRIORITY_GROUP_COUNTERS_SN5640,
-        CounterObjectType.BUFFER_POOL: _BUFFER_POOL_COUNTERS_SN5640,
+        CounterObjectType.PORT: _PORT_COUNTERS,
+        CounterObjectType.QUEUE: _QUEUE_COUNTERS,
+        CounterObjectType.INGRESS_PRIORITY_GROUP: _INGRESS_PRIORITY_GROUP_COUNTERS,
+        CounterObjectType.BUFFER_POOL: _BUFFER_POOL_COUNTERS,
+    },
+    "x86_64-nvidia_sn6600_ld-r0": {
+        CounterObjectType.PORT: _PORT_COUNTERS,
+        CounterObjectType.QUEUE: _QUEUE_COUNTERS + _QUEUE_COUNTERS_SPC6_EXTRA,
+        CounterObjectType.INGRESS_PRIORITY_GROUP: _INGRESS_PRIORITY_GROUP_COUNTERS,
+        CounterObjectType.BUFFER_POOL: _BUFFER_POOL_COUNTERS,
     },
     "x86_64-arista_7060x6_64pe_b": {
         CounterObjectType.PORT: (),

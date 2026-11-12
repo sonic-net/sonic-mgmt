@@ -12,6 +12,13 @@ scapy.conf.use_pcap = True
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 
 
+# Canonical default config path for the arp_responder helper. Kept in lock-step
+# with tests.common.helpers.constants.ARP_RESPONDER_DEFAULT_CONFIG; we don't
+# import that here because this script is distributed to and executed inside
+# the PTF container, where the sonic-mgmt test tree is not on sys.path.
+DEFAULT_CONFIG_PATH = '/tmp/from_t1.json'
+
+
 class ARPResponder(object):
     ARP_OP_REQUEST = 1
     ip_sets = {}
@@ -92,7 +99,7 @@ class ARPResponder(object):
 def parse_args():
     parser = argparse.ArgumentParser(description='ARP autoresponder')
     parser.add_argument('--conf', '-c', type=str, dest='conf',
-                        default='/tmp/from_t1.json', help='path to json file with configuration')
+                        default=DEFAULT_CONFIG_PATH, help='path to json file with configuration')
     parser.add_argument('--extended', '-e', action='store_true',
                         dest='extended', default=False, help='enable extended mode')
     args = parser.parse_args()

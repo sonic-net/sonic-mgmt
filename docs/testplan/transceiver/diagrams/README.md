@@ -22,6 +22,11 @@ This directory contains visual diagrams to help understand the complex concepts 
 - Template-based validation workflow
 - Pytest integration and execution control
 
+### 4. [CDB Firmware Upgrade Flow](cdb_firmware_upgrade_flow.md)
+
+- Inventory files specific to the CDB firmware upgrade category
+- Transport mode resolution and how pre-staged and download modes work
+
 ## How to Use These Diagrams
 
 1. **Start with File Organization** to understand the overall structure

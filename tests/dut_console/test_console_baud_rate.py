@@ -1,7 +1,14 @@
 import pytest
 import time
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.helpers.console_helper import assert_expect_text, create_ssh_client, ensure_console_session_up
+from tests.common.helpers.console_helper import (
+    assert_expect_text,
+    create_ssh_client,
+    disconnect_console_client,
+    ensure_console_session_up,
+)
+from tests.common.platform.processes_utils import wait_critical_processes
+from tests.common.utilities import wait_until
 
 
 pytestmark = [
@@ -16,6 +23,9 @@ BOOT_TYPE = {
 }
 pass_config_test = True
 
+CONSOLE_REBOOT_SETTLE_SECS = 120
+CONSOLE_REBOOT_TIMEOUT_SECS = 300
+
 
 def is_sonic_console(conn_graph_facts, dut_hostname):
     return conn_graph_facts['device_console_info'][dut_hostname].get("Os", "") == "sonic"
@@ -29,7 +39,11 @@ def get_expected_baud_rate(duthost):
 
 def test_console_baud_rate_config(duthost):
     expected_baud_rate = get_expected_baud_rate(duthost)
-    res = duthost.shell("cat /proc/cmdline | grep -Eo 'console=ttyS[0-9]+,[0-9]+' | cut -d ',' -f2")
+    if duthost.facts['platform'] == "arm64-c8220tg_48a_o-r0":
+        res = duthost.shell("cat /proc/cmdline | grep -Eo 'console=tty[A-Z]*[0-9]+,[0-9]+' | cut -d ',' -f2")
+    else:
+        res = duthost.shell("cat /proc/cmdline | grep -Eo 'console=ttyS[0-9]+,[0-9]+' | cut -d ',' -f2")
+
     pytest_require(res["stdout"] != "", "Cannot get baud rate")
     if res["stdout"] != str(expected_baud_rate):
         global pass_config_test
@@ -68,18 +82,27 @@ def console_client_setup_teardown(duthost, conn_graph_facts, creds):
     yield client, console_port
 
     if client is not None:
+        disconnect_console_client(client)
         time.sleep(2)
         client.terminate()
 
 
 @pytest.fixture(scope="module")
-def boot_connect_teardown(console_client_setup_teardown):
+def boot_connect_teardown(duthost, console_client_setup_teardown):
     yield
     client, _ = console_client_setup_teardown
     if client is not None:
         client.sendline("reboot")
-        # Wait DUT to reboot
-        time.sleep(120)
+        pytest_assert(
+            wait_until(
+                CONSOLE_REBOOT_TIMEOUT_SECS,
+                20,
+                CONSOLE_REBOOT_SETTLE_SECS,
+                duthost.critical_services_fully_started,
+            ),
+            "Critical services did not start after restoring SONiC",
+        )
+        wait_critical_processes(duthost, timeout=CONSOLE_REBOOT_TIMEOUT_SECS)
 
 
 def run_aboot_test(client, console_port):

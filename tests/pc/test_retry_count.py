@@ -75,7 +75,7 @@ def verify_retry_count(hosts, expected_retry_count):
 
 @pytest.fixture(scope="class")
 def higher_retry_count_on_peers(request, duthost, nbrhosts):
-    if request.config.getoption("neighbor_type") != "sonic":
+    if request.config.getoption("neighbor_type") not in ("sonic", "csonic"):
         pytest.skip("Only supported with SONiC neighbor")
 
     featureCheckResult = nbrhosts[list(nbrhosts.keys())[0]]['host'].command(
@@ -102,8 +102,14 @@ def higher_retry_count_on_peers(request, duthost, nbrhosts):
 
 @pytest.fixture(scope="class")
 def higher_retry_count_on_dut(request, duthost, nbrhosts):
-    if request.config.getoption("neighbor_type") != "sonic":
+    if request.config.getoption("neighbor_type") not in ("sonic", "csonic"):
         pytest.skip("Only supported with SONiC neighbor")
+
+    # The neighbors must also support the retry count feature, since the test reads it back from them.
+    featureCheckResult = nbrhosts[list(nbrhosts.keys())[0]]['host'].command(
+            "sudo config portchannel retry-count get PortChannel1", module_ignore_errors=True)
+    if featureCheckResult["rc"] != 0:
+        pytest.skip("SONiC neighbor isn't running supported version of SONiC")
 
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
 
@@ -130,7 +136,7 @@ def higher_retry_count_on_dut(request, duthost, nbrhosts):
 
 
 @pytest.fixture(scope="function")
-def config_reload_on_cleanup(request, nbrhosts, duthost):
+def config_reload_on_cleanup(request, nbrhosts, duthost, loganalyzer):
     if request.config.getoption("enable_macsec"):
         pytest.skip("Skip for now, since config reload will disable macsec for future test cases")
 
@@ -138,7 +144,7 @@ def config_reload_on_cleanup(request, nbrhosts, duthost):
 
     for nbr in list(nbrhosts.keys()):
         nbrhosts[nbr]['host'].command("sudo config reload -y")
-    config_reload(duthost, safe_reload=True)
+    config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer)
 
 
 def log_lacpdu_packets(duthost, save_path):

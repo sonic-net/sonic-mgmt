@@ -11,20 +11,22 @@ import logging
 import pytest
 
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa: F401
-from tests.common.fixtures.grpc_fixtures import setup_gnoi_tls_server, ptf_gnoi, ptf_grpc  # noqa: F401
+from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.utilities import wait_until, get_plt_reboot_ctrl
-from tests.common.reboot import sync_reboot_history_queue_with_dut, reboot, check_reboot_cause,\
-    check_reboot_cause_history, check_determine_reboot_cause_service, reboot_ctrl_dict,\
-    wait_for_startup, REBOOT_TYPE_HISTOYR_QUEUE, REBOOT_TYPE_COLD,\
+from tests.common.reboot import check_reboot_cause, get_reboot_cause, \
+    check_reboot_cause_history, check_determine_reboot_cause_service, reboot_ctrl_dict, \
+    wait_for_startup, REBOOT_TYPE_HISTOYR_QUEUE, REBOOT_TYPE_COLD, \
     REBOOT_TYPE_SOFT, REBOOT_TYPE_FAST, REBOOT_TYPE_WARM, REBOOT_TYPE_WATCHDOG
 from tests.common.platform.transceiver_utils import check_transceiver_basic
 from tests.common.platform.interface_utils import check_all_interface_information, get_port_map
 from tests.common.platform.daemon_utils import check_pmon_daemon_status
 from tests.common.platform.processes_utils import wait_critical_processes, check_critical_processes
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.platform.reboot_utils import reboot_and_check as _reboot_and_check
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
+    pytest.mark.disable_memory_utilization,
     pytest.mark.topology('any')
 ]
 
@@ -39,12 +41,13 @@ def invocation_type(request):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def set_max_time_for_interfaces(duthost):
+def set_max_time_for_interfaces(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     For chassis testbeds, we need to specify plt_reboot_ctrl in inventory file,
     to let MAX_TIME_TO_REBOOT to be overwritten by specified timeout value
     """
     global MAX_WAIT_TIME_FOR_INTERFACES
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, 'test_reboot.py', 'cold')
     if plt_reboot_ctrl:
         MAX_WAIT_TIME_FOR_INTERFACES = plt_reboot_ctrl.get('timeout', MAX_WAIT_TIME_FOR_INTERFACES)
@@ -83,25 +86,13 @@ def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list,
     @param reboot_helper: The helper function used only by power off reboot
     @param reboot_kwargs: The argument used by reboot_helper
     """
-
-    logging.info(
-        "Sync reboot cause history queue with DUT reboot cause history queue")
-    sync_reboot_history_queue_with_dut(dut)
-
-    logging.info("Run %s reboot on DUT" % reboot_type)
-    reboot(dut, localhost, reboot_type=reboot_type,
-           reboot_helper=reboot_helper, reboot_kwargs=reboot_kwargs, invocation_type=invocation_type,
-           ptf_gnoi=ptf_gnoi)
-
-    # Append the last reboot type to the queue
-    logging.info("Append the latest reboot type to the queue")
-    REBOOT_TYPE_HISTOYR_QUEUE.append(reboot_type)
-
-    check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type=reboot_type)
-    if dut.is_supervisor_node():
-        for lc in duthosts.frontend_nodes:
-            wait_for_startup(lc, localhost, delay=10, timeout=600)
-            check_interfaces_and_services(lc, interfaces, xcvr_skip_list)
+    _reboot_and_check(
+        localhost, dut, interfaces, xcvr_skip_list,
+        reboot_type=reboot_type, reboot_helper=reboot_helper,
+        reboot_kwargs=reboot_kwargs, duthosts=duthosts,
+        invocation_type=invocation_type, ptf_gnoi=ptf_gnoi,
+        interfaces_checker=check_interfaces_and_services,
+    )
 
 
 def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
@@ -122,9 +113,19 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
     if "6000" in dut.facts['hwsku']:
         interfaces_wait_time = MAX_WAIT_TIME_FOR_INTERFACES * 8
 
-    if dut.is_supervisor_node():
-        logging.info("skipping interfaces related check for supervisor")
+    skip_interface_check = dut.is_supervisor_node() or dut.is_bmc()
+    if skip_interface_check:
+        logging.info(
+            "Skipping interface and transceiver checks for %s",
+            "supervisor" if dut.is_supervisor_node() else "BMC",
+        )
     else:
+        # Only check administratively up ports. Admin-down ports in conn_graph/minigraph
+        # are expected to stay down and should not fail interface status checks.
+        admin_up_ports = set(dut.get_admin_up_ports())
+        interfaces = {k: v for k, v in interfaces.items() if k in admin_up_ports}
+        logging.info("Admin-up interfaces to check: %s", list(interfaces))
+
         logging.info("Wait {} seconds for all the transceivers to be detected".format(
             interfaces_wait_time))
         result = wait_until(interfaces_wait_time, 20, 0, check_all_interface_information, dut, interfaces,
@@ -141,11 +142,13 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
             check_transceiver_basic(
                 dut, asic_index, interfaces_per_asic, xcvr_skip_list)
 
+    # Retain the existing PMON check for BMC, but not for supervisors.
+    if not dut.is_supervisor_node():
         logging.info("Check pmon daemon status")
-        if dut.facts["platform"] == "x86_64-cel_e1031-r0":
+        if dut.facts["platform"] == "x86_64-cel_e1031-r0" or dut.is_bmc():
             result = wait_until(300, 20, 0, check_pmon_daemon_status, dut)
         else:
-            result = check_pmon_daemon_status(dut)
+            result = wait_until(60, 5, 0, check_pmon_daemon_status, dut)
         assert result, "Not all pmon daemons running."
 
     if dut.facts["asic_type"] in ["mellanox"]:
@@ -169,8 +172,20 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
             check_determine_reboot_cause_service(dut)
 
         logging.info("Check reboot cause")
-        assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, 30, check_reboot_cause, dut, reboot_type), \
-            "got reboot-cause failed after rebooted by %s" % reboot_type
+        if not wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, 30,
+                          check_reboot_cause, dut, reboot_type):
+            actual_type = get_reboot_cause(dut)
+            raw_output = dut.shell('show reboot-cause')['stdout']
+            expected_pattern = reboot_ctrl_dict.get(
+                reboot_type, {}
+            ).get('cause', 'N/A')
+            pytest.fail(
+                "Reboot cause mismatch after '{}' reboot. "
+                "Expected pattern: '{}', actual type: '{}', "
+                "raw 'show reboot-cause' output: '{}'"
+                .format(reboot_type, expected_pattern,
+                        actual_type, raw_output)
+            )
 
         if "201811" in dut.os_version or "201911" in dut.os_version:
             logging.info(
@@ -186,16 +201,15 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
             return
 
 
-@pytest.mark.usefixtures("setup_gnoi_tls_server")
 def test_cold_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                     localhost, conn_graph_facts, xcvr_skip_list, invocation_type, ptf_gnoi):      # noqa: F811
+                     localhost, conn_graph_facts, xcvr_skip_list, invocation_type, gnmi_tls):      # noqa: F811
     """
     @summary: This test case is to perform cold reboot and check platform status
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     reboot_and_check(localhost, duthost, conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {}),
                      xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD, duthosts=duthosts, invocation_type=invocation_type,
-                     ptf_gnoi=ptf_gnoi)
+                     ptf_gnoi=gnmi_tls.gnoi)
 
 
 def test_soft_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
@@ -235,7 +249,7 @@ def test_fast_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_warm_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                     localhost, conn_graph_facts, xcvr_skip_list):      # noqa: F811
+                     localhost, conn_graph_facts, xcvr_skip_list, invocation_type, gnmi_tls):      # noqa: F811
     """
     @summary: This test case is to perform warm reboot and check platform status
     """
@@ -254,7 +268,8 @@ def test_warm_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
                 "ISSU is not supported on this DUT, skip this test case")
 
     reboot_and_check(localhost, duthost, conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {}),
-                     xcvr_skip_list, reboot_type=REBOOT_TYPE_WARM, duthosts=duthosts)
+                     xcvr_skip_list, reboot_type=REBOOT_TYPE_WARM, duthosts=duthosts,
+                     invocation_type=invocation_type, ptf_gnoi=gnmi_tls.gnoi)
 
 
 def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname,

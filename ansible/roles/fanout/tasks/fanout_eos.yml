@@ -37,9 +37,99 @@
   when: device_info[inventory_hostname]["HwSku"] == "Arista-7260CX3"
   become: yes
 
+- name: Record timestamp before applying startup-config
+  set_fact:
+    eos_log_window_start_epoch: "{{ lookup('pipe', 'date +%s') }}"
+  when: skip_fanout_state_check is not defined or not skip_fanout_state_check | bool
+
 - name: reboot
   shell: sleep 2 && shutdown -r now "Reboot"
   async: 1
   poll: 0
   ignore_errors: true
   become: yes
+
+- name: Wait for fanout switch SSH to come back after reboot
+  wait_for:
+    host: "{{ ansible_host }}"
+    port: 22
+    state: started
+    delay: 30
+    timeout: 600
+  delegate_to: localhost
+
+- name: Allow system to converge after SSH
+  pause:
+    minutes: "{{ fanout_convergence_wait_minutes | default(5) }}"
+  when: skip_fanout_state_check is not defined or not skip_fanout_state_check | bool
+
+- name: Compute log window from startup-config apply until now
+  set_fact:
+    eos_log_window_min: "{{ ((((lookup('pipe', 'date +%s') | int) - (eos_log_window_start_epoch | int)) / 60.0) | round(0, 'ceil') | int) + 1 }}"
+  when: skip_fanout_state_check is not defined or not skip_fanout_state_check | bool
+
+- name: Collect warnings/errors since applying startup-config
+  shell: Cli -p 15 -c "show logging last {{ eos_log_window_min }} minutes | include %[A-Z0-9_]+-[0-4]-"
+  register: eos_recent_logs
+  become: yes
+  changed_when: false
+  failed_when: false
+  when: skip_fanout_state_check is not defined or not skip_fanout_state_check | bool
+
+- name: Warn if log collection command failed
+  debug:
+    msg: "WARNING: Failed to collect EOS logs from {{ inventory_hostname }} (rc={{ eos_recent_logs.rc }}): {{ eos_recent_logs.stderr | default('') }}"
+  when:
+    - skip_fanout_state_check is not defined or not skip_fanout_state_check | bool
+    - eos_recent_logs.rc | default(0) != 0
+
+- name: Report warnings/errors after applying startup-config
+  debug:
+    msg: |
+      WARNING: {{ inventory_hostname }} reported EOS warnings/errors since
+      applying startup-config ({{ eos_log_window_min }} min window):
+      {{ eos_recent_logs.stdout }}
+  when:
+    - skip_fanout_state_check is not defined or not skip_fanout_state_check | bool
+    - eos_recent_logs.stdout | default('') | trim | length > 0
+
+- name: Fetch fanout interface status (JSON) for state check
+  shell: Cli -p 15 -c "show interfaces status | json"
+  register: eos_intf_status
+  become: yes
+  changed_when: false
+  failed_when: false
+  when: skip_fanout_state_check is not defined or not skip_fanout_state_check | bool
+
+- name: Warn if interface status fetch failed
+  debug:
+    msg: "WARNING: Failed to fetch interface status from {{ inventory_hostname }} (rc={{ eos_intf_status.rc }}): {{ eos_intf_status.stderr | default('') }}"
+  when:
+    - skip_fanout_state_check is not defined or not skip_fanout_state_check | bool
+    - eos_intf_status.rc | default(0) != 0
+
+- name: Build list of fanout interfaces in error state
+  set_fact:
+    fanout_bad_ports: >-
+      {{ (eos_intf_status.stdout | from_json).interfaceStatuses | default({})
+         | dict2items
+         | selectattr('value.linkStatus', 'in',
+             ['inactive', 'errdisabled', 'no-resource', 'isolated', 'suspended'])
+         | items2dict }}
+  when:
+    - skip_fanout_state_check is not defined or not skip_fanout_state_check | bool
+    - eos_intf_status.rc | default(1) == 0
+    - eos_intf_status.stdout | default('') | trim | length > 0
+
+- name: Check fanout has interfaces in error state after deploy
+  fail:
+    msg: |
+      {{ inventory_hostname }}: {{ fanout_bad_ports | length }} interface(s) in error state
+      (notconnect is allowed; these states are not):
+      {% for port, info in fanout_bad_ports.items() %}
+        {{ port }} => {{ info.linkStatus }}{% if device_conn is defined and device_conn[inventory_hostname] is defined and device_conn[inventory_hostname][port] is defined %} (peer {{ device_conn[inventory_hostname][port].peerdevice }}:{{ device_conn[inventory_hostname][port].peerport }}){% endif %}
+      {% endfor %}
+      Skip with: -e skip_fanout_state_check=true
+  when:
+    - fanout_bad_ports is defined
+    - fanout_bad_ports | length > 0

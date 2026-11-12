@@ -104,7 +104,7 @@ def fanouthost(duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
             fanout.restore_drop_counter_config()
 
     if fanout:
-        if fanout.facts["asic_type"] == "marvell-teralynx":
+        if hasattr(fanout, "facts") and fanout.facts.get("asic_type") == "marvell-teralynx":
             # Check and clean up existing REDIRECT_VLAN ACL table if present.
             check_output = fanout.shell("show acl table", module_ignore_errors=True)
             if "REDIRECT_VLAN" in check_output["stdout"]:
@@ -268,7 +268,12 @@ EOF
     yield
 
     duthost.command("rm {} {}".format(copp_trap_group_json, copp_trap_rule_json))
-    config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, ignore_loganalyzer=loganalyzer)
+    if duthost.facts["asic_type"] == "vpp":
+        # monit refreshes on a ~60s cycle, so wait one full cycle to let usage
+        # settle and ensure monit's next refresh captures the steady-state
+        # value for the next test's baseline.
+        time.sleep(65)
 
 
 def get_fanout_obj(conn_graph_facts, duthost, fanouthosts):
@@ -407,7 +412,7 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
 
 
 @pytest.fixture
-def rif_port_down(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fanouthosts):
+def rif_port_down(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fanouthosts, request):
     """Shut RIF interface and return neighbor IP address attached to this interface."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="drop_packet_rif_port_down")
@@ -427,10 +432,46 @@ def rif_port_down(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fa
     pytest_assert(ip_dst, 'Unable to find IP address for neighbor "{}"'.format(vm_name))
 
     fanout_neighbor, fanout_intf = fanout_switch_port_lookup(fanouthosts, duthost.hostname, rif_member_iface)
+    is_link_shutdown = False
+
+    logger.info(
+        "rif_port_down selected: dut=%s rif_member_iface=%s fanout=%s fanout_intf=%s vm=%s ip_dst=%s",
+        duthost.hostname,
+        rif_member_iface,
+        getattr(fanout_neighbor, "hostname", str(fanout_neighbor)),
+        fanout_intf,
+        vm_name,
+        ip_dst,
+    )
+
+    def _restore_link():
+        if not is_link_shutdown:
+            logger.info("rif_port_down finalizer: link was not shutdown, skip restore")
+            return
+
+        logger.info(
+            "rif_port_down finalizer: restoring fanout link fanout=%s intf=%s",
+            getattr(fanout_neighbor, "hostname", str(fanout_neighbor)),
+            fanout_intf,
+        )
+        try:
+            loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_UP_RE.format(rif_member_iface)]
+            with loganalyzer as _:
+                fanout_neighbor.no_shutdown(fanout_intf)
+                # Add a delay to ensure loganalyzer can find a match in the log. Without this delay, there's a
+                # chance it might miss the matching log.
+                time.sleep(PORT_STATE_UPDATE_INTERNAL)
+        except Exception:
+            logger.exception("rif_port_down finalizer: restore with loganalyzer failed")
+            raise
+
+    request.addfinalizer(_restore_link)
 
     loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_DOWN_RE.format(rif_member_iface)]
     with loganalyzer as _:
+        logger.info("rif_port_down setup: shutting down fanout intf %s", fanout_intf)
         fanout_neighbor.shutdown(fanout_intf)
+        is_link_shutdown = True
         # Add a delay to ensure loganalyzer can find a match in the log. Without this delay, there's a
         # chance it might miss the matching log.
         time.sleep(PORT_STATE_UPDATE_INTERNAL)
@@ -438,13 +479,6 @@ def rif_port_down(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fa
     time.sleep(1)
 
     yield ip_dst
-
-    loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_UP_RE.format(rif_member_iface)]
-    with loganalyzer as _:
-        fanout_neighbor.no_shutdown(fanout_intf)
-        # Add a delay to ensure loganalyzer can find a match in the log. Without this delay, there's a
-        # chance it might miss the matching log.
-        time.sleep(PORT_STATE_UPDATE_INTERNAL)
 
 
 @pytest.fixture(params=["port_channel_members", "vlan_members", "rif_members"])
@@ -663,7 +697,7 @@ def test_equal_smac_dmac_drop(do_test, ptfadapter, setup, fanouthost,
     src_mac = ports_info["dst_mac"]
 
     # Marvell ASIC specific ACL rule injection
-    if fanouthost.facts["asic_type"] == "marvell-teralynx":
+    if hasattr(fanouthost, "facts") and fanouthost.facts.get("asic_type") == "marvell-teralynx":
         drop_counter_config(fanouthost)
 
     if fanouthost.os == 'onyx':
@@ -712,7 +746,7 @@ def test_multicast_smac_drop(do_test, ptfadapter, setup, fanouthost,
                    pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
 
     # Marvell ASIC specific ACL rule injection
-    if fanouthost.facts["asic_type"] == "marvell-teralynx":
+    if hasattr(fanouthost, "facts") and fanouthost.facts.get("asic_type") == "marvell-teralynx":
         drop_counter_config(fanouthost)
 
     if fanouthost.os == 'onyx':
@@ -779,7 +813,9 @@ def test_not_expected_vlan_tag_drop(do_test, duthosts, enum_rand_one_per_hwsku_f
         )
 
     group = "L2"
-    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"])
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
+            # VPP drops the packet but does not increment the drop counter
+            skip_counter_check=(duthost.facts["asic_type"] == "vpp"))
 
 
 def test_dst_ip_is_loopback_addr(do_test, ptfadapter, setup, pkt_fields, tx_dut_ports, ports_info):

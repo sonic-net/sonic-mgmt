@@ -111,7 +111,8 @@ class ParseTestbedTopoinfo():
         for vm in self.get_vm_list(topo_definition, neigh_type):
             vmconfig[vm] = dict()
             vmconfig[vm]['intfs'] = [[] for i in range(dut_num)]
-            if 'properties' in vmconfig[vm]:
+            if ('configuration' in topo_definition
+                    and 'properties' in topo_definition['configuration'][vm]):
                 # expand properties list into properties dictinary
                 property_lst = topo_definition['configuration'][vm]['properties']
                 vmconfig[vm]['properties'] = {}
@@ -205,8 +206,12 @@ class ParseTestbedTopoinfo():
 
                 # bgp
                 vmconfig[vm]['bgp_asn'] = topo_definition['configuration'][vm]['bgp']['asn']
-                dut_asn = topo_definition['configuration_properties']['common']['dut_asn']
-                for ipstr in topo_definition['configuration'][vm]['bgp']['peers'][dut_asn]:
+                peer_in_bgp_confed = topo_definition['configuration'][vm]['bgp'].get('peer_in_bgp_confed', False)
+                if peer_in_bgp_confed:
+                    peer_asn = topo_definition['configuration_properties']['common']['dut_confed_asn']
+                else:
+                    peer_asn = topo_definition['configuration_properties']['common']['dut_asn']
+                for ipstr in topo_definition['configuration'][vm]['bgp']['peers'][peer_asn]:
                     ip_mask = None
                     if '/' in ipstr:
                         (ipstr, ip_mask) = ipstr.split('/')
@@ -318,8 +323,13 @@ class ParseTestbedTopoinfo():
                 topo_definition, po_map, dut_num, 'VMs')
 
         if 'DPUs' in topo_definition['topology']:
-            vm_topo_config['vm'].update(self.parse_topo_defintion(
+            vm_topo_config.setdefault('vm', {}).update(self.parse_topo_defintion(
                 topo_definition, po_map, dut_num, 'DPUs'))
+
+        # VM-less topos (e.g. ptf8 with no VMs key) still need an empty map so
+        # deploy-mg can iterate vm_topo_config['vm'].
+        if 'vm' not in vm_topo_config:
+            vm_topo_config['vm'] = {}
 
         if 'cable' in topo_name:
             dut_asn = topo_definition['configuration_properties']['common']['dut_asn']
@@ -331,6 +341,12 @@ class ParseTestbedTopoinfo():
                 vm_topo_config['dut_type'] = "BackEndLeafRouter"
             elif 't0' in topo_name:
                 vm_topo_config['dut_type'] = "BackEndToRRouter"
+
+        # Fallback: read dut_type from configuration_properties when no VMs (e.g., BMC topo)
+        if 'dut_type' not in vm_topo_config and 'configuration_properties' in topo_definition:
+            common = topo_definition['configuration_properties'].get('common', {})
+            if 'dut_type' in common:
+                vm_topo_config['dut_type'] = common['dut_type']
 
         for slot, asic_definition in slot_definition.items():
             asic_topo_config[slot] = dict()

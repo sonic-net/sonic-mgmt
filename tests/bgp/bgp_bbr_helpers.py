@@ -1,6 +1,7 @@
 """This script is to define helpers for BGP Bounce Back Routing (BBR) related features of SONiC."""
 
 import logging
+import time
 import yaml
 
 from tests.common.gcu_utils import apply_gcu_patch
@@ -42,13 +43,52 @@ def is_bbr_enabled(duthost):
 
 
 def config_bbr_by_gcu(duthost, status):
-    logger.info("Config BGP_BBR by GCU cmd")
+    logger.info("Config BGP_BBR to '%s' by GCU cmd", status)
 
-    # Check BBR configuration from config_db first
-    bbr_config_db_exist = int(duthost.shell('redis-cli -n 4 HEXISTS "BGP_BBR|all" "status"')["stdout"])
-    if bbr_config_db_exist:
+    # Check both key existence and field existence to pick the right JSON patch op
+    bbr_key_exists = int(duthost.shell(
+        'redis-cli -n 4 EXISTS "BGP_BBR|all"', module_ignore_errors=True
+    )["stdout"])
+    bbr_field_exists = int(duthost.shell(
+        'redis-cli -n 4 HEXISTS "BGP_BBR|all" "status"', module_ignore_errors=True
+    )["stdout"])
+
+    logger.info("BGP_BBR|all key exists: %d, status field exists: %d", bbr_key_exists, bbr_field_exists)
+
+    if bbr_field_exists:
+        # Field exists — replace the value
         json_patch = [{"op": "replace", "path": "/BGP_BBR/all/status", "value": "{}".format(status)}]
+    elif bbr_key_exists:
+        # Key exists but no status field — add the field
+        json_patch = [{"op": "add", "path": "/BGP_BBR/all/status", "value": "{}".format(status)}]
     else:
+        # Neither exists — add the whole entry
         json_patch = [{"op": "add", "path": "/BGP_BBR/all", "value": {"status": "{}".format(status)}}]
 
-    apply_gcu_patch(duthost, json_patch)
+    logger.info("Applying GCU patch: %s", json_patch)
+    try:
+        apply_gcu_patch(duthost, json_patch)
+    except Exception as e:
+        # The redis-cli fallback bypasses GCU schema validation.  If the GCU
+        # failure is due to a schema violation this could put CONFIG_DB into an
+        # inconsistent state, so log at error level for post-run diagnosis.
+        logger.error(
+            "GCU patch for BGP_BBR failed (possible schema drift): %s. "
+            "Falling back to direct redis-cli HSET — CONFIG_DB may be inconsistent.",
+            e,
+        )
+        duthost.shell(
+            'redis-cli -n 4 HSET "BGP_BBR|all" "status" "{}"'.format(status),
+            module_ignore_errors=True,
+        )
+        # Allow bgpcfgd to pick up the CONFIG_DB change
+        time.sleep(3)
+        # Verify the fallback took effect
+        actual = duthost.shell(
+            'redis-cli -n 4 HGET "BGP_BBR|all" "status"', module_ignore_errors=True
+        )["stdout"].strip()
+        if actual != status:
+            raise RuntimeError(
+                "Failed to set BGP_BBR status to '{}' via both GCU and redis-cli fallback. "
+                "Current value: '{}'".format(status, actual)
+            )

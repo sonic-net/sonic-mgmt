@@ -57,18 +57,7 @@ class GNMIEnvironment(object):
                 return
             else:
                 pytest.fail("GNMI is not running")
-        cmd = "docker images | grep -w sonic-telemetry"
-        if my_duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-            cmd = "docker ps | grep -w telemetry"
-            if my_duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-                self.gnmi_config_table = "TELEMETRY"
-                self.gnmi_container = "telemetry"
-                self.gnmi_program = "telemetry"
-                self.gnmi_port = 50051
-                return
-            else:
-                pytest.fail("Telemetry is not running")
-        pytest.fail("Can't find telemetry and gnmi image")
+        pytest.fail("Can't find gnmi image")
 
 
 def create_ext_conf(ip, filename):
@@ -205,29 +194,6 @@ def apply_gnmi_cert(my_duthost, ptfhost):
     ptfhost.copy(src=env.work_dir+env.gnmi_client_cert, dest=my_dest)
     ptfhost.copy(src=env.work_dir+env.gnmi_client_key, dest=my_dest)
     _set_gnmi_client_cert_role(my_duthost)
-    certs_table = "{}|certs".format(env.gnmi_config_table)
-    my_duthost.shell(
-        'sudo sonic-db-cli CONFIG_DB hset "{}" ca_crt "{}{}"'.format(
-            certs_table, env.gnmi_cert_path, env.gnmi_ca_cert
-        ),
-        module_ignore_errors=True,
-    )
-    my_duthost.shell(
-        'sudo sonic-db-cli CONFIG_DB hset "{}" server_crt "{}{}"'.format(
-            certs_table, env.gnmi_cert_path, env.gnmi_server_cert
-        ),
-        module_ignore_errors=True,
-    )
-    my_duthost.shell(
-        'sudo sonic-db-cli CONFIG_DB hset "{}" server_key "{}{}"'.format(
-            certs_table, env.gnmi_cert_path, env.gnmi_server_key
-        ),
-        module_ignore_errors=True,
-    )
-    my_duthost.shell(
-        'sudo sonic-db-cli CONFIG_DB hset "{}|gnmi" client_auth true'.format(env.gnmi_config_table),
-        module_ignore_errors=True,
-    )
     port = env.gnmi_port
     assert int(port) > 0, "Invalid GNMI port"
     dut_command = "docker exec %s supervisorctl stop %s" % (env.gnmi_container, env.gnmi_program)

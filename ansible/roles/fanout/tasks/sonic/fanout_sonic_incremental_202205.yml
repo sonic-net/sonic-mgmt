@@ -24,3 +24,8 @@
       shell: "bcmcmd 'fp detach' && bcmcmd 'fp init'"
       become: yes
   when: "'broadcom' in fanout_sonic_version.asic_type"
+
+- name: Increase Redis busy threshold on 7215 fanouts
+  shell: docker exec database redis-cli CONFIG SET lua-time-limit 15000 && docker exec database redis-cli CONFIG REWRITE
+  become: yes
+  when: "'7215' in device_info[inventory_hostname]['HwSku']"

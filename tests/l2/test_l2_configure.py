@@ -70,7 +70,7 @@ def setup_env(duthosts, rand_one_dut_hostname, tbinfo):
     duthost.shell("sudo rm -f {}".format(CONFIG_DB_BAK))
     duthost.shell("sudo cp {} {}".format(MINIGRAPH_BAK, MINIGRAPH))
     duthost.shell("sudo rm -f {}".format(MINIGRAPH_BAK))
-    config_reload(duthost)
+    config_reload(duthost, yang_validate=False)
     wait_critical_processes(duthost)
 
     # Clean up pytest cache so l2 testbed does not carry over to other tests
@@ -184,7 +184,7 @@ def test_no_hardcoded_tables(duthosts, rand_one_dut_hostname, tbinfo):
     # Remove minigraph to avoid config coming from minigraph.
     duthost.shell("sudo rm {}".format(MINIGRAPH))
     try:
-        config_reload(duthost)
+        config_reload(duthost, yang_validate=False)
     except AnsibleConnectionFailure as e:
         # In latest SONiC, config reload command will exit after mgmt interface restart
         # Then 'duthost' will lost IPV4 connection and throw exception

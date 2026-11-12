@@ -5,11 +5,26 @@
   when: "config_source not in [ 'minigraph', 'config_db' ]"
 
 - name: "Reload SONiC configuration using minigraph"
-  shell: "{{ item }}"
+  shell: "config load_minigraph -y"
   become: "yes"
-  with_items:
-    - "config load_minigraph -y"
-    - "config save -y"
+  when: "config_source == 'minigraph'"
+
+- name: "Parse minigraph to get zebra_nexthop for CONFIG_DB restore"
+  minigraph_facts:
+    host: "{{ inventory_hostname }}"
+  when: "config_source == 'minigraph'"
+
+- name: "Restore zebra_nexthop from minigraph into CONFIG_DB"
+  shell: 'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" zebra_nexthop {{ minigraph_device_metadata.zebra_nexthop }}'
+  become: "yes"
+  when:
+    - "config_source == 'minigraph'"
+    - "minigraph_device_metadata is defined"
+    - "'zebra_nexthop' in minigraph_device_metadata"
+
+- name: "Save SONiC configuration after loading minigraph"
+  shell: "config save -y"
+  become: "yes"
   when: "config_source == 'minigraph'"
 
 - name: "Reload SONiC configuration using config_db"

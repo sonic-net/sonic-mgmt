@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 import os
@@ -8,12 +9,19 @@ import re
 from pkg_resources import parse_version
 from tests.common import config_reload
 from tests.common.utilities import wait_until
+from tests.common.mellanox_data import is_mellanox_device
 from tests.common.helpers.assertions import pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.thermal_control_test_helper import disable_thermal_policy     # noqa F401
 from .device_mocker import device_mocker_factory        # noqa F401
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.duthost_utils import is_support_mock_asic, is_support_fan, is_support_psu    # noqa F401
+from tests.common.fixtures.duthost_utils import (  # noqa F401
+    check_pdb_support,
+    is_support_fan,
+    is_support_mock_asic,
+    is_support_pdb,
+    is_support_psu,
+)
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -42,6 +50,8 @@ FAST_INTERVAL = 10
 THERMAL_CHECK_INTERVAL = 70
 PSU_CHECK_INTERVAL = FAST_INTERVAL + 5
 WAIT_TIMEOUT = 180
+# Default polling_interval on BMC is 300s; healthd reloads config only on the next loop.
+BMC_EXTERNAL_CHECKER_WAIT_TIMEOUT = 300
 STATE_DB = 6
 
 SERVICE_EXPECT_STATUS_DICT = {
@@ -62,6 +72,8 @@ EXPECT_PSU_MISSING = '{} is missing or not available'
 EXPECT_PSU_NO_POWER = '{} is out of power'
 EXPECT_PSU_HOT = '{} temperature is too hot'
 EXPECT_PSU_INVALID_VOLTAGE = '{} voltage is out of range'
+EXPECT_PDB_MISSING = '{} is missing or not available'
+EXPECT_PDB_NO_POWER = '{} is out of power'
 
 DEFAULT_LED_CONFIG = {
     'fault': 'red',
@@ -71,17 +83,48 @@ DEFAULT_LED_CONFIG = {
 
 
 @pytest.fixture(autouse=True, scope="module")
-def check_image_version(duthost):
+def check_image_version(duthosts, enum_rand_one_per_hwsku_hostname):
     """Skip the test for unsupported images."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     pytest_require(parse_version(duthost.kernel_version) > parse_version('4.9.0'),
                    "Test not supported for 201911 images. Skipping the test")
     yield
 
 
 @pytest.fixture(autouse=True, scope='module')
-def config_reload_after_tests(duthost):
+def config_reload_after_tests(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     yield
     config_reload(duthost)
+
+
+@pytest.fixture(autouse=True, scope="module")
+def fast_system_health_polling(duthosts, enum_rand_one_per_hwsku_hostname,
+                               check_image_version, config_reload_after_tests):
+    """Use fast polling for the module, then restore the original health policy.
+
+    ConfigFileContext reloads policy on the next healthd cycle. Restart once
+    here so an existing platform interval (300s on BMC) cannot outlast a test's
+    timeout. Per-test contexts then restore this fast module-level baseline.
+    Depend on config_reload_after_tests so policy restoration precedes reload.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    config_path = DUT_CONFIG_FILE.format(duthost.facts['platform'])
+    original = base64.b64decode(duthost.slurp(src=config_path)['content']).decode('utf-8')
+    config = json.loads(original)
+    config['polling_interval'] = FAST_INTERVAL
+
+    try:
+        duthost.copy(content=json.dumps(config, indent=4), dest=config_path)
+        duthost.command('systemctl restart system-health.service')
+        wait_system_health_boot_up(duthost)
+        yield
+    finally:
+        # Also restore if setup fails after changing the config. Keep this
+        # backup separate from the .bak used by per-test ConfigFileContext.
+        duthost.copy(content=original, dest=config_path)
+        duthost.command('systemctl restart system-health.service')
+        wait_system_health_boot_up(duthost)
 
 
 @pytest.fixture(scope="function")
@@ -124,8 +167,11 @@ def test_service_checker(duthosts, enum_rand_one_per_hwsku_hostname):
                     error, value)
 
         expect_summary = SUMMARY_OK if not expect_error_dict else SUMMARY_NOT_OK
+        polling_interval = get_system_health_config(
+            duthost, 'polling_interval', FAST_INTERVAL)
         result = wait_until(
-            WAIT_TIMEOUT, 10, 2, check_system_health_info, duthost, 'summary', expect_summary)
+            WAIT_TIMEOUT, min(polling_interval, 10), polling_interval,
+            check_system_health_info, duthost, 'summary', expect_summary)
         # Output the content of whole SYSTEM_HEALTH_INFO table for easy debug when test case failed.
         table_output = redis_get_system_health_info(
             duthost, STATE_DB, HEALTH_TABLE_NAME)
@@ -138,6 +184,14 @@ def test_service_checker(duthosts, enum_rand_one_per_hwsku_hostname):
 def test_service_checker_with_process_exit(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     wait_system_health_boot_up(duthost)
+    # On BMC platforms healthd polls every 300s, so derive a longer wait from the configured
+    # polling_interval to cross a poll loop boundary. Other platforms keep the original WAIT_TIMEOUT.
+    polling_interval = get_system_health_config(duthost, 'polling_interval', FAST_INTERVAL)
+    wait_timeout = (
+        max(WAIT_TIMEOUT, polling_interval * 2)
+        if duthost.is_bmc()
+        else WAIT_TIMEOUT
+    )
     with ConfigFileContext(duthost, os.path.join(FILES_DIR, IGNORE_DEVICE_CHECK_CONFIG_FILE)):
         processes_status = duthost.all_critical_process_status()
         containers = [x for x in list(processes_status.keys()) if "syncd" not in x and "database" not in x and
@@ -156,7 +210,7 @@ def test_service_checker_with_process_exit(duthosts, enum_rand_one_per_hwsku_hos
                 category = '{}:{}'.format(container, critical_process)
                 expected_values = ["Process '{}' in container '{}' is not running".format(critical_process, container),
                                    "'{}' is not running".format(critical_process)]
-                result = wait_until(WAIT_TIMEOUT, 10, 2, check_system_health_info_any_of, duthost, category,
+                result = wait_until(wait_timeout, 10, 2, check_system_health_info_any_of, duthost, category,
                                     expected_values)
 
                 assert result is True, '{} is not recorded'.format(
@@ -319,6 +373,70 @@ def test_device_checker(duthosts, enum_rand_one_per_hwsku_hostname,
                 'Mock PSU good voltage, but it is still invalid'
 
 
+@pytest.mark.disable_loganalyzer
+def test_pdb_device_checker(duthosts, enum_rand_one_per_hwsku_hostname,
+                            device_mocker_factory, disable_thermal_policy):        # noqa F811
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if not check_pdb_support(duthost):
+        pytest.skip("Device does not support PDB")
+    device_mocker = device_mocker_factory(duthost)
+    wait_system_health_boot_up(duthost)
+    with ConfigFileContext(duthost, os.path.join(FILES_DIR, DEVICE_CHECK_CONFIG_FILE)):
+        time.sleep(DEFAULT_INTERVAL)
+
+        pdb_mock_result, pdb_name = device_mocker.mock_pdb_presence(False)
+        pdb_expect_value = f'{pdb_name} is missing or not available'
+        if pdb_mock_result:
+            logger.info(f'Mocked PDB absence for {pdb_name}')
+            logger.info(f'Waiting {THERMAL_CHECK_INTERVAL} seconds for it to take effect')
+            time.sleep(THERMAL_CHECK_INTERVAL)
+            value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, pdb_name)
+            assert value and pdb_expect_value == value, \
+                f'Mock PDB absence, expect {pdb_expect_value}, but got {value}'
+        else:
+            logger.warning("Skipping PDB absence validation because presence mocking is unsupported for %s",
+                           pdb_name or "the detected PDB")
+
+        pdb_mock_result, pdb_name = device_mocker.mock_pdb_presence(True)
+        if pdb_mock_result:
+            logger.info(f'Mocked PDB presence for {pdb_name}')
+            logger.info(f'Waiting {THERMAL_CHECK_INTERVAL} seconds for it to take effect')
+            time.sleep(THERMAL_CHECK_INTERVAL)
+            value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, pdb_name)
+            assert not value or pdb_expect_value != value, \
+                'Mock PDB presence, but it is still absence'
+        else:
+            logger.warning("Skipping PDB presence recovery validation because presence mocking is unsupported for %s",
+                           pdb_name or "the detected PDB")
+
+        pdb_mock_result, pdb_name = device_mocker.mock_pdb_status(False)
+        pdb_expect_value = f'{pdb_name} is out of power'
+        if pdb_mock_result:
+            logger.info(f'Mocked PDB no power for {pdb_name}')
+            logger.info(f'Waiting {THERMAL_CHECK_INTERVAL} seconds for it to take effect')
+            time.sleep(THERMAL_CHECK_INTERVAL)
+            value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, pdb_name)
+            assert value and pdb_expect_value == value, \
+                f'Mock PDB no power, expect {pdb_expect_value}, but got {value}'
+
+        pdb_mock_result, pdb_name = device_mocker.mock_pdb_status(True)
+        if pdb_mock_result:
+            logger.info(f'Mocked PDB good power for {pdb_name}')
+            logger.info(f'Waiting {THERMAL_CHECK_INTERVAL} seconds for it to take effect')
+            time.sleep(THERMAL_CHECK_INTERVAL)
+            value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, pdb_name)
+            assert not value or pdb_expect_value != value, \
+                'Mock PDB power good, but it is still out of power'
+
+        health_detail = duthost.shell('show system-health detail')['stdout']
+        pdb_type_pattern = re.compile(r'PDB\s+\d+.*\bPDB\b', re.IGNORECASE)
+        pdb_type_lines = [line for line in health_detail.splitlines()
+                          if pdb_type_pattern.search(line)]
+        logger.info(f'PDB entries in system-health detail: {pdb_type_lines}')
+        assert len(pdb_type_lines) > 0, \
+            "Expected PDB entries with Type=PDB in 'show system-health detail' but found none"
+
+
 def test_external_checker(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     wait_system_health_boot_up(duthost)
@@ -327,7 +445,12 @@ def test_external_checker(duthosts, enum_rand_one_per_hwsku_hostname):
                      dest=os.path.join('/tmp', EXTERNAL_CHECKER_MOCK_FILE))
         # use wait_until to check if SYSTEM_HEALTH_INFO has expected content
         # avoid waiting for too long or DEFAULT_INTERVAL is not long enough to refresh db
-        result = wait_until(WAIT_TIMEOUT, 10, 2, check_system_health_info,
+        external_checker_timeout = (
+            BMC_EXTERNAL_CHECKER_WAIT_TIMEOUT
+            if duthost.is_bmc()
+            else WAIT_TIMEOUT
+        )
+        result = wait_until(external_checker_timeout, 10, 2, check_system_health_info,
                             duthost, 'ExternalService', 'Service is not working')
         assert result is True, 'External checker does not work'
         value = redis_get_field_value(
@@ -389,7 +512,8 @@ def test_system_health_config(duthosts, enum_rand_one_per_hwsku_hostname,
 
 @pytest.mark.disable_loganalyzer
 def test_device_fan_speed_checker(duthosts, enum_rand_one_per_hwsku_hostname,
-                                  device_mocker_factory, disable_thermal_policy, is_support_mock_asic):  # noqa F811
+                                  device_mocker_factory, disable_thermal_policy, is_support_mock_asic,  # noqa F811
+                                  is_support_fan):                                                      # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     device_mocker = device_mocker_factory(duthost)
     wait_system_health_boot_up(duthost)
@@ -431,6 +555,11 @@ def get_system_health_config(duthost, key, default):
         cmd = 'cat {}'.format(config_file)
         output = duthost.shell(cmd)
         content = output['stdout'].strip()
+
+        # For mellanox devices, both amber and red are displayed as red in the show system-health summary output
+        if is_mellanox_device(duthost):
+            content = content.replace('amber', 'red')
+
         json_obj = json.loads(content)
         return json_obj[key]
     except Exception:
@@ -497,32 +626,60 @@ def check_health_field_not_equal(duthost, field, unexpected):
     return not value or value != unexpected
 
 
-def check_system_health_led_info(duthost):
-    system_health_summary = duthost.shell('show system-health summary')['stdout']
-
-    "System status LED  red"
-    system_led_res = re.findall(r"System status LED\s+(\w+)", system_health_summary)
-    if system_led_res:
-        system_led_status = system_led_res[0].strip()
-    logger.info(f"System status LED is {system_led_status}")
-
-    # Regex to find all status names and values
-    status_data = re.findall(r"(\w+):\s+Status:\s+(\w+)", system_health_summary)
+def _fetch_led_and_status(duthost):
+    """Fetch system health summary and return (led_color_lower, status_dict)."""
+    summary = duthost.shell('show system-health summary')['stdout']
+    # Use [\w ]+ to capture multi-word colors like "blinking green"
+    led_res = re.findall(r"System status LED\s+([\w ]+)", summary)
+    led_status = led_res[0].strip().lower() if led_res else ""
+    status_data = re.findall(r"(\w+):\s+Status:\s+(\w+)", summary)
     status_dict = {name: status for name, status in status_data}
-    logger.info(f"Status dict is {status_dict}")
+    return led_status, status_dict
+
+
+def check_system_health_led_info(duthost):
+    # BMC platforms do not implement the system status LED chassis APIs, so
+    # 'show system-health summary' fails on them. Skip the LED check there.
+    if duthost.is_bmc():
+        logger.warning(
+            "Skipping system status LED check: BMC platform '%s' does not implement "
+            "the system status LED APIs.", duthost.facts.get('platform'))
+        return True
 
     led_cfg = get_system_health_config(duthost, "led_color", DEFAULT_LED_CONFIG)
+    expected_normal = led_cfg["normal"].lower()
+    not_normal = {color.lower() for key, color in led_cfg.items() if key != "normal"}
 
-    system_status_lower = system_led_status.lower()
+    # Cache the consistent snapshot captured inside the closure to avoid a
+    # re-fetch that could observe a different value on a flapping LED.
+    # last_observed is always updated so assertion messages show real state on timeout.
+    consistent_snapshot = {}
+    last_observed = {}
+
+    def _led_consistent():
+        led, status_dict = _fetch_led_and_status(duthost)
+        last_observed['led'] = led
+        last_observed['status_dict'] = status_dict
+        all_ok = all(status == "OK" for status in status_dict.values())
+        if led == expected_normal if all_ok else led in not_normal:
+            consistent_snapshot['led'] = led
+            consistent_snapshot['status_dict'] = status_dict
+            return True
+        return False
+
+    # LED update by system-health daemon is asynchronous; wait for it to reflect current status
+    result = wait_until(WAIT_TIMEOUT, 10, 0, _led_consistent)
+
+    system_led_status = consistent_snapshot.get('led', last_observed.get('led', ''))
+    status_dict = consistent_snapshot.get('status_dict', last_observed.get('status_dict', {}))
+    logger.info(f"System status LED is {system_led_status}")
+    logger.info(f"Status dict is {status_dict}")
+
     if all(status == "OK" for status in status_dict.values()):
-        # Logic for healthy system: must match the 'normal' key value
-        expected_normal = led_cfg["normal"].lower()
-        assert system_status_lower == expected_normal, \
+        assert result and system_led_status == expected_normal, \
             f"System status LED is not the configured 'normal' color ({expected_normal}), but it is {system_led_status}"
     else:
-        # Logic for faulted system: Iterate through led_cfg to find a match among non-normal keys
-        not_normal = {color for key, color in led_cfg.items() if key != "normal"}
-        assert system_status_lower in not_normal, \
+        assert result and system_led_status in not_normal, \
             f"System status LED '{system_led_status}' does not match any colors defined in config: {not_normal}"
 
     return True

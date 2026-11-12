@@ -7,6 +7,7 @@ from tests.common.gu_utils import apply_patch, expect_res_success, expect_op_fai
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.plugins.memory_utilization.memory_utilization import MemoryMonitor
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -95,6 +96,14 @@ def setup_env(duthosts, rand_one_dut_hostname, original_syslog_servers):
         )
     finally:
         delete_checkpoint(duthost)
+
+        # The rollback restarts rsyslog, like every SYSLOG_SERVER change in this test. If a Monit cycle
+        # runs while rsyslog is stopped, Monit keeps reporting it as 'Does not exist' until a later cycle,
+        # and the post-test sanity check fails on that stale status. Refresh Monit after the last restart.
+        memory_monitor = MemoryMonitor(ansible_host=duthost)
+        validate_output = memory_monitor.execute_command("sudo monit validate")
+        memory_monitor.record_monit_baseline_from_validate_output(validate_output)
+        memory_monitor.read_monit_status_with_freshness_retry("sudo monit status", enable_retry=True)
 
 
 def expect_res_success_syslog(duthost, expected_content_list, unexpected_content_list):
@@ -298,9 +307,19 @@ def syslog_server_tc1_remove(duthost):
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_syslog_server_tc1_suite(rand_selected_dut, cfg_facts):
+def test_syslog_server_tc1_suite(rand_selected_dut, cfg_facts, loganalyzer):
     """ Test syslog server config from clean config
     """
+    # Adding/removing syslog servers may cause rsyslog omrelp to attempt connections to
+    # unreachable peers, which logs ERR messages that are expected and harmless here.
+    if loganalyzer:
+        ignoreRegex = [
+            r".*omrelp\[.*\]: error 'error opening connection to remote peer'.*",
+            r".*omrelp\[.*\]: error 'server closed relp session, session broken', object .* - action may not work as intended.*",  # noqa: E501
+            r".*omrelp\[.*\]: error 'error waiting on required session state, session broken', object .* - action may not work as intended.*",  # noqa: E501
+        ]
+        loganalyzer[rand_selected_dut.hostname].ignore_regex.extend(ignoreRegex)
+
     syslog_config_cleanup(rand_selected_dut, cfg_facts)
     syslog_server_tc1_add_init(rand_selected_dut)
     syslog_server_tc1_add_duplicate(rand_selected_dut)

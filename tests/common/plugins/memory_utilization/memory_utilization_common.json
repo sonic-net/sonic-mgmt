@@ -2,7 +2,8 @@
   "COMMON": [
     {
       "name": "monit",
-      "cmd": "sudo monit validate",
+      "order": 100,
+      "cmd": "sudo monit status",
       "memory_params": {
         "memory_usage": {
           "memory_increase_threshold": {

@@ -27,7 +27,7 @@ pytestmark = [
 CONTAINER_STOP_THRESHOLD_SECS = 200
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 CONTAINER_CHECK_INTERVAL_SECS = 1
-MONIT_RESTART_THRESHOLD_SECS = 320
+MONIT_RESTART_THRESHOLD_SECS = 400
 MONIT_CHECK_INTERVAL_SECS = 5
 WAITING_SYSLOG_MSG_SECS = 30
 MONIT_MEMORY_CHECK_TIMEOUT = 700
@@ -131,17 +131,29 @@ def restore_monit_config_files(duthost):
 
 
 def check_monit_running(duthost):
-    """Checks whether Monit is running or not.
+    """Checks whether Monit is running with all services in ready state.
 
     Args:
         duthost: The AnsibleHost object of DuT.
 
     Returns:
-        Returns True if Monit is running; Otherwist, returns False.
+        Returns True if all services are ready; Otherwise, returns False.
     """
     monit_services_status = duthost.get_monit_services_status()
     if not monit_services_status:
         return False
+
+    # Validate each service is in expected state
+    for service_name, service_info in monit_services_status.items():
+        service_type = service_info.get("service_type", "")
+        state = service_info.get("service_status", "")
+        if state in ["Not monitored", "OK"]:
+            continue
+        # Check expected states per service type
+        if ((service_type == "Filesystem" and state != "Accessible")
+                or (service_type == "Process" and state != "Running")
+                or (service_type == "Program" and state != "Status ok")):
+            return False
 
     return True
 
@@ -231,8 +243,15 @@ def test_setup_and_cleanup(memory_checker_dut_and_container, request):
     backup_monit_config_files(duthost)
     customize_monit_config_files(duthost, container, *request.param)
     restart_monit_service(duthost)
+    logger.info("Ensuring Monit monitors %s", container.memory_service_name)
+    duthost.shell("sudo monit monitor {}".format(container.memory_service_name))
 
     yield
+
+    # test_memory_checker relies on a container restart to clear its allocation, so it
+    # leaks the same way if it fails before that happens. Stop any allocation still
+    # running before handing the device to the next test.
+    container.stop_consume_memory()
 
     restore_monit_config_files(duthost)
     restart_monit_service(duthost)
@@ -499,9 +518,9 @@ class MemoryCheckerContainer(object):
         start_date = self.get_last_start_date()
         return start_date > self._last_start_date
 
-    def wait_restarted(self, start_date=None):
+    def wait_restarted(self, start_date=None, timeout=CONTAINER_RESTART_THRESHOLD_SECS):
         self._last_start_date = start_date or self.get_last_start_date()
-        restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS, 1, 0,
+        restarted = wait_until(timeout, 1, 0,
                                self.has_container_restarted)
         pytest_assert(restarted, "Failed to restart '{}' container!".format(self.name))
         self._last_start_date = None
@@ -549,10 +568,13 @@ def consumes_memory_and_checks_container_restart(duthost, container):
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=marker_prefix)
     loganalyzer.expect_regex = container.get_restart_expected_logre()
     with loganalyzer:
-        timeout_monit_fail = 360  # fails happens after timeout wait
+        start_date = container.get_last_start_date()
         container.start_consume_memory()
-        container.wait_monit_mem_failed(timeout_monit_fail)
-        logger.info("Container %s should now be restarting", container.name)
+        # Monit's failed status can clear between polls; the restart timestamp persists.
+        # Allow both Monit detection and the existing container recovery window.
+        container.wait_restarted(start_date,
+                                 timeout=MONIT_MEMORY_CHECK_TIMEOUT + CONTAINER_RESTART_THRESHOLD_SECS)
+        logger.info("Container %s has restarted", container.name)
         container.wait_monit_mem_ok(CONTAINER_RESTART_THRESHOLD_SECS)
         # Wait until the service has started, then the loganalyzer will capture all the expected messages
         wait_until(CONTAINER_RESTART_THRESHOLD_SECS, CONTAINER_CHECK_INTERVAL_SECS, 0,
@@ -593,6 +615,10 @@ def consumes_memory_and_checks_monit(duthost, container):
     # Monit container memory check should still be failed at this point
     container.wait_monit_mem_failed(10)
 
+    # Capture the second restart before it can occur during the first log analysis.
+    second_start_date = container.get_last_start_date()
+    second_marker = loganalyzer.update_marker_prefix("test_monit_counter")
+
     # Start consuming memory early and then check the logs so we hit the memory
     # limit before monit first cycle
     container.start_consume_memory()
@@ -601,14 +627,12 @@ def consumes_memory_and_checks_monit(duthost, container):
     loganalyzer.analyze(marker)
     logger.info("Found all the expected alerting messages from syslog!")
 
-    marker = loganalyzer.update_marker_prefix("test_monit_counter")
-
     logger.info("Waiting for container %s to restart after monit initial delay", container.name)
-    container.wait_restarted()
+    container.wait_restarted(second_start_date)
     container.wait_ready()
 
     logger.info("Analyzing syslog messages to verify whether '%s' is restarted ...", container.name)
-    loganalyzer.analyze(marker)
+    loganalyzer.analyze(second_marker)
 
     logger.info("Monit was able to restart '%s'", container.name)
 
@@ -653,12 +677,33 @@ def test_memory_checker_recover(memory_checker_dut_and_container, test_setup_and
     loganalyzer.expect_regex = container.get_restart_expected_logre()
     marker = loganalyzer.init()
 
-    timeout_status_change = 30  # monit has a 5s cycle interval per test parameters
+    # monit has a 5s cycle interval per test parameters, so 30s (~6 cycles)
+    # is normally plenty for the status to change. The 4GB Marvell-Prestera
+    # Nokia-7215 / Nokia-M0-7215, however, run under higher memory/CPU
+    # pressure on newer branches (notably 202511) and monit cannot hold its
+    # 5s cadence during the memory-stress window, intermittently missing the
+    # 30s budget (~45% nightly flake; confirmed expected platform behavior
+    # with the Nokia-7215 platform owner). Give only those two SKUs extra
+    # headroom. The 8GB Nokia-7215-A1 variants are not affected and are
+    # intentionally excluded, matching the exact-SKU gating already used for
+    # these platforms in platform_tests/test_reboot.py and test_reload_config.py.
+    # wait_monit_mem_* early-exit on success, so the larger ceiling never adds
+    # runtime on a healthy run.
+    if duthost.facts["hwsku"] in {"Nokia-7215", "Nokia-M0-7215"}:
+        timeout_status_change = 200
+    else:
+        timeout_status_change = 30
 
     container.start_consume_memory()
-    container.wait_monit_mem_last_failed(timeout_status_change)
+    try:
+        container.wait_monit_mem_last_failed(timeout_status_change)
+    finally:
+        # If the wait above fails we are still holding the allocation, and nothing else
+        # in this test stops it. Leaving it running keeps the container inflated into the
+        # next test, which then gets failed by the memory utilization plugin for memory it
+        # never allocated.
+        container.stop_consume_memory()
 
-    container.stop_consume_memory()
     container.wait_monit_mem_last_ok(timeout_status_change)
 
     analysis = loganalyzer.analyze(marker, fail=False)

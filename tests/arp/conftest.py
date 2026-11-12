@@ -193,7 +193,10 @@ def garp_enabled(rand_selected_dut, config_facts):
     Tries to enable gratuitious ARP for each VLAN on the ToR in CONFIG_DB
 
     Also checks the kernel `arp_accept` value to see if the
-    attempt was successful.
+    attempt was successful. The expectation is that arp_accept value should be
+    set to 2 (i.e, create new entries only if the source IP address is in the
+    same subnet as the address configured on the interface - available in
+    5.19 linux kernel and newer)
 
     During teardown, restores the original `grat_arp` value in
     CONFIG_DB
@@ -226,7 +229,7 @@ def garp_enabled(rand_selected_dut, config_facts):
             arp_accept_res = duthost.shell(cat_arp_accept_cmd.format(vlan))
             arp_accept_vals.append(arp_accept_res['stdout'])
 
-    yield all(int(val) == 1 for val in arp_accept_vals)
+    yield all(int(val) == 2 for val in arp_accept_vals)
 
     garp_disable_cmd = 'sonic-db-cli CONFIG_DB HDEL "VLAN_INTERFACE|{}" grat_arp'
     for vlan in vlan_intfs:
@@ -284,7 +287,7 @@ def ip_and_intf_info(config_facts, intfs_for_test, ptfhost, ptfadapter):
 
 
 @pytest.fixture
-def proxy_arp_enabled(request, rand_selected_dut, config_facts):
+def proxy_arp_enabled(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, config_facts):
     """
     Tries to enable proxy ARP for each VLAN on the ToR
 
@@ -296,7 +299,7 @@ def proxy_arp_enabled(request, rand_selected_dut, config_facts):
         (bool) True if proxy ARP was enabled for all VLANs,
                False otherwise
     """
-    duthost = rand_selected_dut
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     pt_require(duthost.has_config_subcommand('config vlan proxy_arp'), "Proxy ARP command does not exist on device")
 
     proxy_arp_check_cmd = 'sonic-db-cli CONFIG_DB HGET "VLAN_INTERFACE|Vlan{}" proxy_arp'
@@ -362,6 +365,12 @@ def packets_for_test(request, ptfadapter, duthost, config_facts, tbinfo, ip_and_
         break
 
     if ip_version == 'v4':
+        # VPP software dataplane does not pad ARP replies to Ethernet minimum frame size
+        # and in kvm there is no hardware NIC to pad either
+        platform_name = duthost.facts.get('platform', '')
+        no_padding = duthost.facts.get('asic_type') == 'vpp' and 'kvm' in platform_name
+        exp_pktlen = 42 if no_padding else 60
+
         tgt_addr = increment_ipv4_addr(src_addr_v4)
         out_pkt = testutils.simple_arp_packet(
                                 eth_dst='ff:ff:ff:ff:ff:ff',
@@ -372,6 +381,7 @@ def packets_for_test(request, ptfadapter, duthost, config_facts, tbinfo, ip_and_
                                 hw_snd=ptf_intf_mac
                             )
         exp_pkt = testutils.simple_arp_packet(
+                                pktlen=exp_pktlen,
                                 eth_dst=ptf_intf_mac,
                                 eth_src=dut_mac,
                                 ip_snd=tgt_addr,

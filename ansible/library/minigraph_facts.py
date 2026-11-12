@@ -478,6 +478,8 @@ def parse_dpg(dpg, hname):
                           " is attached to a Vlan interface, which is currently not supported", file=sys.stderr)
                 elif member in port_alias_to_name_map:
                     acl_intfs.append(port_alias_to_name_map[member])
+                elif member in port_name_to_alias_map:
+                    acl_intfs.append(member)
             if acl_intfs:
                 acls[aclname] = acl_intfs
 
@@ -542,6 +544,7 @@ def parse_meta(meta, hname):
     mgmt_routes = []
     deployment_id = None
     resource_type = None
+    zebra_nexthop = None
     device_metas = meta.find(str(QName(ns, "Devices")))
     for device in device_metas.findall(str(QName(ns1, "DeviceMetadata"))):
         if device.find(str(QName(ns1, "Name"))).text == hname:
@@ -560,7 +563,9 @@ def parse_meta(meta, hname):
                     deployment_id = value
                 elif name == "ResourceType":
                     resource_type = value
-    return syslog_servers, ntp_servers, mgmt_routes, deployment_id, resource_type
+                elif name == "ZebraNexthop":
+                    zebra_nexthop = value
+    return syslog_servers, ntp_servers, mgmt_routes, deployment_id, resource_type, zebra_nexthop
 
 
 def get_console_info(devices, dev, port):
@@ -702,6 +707,7 @@ def parse_xml(filename, hostname, asic_name=None):
     mgmt_routes = []
     bgp_peers_with_range = []
     deployment_id = None
+    zebra_nexthop = None
     is_storage_device = None
     macsec_enabled_ports = []
     macsec_neighbors = []
@@ -750,7 +756,8 @@ def parse_xml(filename, hostname, asic_name=None):
             elif child.tag == str(QName(ns, "UngDec")):
                 (u_neighbors, u_devices, _, _, _, _) = parse_png(child, hostname)
             elif child.tag == str(QName(ns, "MetadataDeclaration")):
-                (syslog_servers, ntp_servers, mgmt_routes, deployment_id, resource_type) = parse_meta(child, hostname)
+                (syslog_servers, ntp_servers, mgmt_routes, deployment_id,
+                 resource_type, zebra_nexthop) = parse_meta(child, hostname)
             elif child.tag == str(QName(ns, "LinkMetadataDeclaration")):
                 macsec_enabled_ports, macsec_neighbors = parse_linkmeta(child, hostname)
         else:
@@ -833,6 +840,8 @@ def parse_xml(filename, hostname, asic_name=None):
     }
     if resource_type is not None:
         results['minigraph_device_metadata']['resource_type'] = resource_type
+    if zebra_nexthop is not None:
+        results['minigraph_device_metadata']['zebra_nexthop'] = zebra_nexthop
     results['minigraph_interfaces'] = sorted(
         phyport_intfs, key=lambda x: x['attachto'])
     results['minigraph_vlan_interfaces'] = sorted(

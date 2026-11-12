@@ -20,14 +20,15 @@ from tests.common.utilities import wait_until, get_plt_reboot_ctrl
 from tests.common.utilities import wait_tcp_connection
 from tests.common.utilities import is_ipv6_only_topology
 from tests.common import config_reload
-from bgp_helpers import define_config, apply_default_bgp_config, DUT_TMP_DIR, TEMPLATE_DIR, BGP_PLAIN_TEMPLATE,\
-    BGP_NO_EXPORT_TEMPLATE, DUMP_FILE, CUSTOM_DUMP_SCRIPT, CUSTOM_DUMP_SCRIPT_DEST,\
+from bgp_helpers import define_config, apply_default_bgp_config, DUT_TMP_DIR, TEMPLATE_DIR, BGP_PLAIN_TEMPLATE, \
+    BGP_NO_EXPORT_TEMPLATE, DUMP_FILE, CUSTOM_DUMP_SCRIPT, CUSTOM_DUMP_SCRIPT_DEST, \
     BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
-from tests.common.helpers.constants import DEFAULT_NAMESPACE
+from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG, DEFAULT_NAMESPACE
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common import constants
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
+from tests.common.devices.csonic import CsonicHost
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,7 @@ def check_results(results):
     """
     failed_results = {}
     for node_name, node_results in list(results.items()):
-        failed_node_results = [res for res in node_results if res['failed']]
+        failed_node_results = [res for res in node_results if res.get('failed', False)]
         if len(failed_node_results) > 0:
             failed_results[node_name] = failed_node_results
     if failed_results:
@@ -107,7 +108,7 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
                         parents=['router bgp {}'.format(asn), 'address-family ipv6'],
                         module_ignore_errors=True)
                     )
-        elif isinstance(node['host'], SonicHost):
+        elif isinstance(node['host'], (SonicHost, CsonicHost)):
             node_results.append(node['host'].config(
                 lines=['bgp graceful-restart', 'bgp graceful-restart restart-time 300'],
                 parents=['router bgp {}'.format(asn)],
@@ -180,7 +181,7 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
                         parents=['router bgp {}'.format(asn), 'address-family ipv6'],
                         module_ignore_errors=True)
                     )
-        elif isinstance(node['host'], SonicHost):
+        elif isinstance(node['host'], (SonicHost, CsonicHost)):
             node_results.append(node['host'].config(
                 lines=['no bgp graceful-restart', 'no bgp graceful-restart restart-time 300'],
                 parents=['router bgp {}'.format(asn)],
@@ -245,6 +246,25 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
 
     if not wait_until(300, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())):
         pytest.fail("not all bgp sessions are up after disable graceful restart")
+
+
+def _setup_arp_responder(duthost, ptfhost, tbinfo, is_v6_topo):
+    """Setup arp_responder on PTF with per-port server IP config for dualtor."""
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    minigraph_ptf_indices = mg_facts['minigraph_ptf_indices']
+    mux_config = mux_cable_server_ip(duthost)
+    ip_type = "server_ipv6" if is_v6_topo else "server_ipv4"
+    arp_responder_conf = {
+        "eth%s" % minigraph_ptf_indices[port]: [config[ip_type].split("/")[0]]
+        for port, config in list(mux_config.items())
+    }
+    ptfhost.copy(content=json.dumps(arp_responder_conf, indent=4), dest=ARP_RESPONDER_DEFAULT_CONFIG)
+    ptfhost.copy(src="scripts/arp_responder.py", dest="/opt")
+    ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": ""})
+    ptfhost.template(src="templates/arp_responder.conf.j2",
+                     dest="/etc/supervisor/conf.d/arp_responder.conf")
+    ptfhost.shell("supervisorctl reread && supervisorctl update")
+    ptfhost.shell("supervisorctl start arp_responder")
 
 
 @pytest.fixture(scope="module")
@@ -328,6 +348,22 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
 
     @contextlib.contextmanager
     def _setup_interfaces_dualtor(mg_facts, peer_count):
+        # Each server IP is assigned to its own correct PTF port (matching the
+        # MUX_CABLE Ethernet port) so that the dualtor forwarding works naturally:
+        # active ports use the direct path, standby ports use the IPinIP tunnel.
+        # Source-based policy routing on PTF ensures responses egress via the
+        # correct port despite all IPs sharing the same VLAN subnet.
+
+        # Pick a policy route table base that doesn't conflict with existing tables.
+        # Resolved before try/finally so cleanup never touches tables we didn't create.
+        used_tables = ptfhost.shell("ip rule show | grep -oP 'lookup \\K[0-9]+'",
+                                    module_ignore_errors=True)['stdout'].splitlines()
+        used_table_ids = {int(t) for t in used_tables if t.isdigit()}
+        POLICY_ROUTE_TABLE_BASE = 100
+        while any((POLICY_ROUTE_TABLE_BASE + i) in used_table_ids for i in range(peer_count)):
+            POLICY_ROUTE_TABLE_BASE += peer_count
+        original_arp_ignore = None
+        orig_arp_sysctls = {}
         try:
             connections = []
             vlan_intf = _find_vlan_intferface(mg_facts)
@@ -345,48 +381,78 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                     {
                         "local_intf": loopback_intf["name"],
                         "local_addr": "%s/%s" % (loopback_intf_addr, loopback_intf_prefixlen),
-                        # Note: Config same subnets on PTF will generate two connect routes on PTF.
-                        # This may lead different IPs has same FDB entry on DUT even they are on different
-                        # interface and cause layer3 packet drop on PTF, so here same interface for different
-                        # neighbor.
-                        "neighbor_intf": "eth%s" % mg_facts["minigraph_port_indices"][local_interfaces[0]],
+                        "neighbor_intf": "eth%s" % mg_facts["minigraph_port_indices"][local_interface],
                         "neighbor_addr": "%s/%s" % (mux_configs[local_interface][server_ip_key].split("/")[0],
                                                     vlan_intf_prefixlen)
                     }
                 )
 
-            ptfhost.remove_ip_addresses()
-            # let's stop arp_responder and garp_service as they could pollute
-            # devices' arp tables.
-            ptfhost.shell("supervisorctl stop garp_service", module_ignore_errors=True)
-            ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
+            if not is_v6_topo:
+                original_arp_ignore = int(ptfhost.command(
+                    "sysctl -n net.ipv4.conf.all.arp_ignore"
+                )['stdout'].strip())
+                # VLAN broadcasts reach every PTF port. Restrict kernel ARP
+                # replies to the port owning the IP, including replies on ports
+                # not selected for BGP; source routing alone does not do this.
+                ptfhost.command("sysctl -w net.ipv4.conf.all.arp_ignore=1")
 
-            first_neighbor_port = None
+            ptfhost.remove_ip_addresses()
+            _setup_arp_responder(duthost, ptfhost, tbinfo, is_v6_topo)
+
+            if not is_v6_topo:
+                arp_keys = ["net.ipv4.conf.{}.{}".format(conn["neighbor_intf"], param)
+                            for conn in connections for param in ("arp_ignore", "arp_announce")]
+                arp_values = ptfhost.shell("sysctl -n {}".format(" ".join(arp_keys)))["stdout_lines"]
+                orig_arp_sysctls = dict(zip(arp_keys, arp_values))
+                ptfhost.shell("sysctl -w {}".format(" ".join(
+                    "{}={}".format(key, 1 if key.endswith("arp_ignore") else 2) for key in arp_keys)))
+                # Drop existing neighbor entries that may still point to another port's MAC
+                flush_cmd = "; ".join("sudo ip neigh flush to {}".format(conn["neighbor_addr"].split("/")[0])
+                                      for conn in connections)
+                duthosts.shell(flush_cmd, module_ignore_errors=True)
+
             for conn in connections:
                 ptfhost.shell("ip address add %s dev %s" % (conn["neighbor_addr"], conn["neighbor_intf"]))
-                if not first_neighbor_port:
-                    first_neighbor_port = conn["neighbor_intf"]
-                # NOTE: this enables the standby ToR to passively learn
-                # all the neighbors configured on the ptf interfaces.
-                # As the ptf is a multihomed environment, the packets to the
-                # vlan gateway will always egress the first ptf port that has
-                # vlan subnet address assigned, so let's use the first
-                # ptf port to announce the neigbors.
-                ptfhost.shell(
-                    "arping %s -S %s -i %s -C 5" % (
-                        vlan_intf_addr, conn["neighbor_addr"].split("/")[0], first_neighbor_port
-                    ),
-                    module_ignore_errors=True
-                )
+
+            # Source-based policy routing: ensure each ExaBGP peer's responses
+            # egress via its own PTF port. Without this, duplicate connected
+            # routes from the same VLAN subnet cause all responses to egress
+            # one port, breaking peers on other ports.
+            for i, conn in enumerate(connections):
+                table_id = POLICY_ROUTE_TABLE_BASE + i
+                neighbor_ip = conn["neighbor_addr"].split("/")[0]
+                ptfhost.shell("ip rule add from %s table %d" % (neighbor_ip, table_id))
+                ptfhost.shell("ip route add default via %s dev %s table %d" % (
+                    vlan_intf_addr, conn["neighbor_intf"], table_id
+                ))
+
             ptfhost.shell("ip route add {}{} via {}".format(
                 loopback_intf_addr, "/128" if is_v6_topo else "/32", vlan_intf_addr
             ))
             yield connections
 
         finally:
-            ptfhost.shell("ip route delete {}{}".format(loopback_intf_addr, "/128" if is_v6_topo else "/32"))
-            for conn in connections:
-                ptfhost.shell("ip address flush %s scope global" % conn["neighbor_intf"])
+            try:
+                ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
+                ptfhost.shell("ip route delete {}{}".format(loopback_intf_addr, "/128" if is_v6_topo else "/32"),
+                              module_ignore_errors=True)
+                for i, conn in enumerate(connections):
+                    table_id = POLICY_ROUTE_TABLE_BASE + i
+                    neighbor_ip = conn["neighbor_addr"].split("/")[0]
+                    ptfhost.shell("ip rule del from %s table %d" % (neighbor_ip, table_id),
+                                  module_ignore_errors=True)
+                    ptfhost.shell("ip route flush table %d" % table_id,
+                                  module_ignore_errors=True)
+                    ptfhost.shell("ip address flush %s scope global" % conn["neighbor_intf"])
+            finally:
+                try:
+                    if orig_arp_sysctls:
+                        ptfhost.shell("sysctl -w {}".format(" ".join(
+                            "{}={}".format(key, value) for key, value in orig_arp_sysctls.items())),
+                            module_ignore_errors=True)
+                finally:
+                    if original_arp_ignore is not None:
+                        ptfhost.command("sysctl -w net.ipv4.conf.all.arp_ignore=%d" % original_arp_ignore)
 
     @contextlib.contextmanager
     def _setup_interfaces_t0_or_mx(mg_facts, peer_count):
@@ -440,15 +506,19 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                 ptfhost.shell("ip address flush %s scope global" % conn["neighbor_intf"])
 
     @contextlib.contextmanager
-    def _setup_interfaces_t1_or_t2(mg_facts, peer_count):
+    def _setup_interfaces_t1_t2_drh(mg_facts, peer_count):
         try:
             connections = []
             is_backend_topo = "backend" in tbinfo["topo"]["name"]
             interfaces = []
             used_subnets = set()
             asic_idx = 0
-            if mg_facts["minigraph_interfaces"]:
-                for intf in mg_facts["minigraph_interfaces"]:
+            mg_interfaces = mg_facts["minigraph_interfaces"]
+            if mg_interfaces:
+                if tbinfo["topo"]["name"] == "t2_single_node_min":
+                    mg_interfaces = sorted(mg_facts["minigraph_interfaces"],
+                                           key=lambda x: int(x['attachto'].replace("Ethernet", "")))
+                for intf in mg_interfaces:
                     if (is_matching_ip_version(intf["addr"])):
                         intf_asic_idx = duthost.get_port_asic_instance(intf["attachto"]).asic_index
                         if not interfaces:
@@ -586,11 +656,11 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
         setup_func = _setup_interfaces_dualtor
     elif tbinfo["topo"]["type"] in ["t0", "mx"]:
         setup_func = _setup_interfaces_t0_or_mx
-    elif tbinfo["topo"]["type"] in set(["t1", "t2", "m1", "lt2", "ft2"]):
-        setup_func = _setup_interfaces_t1_or_t2
+    elif tbinfo["topo"]["type"] in set(["t1", "t2", "m1", "lt2", "ft2", "c0", "lrh", "urh", "lma", "uma"]):
+        setup_func = _setup_interfaces_t1_t2_drh
     elif tbinfo["topo"]["type"] == "m0":
         if topo_scenario == "m0_l3_scenario":
-            setup_func = _setup_interfaces_t1_or_t2
+            setup_func = _setup_interfaces_t1_t2_drh
         else:
             setup_func = _setup_interfaces_t0_or_mx
     else:
@@ -603,7 +673,7 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
 
     duthost.shell("sonic-clear arp")
     duthost.shell('sudo config save -y')
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
 
 @pytest.fixture(scope="module")
@@ -672,6 +742,9 @@ def bgpmon_setup_teardown(ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_ho
     peer_addr = connection['neighbor_addr'].split("/")[0]
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     asn = mg_facts['minigraph_bgp_asn']
+    confed_asn = duthost.get_bgp_confed_asn()
+    if confed_asn:
+        asn = confed_asn
     # TODO: Add a common method to load BGPMON config for test_bgpmon and test_traffic_shift
     logger.info("Configuring bgp monitor session on DUT")
     bgpmon_args = {
@@ -682,11 +755,19 @@ def bgpmon_setup_teardown(ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_ho
         'peer_name': BGP_MONITOR_NAME
     }
     bgpmon_template = Template(open(BGPMON_TEMPLATE_FILE).read())
+    asichost = duthost.asic_instance_from_namespace(connection['namespace'])
+    # Match bgpcfgd's same-AS monitor template.
+    monitor_asn = int(asichost.run_sonic_db_cli_cmd(
+        "CONFIG_DB HGET 'DEVICE_METADATA|localhost' bgp_asn"
+    )["stdout"])
+    pt_assert(
+        0 < monitor_asn <= 0xFFFFFFFF,
+        "DEVICE_METADATA|localhost bgp_asn must be a valid 32-bit ASN, got {}".format(monitor_asn)
+    )
     duthost.copy(content=bgpmon_template.render(**bgpmon_args),
                  dest=BGPMON_CONFIG_FILE)
     # Start bgpmon on DUT
     logger.info("Starting bgpmon on DUT")
-    asichost = duthost.asic_instance_from_namespace(connection['namespace'])
     asichost.write_to_config_db(BGPMON_CONFIG_FILE)
 
     logger.info("Starting bgp monitor session on PTF")
@@ -710,8 +791,8 @@ def bgpmon_setup_teardown(ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_ho
                    local_ip=peer_addr,
                    router_id=router_id,
                    peer_ip=dut_lo_addr,
-                   local_asn=asn,
-                   peer_asn=asn,
+                   local_asn=monitor_asn,
+                   peer_asn=monitor_asn,
                    port=BGP_MONITOR_PORT,
                    dump_script=CUSTOM_DUMP_SCRIPT_DEST)
 
@@ -780,6 +861,18 @@ def pytest_addoption(parser):
         default=None,
         help="Max flap neighbor number, default is None"
     )
+    parser.addoption(
+        "--vnet_count",
+        action="store",
+        default="100",
+        help="Number of VNETs/VLANs to create"
+    )
+    parser.addoption(
+        "--subif_per_vnet",
+        action="store",
+        default="16",
+        help="Number of Subinterfaces to create per vnet"
+    )
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -799,6 +892,7 @@ def config_bgp_suppress_fib(duthosts, rand_one_dut_hostname, request):
         logger.info('Enable BGP suppress fib pending function')
         duthost.shell('sudo config suppress-fib-pending enabled')
         duthost.shell('sudo config save -y')
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
     yield
 
@@ -806,6 +900,7 @@ def config_bgp_suppress_fib(duthosts, rand_one_dut_hostname, request):
         logger.info('Disable BGP suppress fib pending function')
         duthost.shell('sudo config suppress-fib-pending disabled')
         duthost.shell('sudo config save -y')
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
 
 @pytest.fixture(scope="module")
@@ -865,6 +960,16 @@ def traffic_shift_community(duthost):
 @pytest.fixture(scope='module')
 def get_function_completeness_level(pytestconfig):
     return pytestconfig.getoption("--completeness_level")
+
+
+@pytest.fixture(scope="module")
+def vnet_count(request):
+    return int(request.config.getoption("--vnet_count"))
+
+
+@pytest.fixture(scope="module")
+def subif_per_vnet(request):
+    return int(request.config.getoption("--subif_per_vnet"))
 
 
 @pytest.fixture(scope='module')

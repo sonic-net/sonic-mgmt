@@ -1,11 +1,11 @@
 import logging
 import pytest
 
-from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
+from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, snappi_testbed_config, is_snappi_multidut, get_snappi_ports, \
     get_snappi_ports_single_dut, get_snappi_ports_multi_dut, get_snappi_ports_for_rdma, \
     snappi_dut_base_config  # noqa: F401
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
     fanout_graph_facts  # noqa: F401
 from tests.common.helpers.assertions import pytest_require
 from tests.snappi_tests.ecn.files.ecnhelper import run_ecn_test_cisco8000

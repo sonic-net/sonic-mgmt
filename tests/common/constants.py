@@ -17,6 +17,8 @@ RESOLV_CONF_NAMESERVERS = {
     "public": []
 }
 KVM_PLATFORM = 'x86_64-kvm_x86_64-r0'
+GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
+GOLDEN_CONFIG_DB_PATH_ORI = "/etc/sonic/golden_config_db.json.origin.backup"
 
 
 class CounterpollConstants:
@@ -37,6 +39,8 @@ class CounterpollConstants:
     QUEUE = 'queue'
     PORT_STAT_TYPE = 'PORT_STAT'
     PORT = 'port'
+    PORT_PHY_ATTR_TYPE = 'PHY'
+    PORT_PHY_ATTR = 'phy'
     PORT_BUFFER_DROP_TYPE = 'PORT_BUFFER_DROP'
     PORT_BUFFER_DROP = 'port-buffer-drop'
     RIF_STAT_TYPE = 'RIF_STAT'
@@ -49,16 +53,32 @@ class CounterpollConstants:
     ACL_TYPE = "ACL"
     WRED_ECN_QUEUE_STAT_TYPE = 'WRED_ECN_QUEUE_STAT'
     WRED_QUEUE = 'wredqueue'
+    WRED_ECN_PORT_STAT_TYPE = 'WRED_ECN_PORT_STAT'
+    WRED_PORT = 'wredport'
+    PHY_TYPE = 'PHY'
+    PHY = 'phy'
+    FLOW_CNT_ROUTE_STAT_TYPE = 'FLOW_CNT_ROUTE_STAT'
+    FLOW_CNT_ROUTE = 'flowcnt-route'
+    SRV6_STAT_TYPE = 'SRV6_STAT'
+    SRV6 = 'srv6'
+    SWITCH_STAT_TYPE = 'SWITCH_STAT'
+    SWITCH = 'switch'
     COUNTERPOLL_MAPPING = {PG_DROP_STAT_TYPE: PG_DROP,
                            QUEUE_STAT_TYPE: QUEUE,
                            PORT_STAT_TYPE: PORT,
+                           PORT_PHY_ATTR_TYPE: PORT_PHY_ATTR,
                            PORT_BUFFER_DROP_TYPE: PORT_BUFFER_DROP,
                            RIF_STAT_TYPE: RIF,
                            BUFFER_POOL_WATERMARK_STAT_TYPE: WATERMARK,
                            QUEUE_WATERMARK_STAT_TYPE: WATERMARK,
                            PG_WATERMARK_STAT_TYPE: WATERMARK,
                            ACL_TYPE: ACL,
-                           WRED_ECN_QUEUE_STAT_TYPE: WRED_QUEUE}
+                           WRED_ECN_QUEUE_STAT_TYPE: WRED_QUEUE,
+                           WRED_ECN_PORT_STAT_TYPE: WRED_PORT,
+                           PHY_TYPE: PHY,
+                           FLOW_CNT_ROUTE_STAT_TYPE: FLOW_CNT_ROUTE,
+                           SRV6_STAT_TYPE: SRV6,
+                           SWITCH_STAT_TYPE: SWITCH}
     PORT_BUFFER_DROP_INTERVAL = '10000'
     COUNTERPOLL_INTERVAL = {PORT_BUFFER_DROP: 10000}
     SX_SDK = 'sx_sdk'

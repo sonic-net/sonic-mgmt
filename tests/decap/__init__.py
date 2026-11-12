@@ -26,28 +26,3 @@ def pytest_addoption(parser):
         default=True,
         help="Specify whether inner layer IPv6 testing will be covered",
     )
-
-    decap_group.addoption(
-        "--ttl_uniform",
-        action="store_true",
-        default=False,
-        help="indicates TTL uniform is supported"
-    )
-    decap_group.addoption(
-        "--dscp_uniform",
-        action="store_true",
-        default=True,
-        help="indicates DSCP uniform is supported"
-    )
-    decap_group.addoption(
-        "--no_ttl_uniform",
-        dest='ttl_uniform',
-        action="store_false",
-        help="indicates TTL uniform is not supported"
-    )
-    decap_group.addoption(
-        "--no_dscp_uniform",
-        dest='dscp_uniform',
-        action="store_false",
-        help="indicates DSCP uniform is not supported"
-    )

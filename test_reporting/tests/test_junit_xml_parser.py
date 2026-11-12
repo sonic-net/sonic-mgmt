@@ -102,7 +102,8 @@ EXPECTED_JSON_OUTPUT = {
         "failures": "2",
         "skipped": "1",
         "tests": "4",
-        "time": "213.949"
+        "time": "213.949",
+        "xfails": "0"
     }
 }
 
@@ -237,6 +238,64 @@ def test_json_output_from_file():
     assert ordered(parse_test_result([root])) == ordered(EXPECTED_JSON_OUTPUT)
 
 
+def test_xunit2_testcases_without_file_or_line_are_parsed():
+    xml = "<testsuites>" + VALID_TEST_RESULT.replace(
+        '<?xml version="1.0" encoding="utf-8"?>', ""
+    ).replace(' file="bgp/test_bgp.py"', "").replace(
+        ' file="acl/test_acl.py"', ""
+    ).replace(' line="161"', "").replace(' line="248"', "").replace(
+        ' line="257"', ""
+    ).replace(' line="369"', "") + "</testsuites>"
+
+    root = validate_junit_xml_stream(xml)
+    result = parse_test_result([(root, "xunit2.xml")])
+
+    cases = [case for feature_cases in result["test_cases"].values() for case in feature_cases]
+    assert len(cases) == 4
+    assert all(case["file"] == "" and case["line"] == "0" for case in cases)
+    assert result["test_summary"]["xfails"] == "0"
+
+
+def test_multiple_testsuites_are_aggregated():
+    first_suite = VALID_TEST_RESULT.replace('<?xml version="1.0" encoding="utf-8"?>', "")
+    second_suite = first_suite.replace('classname="bgp.', 'classname="second_bgp.').replace(
+        'classname="acl.', 'classname="second_acl.'
+    )
+    root = validate_junit_xml_stream(f"<testsuites>{first_suite}{second_suite}</testsuites>")
+
+    result = parse_test_result([(root, "multiple-suites.xml")])
+
+    assert set(result["test_cases"]) == {"acl", "bgp", "second_acl", "second_bgp"}
+    assert sum(len(cases) for cases in result["test_cases"].values()) == 8
+    assert result["test_summary"] == {
+        "errors": "2",
+        "failures": "2",
+        "skipped": "2",
+        "tests": "8",
+        "time": "428.108",
+        "xfails": "0",
+    }
+
+
+def test_multiple_testsuites_with_mismatched_metadata_are_rejected():
+    first_suite = VALID_TEST_RESULT.replace('<?xml version="1.0" encoding="utf-8"?>', "")
+    second_suite = first_suite.replace('value="vms-kvm-t0"', 'value="vms-kvm-t1"')
+
+    with pytest.raises(JUnitXMLValidationError, match="testsuite metadata differs between child suites"):
+        validate_junit_xml_stream(f"<testsuites>{first_suite}{second_suite}</testsuites>")
+
+
+def test_empty_testsuite_is_parsed():
+    root = validate_junit_xml_stream(
+        '<testsuite errors="0" failures="0" skipped="0" tests="0" time="0"/>'
+    )
+
+    result = parse_test_result([(root, "empty.xml")])
+
+    assert result["test_cases"] == {}
+    assert result["test_summary"]["xfails"] == "0"
+
+
 def test_json_output_from_archive():
     roots = validate_junit_xml_archive(VALID_TEST_RESULT_ARCHIVE)
     assert ordered(parse_test_result(roots)) == ordered(EXPECTED_JSON_OUTPUT)
@@ -245,6 +304,42 @@ def test_json_output_from_archive():
 def test_xml_file_not_found():
     with pytest.raises(JUnitXMLValidationError, match="file not found"):
         validate_junit_xml_file("nonexistent.xml")
+
+
+def test_native_pytest_xfail_counted_as_xfail():
+    # pytest @pytest.mark.xfail emits <skipped type="pytest.xfail"> without the
+    # custom xfail property; ensure it is classified/counted as xfail, not skipped.
+    xml = VALID_TEST_RESULT.replace(
+        '<skipped message="test machine skipped">',
+        '<skipped type="pytest.xfail" message="expected failure">')
+    root = validate_junit_xml_stream(xml)
+    result = parse_test_result([(root, "doc")])
+    assert result["test_summary"]["xfails"] == "1"
+    acl_2 = [c["result"] for c in result["test_cases"]["acl"] if c["name"] == "test_acl_2"]
+    assert acl_2 == ["xfail_skipped"]
+
+
+def test_conditional_mark_xfail_skip_not_counted_as_xfail():
+    # A conditional_mark xfail whose skip condition matched is a plain <skipped> and
+    # pytest counts it as skipped, not xfailed; the xfail property must not bump xfails.
+    xml = VALID_TEST_RESULT.replace(
+        '<skipped message="test machine skipped">',
+        '<skipped message="test machine skipped">'
+        '<property name="xfail" value="True"/>')
+    root = validate_junit_xml_stream(xml)
+    result = parse_test_result([(root, "doc")])
+    assert result["test_summary"]["xfails"] == "0"
+    acl_2 = [c["result"] for c in result["test_cases"]["acl"] if c["name"] == "test_acl_2"]
+    assert acl_2 == ["skipped"]
+
+
+def test_xpass_not_counted_as_xfail():
+    # An xpassed test is a plain success; it must not be counted as an xfail.
+    root = validate_junit_xml_stream(VALID_TEST_RESULT)
+    result = parse_test_result([(root, "doc")])
+    assert result["test_summary"]["xfails"] == "0"
+    bgp_fact = [c["result"] for c in result["test_cases"]["bgp"] if c["name"] == "test_bgp_fact"]
+    assert bgp_fact == ["success"]
 
 
 # credit to: https://stackoverflow.com/questions/25851183/

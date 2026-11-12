@@ -3,22 +3,22 @@ import dpkt
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts         # noqa: F401
-from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
+from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port, \
     ixia_api_serv_user, ixia_api_serv_passwd, ixia_api                                          # noqa: F401
 from tests.common.ixia.ixia_helpers import get_dut_port_id
-from tests.common.ixia.common_helpers import pfc_class_enable_vector, config_wred,\
+from tests.common.ixia.common_helpers import pfc_class_enable_vector, config_wred, \
     enable_ecn, config_ingress_lossless_buffer_alpha, stop_pfcwd, disable_packet_aging
 from tests.common.ixia.port import select_ports, select_tx_port
 
-from abstract_open_traffic_generator.capture import CustomFilter, Capture,\
+from abstract_open_traffic_generator.capture import CustomFilter, Capture, \
     BasicFilter
-from abstract_open_traffic_generator.flow import TxRx, Flow, Header, Size, Rate,\
+from abstract_open_traffic_generator.flow import TxRx, Flow, Header, Size, Rate, \
     Duration, FixedSeconds, FixedPackets, PortTxRx, PfcPause
 from abstract_open_traffic_generator.flow_ipv4 import Priority, Dscp
 from abstract_open_traffic_generator.flow import Pattern as FieldPattern
 from abstract_open_traffic_generator.flow import Ipv4 as Ipv4Header
 from abstract_open_traffic_generator.flow import Ethernet as EthernetHeader
-from abstract_open_traffic_generator.control import State, ConfigState,\
+from abstract_open_traffic_generator.control import State, ConfigState, \
     FlowTransmitState, PortCaptureState
 from abstract_open_traffic_generator.result import FlowRequest, CaptureRequest
 

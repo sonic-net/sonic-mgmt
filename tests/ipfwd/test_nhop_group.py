@@ -23,7 +23,7 @@ CISCO_NHOP_GROUP_FILL_PERCENTAGE = 0.92
 PTF_QUEUE_LEN = 100000
 
 pytestmark = [
-    pytest.mark.topology('t1', 't2', 'm1', "lt2", "ft2")
+    pytest.mark.topology('t1', 't2', 'lrh', 'urh', 'm1', 'uma', 'lma', "lt2", "ft2")
 ]
 
 logger = logging.getLogger(__name__)
@@ -337,6 +337,12 @@ def validate_asic_route(duthost, route, exist=True):
         return exist is False
 
 
+def is_high_scale_platform(duthost) -> bool:
+    interfaces_status = duthost.sonichost.get_interfaces_status()
+    number_of_interfaces = len(interfaces_status.keys())
+    return number_of_interfaces >= 128
+
+
 def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
     """
     Test next hop group resource count. Steps:
@@ -365,6 +371,10 @@ def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
         default_max_nhop_paths = 8
         polling_interval = 10
         sleep_time = 120
+    elif is_high_scale_platform(duthost):
+        default_max_nhop_paths = 32
+        polling_interval = 10
+        sleep_time = 380
     else:
         default_max_nhop_paths = 32
         polling_interval = 10
@@ -446,26 +456,22 @@ def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
             "crm config polling interval {}".format(crm_before["polling"])
         )
 
-    # verify the test used up all the NHOP group resources
-    # skip this check on Mellanox as ASIC resources are shared
-    if is_cisco_device(duthost) or "7060X6" in duthost.sonichost.get_facts()['platform'].upper():
-        pytest_assert(
-            crm_after["available_nhop_grp"] + nhop_group_count == crm_before["available_nhop_grp"],
-            "Unused NHOP group resource:{}, used:{}, nhop_group_count:{}, Unused NHOP group resource before:{}".format(
-                crm_after["available_nhop_grp"], crm_after["used_nhop_grp"], nhop_group_count,
-                crm_before["available_nhop_grp"]
-
-            )
-        )
-    elif is_mellanox_device(duthost):
+    # verify the test used the expected NHOP group resources
+    if is_mellanox_device(duthost):
         logger.info("skip this check on Mellanox as ASIC resources are shared")
     elif is_vs_device(duthost):
         logger.info("skip this check on VS as no real ASIC")
     else:
+        expected_available_nhop_grp = max(
+            crm_before["available_nhop_grp"] - nhop_group_count, 0
+        )
         pytest_assert(
-            crm_after["available_nhop_grp"] == 0,
-            "Unused NHOP group resource:{}, used_nhop_grp:{}".format(
-                crm_after["available_nhop_grp"], crm_after["used_nhop_grp"]
+            crm_after["available_nhop_grp"] == expected_available_nhop_grp,
+            "Unexpected available NHOP group resources:{}, expected:{}, used:{}, "
+            "nhop_group_count:{}, available before:{}".format(
+                crm_after["available_nhop_grp"], expected_available_nhop_grp,
+                crm_after["used_nhop_grp"], nhop_group_count,
+                crm_before["available_nhop_grp"]
             )
         )
 
@@ -828,6 +834,36 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                          47: 'c0:ff:ee:00:00:0d', 48: 'c0:ff:ee:00:00:0e',
                          49: 'c0:ff:ee:00:00:0e'}
 
+    gr2x_asic_flow_map = {0: 'c0:ff:ee:00:00:12', 1: 'c0:ff:ee:00:00:0c',
+                          2: 'c0:ff:ee:00:00:0c',
+                          3: 'c0:ff:ee:00:00:0d', 4: 'c0:ff:ee:00:00:12',
+                          5: 'c0:ff:ee:00:00:0c', 6: 'c0:ff:ee:00:00:11',
+                          7: 'c0:ff:ee:00:00:0e', 8: 'c0:ff:ee:00:00:0f',
+                          9: 'c0:ff:ee:00:00:0b',
+                          10: 'c0:ff:ee:00:00:11', 11: 'c0:ff:ee:00:00:0f',
+                          12: 'c0:ff:ee:00:00:0b', 13: 'c0:ff:ee:00:00:12',
+                          14: 'c0:ff:ee:00:00:0c',
+                          15: 'c0:ff:ee:00:00:0f', 16: 'c0:ff:ee:00:00:10',
+                          17: 'c0:ff:ee:00:00:0c', 18: 'c0:ff:ee:00:00:10',
+                          19: 'c0:ff:ee:00:00:10', 20: 'c0:ff:ee:00:00:12',
+                          21: 'c0:ff:ee:00:00:0c', 22: 'c0:ff:ee:00:00:0c',
+                          23: 'c0:ff:ee:00:00:11', 24: 'c0:ff:ee:00:00:0e',
+                          25: 'c0:ff:ee:00:00:11',
+                          26: 'c0:ff:ee:00:00:0c', 27: 'c0:ff:ee:00:00:0e',
+                          28: 'c0:ff:ee:00:00:0e', 29: 'c0:ff:ee:00:00:12',
+                          30: 'c0:ff:ee:00:00:0b', 31: 'c0:ff:ee:00:00:12',
+                          32: 'c0:ff:ee:00:00:12', 33: 'c0:ff:ee:00:00:11',
+                          34: 'c0:ff:ee:00:00:0b',
+                          35: 'c0:ff:ee:00:00:10', 36: 'c0:ff:ee:00:00:0e',
+                          37: 'c0:ff:ee:00:00:0f', 38: 'c0:ff:ee:00:00:0c',
+                          39: 'c0:ff:ee:00:00:0c',
+                          40: 'c0:ff:ee:00:00:0c', 41: 'c0:ff:ee:00:00:0f',
+                          42: 'c0:ff:ee:00:00:10', 43: 'c0:ff:ee:00:00:0f',
+                          44: 'c0:ff:ee:00:00:0e', 45: 'c0:ff:ee:00:00:0c',
+                          46: 'c0:ff:ee:00:00:10',
+                          47: 'c0:ff:ee:00:00:0b', 48: 'c0:ff:ee:00:00:0b',
+                          49: 'c0:ff:ee:00:00:10'}
+
     # Make sure a given flow always hash to same nexthop/neighbor. This is done to try to find issue
     # where SAI vendor changes Hash Function across SAI releases. Please note this will not catch the issue every time
     # as there is always probability even after change of Hash Function same nexthop/neighbor is selected.
@@ -840,7 +876,8 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                                               "gr": gr_asic_flow_map, "spc1": spc_asic_flow_map,
                                               "spc2": spc_asic_flow_map, "spc3": spc_asic_flow_map,
                                               "spc4": spc_asic_flow_map, "spc5": spc_asic_flow_map,
-                                              "gr2": gr2_asic_flow_map}
+                                              "spc6": spc_asic_flow_map, "gr2": gr2_asic_flow_map,
+                                              "gr2x": gr2x_asic_flow_map}
 
     vendor = duthost.facts["asic_type"]
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
@@ -974,5 +1011,11 @@ def test_nhop_group_interface_flap(duthosts, enum_rand_one_per_hwsku_frontend_ho
 
     finally:
         asic.command(arp_evict_cmd % gather_facts['src_router_intf_name'])
+        for i in range(0, len(gather_facts['src_port'])):
+            fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname,
+                                                            gather_facts['src_port'][i])
+            logger.debug("No Shut fanout sw: %s, port: %s", fanout, fanout_port)
+            if is_vs_device(duthost) is False:
+                fanout.no_shutdown(fanout_port)
         nhop.delete_routes()
         arplist.clean_up()

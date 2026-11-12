@@ -264,6 +264,7 @@ class LabGraph(object):
             end_port_mac = link.get("EndPortMac", None)
             autoneg_mode = link.get("AutoNeg")
             fec_disable = link.get("FECDisable", False)
+            linktraining_mode = link.get("LinkTraining", "")
 
             links.setdefault(start_device, {})
             links.setdefault(end_device, {})
@@ -292,6 +293,10 @@ class LabGraph(object):
             if autoneg_mode:
                 start_port_linked_port.update({"autoneg": autoneg_mode})
                 end_port_linked_port.update({"autoneg": autoneg_mode})
+
+            if linktraining_mode:
+                start_port_linked_port.update({"linktraining": linktraining_mode})
+                end_port_linked_port.update({"linktraining": linktraining_mode})
 
             if start_port_mac:
                 start_port_linked_port.update({"mac": start_port_mac})
@@ -342,6 +347,7 @@ class LabGraph(object):
                     "proxy": entry["Proxy"],
                     "type": entry["Console_type"],
                     "menu_type": entry["Console_menu_type"],
+                    "direct_ssh_port": entry.get("DirectSSHPort", None)
                 }
             }
         self.graph_facts["console_links"] = console_links

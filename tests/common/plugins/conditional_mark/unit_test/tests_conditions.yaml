@@ -123,3 +123,22 @@ test_conditional_mark.py::test_mark_9_2:
     reason: "Xfail test_conditional_mark.py::test_mark_9_2"
     conditions:
       - "asic_type in ['vs']"
+
+# The two entries below mirror the shape of the everflow regex keys in
+# tests_mark_conditions.yaml (https://github.com/sonic-net/sonic-mgmt/issues/26793).
+# pytest 9.1 reworked fixture closure construction and flipped the order in which two
+# independently parametrized fixtures are joined into the generated node ID, e.g.
+# "ipv6-erspan_ipv4" (pytest <= 9.0) became "erspan_ipv4-ipv6" (pytest >= 9.1). A plain
+# prefix key written against one ordering silently stops matching under the other, so the
+# production keys were converted to regex keys that accept both orderings.
+test_everflow_reorder_mark.py::test_everflow_reorder_mark\[(ipv4-erspan_ipv4|erspan_ipv4-ipv4)-default:
+  regex: true
+  xfail:
+    reason: "Xfail test_everflow_reorder_mark.py::test_everflow_reorder_mark"
+    conditions:
+      - "asic_type in ['vs']"
+
+test_everflow_reorder_mark.py::test_everflow_reorder_mark\[(ipv6-erspan_ipv[46]|erspan_ipv[46]-ipv6)-:
+  regex: true
+  skip:
+    reason: "Skip test_everflow_reorder_mark.py::test_everflow_reorder_mark"

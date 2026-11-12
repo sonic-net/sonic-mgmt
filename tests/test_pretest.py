@@ -4,6 +4,7 @@ import os
 import pytest
 import random
 import re
+import shlex
 import time
 
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
@@ -14,6 +15,7 @@ from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.dut_utils import verify_features_state
+from tests.common.platform.bmc_utils import assert_bmc_clock_in_sync
 from tests.common.utilities import wait_until
 from tests.common.reboot import reboot
 from tests.common.platform.processes_utils import wait_critical_processes
@@ -24,12 +26,95 @@ pytestmark = [
     pytest.mark.pretest,
     pytest.mark.topology('util', 'any'),
     pytest.mark.disable_loganalyzer,
-    pytest.mark.skip_check_dut_health
+    pytest.mark.skip_check_dut_health,
+    pytest.mark.sanity_check(skip_pre_sanity=False)
 ]
 
 
 FEATURE_STATE_VERIFYING_THRESHOLD_SECS = 600
 FEATURE_STATE_VERIFYING_INTERVAL_SECS = 10
+DPU_RECOVERY_STATE_TIMEOUT = 600
+DPU_RECOVERY_STATE_INTERVAL = 30
+DPU_RECOVERY_STARTUP_RETRY_TIMEOUT = 720
+DPU_RECOVERY_STARTUP_RETRY_INTERVAL = 60
+
+
+def _parse_chassis_module_status(rows):
+    """Normalize parsed 'show chassis modules status' rows into DPU module status entries."""
+    entries = []
+    for row in rows:
+        name = row.get("name", "")
+        if not re.match(r"^DPU\d+$", name):
+            continue
+        if "oper-status" not in row or "admin-status" not in row:
+            logger.warning("Skipping unexpected chassis module status row: %s", row)
+            continue
+        entries.append({
+            "name": name,
+            "oper_status": row["oper-status"],
+            "admin_status": row["admin-status"],
+        })
+    return entries
+
+
+def _show_chassis_module_status(duthost):
+    return duthost.show_and_parse("show chassis modules status", module_ignore_errors=True)
+
+
+def _is_dpu_online_up(duthost, dpu_name):
+    for entry in _parse_chassis_module_status(_show_chassis_module_status(duthost)):
+        if entry["name"] == dpu_name:
+            return (entry["oper_status"].lower() == "online" and
+                    entry["admin_status"].lower() == "up")
+    return False
+
+
+def _startup_dpu_when_transition_settled(duthost, dpu_name):
+    result = duthost.shell(
+        "sudo config chassis modules startup {}".format(dpu_name),
+        module_ignore_errors=True
+    )
+    output = "{}\n{}".format(result.get("stdout", ""), result.get("stderr", ""))
+    if "state transition is already in progress" in output.lower():
+        logger.info("%s: startup of %s is still blocked by state transition",
+                    duthost.hostname, dpu_name)
+        return False
+    return True
+
+
+def _recover_admin_up_offline_dpu(duthost, dpu_name):
+    logger.warning("%s: recovering %s because admin is up but oper is not Online",
+                   duthost.hostname, dpu_name)
+    duthost.shell("sudo config chassis modules shutdown {}".format(dpu_name))
+
+    pytest_assert(
+        wait_until(DPU_RECOVERY_STARTUP_RETRY_TIMEOUT, DPU_RECOVERY_STARTUP_RETRY_INTERVAL, 0,
+                   _startup_dpu_when_transition_settled, duthost, dpu_name),
+        "{}: {} startup was still blocked by a state transition".format(duthost.hostname, dpu_name)
+    )
+    pytest_assert(
+        wait_until(DPU_RECOVERY_STATE_TIMEOUT, DPU_RECOVERY_STATE_INTERVAL, 0,
+                   _is_dpu_online_up, duthost, dpu_name),
+        "{}: {} did not recover to Online/up".format(duthost.hostname, dpu_name)
+    )
+
+
+def test_recover_admin_up_offline_dpu_modules(duthosts, tbinfo):
+    """Recover SmartSwitch DPU modules that are admin-up but not operationally Online."""
+    topo_name = tbinfo.get("topo", {}).get("name", "")
+    if "smartswitch" not in topo_name:
+        pytest.skip("DPU module recovery is only applicable to SmartSwitch testbeds")
+
+    def recover_dpus(duthost):
+        entries = _parse_chassis_module_status(_show_chassis_module_status(duthost))
+        for entry in entries:
+            if (entry["admin_status"].lower() == "up" and
+                    entry["oper_status"].lower() != "online"):
+                _recover_admin_up_offline_dpu(duthost, entry["name"])
+
+    with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
+        for duthost in duthosts:
+            executor.submit(recover_dpus, duthost)
 
 
 def test_features_state(duthosts, localhost):
@@ -61,35 +146,6 @@ def test_cleanup_cache():
     folder = '_cache'
     if os.path.exists(folder):
         os.system('rm -rf {}'.format(folder))
-
-
-def test_cleanup_testbed(duthosts, request, ptfhost):
-    deep_clean = request.config.getoption("--deep_clean")
-    if deep_clean:
-
-        def deep_clean_dut(dut):
-            logger.info("Deep cleaning DUT {}".format(dut.hostname))
-            # Remove old log files.
-            dut.shell("sudo find /var/log/ -name '*.gz' | sudo xargs rm -f", executable="/bin/bash")
-            # Remove old core files.
-            dut.shell("sudo rm -f /var/core/*", executable="/bin/bash")
-            # Remove old dump files.
-            dut.shell("sudo rm -rf /var/dump/*", executable="/bin/bash")
-
-            # delete other log files that are more than a day old,
-            # this step is needed to remove some backup files or the debug files added by users
-            # which can create issue for log-analyzer
-            dut.shell("sudo find /var/log/ -mtime +1 | sudo xargs rm -f",
-                      module_ignore_errors=True, executable="/bin/bash")
-
-        with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
-            for duthost in duthosts:
-                executor.submit(deep_clean_dut, duthost)
-
-    # Cleanup rsyslog configuration file that might have damaged by test_syslog.py
-    if ptfhost:
-        ptfhost.shell("if [[ -f /etc/rsyslog.conf ]]; then mv /etc/rsyslog.conf /etc/rsyslog.conf.orig; "
-                      "uniq /etc/rsyslog.conf.orig > /etc/rsyslog.conf; fi", executable="/bin/bash")
 
 
 def test_disable_container_autorestart(duthosts, disable_container_autorestart):
@@ -551,14 +607,46 @@ def test_update_saithrift_ptf(request, ptfhost, duthosts, enum_dut_hostname):
 
     if result["failed"] or "OK" not in result["msg"]:
         pytest.fail("Download failed/error while installing python saithrift package: {}".format(py_saithrift_url))
-    ptfhost.shell("dpkg -i {}".format(os.path.join("/root", pkg_name)))
-    # In 202405 branch, the switch_sai_thrift package is inside saithrift-0.9-py3.11.egg
-    # We need to move it out to the correct location
-    PY_PATH = "/usr/lib/python3/dist-packages/"
-    SRC_PATH = PY_PATH + "saithrift-0.9-py3.11.egg/switch_sai_thrift"
-    DST_PATH = PY_PATH + "switch_sai_thrift"
-    if ptfhost.stat(path=SRC_PATH)['stat']['exists'] and not ptfhost.stat(path=DST_PATH)['stat']['exists']:
-        ptfhost.copy(src=SRC_PATH, dest=PY_PATH, remote_src=True)
+    deb_path = os.path.join("/root", pkg_name)
+    ptfhost.shell("dpkg -i {}".format(shlex.quote(deb_path)))
+    # Use the installed package's files, not directories left by an earlier
+    # update. New setuptools produces flat clients; older packages contain eggs.
+    PY_PATH = "/usr/lib/python3/dist-packages"
+    package = ptfhost.shell("dpkg-deb --field {} Package".format(shlex.quote(deb_path)))["stdout"].strip()
+    pytest_assert(package, "Cannot determine installed saithrift package name")
+    package_files = ptfhost.shell("dpkg -L {}".format(shlex.quote(package)))["stdout_lines"]
+    client_dirs = []
+    for client in ("switch_sai_thrift", "sai_thrift"):
+        paths = {os.path.dirname(path) for path in package_files
+                 if path.startswith(PY_PATH + "/") and path.endswith("/{}/__init__.py".format(client))
+                 and "-py2." not in path}
+        pytest_assert(len(paths) <= 1, "Installed {} has ambiguous {} client paths: {}".format(package, client, paths))
+        client_dirs.extend(paths)
+
+    site_dir = ptfhost.shell(
+        "if [ -x /root/env-python3/bin/python ]; then "
+        "/root/env-python3/bin/python -c "
+        "'import sysconfig; print(sysconfig.get_paths()[\"purelib\"])'; "
+        "else printf '%s\\n' {}; fi".format(PY_PATH)
+    )["stdout"].strip()
+    site_dir = os.path.normpath(site_dir)
+    pytest_assert(site_dir == PY_PATH or site_dir.startswith("/root/env-python3/"),
+                  "Unexpected PTF Python site-packages directory: {}".format(site_dir))
+    if not client_dirs:
+        python2_client = any(path.startswith("/usr/lib/python2.7/") and
+                             path.endswith(("/switch_sai_thrift/__init__.py", "/sai_thrift/__init__.py"))
+                             for path in package_files)
+        pytest_assert(python2_client,
+                      "Installed {} contains no Python 3 SAI client".format(package))
+        logging.info("Python 2 saithrift package installed; no Python 3 venv refresh required")
+        return
+
+    for client_dir in client_dirs:
+        target = os.path.join(site_dir, os.path.basename(client_dir))
+        if os.path.normpath(client_dir) == target:
+            continue
+        ptfhost.shell("rm -rf -- {}".format(shlex.quote(target)))
+        ptfhost.copy(src=client_dir, dest=site_dir + "/", remote_src=True)
     logging.info("Python saithrift package installed successfully")
 
 
@@ -630,6 +718,16 @@ def test_disable_startup_tsa_tsb_service(duthosts, localhost):
     with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
         for duthost in duthosts.frontend_nodes:
             executor.submit(disable_startup_tsa_tsb, duthost)
+
+
+@pytest.mark.topology('bmc')
+def test_bmc_clock_in_sync(duthosts):
+    """Verify BMC clocks are synchronized with the sonic-mgmt container."""
+    bmc_duts = [duthost for duthost in duthosts if duthost.is_bmc()]
+    pytest_require(bmc_duts, "BMC clock synchronization check only applies to BMC testbeds")
+
+    for duthost in bmc_duts:
+        assert_bmc_clock_in_sync(duthost)
 
 
 """
