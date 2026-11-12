@@ -173,6 +173,54 @@ def inputs():
     return _inputs()
 
 
+@pytest.mark.parametrize("with_globals", [False, True])
+def test_dynamic_template_bundle_preserves_null_pgs_and_protected_policy(inputs, with_globals):
+    globals_ = {"DEFAULT_LOSSLESS_BUFFER_PARAMETER": {"AZURE": {"default_dynamic_th": "0"}},
+                "LOSSLESS_TRAFFIC_PATTERN": {"AZURE": {"mtu": "1024", "small_packet_percentage": "50"}}}
+    for device, baseline in inputs[2].items():
+        baseline["running"]["DEVICE_METADATA"]["localhost"]["buffer_model"] = "dynamic"
+        baseline["running"].update(copy.deepcopy(globals_))
+        for tables in inputs[4][device].values():
+            if with_globals:
+                tables.update(copy.deepcopy(globals_))
+            for binding in tables["BUFFER_PG"].values():
+                binding["profile"] = "NULL"
+    bundle = deployment.render_bundle(*inputs)
+    for configs in (bundle["add_configs"], bundle["deploy_configs"]):
+        for device, candidate in configs.items():
+            assert all(candidate[table] == rows for table, rows in globals_.items())
+            assert candidate["BUFFER_PG"]["uplink|3-4"] == {"profile": "baseline_pg"}
+            assert all(binding["profile"] == "NULL" for key, binding in candidate["BUFFER_PG"].items()
+                       if key.split("|", 1)[0] in inputs[3][device])
+
+
+@pytest.mark.parametrize("model,table", [
+    (None, "BUFFER_PG"), ("traditional", "BUFFER_PG"), ("dynamic", "BUFFER_QUEUE"),
+    ("dynamic", "BUFFER_PORT_INGRESS_PROFILE_LIST"),
+])
+def test_null_sentinel_is_not_a_general_buffer_reference_escape(inputs, model, table):
+    inputs[2]["dut"]["running"]["DEVICE_METADATA"]["localhost"]["buffer_model"] = model
+    for tables in inputs[4]["dut"].values():
+        if table.endswith("_LIST"):
+            tables[table] = {port: {"profile_list": "NULL"} for port in inputs[3]["dut"]}
+        else:
+            for binding in tables[table].values():
+                binding["profile"] = "NULL"
+    with pytest.raises(deployment.DeploymentError, match="Unresolved.*BUFFER_PROFILE\\|NULL"):
+        deployment.render_bundle(*inputs)
+
+
+@pytest.mark.parametrize("existing", [False, True])
+def test_dynamic_template_cannot_change_protected_global_policy(inputs, existing):
+    inputs[2]["dut"]["running"]["DEVICE_METADATA"]["localhost"]["buffer_model"] = "dynamic"
+    if existing:
+        inputs[2]["dut"]["running"]["DEFAULT_LOSSLESS_BUFFER_PARAMETER"] = {"AZURE": {"default_dynamic_th": "0"}}
+    for tables in inputs[4]["dut"].values():
+        tables["DEFAULT_LOSSLESS_BUFFER_PARAMETER"] = {"AZURE": {"default_dynamic_th": "1"}}
+    with pytest.raises(deployment.DeploymentError, match="shared protected"):
+        deployment.render_bundle(*inputs)
+
+
 @pytest.fixture
 def bundle(inputs):
     return deployment.render_bundle(*inputs)

@@ -60,6 +60,13 @@ sources. Actual link/ASIC/buffer/QoS convergence remains mandatory. Neither a
 self-asserted image-support flag nor generated facts grant execution authority.
 The approved caller must retain/quarantine unsafe resources on failed recovery.
 
+For an observed `buffer_model: dynamic`, installed templates may emit
+`DEFAULT_LOSSLESS_BUFFER_PARAMETER`, `LOSSLESS_TRAFFIC_PATTERN` and the literal
+`BUFFER_PG.profile: "NULL"` sentinel. Only that PG reference is deferred to
+buffermgr; actual APPL profiles, ASIC bindings and reservation limits must still
+converge. Traditional/unknown models cannot use this exception, and protected
+global policy cannot be changed by the generated tables.
+
 ### One physical layout, separate evidence
 
 There are no mutually exclusive L1 and traffic admission profiles. Every eligible
@@ -129,8 +136,8 @@ Restoring inside the test body would make the legacy configuration guard
 mistake the original baseline for drift and reapply the deployed configuration.
 The global checks remain enabled and cleanup failures remain errors. Configure the
 caller to retain failed recovery for inspection rather than releasing an unsafe
-bed. See the [design](https://github.com/xwjiang-ms/sonic-mgmt/blob/xwjiang/ai-fix-generic-planner-38226724/docs/testbed/generic_hwsku_design.md)
-for the complete reservation, recovery and qualification boundaries.
+bed. The admission and evidence sections define the reservation, recovery and
+qualification boundaries.
 
 For an image-upgrading NIGHTLY plan, the standard scheduler orders topology
 add **before** image upgrade. Do not initialize a Generic transaction there:
@@ -249,6 +256,10 @@ already satisfy the private ownership/permission contract rather than being
 silently adopted. New private directories use the existing native permission helper.
 Native readbacks travel as private fetched files, not credential-redacted
 Ansible result dictionaries or desired-value echoes. Never publish this directory.
+Successful template rendering removes its remote temporary directory only
+after the results are transferred privately. Rendering or transfer failure
+retains that call's private remote directory, including template stderr, and
+reports its host/path without printing configuration or stderr contents.
 
 Reports include generated physical/traffic coverage and availability, keep
 `qualification_pass: false` for this deployment/smoke runner, and distinguish
@@ -267,3 +278,13 @@ mutating scheduler profile that unconditionally releases an unsafe bed.**
 `RESTORED` proves owned Generic resources/baselines, not platform lease release;
 verify lease/health separately. Full generated pytest/L1 and QoS/MMU qualification
 remain separate follow-up stages.
+
+## Offline regression tests
+
+The eight `ansible/module_utils/test_generic_hwsku*.py` files are offline unit
+and regression tests using synthetic facts and simulated native boundaries;
+they are not DUT test modules. They cover planning, rendering, readiness and
+owned recovery. The playbook tests also exercise real Ansible against synthetic
+localhost only. Run them with
+`python -m pytest --noconftest --confcutdir=ansible/module_utils ansible/module_utils/test_generic_hwsku*.py`.
+Only `tests/generic_hwsku/test_deployment_smoke.py` is the physical smoke module.

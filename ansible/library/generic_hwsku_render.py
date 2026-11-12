@@ -19,6 +19,7 @@ GLOBAL_TABLES = {
     "PFC_PRIORITY_TO_PRIORITY_GROUP_MAP", "MAP_PFC_PRIORITY_TO_QUEUE", "DSCP_TO_TC_MAP",
     "DOT1P_TO_TC_MAP", "TC_TO_DSCP_MAP", "WRED_PROFILE", "SCHEDULER",
 }
+DYNAMIC_TABLES = {"DEFAULT_LOSSLESS_BUFFER_PARAMETER", "LOSSLESS_TRAFFIC_PATTERN"}
 
 
 def traditional_profile_cache(context, tables, lookup_text, fully_lossy=False):
@@ -81,6 +82,8 @@ def render(context, templates, expected_sources, directory, lookup_source=None, 
     descriptor = os.open(str(source), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
     with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
         json.dump(context, handle, sort_keys=True)
+    dynamic = context.get("DEVICE_METADATA", {}).get("localhost", {}).get("buffer_model") == "dynamic"
+    allowed_tables = PORT_TABLES | GLOBAL_TABLES | (DYNAMIC_TABLES if dynamic else set())
     result = {}
     for index, filename in enumerate(templates):
         path = Path(filename).resolve(strict=True)
@@ -105,7 +108,7 @@ def render(context, templates, expected_sources, directory, lookup_source=None, 
         tables = json.loads(completed.stdout)
         if not isinstance(tables, dict):
             raise ValueError("Installed template output must be a ConfigDB table dictionary")
-        unsupported = set(tables) - PORT_TABLES - GLOBAL_TABLES
+        unsupported = set(tables) - allowed_tables
         if unsupported:
             raise ValueError("An installed template attempted to change tables outside its QoS/buffer contract: "
                              + ", ".join(sorted(unsupported)))

@@ -35,9 +35,14 @@
           loop: "{{ generic_render_requests[inventory_hostname].keys() | list | sort }}"
           delegate_to: localhost
           no_log: true
-      always:
-        - name: Remove only this call's private render artifacts after transfer
-          file:
-            path: "{{ generic_remote.path }}"
-            state: absent
-          become: true
+      rescue:
+        - name: Report the retained private render evidence without exposing its contents
+          fail:
+            msg: >-
+              Generic template rendering or transfer failed; private evidence retained on
+              {{ inventory_hostname }}:{{ generic_remote.path }}
+    - name: Remove only this call's private render artifacts after successful transfer
+      file:
+        path: "{{ generic_remote.path }}"
+        state: absent
+      become: true

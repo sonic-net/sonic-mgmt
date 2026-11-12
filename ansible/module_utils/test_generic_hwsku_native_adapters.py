@@ -57,7 +57,8 @@ def test_absent_ptf_cannot_succeed_without_a_verified_installed_image(monkeypatc
 def test_installed_renderer_uses_candidate_ports_not_running_db(tmp_path, monkeypatch):
     template = tmp_path / "buffers.j2"
     template.write_text("installed-template")
-    context = {"PORT": {"Ethernet-new": {"lanes": "1", "subport": "canonical"}}}
+    context = {"PORT": {"Ethernet-new": {"lanes": "1", "subport": "canonical"}},
+               "DEVICE_METADATA": {"localhost": {"buffer_model": "dynamic"}}}
     calls = []
 
     def run(arguments, **keywords):
@@ -74,6 +75,25 @@ def test_installed_renderer_uses_candidate_ports_not_running_db(tmp_path, monkey
     assert tables["BUFFER_PG"]["Ethernet-new|3"]["profile"] == "NULL"
     assert tables["TC_TO_DSCP_MAP"] == {"AZURE": {"0": "0"}}
     assert "-d" not in calls[0]
+
+
+@pytest.mark.parametrize("model", ["dynamic", "traditional", None])
+def test_installed_renderer_admits_dynamic_globals_only_for_the_recorded_model(tmp_path, monkeypatch, model):
+    template = tmp_path / "buffers_dynamic.json.j2"
+    template.write_text("installed-template")
+    tables = {"DEFAULT_LOSSLESS_BUFFER_PARAMETER": {"AZURE": {"default_dynamic_th": "0"}},
+              "LOSSLESS_TRAFFIC_PATTERN": {"AZURE": {"mtu": "1024", "small_packet_percentage": "50"}},
+              "BUFFER_PG": {"Ethernet0|3-4": {"profile": "NULL"}}}
+    context = {"PORT": {"Ethernet0": {"speed": "100000"}},
+               "DEVICE_METADATA": {"localhost": {"buffer_model": model}}}
+    monkeypatch.setattr(render.subprocess, "run", lambda *args, **kwargs: SimpleNamespace(
+        returncode=0, stdout=json.dumps(tables).encode(), stderr=b""))
+    sources = {str(template): hashlib.sha256(template.read_bytes()).hexdigest()}
+    if model != "dynamic":
+        with pytest.raises(ValueError, match="outside its QoS/buffer contract"):
+            render.render(context, [str(template)], sources, tmp_path)
+    else:
+        assert render.render(context, [str(template)], sources, tmp_path) == tables
 
 
 @pytest.mark.parametrize("mode", ["dynamic", "static"])

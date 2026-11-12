@@ -3,6 +3,7 @@
 import ast
 import base64
 import copy
+import hashlib
 import importlib
 import importlib.util
 import json
@@ -23,6 +24,57 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 backend = importlib.import_module("generic_hwsku_backend")
 lifecycle = importlib.import_module("generic_hwsku_lifecycle")
+
+
+@pytest.mark.skipif(shutil.which("ansible-playbook") is None, reason="Requires the real local Ansible executor")
+@pytest.mark.parametrize("fails", [False, True])
+def test_render_playbook_keeps_private_failure_evidence_and_cleans_only_after_transfer(tmp_path, fails):
+    playbook = tmp_path / "playbook"
+    (playbook / "library").mkdir(parents=True)
+    for name in ("generic_hwsku_render.yml", "generic_hwsku_device_auth.yml", "library/generic_hwsku_render.py"):
+        shutil.copyfile(ROOT / name, playbook / name)
+    bins, remote, results = (tmp_path / name for name in ("bin", "remote", "results"))
+    for path in (bins, remote, results):
+        path.mkdir(mode=0o700)
+    template = tmp_path / "buffers.json.j2"
+    template.write_text("synthetic installed template")
+    executable = bins / "sonic-cfggen"
+    executable.write_text("#!" + sys.executable + "\nimport sys\n"
+                          + ("sys.stderr.write('synthetic-template-stderr'); sys.exit(23)\n" if fails
+                             else "print('{\"BUFFER_PG\":{}}')\n"))
+    executable.chmod(0o700)
+    inventory = tmp_path / "inventory"
+    inventory.write_text("synthetic-host ansible_connection=local ansible_become=false "
+                         "ansible_python_interpreter=" + sys.executable + "\n")
+    request = {"context": {"PORT": {}}, "templates": [str(template)],
+               "template_sha256": {str(template): hashlib.sha256(template.read_bytes()).hexdigest()}}
+    variables = tmp_path / "vars.json"
+    variables.write_text(json.dumps({
+        "generic_render_hosts": ["synthetic-host"], "generic_dut": "synthetic-host",
+        "generic_render_requests": {"synthetic-host": {"add": request}},
+        "generic_render_directory": str(results)}))
+    config = tmp_path / "ansible.cfg"
+    config.write_text("[defaults]\nretry_files_enabled = False\nlocal_tmp = " + str(tmp_path / "local") + "\n")
+    completed = subprocess.run(
+        ["ansible-playbook", "-i", str(inventory), str(playbook / "generic_hwsku_render.yml"),
+         "--extra-vars", "@" + str(variables)],
+        cwd=str(tmp_path), capture_output=True, text=True, timeout=90,
+        env=dict(os.environ, PATH=str(bins) + os.pathsep + os.environ["PATH"], TMPDIR=str(remote),
+                 ANSIBLE_CONFIG=str(config), ANSIBLE_NOCOLOR="1"),
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    output = completed.stdout + completed.stderr
+    retained = list(remote.glob("sonic-generic-render-*"))
+    assert "synthetic-template-stderr" not in output
+    if fails:
+        assert completed.returncode != 0 and len(retained) == 1, output
+        assert str(retained[0]) in output
+        logs = list(retained[0].rglob("template-*-stderr.log"))
+        assert len(logs) == 1 and logs[0].read_text() == "synthetic-template-stderr"
+        assert not stat.S_IMODE(logs[0].stat().st_mode) & 0o077
+    else:
+        assert completed.returncode == 0 and not retained, output
+        assert json.loads((results / "synthetic-host-add.json").read_text()) == {"BUFFER_PG": {}}
+        assert not stat.S_IMODE((results / "synthetic-host-add.json").stat().st_mode) & 0o077
 
 
 @pytest.mark.parametrize("mmu", [None, "0", "99", "100"])

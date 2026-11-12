@@ -112,6 +112,7 @@ _GLOBAL_QOS = {
     "PFC_PRIORITY_TO_PRIORITY_GROUP_MAP", "SCHEDULER", "WRED_PROFILE",
 }
 _TEMPLATE_TABLES = _PORT_TABLES | _GLOBAL_QOS | {"CABLE_LENGTH"}
+_DYNAMIC_BUFFER_TABLES = {"DEFAULT_LOSSLESS_BUFFER_PARAMETER", "LOSSLESS_TRAFFIC_PATTERN"}
 _QOS_REFERENCES = {
     "BUFFER_PG": {"profile": "BUFFER_PROFILE"},
     "BUFFER_QUEUE": {"profile": "BUFFER_PROFILE"},
@@ -510,7 +511,9 @@ def _buffer_reservations(config):
 
 
 def _apply_templates(config, baseline, tables, ports, cables, protected):
-    _require(isinstance(tables, dict) and set(tables) <= _TEMPLATE_TABLES, "Unknown installed QoS/buffer table")
+    dynamic = baseline.get("DEVICE_METADATA", {}).get("localhost", {}).get("buffer_model") == "dynamic"
+    allowed_tables = _TEMPLATE_TABLES | (_DYNAMIC_BUFFER_TABLES if dynamic else set())
+    _require(isinstance(tables, dict) and set(tables) <= allowed_tables, "Unknown installed QoS/buffer table")
     tables = _json_copy(tables)
     for rows in tables.values():
         _require(isinstance(rows, dict), "Installed template table must contain rows")
@@ -582,8 +585,10 @@ def _apply_templates(config, baseline, tables, ports, cables, protected):
                              + factory_reservations.get(key, 0),
                              "Installed template requires incompatible protected buffer pool policy: " + key)
                     continue
-                _require(original == row or (original is None and table != "BUFFER_POOL"),
-                         "Installed template changes a shared protected buffer/QoS global: " + table + "|" + key)
+                _require(
+                    original == row or (
+                        original is None and table != "BUFFER_POOL" and table not in _DYNAMIC_BUFFER_TABLES),
+                    "Installed template changes a shared protected buffer/QoS global: " + table + "|" + key)
             config.setdefault(table, {})[key] = copy.deepcopy(row)
     _require(all(set(cables) <= covered for covered in coverage.values()),
              "Installed templates lack complete candidate PORT QoS/buffer coverage")
@@ -592,6 +597,9 @@ def _apply_templates(config, baseline, tables, ports, cables, protected):
         for row in config.get(table, {}).values():
             for field, referenced_table in fields.items():
                 if field in row:
+                    # Dynamic PG profiles are resolved by buffermgr and verified independently in APPL/ASIC.
+                    if dynamic and table == "BUFFER_PG" and field == "profile" and row[field] == "NULL":
+                        continue
                     for name in _profile_names(row[field], referenced_table):
                         _require(name in config.get(referenced_table, {}),
                                  "Unresolved installed QoS/buffer reference: " + referenced_table + "|" + name)
