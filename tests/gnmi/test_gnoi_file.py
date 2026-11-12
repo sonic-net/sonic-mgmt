@@ -170,16 +170,19 @@ def test_gnoi_file_stat_directory(gnmi_tls):  # noqa: F811
 
 
 def test_gnoi_file_stat_not_found(gnmi_tls):  # noqa: F811
-    """Verify File.Stat returns NOT_FOUND error for a non-existent path"""
+    """Verify File.Stat denies a missing path, including legacy NOT_FOUND."""
     try:
         gnmi_tls.gnoi.file_stat("/etc/this_path_does_not_exist_gnoi_test")
         pytest_assert(False, "File.Stat should have failed for non-existent path but returned success")
     except Exception as e:
         err = str(e)
-        logger.info("File.Stat NOT_FOUND response: {}".format(err))
+        logger.info("File.Stat missing-path response: {}".format(err))
         pytest_assert(
-            "NotFound" in err or "not found" in err.lower() or "no such file" in err.lower(),
-            "Expected NOT_FOUND error, got: {}".format(err),
+            ("PermissionDenied" in err and "file read access denied" in err)
+            or "NotFound" in err
+            or "not found" in err.lower()
+            or "no such file" in err.lower(),
+            "Expected masked file-read denial or legacy NOT_FOUND, got: {}".format(err),
         )
 
 
