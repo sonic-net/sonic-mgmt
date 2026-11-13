@@ -444,9 +444,11 @@ class ReloadTest(BaseTest):
                     ports_in_vlan.append(self.port_indices[ifname])
             ports_per_vlan[vlan] = ports_in_vlan
 
-        active_portchannels = list()
-        for neighbor_info in list(self.vm_dut_map.values()):
-            active_portchannels.append(neighbor_info["dut_portchannel"])
+        active_portchannels = [
+            neighbor_info["dut_portchannel"]
+            for neighbor_info in self.vm_dut_map.values()
+            if "dut_portchannel" in neighbor_info
+        ]
 
         pc_ifaces = []
         for pc in portchannel_content.values():
@@ -463,6 +465,14 @@ class ReloadTest(BaseTest):
             for pc in portchannel_content.values():
                 if not pc['name'] in pc_in_vlan and pc['name'] in peer_active_portchannels:
                     dualtor_pc_ifaces.extend([self.peer_port_indices[member] for member in pc['members']])
+
+        # Isolated topologies have no portchannels; use routed neighbor ports as uplinks.
+        if not pc_ifaces:
+            pc_ifaces = sorted(set(
+                ptf_port
+                for neighbor_info in self.vm_dut_map.values()
+                for ptf_port in neighbor_info.get('ptf_ports', [])
+            ))
 
         return ports_per_vlan, pc_ifaces, dualtor_pc_ifaces
 
@@ -628,6 +638,12 @@ class ReloadTest(BaseTest):
         self.get_neigh_port_info()
         self.get_portchannel_info()
 
+    def has_portchannels(self):
+        portchannel_content = self.read_json('portchannel_ports_file')
+        if portchannel_content:
+            return True
+        return any('dut_portchannel' in info for info in self.vm_dut_map.values())
+
     def build_vlan_if_port_mapping(self):
         portchannel_content = self.read_json('portchannel_ports_file')
         portchannel_names = [pc['name'] for pc in portchannel_content.values()]
@@ -683,6 +699,10 @@ class ReloadTest(BaseTest):
 
     def init_sad_oper(self):
         if self.sad_oper:
+            if 'lag' in self.sad_oper and not self.has_dut_portchannels:
+                raise Exception(
+                    "Sad operation '%s' requires portchannels, but none exist on this topology"
+                    % self.sad_oper)
             self.log("Preboot/Inboot Operations:")
             self.sad_handle = sp.SadTest(self.sad_oper, self.ssh_targets, self.portchannel_ports,
                                          self.vm_dut_map, self.test_params, self.vlan_ports, self.ports_per_vlan)
@@ -758,6 +778,8 @@ class ReloadTest(BaseTest):
         self.build_peer_mapping()
         self.ports_per_vlan, self.portchannel_ports, self.dualtor_portchannel_ports = \
             self.read_vlan_portchannel_ports()
+        self.has_dut_portchannels = self.has_portchannels()
+        self.test_params['has_dut_portchannels'] = self.has_dut_portchannels
         self.vlan_ports = []
         for ports in self.ports_per_vlan.values():
             self.vlan_ports += ports
@@ -1777,6 +1799,9 @@ class ReloadTest(BaseTest):
         """
         Ensure there are no interface flaps after warm-boot
         """
+        if not self.has_dut_portchannels:
+            self.log("Skip neighbor LAG flap check: topology has no portchannels")
+            return
         for neigh in self.ssh_targets:
             flap_cnt = None
             if self.test_params['neighbor_type'] == "sonic":
@@ -2047,7 +2072,9 @@ class ReloadTest(BaseTest):
             not self.kvm_test
             or (self.test_params['csonic_neighbor']
                 and self.test_params['csonic_lag_backend'] == 'userspace_ovs'))
-        if 'warm-reboot' in self.reboot_type and enforce_lacp_gap:
+        if ('warm-reboot' in self.reboot_type
+                and self.has_dut_portchannels
+                and enforce_lacp_gap):
             if max_lacp_session_wait is not None \
                     and max_lacp_session_wait >= max_allowed_lacp_session_wait:
                 self.fails['dut'].add("LACP session likely terminated by neighbor ({})".format(ip) +
