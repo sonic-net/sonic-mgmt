@@ -331,17 +331,10 @@ broadcom_cmd_bcmcmd_dnx = [
     'bcmcmd{} "field group info group=31"',
     'bcmcmd{} "field group info group=32"',
     'bcmcmd{} "field group info group=33"',
-    'bcmcmd{} "dbal table dump table=IPV4_UNICAST_PRIVATE_LPM_FORWARD"',
-    'bcmcmd{} "dbal table dump table=IPV6_UNICAST_PRIVATE_LPM_FORWARD"',
-    'bcmcmd{} "dbal table dump table=IPV4_UNICAST_PRIVATE_HOST"',
-    'bcmcmd{} "dbal table dump table=IPV6_UNICAST_PRIVATE_HOST"',
-    'bcmcmd{} "dbal table dump table=SUPER_FEC_1ST_HIERARCHY"',
     'bcmcmd{} "dbal table dump table=ECMP_TABLE"',
     'bcmcmd{} "dbal table dump table=ECMP_GROUP_PROFILE_TABLE"',
-    'bcmcmd{} "dbal table dump table=ING_VSI_INFO_DB"',
     'bcmcmd{} "dbal table dump table=L3_MY_MAC_DA_PREFIXES"',
     'bcmcmd{} "dbal table dump table=INGRESS_VLAN_MEMBERSHIP"',
-    'bcmcmd{} "dbal table dump table=LOCAL_SBC_IN_LIF_MATCH_INFO_SW"',
     'bcmcmd{} "dbal table dump table=SNIF_COMMAND_TABLE"',
     'bcmcmd{} "port mgmt dump full"',
     'bcmcmd{} "tm lag"',
@@ -361,6 +354,24 @@ broadcom_cmd_bcmcmd_dnx = [
     'bcmcmd{} "tm ing vsq non g=f"',
     'bcmcmd{} "fabric connectivity"',
     'bcmcmd{} "port status"',
+]
+
+broadcom_cmd_bcmcmd_dnx2 = [
+    'bcmcmd{} "dbal table dump table=IPV4_UNICAST_PRIVATE_LPM_FORWARD"',
+    'bcmcmd{} "dbal table dump table=IPV6_UNICAST_PRIVATE_LPM_FORWARD"',
+    'bcmcmd{} "dbal table dump table=IPV4_UNICAST_PRIVATE_HOST"',
+    'bcmcmd{} "dbal table dump table=IPV6_UNICAST_PRIVATE_HOST"',
+    'bcmcmd{} "dbal table dump table=SUPER_FEC_1ST_HIERARCHY"',
+    'bcmcmd{} "dbal table dump table=ING_VSI_INFO_DB"',
+    'bcmcmd{} "dbal table dump table=LOCAL_SBC_IN_LIF_MATCH_INFO_SW"',
+]
+
+broadcom_cmd_bcmcmd_dnx3 = [
+    'bcmcmd{} "dbal table dump table=IPV4_FORWARD_LPM_FIB"',
+    'bcmcmd{} "dbal table dump table=IPV6_FORWARD_LPM_FIB"',
+    'bcmcmd{} "dbal table dump table=SUPER_FEC_X_HIERARCHY"',
+    'bcmcmd{} "dbal table dump table=VSI_INFO_DB"',
+    'bcmcmd{} "dbal table dump table=LOCAL_DPC_IN_LIF_MATCH_INFO_SW"',
 ]
 
 broadcom_cmd_misc = [
