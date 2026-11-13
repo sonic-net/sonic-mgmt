@@ -16,6 +16,7 @@ from tests.bgp.bgp_helpers import eos_bgp_neighbor_config_parents
 logger = logging.getLogger(__name__)
 
 pytestmark = [
+    pytest.mark.frr_generic,
     pytest.mark.topology('t2', 'lrh', 'urh')
 ]
 
@@ -45,7 +46,8 @@ def remove_password_on_neighbor(setup):
 
 
 @pytest.fixture(scope='module')
-def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_front_end_hostname, request):
+def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_front_end_hostname, frr_config_mode, request):
+    # frr_generic: the config below goes via vtysh, so one mode suffices.
     # verify neighbors are type sonic
     is_sonic = False
     if request.config.getoption("neighbor_type") == "sonic":

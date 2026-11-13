@@ -12,6 +12,7 @@ from tests.common.utilities import wait_tcp_connection
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.bgp import namespace_cli_arg
+from tests.common.helpers.frr.bgp_config_writer import write_bgp_config
 from tests.common2.routing.bgp.bgp_route_control import update_routes
 from tests.common.gu_utils import get_bgp_speaker_runningconfig
 from tests.common.gu_utils import apply_patch, expect_op_success
@@ -290,14 +291,33 @@ class BgpDualAsn:
         # Delete test-specific BGP_PEER_RANGE entries so rollback can
         # restore BGPVac without listen-range overlap
         test_peer_ranges = [BGPSLB, BGPSLB_2, BGPSLB_V6, BGPSLB_V6_2]
-        del_keys = " ".join('"BGP_PEER_RANGE|{}"'.format(n) for n in test_peer_ranges)
-        ns_list = duthost.get_frontend_asic_namespace_list() or [None]
-        for ns in ns_list:
-            ns_flag = namespace_cli_arg(ns)
-            duthost.shell(
-                "sonic-db-cli {} CONFIG_DB del {}".format(ns_flag, del_keys),
-                module_ignore_errors=True
-            )
+        if duthost.get_frr_mgmt_framework_config():
+            # Clear the native listen-range rows the test added.
+            for ns in _frr_namespaces(duthost):
+                db_cli = "sonic-db-cli {}".format(namespace_cli_arg(ns)).rstrip()
+                for prefix in list(self.peer_subnets) + list(self.peer_subnets_v6):
+                    duthost.shell(
+                        "{} CONFIG_DB del 'BGP_GLOBALS_LISTEN_PREFIX|default|{}'".format(
+                            db_cli, prefix),
+                        module_ignore_errors=True)
+                for n in test_peer_ranges:
+                    for af in ("ipv4_unicast", "ipv6_unicast"):
+                        duthost.shell(
+                            "{} CONFIG_DB del 'BGP_PEER_GROUP_AF|default|{}|{}'".format(
+                                db_cli, n, af),
+                            module_ignore_errors=True)
+                    duthost.shell(
+                        "{} CONFIG_DB del 'BGP_PEER_GROUP|default|{}'".format(db_cli, n),
+                        module_ignore_errors=True)
+        else:
+            del_keys = " ".join('"BGP_PEER_RANGE|{}"'.format(n) for n in test_peer_ranges)
+            ns_list = duthost.get_frontend_asic_namespace_list() or [None]
+            for ns in ns_list:
+                ns_flag = namespace_cli_arg(ns)
+                duthost.shell(
+                    "sonic-db-cli {} CONFIG_DB del {}".format(ns_flag, del_keys),
+                    module_ignore_errors=True
+                )
 
         for port in self.ptf_ports:
             ptfhost.shell("ip addr flush dev {} scope global".format(port))
@@ -311,8 +331,31 @@ class BgpDualAsn:
         )
 
 
+def _frr_namespaces(duthost):
+    """The frontend ASIC namespaces the frr-mode helpers must program."""
+    return duthost.get_frontend_asic_namespace_list() or [None]
+
+
+def _frr_peer_range(duthost, name, ip_range, src_addr=None, peer_asn=None, namespace=None,
+                    delete=False):
+    """frrcfgd ignores runtime BGP_PEER_RANGE writes, so write its frrcfgd conversion."""
+    write_bgp_config(duthost, {"BGP_PEER_RANGE": {name: {
+        "name": name, "ip_range": [ip_range], "src_address": src_addr, "peer_asn": peer_asn}}},
+        namespace=namespace, delete=delete)
+
+
 def bgp_peer_range_config_cleanup(duthost):
     """Clean up bgp speaker config to avoid ip range conflict"""
+    if duthost.get_frr_mgmt_framework_config():
+        # frrcfgd listen ranges live in BGP_GLOBALS_LISTEN_PREFIX; setup_env rollback restores them.
+        for ns in _frr_namespaces(duthost):
+            db_cli = "sonic-db-cli {}".format(namespace_cli_arg(ns)).rstrip()
+            cmds = ('{cli} CONFIG_DB keys "BGP_GLOBALS_LISTEN_PREFIX|*" '
+                    '| xargs -r -I{{}} {cli} CONFIG_DB del "{{}}"').format(cli=db_cli)
+            output = duthost.shell(cmds)
+            pytest_assert(not output["rc"], "bgp speaker config cleanup failed.")
+        time.sleep(3)
+        return
     cmds = 'sonic-db-cli CONFIG_DB keys "BGP_PEER_RANGE|*" | xargs -r sonic-db-cli CONFIG_DB del'
     output = duthost.shell(cmds)
     pytest_assert(not output["rc"], "bgp speaker config cleanup failed.")
@@ -334,6 +377,29 @@ def bgp_peer_range_add_config(
     peer_asn_2=None,
 ):
     """Test to add desired v4&v6 bgp peer config"""
+    if duthost.get_frr_mgmt_framework_config():
+        # Same three shapes as the GCU path below: v4+v6 pair, add-on v4, add-on v6.
+        for ns in _frr_namespaces(duthost):
+            if ip_range_name_2 is None:
+                _frr_peer_range(duthost, ip_range_name, ip_range, lo["addr"], peer_asn, namespace=ns)
+                _frr_peer_range(duthost, ipv6_range_name, ipv6_range, lo6["addr"], peer_asn, namespace=ns)
+            elif ipv6_range_2 is None:
+                _frr_peer_range(duthost, ip_range_name_2, ip_range_2, lo["addr"], peer_asn_2, namespace=ns)
+            else:
+                _frr_peer_range(duthost, ipv6_range_name_2, ipv6_range_2, lo6["addr"], peer_asn_2,
+                                namespace=ns)
+        bgp_config = duthost.shell("show runningconfiguration bgp")["stdout"]
+        pytest_assert(
+            re.search(BGP_SRC_ADDR_RE.format(ip_range_name, lo["addr"]), bgp_config)
+            and re.search(BGP_SRC_ADDR_RE.format(ipv6_range_name, lo6["addr"]), bgp_config),
+            "Failed to update bgp speaker src address.",
+        )
+        pytest_assert(
+            re.search(BGP_IP_RANGE_RE.format(ip_range, ip_range_name), bgp_config)
+            and re.search(BGP_IP_RANGE_RE.format(ipv6_range, ipv6_range_name), bgp_config),
+            "Failed to add bgp speaker ip range.",
+        )
+        return
     json_patch = []
     if ip_range_name_2 is None:
         json_patch = [
@@ -416,6 +482,19 @@ def bgp_peer_range_add_config(
 def bgp_peer_range_delete_config(
     duthost, ip_range_name, ip_range, ipv6_range_name, ipv6_range
 ):
+    if duthost.get_frr_mgmt_framework_config():
+        for ns in _frr_namespaces(duthost):
+            _frr_peer_range(duthost, ip_range_name, ip_range, namespace=ns, delete=True)
+            _frr_peer_range(duthost, ipv6_range_name, ipv6_range, namespace=ns, delete=True)
+        bgp_config = duthost.shell("show runningconfiguration bgp")["stdout"]
+        pytest_assert(
+            not re.search(BGP_IP_RANGE_RE.format(ip_range, ip_range_name), bgp_config)
+            and not re.search(
+                BGP_IP_RANGE_RE.format(ipv6_range, ipv6_range_name), bgp_config
+            ),
+            "Failed to remove bgp speaker dummy ip range.",
+        )
+        return
 
     json_patch = [
         {"op": "remove", "path": "/BGP_PEER_RANGE/{}".format(ip_range_name)},
@@ -432,9 +511,9 @@ def bgp_peer_range_delete_config(
 
         bgp_config = duthost.shell("show runningconfiguration bgp")["stdout"]
         pytest_assert(
-            not re.search(BGP_IP_RANGE_RE.format(ip_range_name, ip_range), bgp_config)
+            not re.search(BGP_IP_RANGE_RE.format(ip_range, ip_range_name), bgp_config)
             and not re.search(
-                BGP_IP_RANGE_RE.format(ipv6_range_name, ipv6_range), bgp_config
+                BGP_IP_RANGE_RE.format(ipv6_range, ipv6_range_name), bgp_config
             ),
             "Failed to remove bgp speaker dummy ip range.",
         )
@@ -512,7 +591,7 @@ def announce_route(ptfhost, exabgp_port, prefix, nexthop):
 
 
 def test_bgp_dual_asn_v4(
-    duthosts, rand_one_dut_hostname, ptfhost, localhost, tbinfo, setup_env
+    frr_config_mode, duthosts, rand_one_dut_hostname, ptfhost, localhost, tbinfo, setup_env
 ):
     duthost = duthosts[rand_one_dut_hostname]
 

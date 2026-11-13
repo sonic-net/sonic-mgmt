@@ -25,6 +25,9 @@ bgp_sleep = 120
 bgp_id_textfsm = "./bgp/templates/bgp_id.template"
 
 pytestmark = [
+    pytest.mark.frr_bgpcfgd_only(
+        "this module rebuilds the DUT's BGP instance via vtysh rather than CONFIG_DB, so frrcfgd "
+        "does not carry the 4-byte ASN and it never appears in the neighbour's v6 AS paths"),
     pytest.mark.topology('t2', 'lrh', 'urh')
 ]
 
@@ -196,6 +199,16 @@ def setup_ceos(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand
     confed_asn = duthost.get_bgp_confed_asn()
 
     neighbors = dict()
+
+    # BGP may still be converging after an FRR mode switch; wait before the one-shot snapshot.
+    def _ebgp_sessions_established():
+        facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
+        return all(v['state'] == 'established'
+                   for v in facts['bgp_neighbors'].values()
+                   if "INTERNAL" not in v["peer group"] and "VOQ_CHASSIS" not in v["peer group"])
+
+    pytest_assert(wait_until(180, 10, 0, _ebgp_sessions_established),
+                  "eBGP sessions did not all reach established state")
     bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
     ceosNeighbors = [v['description'] for v in bgp_facts['bgp_neighbors'].values()
                      if 'asic' not in v['description'].lower()]
@@ -282,7 +295,8 @@ def setup_ceos(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand
 
 
 @pytest.fixture(scope='module')
-def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_index, request):
+def setup(frr_config_mode, tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname,
+          enum_rand_one_frontend_asic_index, request):
     # verify neighbors are type sonic and skip if not
     if request.config.getoption("neighbor_type") != "sonic":
         yield from setup_ceos(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname,

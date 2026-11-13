@@ -26,6 +26,7 @@ STATS_COLLECT_TIMEOUT = 30
 STATS_COLLECT_INTERVAL = 5
 
 pytestmark = [
+    pytest.mark.frr_generic,
     pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'lt2', 'ft2', 'lma', 'uma'),
     pytest.mark.disable_loganalyzer
 ]
@@ -298,6 +299,7 @@ def _check_pfx_withdrawn(duthost, is_ipv6, injector_ip):
 
 
 def test_bgp_update_replication(
+    frr_config_mode,
     duthosts,
     enum_rand_one_per_hwsku_frontend_hostname,
     tbinfo,

@@ -36,6 +36,7 @@ import pytest
 from datetime import datetime
 
 from tests.common.config_reload import config_reload
+from tests.common.fixtures.frr_config_mode import skip_if_frr_mgmt_framework
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.gu_utils import apply_patch, generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint
@@ -1222,7 +1223,7 @@ def setup_env(duthosts, enum_downstream_dut_hostname):
         delete_checkpoint(duthost)
 
 
-def test_addcluster_workflow(duthosts, enum_downstream_dut_hostname, loganalyzer):
+def test_addcluster_workflow(frr_config_mode, duthosts, enum_downstream_dut_hostname, loganalyzer):
     """Test adding a downstream T1 neighbor cluster via GCU.
 
     This test validates that a T1 neighbor can be added to a multi-ASIC
@@ -1262,6 +1263,11 @@ def test_addcluster_workflow(duthosts, enum_downstream_dut_hostname, loganalyzer
         duthosts: DUT hosts fixture
         enum_downstream_dut_hostname: Fixture providing a linecard with downstream neighbors
     """
+    # Latent on multi-ASIC (native mode only); kept consistent with test_add_cluster.
+    skip_if_frr_mgmt_framework(frr_config_mode,
+                               "GCU add-cluster patches VRF-scoped BGP_NEIGHBOR keys; "
+                               "frr_mgmt_framework support needs separate vrf-aware patch paths")
+
     duthost = duthosts[enum_downstream_dut_hostname]
 
     # Cache minigraph facts for the DUT (used to find downstream T1 neighbor)

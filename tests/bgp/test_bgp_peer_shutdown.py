@@ -17,6 +17,7 @@ from tests.common.utilities import wait_until
 from tests.common.utilities import is_ipv6_only_topology
 
 pytestmark = [
+    pytest.mark.frr_generic,
     pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'm1', 'lt2', 'ft2', 'c0', 'lma', 'uma'),
 ]
 
@@ -279,6 +280,7 @@ def _dump_establish_failure_diagnostics(duthost, neighbor):
 
 
 def test_bgp_peer_shutdown(
+    frr_config_mode,
     common_setup_teardown,
     constants,
     duthosts,
@@ -335,12 +337,12 @@ def test_bgp_peer_shutdown(
                     bgp_packet.show(dump=True),
                 )
 
-            if not use_vtysh:
+            if not use_vtysh and not duthost.get_frr_mgmt_framework_config():
                 bgp_session_down_time = wait_for_bgp_down_timestamp(
                     duthost, n0.namespace, n0.ip, timestamp_before_teardown
                 )
             else:
-                # There is no syslog if use vtysh to manage BGP neigh
+                # No bgpcfgd admin-down syslog via vtysh or under frrcfgd; NOTIFICATION still checked.
                 bgp_session_down_time = None
 
             for bgp_packet in bpg_notifications:

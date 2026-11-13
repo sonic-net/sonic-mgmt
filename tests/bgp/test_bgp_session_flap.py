@@ -29,7 +29,10 @@ BGP_POLL_INTERVAL = 10
 BGP_RECOVERY_DELAY = 30
 FLAP_THREAD_STOP_TIMEOUT = 120
 
-pytestmark = [pytest.mark.topology('t1', 't2', 'lrh', 'urh', 'm1', 'lt2', 'ft2', 'c0', 'lma', 'uma')]
+pytestmark = [
+    pytest.mark.frr_generic,
+    pytest.mark.topology('t1', 't2', 'lrh', 'urh', 'm1', 'lt2', 'ft2', 'c0', 'lma', 'uma')
+]
 
 
 def get_bgp_session_states(duthost, asic_index):
@@ -246,6 +249,7 @@ def pre_flap_stats(duthosts):
 
 @pytest.fixture(scope='module')
 def setup(
+    frr_config_mode,
     tbinfo,
     nbrhosts,
     duthosts,

@@ -20,19 +20,21 @@ def get_function_completeness_level(pytestconfig):
     return pytestconfig.getoption("--completeness_level")
 
 
+def apply_crm_polling_interval(duthost, interval=CRM_POLLING_INTERVAL, wait_time=2):
+    """Set the CRM polling interval (``config reload`` resets it to 300s) and let counters refresh."""
+    duthost.command("crm config polling interval {}".format(interval))
+    logger.info("Waiting {} sec for CRM counters to become updated".format(wait_time))
+    time.sleep(wait_time)
+
+
 @pytest.fixture(scope="module", autouse=True)
 def set_polling_interval(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    wait_time = 2
-    duthost.command("crm config polling interval {}".format(CRM_POLLING_INTERVAL))
-    logger.info("Waiting {} sec for CRM counters to become updated".format(wait_time))
-    time.sleep(wait_time)
+    apply_crm_polling_interval(duthost)
 
     yield
 
-    duthost.command("crm config polling interval {}".format(CRM_DEFAULT_POLL_INTERVAL))
-    logger.info("Waiting {} sec for CRM counters to become updated".format(wait_time))
-    time.sleep(wait_time)
+    apply_crm_polling_interval(duthost, CRM_DEFAULT_POLL_INTERVAL)
 
 
 @pytest.fixture(scope="module")
@@ -56,6 +58,21 @@ def withdraw_and_announce_existing_routes(duthosts, localhost, tbinfo, enum_rand
     ptf_ip = tbinfo["ptf_ip"]
     topo_name = tbinfo["topo"]["name"]
 
+    # Re-apply: frr_config_mode's config reload (after set_polling_interval) resets it to 300s.
+    apply_crm_polling_interval(duthost)
+
+    # CRM reads None while repopulating; a None baseline would read as "stable" below.
+    def _baseline_ready():
+        return (get_crm_resource_status(duthost, "ipv4_route", "used", namespace) is not None
+                and get_crm_resource_status(duthost, "ipv6_route", "used", namespace) is not None)
+
+    def _wait_baseline_ready():
+        if not wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, _baseline_ready):
+            pytest.fail("CRM route counters are still unavailable after {}s; cannot take a route "
+                        "baseline (check the CRM polling interval -- a config reload resets it to "
+                        "{}s)".format(MAX_WAIT_TIME, CRM_DEFAULT_POLL_INTERVAL))
+
+    _wait_baseline_ready()
     announced_route_counts = (
         get_crm_resource_status(duthost, "ipv4_route", "used", namespace),
         get_crm_resource_status(duthost, "ipv6_route", "used", namespace),
@@ -87,6 +104,8 @@ def withdraw_and_announce_existing_routes(duthosts, localhost, tbinfo, enum_rand
     if not result:
         logger.warning("Failed to process all withdraw requests in {} seconds".format(MAX_WAIT_TIME))
 
+    _wait_baseline_ready()
+
     stable_samples = 0
     ipv4_route_used_before = get_crm_resource_status(duthost, "ipv4_route", "used", namespace)
     ipv6_route_used_before = get_crm_resource_status(duthost, "ipv6_route", "used", namespace)
@@ -97,6 +116,8 @@ def withdraw_and_announce_existing_routes(duthosts, localhost, tbinfo, enum_rand
         stable_samples = 0
         ipv4_route_used_now = get_crm_resource_status(duthost, "ipv4_route", "used", namespace)
         ipv6_route_used_now = get_crm_resource_status(duthost, "ipv6_route", "used", namespace)
+        if ipv4_route_used_now is None or ipv6_route_used_now is None:
+            return False
         ipv4_stable = ipv4_route_used_now == ipv4_route_used_before
         ipv6_stable = ipv6_route_used_now == ipv6_route_used_before
         stable_samples = prior_stable_samples + 1 if ipv4_stable and ipv6_stable else 0

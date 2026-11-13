@@ -8,7 +8,10 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.parallel import parallel_run
 
 pytestmark = [
-    pytest.mark.topology('t2', 'lrh', 'urh')
+    pytest.mark.topology('t2', 'lrh', 'urh'),
+    pytest.mark.frr_bgpcfgd_only(
+        "PREFIX_LIST (ANCHOR_PREFIX) is implemented by bgpcfgd's PrefixListMgr, a bgpcfgd "
+        "convenience frrcfgd does not consume"),
 ]
 
 logger = logging.getLogger(__name__)

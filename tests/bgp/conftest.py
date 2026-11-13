@@ -29,6 +29,16 @@ from tests.common import constants
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
 from tests.common.devices.csonic import CsonicHost
+from tests.common.helpers.bgp import flatten_bgp_neighbors
+
+
+# Opt-out: every BGP module runs in both FRR modes unless marked frr_generic / frr_bgpcfgd_only.
+# Items are ordered by mode, so a session switches the DUT once and restores it once.
+@pytest.fixture(scope="module", autouse=True)
+def _frr_config_mode_autouse(frr_config_mode):
+    """Parametrize every test under tests/bgp/ over the FRR config modes."""
+    return frr_config_mode
+
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +64,8 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
     duthost = duthosts[rand_one_dut_hostname]
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    # frrcfgd keys BGP_NEIGHBOR by VRF.
+    bgp_neighbors = flatten_bgp_neighbors(config_facts.get('BGP_NEIGHBOR', {}))
 
     @reset_ansible_local_tmp
     def configure_nbr_gr(node=None, results=None):

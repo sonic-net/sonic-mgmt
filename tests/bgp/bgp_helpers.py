@@ -20,6 +20,8 @@ from tests.common.helpers.bgp import (
     get_asic_namespace,
     namespace_cli_arg,
 )
+from tests.common.helpers.frr.bgp_config_writer import (
+    cfggen_write, read_frr_inputs, to_frr_rows, write_bgp_config)
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.helpers.parallel import parallel_run
@@ -31,6 +33,7 @@ from tests.bgp.traffic_checker import get_traffic_shift_state
 from tests.bgp.constants import TS_NORMAL
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
+from tests.common.helpers.bgp import flatten_bgp_neighbors
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 DUT_TMP_DIR = os.path.join('tmp', os.path.basename(BASE_DIR))
@@ -65,6 +68,8 @@ PREFIX_LISTS = {
     'DISALLOWED_V6': ['2000:172:16:50::/64']
 }
 ALLOW_LIST_PREFIX_JSON_FILE = '/tmp/allow_list.json'
+# frr_mgmt_framework mode: DUT file stashing overridden inbound route-maps for teardown.
+ALLOW_LIST_FRR_STATE_FILE = '/tmp/allow_list_frr_state.json'
 DROP_COMMUNITY = ''
 DEFAULT_ACTION = ''
 ANNOUNCE = 'announce'
@@ -424,13 +429,156 @@ def prepare_eos_routes(bgp_allow_list_setup, ptfhost, nbrhosts, tbinfo):
     nbrhosts[downstream]['host'].config(lines=no_cmds, parents='router bgp {}'.format(downstream_asn))
 
 
-def apply_allow_list(duthost, namespace, allow_list, allow_list_file_path):
-    duthost.copy(content=json.dumps(allow_list, indent=3), dest=allow_list_file_path)
-    duthost.shell('sonic-cfggen {} -j {} -w'.format(namespace_cli_arg(namespace), allow_list_file_path))
+def _route_map_calls(config_db, rm_name):
+    """Every ``call_route_map`` target across the statements of route-map ``rm_name``."""
+    calls = set()
+    for key, row in list(config_db.get('ROUTE_MAP', {}).items()):
+        if key.split('|')[0] != rm_name:
+            continue
+        called = row.get('call_route_map')
+        if called:
+            calls.add(called)
+    return calls
+
+
+def _get_af_route_maps_in(config_db, table):
+    """Return {inner AF key: (afi_safi, member, [route_map_in])} for rows of ``table`` with an inbound map."""
+    result = {}
+    for key, row in list(config_db.get(table, {}).items()):
+        fields = key.split('|')
+        if len(fields) < 3:
+            continue
+        member, afi_safi = fields[1], fields[2]
+        rin = row.get('route_map_in')
+        if not rin:
+            continue
+        if not isinstance(rin, list):
+            rin = [r for r in str(rin).split(',') if r]
+        result[key] = (afi_safi, member, rin)
+    return result
+
+
+def _soft_clear_in(duthost, peer_groups, neighbors):
+    """Soft-clear inbound so the new policy applies to live sessions (as bgpcfgd does)."""
+    for target in ['peer-group ' + pg for pg in sorted(peer_groups)] + sorted(neighbors):
+        duthost.shell('sudo vtysh -c "clear bgp {} soft in"'.format(target), module_ignore_errors=True)
     time.sleep(3)
 
 
+def _apply_allow_list_frr(duthost, namespace, allow_list, allow_list_file_path):
+    """frr_mgmt_framework path for apply_allow_list."""
+    config_db, constants = read_frr_inputs(duthost, namespace)
+    tables, _, _ = to_frr_rows(allow_list, config_db, constants)
+    created_keys = [(table, key) for table, rows in tables.items() for key in rows]
+    rms_by_af = {'ipv4_unicast': set(), 'ipv6_unicast': set()}
+    for key in tables.get('ROUTE_MAP', {}):
+        rm = key.split('|')[0]
+        rms_by_af['ipv4_unicast' if rm.endswith('_V4') else 'ipv6_unicast'].add(rm)
+
+    # Attach the allow-list map inbound on peer-group and neighbor AFs whose current inbound
+    # map calls it (bgpcfgd's linkage), stashing the originals for remove_allow_list.
+    stash = {}
+    peer_groups = set()
+    neighbors = set()
+    for table, targets in (('BGP_PEER_GROUP_AF', peer_groups),
+                           ('BGP_NEIGHBOR_AF', neighbors)):
+        for key, (afi_safi, member, original_in) in list(
+                _get_af_route_maps_in(config_db, table).items()):
+            candidates = rms_by_af.get(afi_safi) or set()
+            called = set()
+            for rm in original_in:
+                called |= _route_map_calls(config_db, rm)
+            matched = sorted(candidates & called)
+            if not matched:
+                continue
+            stash['{}|{}'.format(table, key)] = original_in
+            tables.setdefault(table, {})[key] = {'route_map_in': [matched[0]]}
+            targets.add(member)
+
+    pytest_assert(
+        stash,
+        "No BGP_PEER_GROUP_AF/BGP_NEIGHBOR_AF row has an inbound route-map that calls any of "
+        "the generated allow-list route-maps {}. Attaching the allow-list to unrelated "
+        "inbound policy instead would test something else, so this fails rather than "
+        "guessing.".format(sorted(set().union(*rms_by_af.values())) if rms_by_af else []))
+
+    # Stash pre-existing rows we overwrite so teardown restores rather than deletes them.
+    pre_existing = {}
+    for table, key in created_keys:
+        row = config_db.get(table, {}).get(key)
+        if row is not None:
+            pre_existing['{}|{}'.format(table, key)] = row
+
+    cfggen_write(duthost, tables, namespace)
+    duthost.copy(content=json.dumps({'stash': stash, 'created_keys': created_keys,
+                                     'pre_existing': pre_existing}, indent=3),
+                 dest=ALLOW_LIST_FRR_STATE_FILE)
+    time.sleep(3)
+
+    _soft_clear_in(duthost, peer_groups, neighbors)
+
+
+def _remove_allow_list_frr(duthost, namespace):
+    """frr_mgmt_framework path for remove_allow_list: restore route-maps, delete created tables."""
+    db_cli = get_db_cli_prefix_for_namespace(namespace)
+    state_raw = duthost.shell('cat {}'.format(ALLOW_LIST_FRR_STATE_FILE),
+                              module_ignore_errors=True)
+    if state_raw.get('rc', 1) != 0:
+        return
+    state = json.loads(state_raw['stdout'])
+    stash = state.get('stash', {})
+    created_keys = state.get('created_keys', [])
+    pre_existing = state.get('pre_existing', {})
+
+    # Restore route_map_in first so peers no longer reference the allow-list map.
+    peer_groups = set()
+    neighbors = set()
+    for key, original_in in list(stash.items()):
+        table = key.split('|')[0]
+        member = key.split('|')[2]
+        (peer_groups if table == 'BGP_PEER_GROUP_AF' else neighbors).add(member)
+        if original_in:
+            duthost.shell("{} CONFIG_DB HSET \"{}\" \"route_map_in@\" \"{}\"".format(
+                db_cli, key, ','.join(original_in)))
+        else:
+            duthost.shell('{} CONFIG_DB HDEL "{}" "route_map_in@"'.format(db_cli, key),
+                          module_ignore_errors=True)
+
+    # Delete created rows, referrers (ROUTE_MAP) first.
+    order = {'ROUTE_MAP': 0, 'PREFIX': 1, 'PREFIX_SET': 2, 'COMMUNITY_SET': 3}
+    for table, key in sorted(created_keys, key=lambda tk: order.get(tk[0], 9)):
+        duthost.shell('{} CONFIG_DB del "{}|{}"'.format(db_cli, table, key),
+                      module_ignore_errors=True)
+
+    # Rewrite the pre-existing rows we overwrote (delete-then-rewrite, not a merge).
+    if pre_existing:
+        restore = {}
+        for full_key, row in list(pre_existing.items()):
+            table, key = full_key.split('|', 1)
+            restore.setdefault(table, {})[key] = row
+        restore_file = ALLOW_LIST_FRR_STATE_FILE + '.restore'
+        duthost.copy(content=json.dumps(restore, indent=3), dest=restore_file)
+        duthost.shell('sonic-cfggen {} -j {} -w'.format(
+            namespace_cli_arg(namespace), restore_file))
+        duthost.shell('rm -rf {}'.format(restore_file), module_ignore_errors=True)
+
+    duthost.shell('rm -rf {}'.format(ALLOW_LIST_FRR_STATE_FILE), module_ignore_errors=True)
+    time.sleep(3)
+    _soft_clear_in(duthost, peer_groups, neighbors)
+
+
+def apply_allow_list(duthost, namespace, allow_list, allow_list_file_path):
+    if duthost.get_frr_mgmt_framework_config():
+        _apply_allow_list_frr(duthost, namespace, allow_list, allow_list_file_path)
+        return
+    write_bgp_config(duthost, allow_list, namespace)
+
+
 def remove_allow_list(duthost, namespace, allow_list_file_path):
+    if duthost.get_frr_mgmt_framework_config():
+        _remove_allow_list_frr(duthost, namespace)
+        duthost.shell('rm -rf {}'.format(allow_list_file_path), module_ignore_errors=True)
+        return
     db_cli = get_db_cli_prefix_for_namespace(namespace)
     allow_list_keys = duthost.shell(
         '{} CONFIG_DB keys "BGP_ALLOWED_PREFIXES*"'.format(db_cli)
@@ -955,7 +1103,7 @@ def check_bgp_neighbor(duthost):
     Validate all the bgp neighbors are established
     """
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    bgp_neighbors = flatten_bgp_neighbors(config_facts.get('BGP_NEIGHBOR', {}))
     pytest_assert(
         wait_until(300, 10, 0, duthost.check_bgp_session_state, bgp_neighbors),
         "bgp sessions {} are not up".format(bgp_neighbors)

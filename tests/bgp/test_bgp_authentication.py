@@ -15,6 +15,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
+    pytest.mark.frr_generic,
     pytest.mark.topology('t2', 'lrh', 'urh')
 ]
 
@@ -146,7 +147,8 @@ def get_valid_bgp_neighbor(tbinfo, nbrhosts, duthost, dut_asn, confed_asn, is_so
 
 
 @pytest.fixture(scope='module')
-def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
+def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, frr_config_mode, request):
+    # The password config below goes via vtysh, so it works in either mode.
     neighbor_type = request.config.getoption("neighbor_type")
     if neighbor_type not in ["sonic", "csonic", "eos"]:
         pytest.skip("Unsupported neighbor type: {}".format(neighbor_type))

@@ -8,6 +8,10 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
 pytestmark = [
+    # Its GCU patch path /BGP_NEIGHBOR/<ip> is also VRF-keyed under frrcfgd.
+    pytest.mark.frr_bgpcfgd_only(
+        "this module exercises bgpcfgd's template-derived neighbor combinations via "
+        "DEVICE_METADATA/DEVICE_NEIGHBOR_METADATA types, which frrcfgd does not consume"),
     pytest.mark.topology('m1', 'lma'),
 ]
 
@@ -119,7 +123,7 @@ def select_lma_neighbor_roles(neighbor_metadata):
     ["UpperMgmtAggregator", ["MgmtLeafRouter", "LowerMgmtAggregator", "CoreTs", "CoreRouter", "CoreMgmtRouter",
                              "ConsoleServer"]],
 ])
-def test_bgp_establish_combo(duthost, ip_version, combo):
+def test_bgp_establish_combo(frr_config_mode, duthost, ip_version, combo):
     target_dut_type, target_neigh_types = combo
     bgp_facts = {ip: fact for ip, fact in duthost.get_bgp_neighbors().items()
                  if ipaddress.ip_address(ip).version == ip_version}

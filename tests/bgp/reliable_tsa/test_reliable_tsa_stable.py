@@ -12,6 +12,7 @@ from tests.common.platform.processes_utils import wait_critical_processes, _all_
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.bgp.bgp_helpers import get_tsa_chassisdb_config, get_sup_cfggen_tsa_value, verify_dut_configdb_tsa_value
 from tests.bgp.traffic_checker import get_traffic_shift_state
+from tests.common.fixtures.frr_config_mode import FRR_BGP_DEVICE_GLOBAL_GAP_REASON
 from tests.bgp.route_checker import parse_routes_on_neighbors, check_and_log_routes_diff, \
     verify_current_routes_announced_to_neighs, assert_only_loopback_routes_announced_to_neighs
 from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE
@@ -19,7 +20,8 @@ from tests.bgp.test_startup_tsa_tsb_service import get_tsa_tsb_service_uptime, g
     get_startup_tsb_timer, enable_disable_startup_tsa_tsb_service     # noqa: F401
 
 pytestmark = [
-    pytest.mark.topology('t2', 'lrh', 'urh')
+    pytest.mark.topology('t2', 'lrh', 'urh'),
+    pytest.mark.frr_bgpcfgd_only(FRR_BGP_DEVICE_GLOBAL_GAP_REASON),
 ]
 
 logger = logging.getLogger(__name__)

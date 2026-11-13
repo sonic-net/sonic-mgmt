@@ -8,8 +8,10 @@ from tests.bfd.bfd_helpers import get_ptf_src_port, get_backend_interface_in_use
     wait_until_given_bfd_down, assert_traffic_switching, verify_bfd_only, extract_backend_portchannels, \
     get_src_dst_asic_next_hops, get_upstream_and_downstream_dut_pool
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
+from tests.common.fixtures.frr_config_mode import skip_if_dut_not_switched
 
 pytestmark = [
+    pytest.mark.frr_generic,
     pytest.mark.topology("t2", "lrh", "urh"),
     pytest.mark.device_type('physical')
 ]
@@ -17,11 +19,17 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
+# Class-method tests can't take frr_config_mode directly; pull it in via autouse.
+@pytest.fixture(scope="module", autouse=True)
+def _frr_config_mode_autouse(frr_config_mode):
+    return frr_config_mode
+
+
 class TestBfdTraffic:
     PACKET_COUNT = 10000
 
     @pytest.fixture(scope="class")
-    def get_src_dst_asic(self, duthosts):
+    def get_src_dst_asic(self, request, duthosts):
         if not duthosts.frontend_nodes:
             pytest.skip("DUT does not have any frontend nodes")
 
@@ -33,6 +41,9 @@ class TestBfdTraffic:
         dst_dut_index = random.choice(list(range(len(dst_dut_pool))))
         src_dut = src_dut_pool[src_dut_index]
         dst_dut = dst_dut_pool[dst_dut_index]
+        # frr_config_mode switches rand_one_dut_hostname; skip if an endpoint is not that DUT.
+        skip_if_dut_not_switched(request, src_dut)
+        skip_if_dut_not_switched(request, dst_dut)
         src_asic_namespace_list = src_dut.get_asic_namespace_list()
         dst_asic_namespace_list = dst_dut.get_asic_namespace_list()
         if not src_asic_namespace_list or not dst_asic_namespace_list:

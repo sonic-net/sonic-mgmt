@@ -45,6 +45,7 @@ import uuid
 import pytest
 
 from tests.common.config_reload import config_reload
+from tests.common.fixtures.frr_config_mode import skip_if_frr_mgmt_framework
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.gu_utils import apply_patch, generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint
@@ -451,7 +452,7 @@ def setup_env(duthosts, rand_one_dut_hostname):
         delete_checkpoint(duthost)
 
 
-def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, run_scratch):
+def test_dt2_addcluster_workflow(frr_config_mode, duthosts, rand_one_dut_hostname, loganalyzer, run_scratch):
     """Test adding a downstream T1 neighbor cluster via GCU on a dt2 single-ASIC device.
 
     This test validates that a T1 neighbor can be added to a single-ASIC disaggregated
@@ -473,6 +474,9 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
         rand_one_dut_hostname: Fixture providing a single random DUT hostname
         loganalyzer: Loganalyzer utility fixture
     """
+    skip_if_frr_mgmt_framework(frr_config_mode,
+                               "GCU add-cluster patches VRF-scoped BGP_NEIGHBOR keys; "
+                               "frr_mgmt_framework support needs separate vrf-aware patch paths")
     duthost = duthosts[rand_one_dut_hostname]
     local_dir, dut_dir = run_scratch
 
