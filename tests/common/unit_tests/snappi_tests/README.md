@@ -23,9 +23,27 @@ python3 -m pytest --noconftest \
   tests/common/unit_tests/snappi_tests/unit_test_traffic_generation.py -v
 ```
 
-These checks cover delayed TX/RX updates, missing flows, nonzero frame rates,
+These checks cover delayed TX/RX updates, missing flows, traffic-engine completion,
 counter stability, and explicit timeout diagnostics. Genuine positive packet
 loss is returned unchanged for the existing test-specific assertions.
+Registered MACsec flows are explicitly stopped before final-counter polling;
+regressions also verify this ordering when counters time out or shutdown fails.
+On a final-counter timeout, raw Flow Statistics, Traffic Item Statistics, and
+Port Statistics snapshots are logged for comparison without changing the
+reported counts. Missing diagnostic views do not mask the original failure.
+
+The deferred-first-read MACsec experiment avoids Flow Statistics reads while
+registered flows run, unless pause-time snapshots are explicitly required.
+It waits for the IxNetwork traffic engine to finish before reading counters.
+The in-flight return value is `None` for this path; final loss assertions and
+counter consistency checks remain unchanged. A hardware run showed consistent
+TX/RX counters after deferral, but retained nonzero Quick Flow Group rates.
+Final readiness therefore requires the engine to be `stopped` or
+`stoppedWaitingForStats` and valid counters stable across two consecutive
+snapshots; nonzero rate cells are logged as a warning rather than treated as
+ongoing traffic. Running engines, invalid or changing counters, missing flows,
+and RX greater than TX still fail. Hardware validation of this readiness
+correction is pending.
 
 ### Run a specific test case
 ```bash

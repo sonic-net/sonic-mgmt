@@ -33,7 +33,7 @@ from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.port import SnappiPortConfig
 
 # Imported to support rest_py in ixnetwork
-from ixnetwork_restpy import BadRequestError
+from ixnetwork_restpy import BadRequestError, IxNetworkError
 from ixnetwork_restpy.assistants.statistics.statviewassistant import StatViewAssistant
 from random import getrandbits
 
@@ -773,15 +773,37 @@ def _to_number(value):
         return None
 
 
+def _log_macsec_counter_diagnostics(api, flow_rows):
+    """Capture independent counter views without masking the original statistics failure."""
+    for caption in ('Flow Statistics', 'Traffic Item Statistics', 'Port Statistics'):
+        try:
+            if caption == 'Flow Statistics':
+                rows = flow_rows
+            else:
+                view = api._ixnetwork.Statistics.View.find(Caption='^{}$'.format(caption))
+                if not view:
+                    logger.error('MACsec counter diagnostics: %s view is unavailable', caption)
+                    continue
+                rows = StatViewAssistant(api._ixnetwork, caption).Rows
+            logger.error('MACsec counter diagnostics, %s:\n%s', caption,
+                         tabulate(rows.RawData, headers=rows.Columns, tablefmt='psql'))
+        except IxNetworkError:
+            logger.exception('Could not collect MACsec counter diagnostics for %s', caption)
+
+
 def _wait_for_macsec_flow_statistics(api, identity_map, max_attempts=20):
-    """Wait for all registered flows to have stopped and their final counters to settle."""
+    """Wait for engine completion and stable, consistent final counters for all registered flows."""
     tracked_identities = set(identity_map.values())
     previous_counts = None
     fields = ('Tx Frames', 'Rx Frames', 'Tx Frame Rate', 'Rx Frame Rate')
     for attempt in range(max_attempts):
         rows = fetch_flow_metrics_for_macsec(api).Rows
+        traffic_state = api._ixnetwork.Traffic.State
         counts = {}
         pending = []
+        nonzero_rates = []
+        if traffic_state not in ('stopped', 'stoppedWaitingForStats'):
+            pending.append('Traffic engine has not stopped: {}'.format(traffic_state))
         for row in rows:
             identity = _macsec_row_identity(row)
             if identity not in tracked_identities:
@@ -795,14 +817,21 @@ def _wait_for_macsec_flow_statistics(api, identity_map, max_attempts=20):
             if identity in counts:
                 pending.append('{} has duplicate statistics rows'.format(identity))
             counts[identity] = (tx_frames, rx_frames)
-            if tx_frames <= 0 or not 0 <= rx_frames <= tx_frames or tx_rate != 0 or rx_rate != 0:
+            if (tx_frames <= 0 or not 0 <= rx_frames <= tx_frames
+                    or not 0 <= tx_rate < float('inf') or not 0 <= rx_rate < float('inf')):
                 pending.append('{}: TX={}, RX={}, TX rate={}, RX rate={}'.format(
                     identity, tx_frames, rx_frames, tx_rate, rx_rate))
+            elif tx_rate != 0 or rx_rate != 0:
+                nonzero_rates.append('{}: TX rate={}, RX rate={}'.format(identity, tx_rate, rx_rate))
 
         missing = tracked_identities - counts.keys()
         if missing:
             pending.append('Missing statistics for {}'.format(sorted(missing)))
         if not pending and counts == previous_counts:
+            if nonzero_rates:
+                logger.warning(
+                    'MACsec Flow Statistics retains nonzero rates after engine completion (%s); '
+                    'using stable final frame counters: %s', traffic_state, '; '.join(nonzero_rates))
             return rows
         previous_counts = counts if not pending else None
         logger.info('Waiting for final MACsec statistics, snapshot %s/%s: %s',
@@ -810,6 +839,7 @@ def _wait_for_macsec_flow_statistics(api, identity_map, max_attempts=20):
         if attempt + 1 < max_attempts:
             time.sleep(SNAPPI_POLL_DELAY_SEC)
 
+    _log_macsec_counter_diagnostics(api, rows)
     pytest_assert(False, 'MACsec flow statistics did not settle after {} snapshots: {}'.format(
         max_attempts, '; '.join(pending) or 'counters are still changing'))
 
@@ -908,6 +938,7 @@ def run_traffic(duthost,
         switch_device_results (dict): statistics from DUT on both TX and RX and per priority
         in_flight_flow_metrics (snappi metrics object): in-flight statistics per flow from TGEN
                                                         (right before flows end)
+            None when registered MACsec flows defer counter reads until traffic completion.
     """
 
     # snappi-ixnetwork applies LAGs before it removes topologies left over from a previous test
@@ -1032,6 +1063,13 @@ def run_traffic(duthost,
         reboot(duthost, snappi_extra_params.localhost, reboot_type=snappi_extra_params.reboot_type,
                delay=0, wait=0.01, return_after_reconnect=True)
 
+    defer_macsec_flow_stats = (
+        ptype and bool(snappi_extra_params.flow_name_stats_identity_map)
+        and not snappi_extra_params.stop_data_flows_before_final_stats
+    )
+    if defer_macsec_flow_stats:
+        logger.info("Deferring the first MACsec Flow Statistics read until the traffic engine has completed")
+
     # Test needs to run for at least 10 seconds to allow successive device polling
     if snappi_extra_params.poll_device_runtime and exp_dur_sec > 10:
         logger.info("Polling DUT for traffic statistics for {} seconds ...".format(exp_dur_sec))
@@ -1052,7 +1090,7 @@ def run_traffic(duthost,
                                                                                                 lossless_prio)[0])
             time.sleep(poll_freq_sec)
 
-            if poll_iter == 5:
+            if poll_iter == 5 and not defer_macsec_flow_stats:
                 logger.info("Polling TGEN for in-flight traffic statistics...")
                 in_flight_flow_metrics = _capture_in_flight_tgen_stats(
                     api, all_flow_names, ptype)
@@ -1062,10 +1100,11 @@ def run_traffic(duthost,
         logger.info("DUT polling complete")
     else:
         time.sleep(exp_dur_sec*(2/5))  # no switch polling required, only TGEN polling
-        logger.info("Polling TGEN for in-flight traffic statistics...")
-        in_flight_flow_metrics = _capture_in_flight_tgen_stats(api, all_flow_names, ptype)
-        _log_in_flight_stats(
-            api, in_flight_flow_metrics, data_flow_names, ptype, snappi_extra_params)
+        if not defer_macsec_flow_stats:
+            logger.info("Polling TGEN for in-flight traffic statistics...")
+            in_flight_flow_metrics = _capture_in_flight_tgen_stats(api, all_flow_names, ptype)
+            _log_in_flight_stats(
+                api, in_flight_flow_metrics, data_flow_names, ptype, snappi_extra_params)
         time.sleep(exp_dur_sec*(3/5))
 
     # A flow held under pause flow control never transitions to 'stopped' on its own.
@@ -1088,7 +1127,15 @@ def run_traffic(duthost,
         max_attempts = 20
         while attempts < max_attempts:
             logger.info("Checking if all flows have stopped. Attempt #{}".format(attempts + 1))
-            if not ptype:
+            if defer_macsec_flow_stats:
+                traffic_state = ixnet.Traffic.State
+                logger.info("IxNetwork traffic engine state before first statistics read: %s", traffic_state)
+                if traffic_state in ('stopped', 'stoppedWaitingForStats'):
+                    logger.info("MACsec traffic engine completed without an in-flight Flow Statistics read")
+                    break
+                time.sleep(SNAPPI_POLL_DELAY_SEC)
+                attempts += 1
+            elif not ptype:
                 # If all the data flows have stopped
                 if are_flows_stopped(api, data_flow_names):
                     logger.info("All test and background traffic flows stopped")
@@ -1132,8 +1179,13 @@ def run_traffic(duthost,
                     time.sleep(1)
                     attempts += 1
 
-        pytest_assert(attempts < max_attempts,
-                      "Flows do not stop in {} seconds".format(max_attempts))
+        if defer_macsec_flow_stats:
+            pytest_assert(attempts < max_attempts,
+                          "MACsec traffic engine did not finish after {} completion checks; last state: {}".format(
+                              max_attempts, traffic_state))
+        else:
+            pytest_assert(attempts < max_attempts,
+                          "Flows do not stop in {} seconds".format(max_attempts))
 
     # Capture stop + retrieval is slow enough to outlast the pause storm, which would let the
     # DUT drain buffered frames and push a paused flow's rx_frames above 0. Read metrics first.
@@ -1166,6 +1218,14 @@ def run_traffic(duthost,
         if not ptype:
             flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
         elif snappi_extra_params.flow_name_stats_identity_map:
+            # A final-statistics timeout must not prevent the blocking traffic stop.
+            if ixnet.Traffic.State not in ('stopped', 'stoppedWaitingForStats'):
+                logger.info("Stopping MACsec traffic before collecting final flow statistics")
+                ixnet.Traffic.StopStatelessTrafficBlocking()
+            traffic_state = ixnet.Traffic.State
+            pytest_assert(
+                traffic_state in ('stopped', 'stoppedWaitingForStats'),
+                "IxNetwork traffic did not stop before final statistics; current state is {}".format(traffic_state))
             flow_metrics = _wait_for_macsec_flow_statistics(
                 api, snappi_extra_params.flow_name_stats_identity_map)
         else:
