@@ -80,9 +80,10 @@ def pytest_addoption(parser):
     vxlan_group.addoption(
         "--num_endpoints",
         action="store",
-        default=511,
+        default=None,
         type=int,
-        help="number of endpoints for VNET VxLAN"
+        help="number of endpoints for VNET VxLAN. "
+             "When omitted, route-scale reads num_endpoints from the testbed entry"
     )
 
     vxlan_group.addoption(
@@ -275,6 +276,8 @@ def scaled_vnet_params(request):
     if params[NUM_ROUTES_KEY] is None:
         params[NUM_ROUTES_KEY] = 1000
     params[NUM_ENDPOINTS_KEY] = request.config.option.num_endpoints
+    if params[NUM_ENDPOINTS_KEY] is None:
+        params[NUM_ENDPOINTS_KEY] = 511
     return params
 
 
