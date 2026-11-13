@@ -14,6 +14,7 @@ from tests.common import utilities
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.portstat_utilities import parse_portstat
 from tests.common.utilities import parse_rif_counters, wait_until
+from tests.common.vpp_data import set_vpp_link_local_drop
 from tests.ip.ip_util import sum_ifaces_counts
 
 pytestmark = [
@@ -57,6 +58,10 @@ class TestLinkLocalIPacket:
 
     @staticmethod
     def check_if_test_is_supported(duthost):
+        if duthost.facts["asic_type"] == "vpp":
+            # VPP has no sai.profile knob for this, link-local forwarding is enabled by the
+            # disable_vpp_link_local_drop fixture instead
+            return
         platform = duthost.facts['platform']
         hwsku = duthost.facts['hwsku']
         sai_settings = {}
@@ -78,7 +83,28 @@ class TestLinkLocalIPacket:
             pytest.skip("Test is not supported, SAI_NOT_DROP_SIP_DIP_LINK_LOCAL is not equal 1 or not specified")
 
     @pytest.fixture(scope="class", autouse=True)
-    def common_params(self, duthosts, rand_one_dut_hostname, tbinfo, ptfadapter, ptfhost):
+    def disable_vpp_link_local_drop(self, duthosts, rand_one_dut_hostname):
+        """
+        Turn off the link-local drop of the VPP ip-validate plugin for the duration of this class
+
+        VPP drops link-local sourced/destined packets by default, which this test expects to be
+        forwarded. The plugin reads the setting at startup, so each change requires a config
+        reload. No-op on non VPP platforms.
+        """
+        duthost = duthosts[rand_one_dut_hostname]
+        if duthost.facts["asic_type"] != "vpp":
+            yield
+            return
+
+        set_vpp_link_local_drop(duthost, False)
+
+        yield
+
+        set_vpp_link_local_drop(duthost, True)
+
+    @pytest.fixture(scope="class", autouse=True)
+    def common_params(self, duthosts, rand_one_dut_hostname, tbinfo, ptfadapter, ptfhost,
+                      disable_vpp_link_local_drop):
         duthost = duthosts[rand_one_dut_hostname]
         self.check_if_test_is_supported(duthost)
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
