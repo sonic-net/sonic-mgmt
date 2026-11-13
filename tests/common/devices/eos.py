@@ -979,5 +979,19 @@ class EosHost(AnsibleHostBase):
         logging.info('Reset lacp timer to default for interface [%s]' % interface_name)
         return out
 
+    def disable_lldp_transmit(self, interface_name):
+        out = self.eos_config(
+            lines=['no lldp transmit'],
+            parents=['interface {}'.format(interface_name)])
+        logging.info('Disable lldp transmit for interface [%s]' % interface_name)
+        return out
+
+    def enable_lldp_transmit(self, interface_name):
+        out = self.eos_config(
+            lines=['lldp transmit'],
+            parents=['interface {}'.format(interface_name)])
+        logging.info('Enable lldp transmit for interface [%s]' % interface_name)
+        return out
+
     def config(self, lines=None, parents=None, module_ignore_errors=False):
         return self.eos_config(lines=lines, parents=parents)

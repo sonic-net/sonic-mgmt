@@ -3213,6 +3213,24 @@ class QosSaiBase(QosBase):
         return False
 
     @pytest.fixture(scope="function", autouse=False)
+    def disable_lldp_transmit_on_src_vm(self, duthosts, get_src_dst_asic_and_duts, tbinfo, nbrhosts, dutConfig,
+                                        dutTestParams, request):
+        src_dut = get_src_dst_asic_and_duts['src_dut']
+        src_mgfacts = src_dut.get_extended_minigraph_facts(tbinfo)
+        src_intf = dutConfig['dutInterfaces'][dutConfig['testPorts']['src_port_id']]
+        src_vm_neighbor = src_mgfacts['minigraph_neighbors'][src_intf]
+        src_vm_host = nbrhosts[src_vm_neighbor['name']]['host']
+        if isinstance(src_vm_host, EosHost):
+            logger.info("Disabling LLDP Transmit for %s's peer on %s" % (src_intf, src_vm_neighbor['name']))
+            src_vm_host.disable_lldp_transmit(src_vm_neighbor['port'])
+
+        yield
+
+        if isinstance(src_vm_host, EosHost):
+            logger.info("Re-enabling LLDP Transmit for %s's peer on %s" % (src_intf, src_vm_neighbor['name']))
+            src_vm_host.enable_lldp_transmit(src_vm_neighbor['port'])
+
+    @pytest.fixture(scope="function", autouse=False)
     def change_lag_lacp_timer(self, duthosts, get_src_dst_asic_and_duts, tbinfo, nbrhosts, dutConfig, dutTestParams,
                               request):
         if request.config.getoption("--neighbor_type") == "sonic":
