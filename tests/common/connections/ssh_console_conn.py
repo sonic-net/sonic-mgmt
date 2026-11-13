@@ -64,7 +64,7 @@ class ConsoleRebootStartedError(Exception):
 class SSHConsoleConn(BaseConsoleConn):
     def __init__(self, **kwargs):
         self.menu_port = None
-
+        self._console_only = kwargs.pop("console_only", False)
         # A threading.Event the reboot flow sets right before it reboots the DUT.
         # Popped here so it never reaches netmiko's BaseConnection. Once set,
         # every write to the DUT serial line is refused (see write_channel) so a
@@ -76,8 +76,16 @@ class SSHConsoleConn(BaseConsoleConn):
             raise ValueError("Either console_username or console_password is not set")
 
         # Console via SSH connection need two groups of user/passwd
-        self.sonic_username = kwargs['sonic_username']
-        self.sonic_password = kwargs['sonic_password']
+        if self._console_only:
+            self.sonic_username = ''
+            self.sonic_password = []
+            if kwargs['console_type'] != CONSOLE_SSH:
+                raise ValueError("console_only requires a direct SSH console line")
+            # Keep the connection attempt when key authentication needs no password.
+            kwargs['console_password'] = kwargs['console_password'] or ['']
+        else:
+            self.sonic_username = kwargs['sonic_username']
+            self.sonic_password = kwargs['sonic_password']
 
         # Store console type for later use
         self.console_type = kwargs['console_type']
@@ -185,6 +193,9 @@ class SSHConsoleConn(BaseConsoleConn):
         return output
 
     def session_preparation(self):
+        if getattr(self, "_console_only", False):
+            # Leave the UART untouched, including its initial output.
+            return
         # Read the initial banner PASSIVELY -- never write to the channel before
         # the console state is classified below. The inherited netmiko
         # _test_channel_read() would write a RETURN on an empty read, which on a
@@ -665,6 +676,9 @@ class SSHConsoleConn(BaseConsoleConn):
         Only send 'exit' if we're certain the DUT is at a SONiC prompt.
         This prevents issues during reboot when DUT might be in GRUB or other boot stages.
         """
+        if getattr(self, "_console_only", False):
+            self.remote_conn.close()
+            return
         # A console whose session preparation was deferred (DUT still in the
         # bootloader/boot stage) has no SONiC prompt to probe. Probing would call
         # _is_at_sonic_prompt(), which sends up to four RETURNs when the one-shot
