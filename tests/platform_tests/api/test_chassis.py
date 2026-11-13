@@ -12,6 +12,8 @@ from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import skip_release
 from tests.common.platform.interface_utils import get_physical_port_indices
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa: F401
+from tests.common.mellanox_data import is_mellanox_device
+from tests.common.cpo_utils import is_cpo_switch, get_cpo_device_expected_num_sfps, get_cpo_device_sfp_index_list
 from tests.platform_tests.cli.util import get_skip_mod_list
 from .platform_api_test_base import PlatformApiTestBase
 
@@ -539,19 +541,20 @@ class TestChassisApi(PlatformApiTestBase):
             if num_sfps == 0:
                 pytest.skip("No sfps found on device")
 
-        list_sfps = physical_port_indices
+        if is_mellanox_device(duthost) and is_cpo_switch(duthost):
+            list_sfps = get_cpo_device_sfp_index_list(duthost)
+        else:
+            list_sfps = physical_port_indices
 
         logging.info("Physical port indices = {}".format(list_sfps))
 
-        if duthost.facts.get("chassis"):
+        if is_mellanox_device(duthost) and is_cpo_switch(duthost):
+            expected_num_sfps = get_cpo_device_expected_num_sfps(duthost)
+            pytest_assert(num_sfps == expected_num_sfps,
+                          f"Number of sfps ({num_sfps}) does not match expected number "
+                          f"({expected_num_sfps}) from cpo.json")
+        elif duthost.facts.get("chassis"):
             expected_num_sfps = len(duthost.facts.get("chassis").get('sfps'))
-            interface_facts = duthost.show_interface(command='status')['ansible_facts']['int_status']
-            if duthost.facts.get("platform") == 'x86_64-nvidia_sn2201-r0':
-                # On SN2201, there are 48 RJ45 ports which are also counted in SFP object lists
-                # So we need to adjust test case accordingly
-                for port, data in list(interface_facts.items()):
-                    if data['type'] == 'RJ45':
-                        expected_num_sfps += 1
             pytest_assert(num_sfps == expected_num_sfps,
                           "Number of sfps ({}) does not match expected number ({})"
                           .format(num_sfps, expected_num_sfps))
