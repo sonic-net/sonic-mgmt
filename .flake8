@@ -13,5 +13,6 @@ per-file-ignores =
 
 exclude =
     # Generated proto code
+    tests/common/gnmi/proto/*_pb2*.py
     tests/gnmi/protos/**/*.py
     tests/common/sai_validation/gnmi*.py
