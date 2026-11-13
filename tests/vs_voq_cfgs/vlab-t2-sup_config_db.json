@@ -1073,15 +1073,6 @@
             "auto_restart": "enabled",
             "high_mem_alert": "disabled"
         },
-        "telemetry": {
-            "state": "enabled",
-            "has_timer": "True",
-            "has_global_scope": "True",
-            "has_per_asic_scope": "False",
-            "auto_restart": "enabled",
-            "high_mem_alert": "disabled",
-            "status": "enabled"
-        },
         "dhcp_relay": {
             "state": "enabled",
             "has_timer": "False",
@@ -1718,18 +1709,6 @@
             "description": "fortyGigE0/120",
             "mtu": "9100",
             "pfc_asym": "off"
-        }
-    },
-    "TELEMETRY": {
-        "certs": {
-            "server_crt": "/etc/sonic/telemetry/streamingtelemetryserver.cer",
-            "server_key": "/etc/sonic/telemetry/streamingtelemetryserver.key",
-            "ca_crt": "/etc/sonic/telemetry/dsmsroot.cer"
-        },
-        "gnmi": {
-            "client_auth": "true",
-            "port": "50051",
-            "log_level": "2"
         }
     },
     "MAP_PFC_PRIORITY_TO_QUEUE": {

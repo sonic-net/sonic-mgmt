@@ -31,7 +31,7 @@ SAI_SCRIPTS = [SAISERVER_SCRIPT, SERVICES_SCRIPT,
                WARMBOOT_SCRIPT, WARMBOOT_PROFILE_SCRIPT]
 SCRIPTS_SRC_DIR = "scripts/sai_qualify/"
 SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd", "bgp",
-                 "pmon", "telemetry", "acms"]
+                 "pmon", "acms"]
 SAI_PRC_PORT = 9092
 SAI_TEST_CONTAINER_WARM_UP_IN_SEC = 5
 IS_TEST_ENV_FAILED = False

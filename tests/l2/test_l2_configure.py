@@ -116,7 +116,7 @@ def get_db_version(duthost):
 
 def test_no_hardcoded_tables(duthosts, rand_one_dut_hostname, tbinfo):
     """
-    @summary: A test case asserting no hardcoded tables (such as TELEMETRY and RESTAPI)
+    @summary: A test case asserting no hardcoded tables (such as RESTAPI)
     is migrated to config_db during L2 configuration.
 
     Args:
@@ -127,8 +127,8 @@ def test_no_hardcoded_tables(duthosts, rand_one_dut_hostname, tbinfo):
     """
     # Setup.
     duthost = duthosts[rand_one_dut_hostname]
-    if is_table_empty(duthost, "TELEMETRY") or is_table_empty(duthost, "RESTAPI"):
-        pytest.skip("TELEMETRY or RESTAPI table is empty. Please load minigraph first.")
+    if is_table_empty(duthost, "RESTAPI"):
+        pytest.skip("RESTAPI table is empty. Please load minigraph first.")
 
     hwsku = duthost.facts["hwsku"]
     mgmt_fact = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_mgmt_interface"]
@@ -196,7 +196,7 @@ def test_no_hardcoded_tables(duthosts, rand_one_dut_hostname, tbinfo):
     )
 
     # Verify no minigraph config is present.
-    for table in ["TELEMETRY", "RESTAPI"]:
+    for table in ["RESTAPI"]:
         pytest_assert(
             is_table_empty(duthost, table), "{} table is not empty!".format(table)
         )

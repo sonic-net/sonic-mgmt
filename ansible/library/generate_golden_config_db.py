@@ -1580,7 +1580,7 @@ class GenerateGoldenConfigDBModule(object):
         if self.is_bmc_device() or "bmc" in self.topo_name.lower():
             bmc_enabled_features = [
                 "database", "gnmi", "lldp", "pmon", "redfish", "sysmgr",
-                "telemetry", "acms"
+                "acms"
             ]
             config = self.apply_bmc_feature_allowlist(config, bmc_enabled_features)
 

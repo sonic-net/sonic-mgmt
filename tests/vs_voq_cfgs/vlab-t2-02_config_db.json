@@ -1193,15 +1193,6 @@
       "auto_restart": "enabled",
       "high_mem_alert": "disabled"
     },
-    "telemetry": {
-      "state": "enabled",
-      "has_timer": "True",
-      "has_global_scope": "True",
-      "has_per_asic_scope": "False",
-      "auto_restart": "enabled",
-      "high_mem_alert": "disabled",
-      "status": "enabled"
-    },
     "snmp": {
       "state": "enabled",
       "has_timer": "True",
@@ -1325,18 +1316,6 @@
     "10.0.0.9": {
       "priority": "1",
       "tcp_port": "49"
-    }
-  },
-  "TELEMETRY": {
-    "gnmi": {
-      "client_auth": "true",
-      "port": "50051",
-      "log_level": "2"
-    },
-    "certs": {
-      "server_crt": "/etc/sonic/telemetry/streamingtelemetryserver.cer",
-      "server_key": "/etc/sonic/telemetry/streamingtelemetryserver.key",
-      "ca_crt": "/etc/sonic/telemetry/dsmsroot.cer"
     }
   },
   "SCHEDULER": {
