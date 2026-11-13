@@ -37,6 +37,7 @@ def test_pfc_pause_single_lossless_prio(snappi_api,                     # noqa: 
                                         get_snappi_ports,               # noqa: F811
                                         tbinfo,                         # noqa: F811
                                         disable_pfcwd,                  # noqa: F811
+                                        disable_voq_watchdog,           # noqa: F811
                                         tgen_port_info):                # noqa: F811
 
     """
@@ -100,6 +101,7 @@ def test_pfc_pause_counter_check(snappi_api,                     # noqa: F811
                                  get_snappi_ports,               # noqa: F811
                                  tbinfo,                         # noqa: F811
                                  disable_pfcwd,                  # noqa: F811
+                                 disable_voq_watchdog,           # noqa: F811
                                  tgen_port_info):                # noqa: F811
     """
     Test if PFC pause frames are counted properly by the DUT. This test is slightly different to the other
@@ -163,6 +165,7 @@ def test_pfc_pause_multi_lossless_prio(snappi_api,                   # noqa: F81
                                        get_snappi_ports,             # noqa: F811
                                        tbinfo,
                                        disable_pfcwd,                # noqa: F811
+                                       disable_voq_watchdog,         # noqa: F811
                                        tgen_port_info):              # noqa: F811
 
     """
@@ -221,6 +224,7 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                   # n
                                                get_snappi_ports,            # noqa: F811
                                                tbinfo,                      # noqa: F811
                                                disable_pfcwd,               # noqa: F811
+                                               disable_voq_watchdog,        # noqa: F811
                                                reboot_duts_and_disable_wd,  # noqa: F811
                                                tgen_port_info):             # noqa: F811
     """
@@ -238,7 +242,6 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                   # n
         lossless_prio_list (pytest fixture): list of all the lossless priorities
         tbinfo (pytest fixture): fixture provides information about testbed
         reboot_duts_and_disable_wd (pytest fixture): fixture reboots associated DUTs and disables Credit and PFC WD
-        setup_ports_and_dut (pytest fixture): gets snappi ports and connected DUT port info and returns as a list
     Returns:
         N/A
     """
@@ -284,6 +287,7 @@ def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,                   # no
                                               get_snappi_ports,             # noqa: F811
                                               tbinfo,                       # noqa: F811
                                               disable_pfcwd,                # noqa: F811
+                                              disable_voq_watchdog,         # noqa: F811
                                               reboot_duts_and_disable_wd,   # noqa: F811
                                               tgen_port_info):              # noqa: F811
     """
@@ -300,7 +304,6 @@ def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,                   # no
         lossy_prio_list (pytest fixture): list of all the lossy priorities
         tbinfo (pytest fixture): fixture provides information about testbed
         reboot_duts_and_disable_wd (pytest fixture): fixture reboots associated DUTs and disables Credit and PFC WD
-        setup_ports_and_dut (pytest fixture): gets snappi ports and connected DUT port info and returns as a list
     Returns:
         N/A
     """

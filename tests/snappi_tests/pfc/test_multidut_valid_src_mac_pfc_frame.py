@@ -4,11 +4,10 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_grap
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, cleanup_config, get_snappi_ports_multi_dut, \
     snappi_testbed_config, get_snappi_ports_single_dut, \
-    get_snappi_ports                                         # noqa: F401
+    get_snappi_ports, tgen_port_info                           # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list, \
     lossy_prio_list, disable_pfcwd                                              # noqa: F401
 from tests.snappi_tests.cisco.helper import disable_voq_watchdog                # noqa: F401
-from tests.snappi_tests.files.helper import multidut_port_info, setup_ports_and_dut  # noqa: F401
 from tests.snappi_tests.pfc.files.helper import run_pfc_test
 import logging
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
@@ -35,7 +34,7 @@ def test_valid_pfc_frame_src_mac(snappi_api,                     # noqa: F811
                                  tbinfo,                          # noqa: F811
                                  disable_pfcwd,                   # noqa: F811
                                  disable_voq_watchdog,            # noqa: F811
-                                 setup_ports_and_dut              # noqa: F811
+                                 tgen_port_info                   # noqa: F811
                                  ):
 
     """
@@ -57,7 +56,7 @@ def test_valid_pfc_frame_src_mac(snappi_api,                     # noqa: F811
         N/A
     """
 
-    testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
 
     _, lossless_prio = enum_dut_lossless_prio.split('|')
     lossless_prio = int(lossless_prio)
