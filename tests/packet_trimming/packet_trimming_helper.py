@@ -1701,7 +1701,8 @@ def cleanup_srv6_loop_break_acl(duthost):
         f"'ACL_RULE|{SRV6_LOOP_BREAK_ACL_TABLE_NAME}|{SRV6_LOOP_BREAK_ACL_RULE_NAME}'"
     )
     duthost.shell(f"sonic-db-cli -s --authenticate CONFIG_DB DEL 'ACL_TABLE|{SRV6_LOOP_BREAK_ACL_TABLE_NAME}'")
-    duthost.shell(f"sonic-db-cli -s --authenticate CONFIG_DB DEL 'ACL_TABLE_TYPE|{SRV6_LOOP_BREAK_ACL_TABLE_TYPE_NAME}'")
+    duthost.shell(
+        f"sonic-db-cli -s --authenticate CONFIG_DB DEL 'ACL_TABLE_TYPE|{SRV6_LOOP_BREAK_ACL_TABLE_TYPE_NAME}'")
     logger.info("SRv6 loop-break ACL cleanup completed")
 
 

@@ -143,7 +143,8 @@ def apply_trim_mode(
         if existing != "1":
             _run_cmd(
                 duthost,
-                f"sonic-db-cli -s --authenticate CONFIG_DB HSET '{tc_map_key}' '{TRIM_TC_DEFAULT}' '{ASYM_MAP_DSCP_VALUE}'",
+                f"sonic-db-cli -s --authenticate CONFIG_DB HSET "
+                f"'{tc_map_key}' '{TRIM_TC_DEFAULT}' '{ASYM_MAP_DSCP_VALUE}'",
             )
         current_map = _run_cmd(
             duthost, f"sonic-db-cli -s CONFIG_DB HGET 'PORT_QOS_MAP|{egress_port}''tc_to_dscp_map'"

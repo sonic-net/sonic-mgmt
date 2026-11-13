@@ -354,7 +354,8 @@ def setup_srv6(duthost, request, rand_selected_dut, upstream_links, peer_links, 
 
     # Cleanup: remove ingress ACL first, then the static route
     cleanup_srv6_loop_break_acl(rand_selected_dut)
-    rand_selected_dut.command(f'sonic-db-cli -s --authenticate CONFIG_DB DEL "STATIC_ROUTE|default|{SRV6_ROUTE_PREFIX}"')
+    rand_selected_dut.command(
+        f'sonic-db-cli -s --authenticate CONFIG_DB DEL "STATIC_ROUTE|default|{SRV6_ROUTE_PREFIX}"')
     logger.info(f"Removed static route {SRV6_ROUTE_PREFIX}")
 
     for sid_param in SRV6_MY_SID_LIST:

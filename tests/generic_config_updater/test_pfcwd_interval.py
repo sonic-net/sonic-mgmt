@@ -78,8 +78,7 @@ def enable_default_pfcwd_configuration(ensure_dut_readiness):
             if asic_id:
                 duthost.asic_instance(asic_id).run_sonic_db_cli_cmd(
                     'CONFIG_DB hset \"DEVICE_METADATA|localhost\" '
-                    'default_pfcwd_status enable'
-                , authenticate=True)
+                    'default_pfcwd_status enable', authenticate=True)
     # Enable default pfcwd configuration
     start_pfcwd = duthost.shell('config pfcwd start_default')
     pytest_assert(not start_pfcwd['rc'],

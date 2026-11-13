@@ -117,7 +117,9 @@ def dscp_config(dscp_mode, rand_selected_dut, loganalyzer):
         logger.info(f"Original dscp_to_tc_map: {origin_dscp_to_tc_map}")
 
     logger.info(f"Set dscp_to_tc_map to {DEFAULT_MAPPING_TYPE}")
-    duthost.shell(f'sonic-db-cli -s --authenticate CONFIG_DB HSET "PORT_QOS_MAP|global" "dscp_to_tc_map" "{DEFAULT_MAPPING_TYPE}"')
+    duthost.shell(
+        f'sonic-db-cli -s --authenticate CONFIG_DB HSET '
+        f'"PORT_QOS_MAP|global" "dscp_to_tc_map" "{DEFAULT_MAPPING_TYPE}"')
     apply_dscp_cfg_setup(duthost, dscp_mode, loganalyzer)
 
     yield
@@ -126,7 +128,8 @@ def dscp_config(dscp_mode, rand_selected_dut, loganalyzer):
     logger.info("Recover the original QoS map configuration")
     if is_global_map_key_exist:
         duthost.shell(
-            f'sonic-db-cli -s --authenticate CONFIG_DB HSET "PORT_QOS_MAP|global" "dscp_to_tc_map" "{origin_dscp_to_tc_map}"')
+            f'sonic-db-cli -s --authenticate CONFIG_DB HSET '
+            f'"PORT_QOS_MAP|global" "dscp_to_tc_map" "{origin_dscp_to_tc_map}"')
     else:
         duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB DEL "PORT_QOS_MAP|global"')
 
