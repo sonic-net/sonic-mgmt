@@ -250,8 +250,8 @@ copy_config_cmds_no_qos = [
 ]
 
 broadcom_cmd_bcmcmd_xgs = [
-    'bcmcmd{} -t 5 version',
-    'bcmcmd{} -t 5 ps',
+    re.compile(r'bcmcmd{} -t\s?5 version'),
+    re.compile(r'bcmcmd{} -t\s?5 ps'),
     'bcmcmd{} "ipmc table show"',
     'bcmcmd{} "multicast show"',
     'bcmcmd{} "fp show"',
@@ -267,7 +267,7 @@ broadcom_cmd_bcmcmd_xgs = [
 ]
 
 broadcom_cmd_bcmcmd_xgs_soc = [
-    'bcmcmd{} -t 5 soc',
+    re.compile(r'bcmcmd{} -t\s?5 soc'),
     'bcmcmd{} "conf show"',
     'bcmcmd{} "l3 defip show"',
     'bcmcmd{} "l3 l3table show"',
