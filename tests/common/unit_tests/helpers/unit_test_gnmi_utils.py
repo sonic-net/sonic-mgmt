@@ -9,6 +9,7 @@ Run (from the repository root):
 """
 import importlib.util
 import json
+import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -74,6 +75,19 @@ def test_dump_tails_gnmi_log_when_asked(gu):
     dut = FakeDut()
     gu.dump_gnmi_debug_state(dut, gnmi_log_lines=500)
     assert "tail -n 500 /root/gnmi.log" in dut.commands[0]
+
+
+@pytest.mark.parametrize("content, expected", [
+    ("short\n", "short\n"),
+    ("0123456789abcdef\n", "(truncated: last 8 of 17 bytes)\n9abcdef\n"),
+])
+def test_capped_log(gu, monkeypatch, tmp_path, content, expected):
+    monkeypatch.setattr(gu, "GNMI_LOG_MAX_BYTES", 8)
+    log = tmp_path / "gnmi.log"
+    log.write_text(content)
+    # Ansible's shell module runs commands with /bin/sh, which is dash on SONiC.
+    result = subprocess.run(["sh", "-c", gu._capped(f"cat {log}")], capture_output=True, text=True)
+    assert result.stdout == expected
 
 
 def test_failed_dump_neither_raises_nor_marks(gu):

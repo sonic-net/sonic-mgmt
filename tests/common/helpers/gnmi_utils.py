@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 GNMI_CERT_NAME = "test.client.gnmi.sonic"
 REVOKED_GNMICERT_NAME = "test.client.revoked.gnmi.sonic"
 GNMI_LOG_TAIL_LINES = 500
+# Applies to each log, after the line limit: a few long lines must not flood the test log.
+GNMI_LOG_MAX_BYTES = 64 * 1024
 
 # Backdate notBefore on test certs to absorb clock skew between the
 # sonic-mgmt runner, the DUT, and the PTF docker. Without this, even a
@@ -477,6 +479,7 @@ def dump_gnmi_debug_state(duthost, localhost=None, error: Optional[BaseException
     Log the gNMI server's processes and logs, and if localhost is given, probe its port.
 
     Logs the last gnmi_log_lines lines of /root/gnmi.log, or all of it if None; the syslogs are always tailed.
+    Each log is then cut to its last GNMI_LOG_MAX_BYTES bytes, with a note saying so.
     If the dump succeeds and error is given, mark error so the failure hook doesn't dump it again.
     Never raises, so that a failing dump cannot hide the failure being debugged.
     """
@@ -488,12 +491,12 @@ def dump_gnmi_debug_state(duthost, localhost=None, error: Optional[BaseException
             ("GNMI process", f"docker exec {env.gnmi_container} ps -efwww"),
             ("System time", f"docker exec {env.gnmi_container} date"),
             # Written by the server that apply_cert_config starts with -v=10.
-            ("GNMI log", f"docker exec {env.gnmi_container} {read_gnmi_log} /root/gnmi.log"),
-            ("gnmi-native syslog", f"sudo tail -n {GNMI_LOG_TAIL_LINES} /var/log/gnmi.log"),
-            ("Telemetry/dialout syslog", f"sudo tail -n {GNMI_LOG_TAIL_LINES} /var/log/telemetry.log"),
+            ("GNMI log", _capped(f"docker exec {env.gnmi_container} {read_gnmi_log} /root/gnmi.log")),
+            ("gnmi-native syslog", _capped(f"sudo tail -n {GNMI_LOG_TAIL_LINES} /var/log/gnmi.log")),
+            ("Telemetry/dialout syslog", _capped(f"sudo tail -n {GNMI_LOG_TAIL_LINES} /var/log/telemetry.log")),
         ]
         # One round trip; ";" so that a failing command doesn't stop the rest.
-        script = "; ".join(f"echo '=== {title} ==='; {command} 2>&1" for title, command in commands)
+        script = "; ".join(f"echo '=== {title} ==='; {{ {command}; }} 2>&1" for title, command in commands)
         res = duthost.shell(script, module_ignore_errors=True, verbose=False)
         logger.info("gNMI state for DUT %s:\n%s%s", duthost.hostname, res["stdout"], res["stderr"])
         if localhost is not None:
@@ -502,6 +505,16 @@ def dump_gnmi_debug_state(duthost, localhost=None, error: Optional[BaseException
             error._gnmi_state_dumped = True
     except Exception as e:
         logger.warning("Failed to dump gNMI state for DUT %s: %s", duthost.hostname, e)
+
+
+def _capped(read_log: str) -> str:
+    """A shell command that prints the last GNMI_LOG_MAX_BYTES bytes of read_log's output, noting any cut."""
+    # Reads the log twice, both times on the DUT, so that only the capped output crosses the network.
+    return (
+        f"size=$({read_log} 2>/dev/null | wc -c); "
+        f'[ "$size" -gt {GNMI_LOG_MAX_BYTES} ] && echo "(truncated: last {GNMI_LOG_MAX_BYTES} of $size bytes)"; '
+        f"{read_log} | tail -c {GNMI_LOG_MAX_BYTES}"
+    )
 
 
 def gnmi_state_dumped(error: BaseException) -> bool:
