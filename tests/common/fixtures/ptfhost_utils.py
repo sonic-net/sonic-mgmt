@@ -18,7 +18,7 @@ from tests.common.dualtor.dual_tor_common import ActiveActivePortID
 from tests.common.dualtor.dual_tor_utils import update_linkmgrd_probe_interval, recover_linkmgrd_probe_interval
 from tests.common.utilities import wait_until, is_ipv6_only_topology
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
-from tests.common.fixtures.advanced_reboot import ErrorType, set_upgrade_path_error_result_custom_msg
+from tests.common.fixtures.advanced_reboot import ErrorType, UPGRADE_PATH_PENDING_SETUP_ERROR_KEY
 from pytest_ansible.errors import AnsibleConnectionFailure
 
 
@@ -79,7 +79,14 @@ def copy_ptftests_directory(ptfhost, request):
     except Exception:
         # Catch broadly: copy failures may surface as AnsibleConnectionFailure,
         # RunAnsibleModuleFail or other exception types depending on the wrapper.
-        set_upgrade_path_error_result_custom_msg(request, ErrorType.PTFHOST_SETUP_FAILED)
+        # This fixture is session-scoped (request.node is the Session, not a
+        # test), so record a pending marker; the upgrade_path conftest applies
+        # it to each affected test's own key, including later tests that reuse
+        # the cached fixture failure.
+        if (request.config.getoption("base_image_list", default=None)
+                or request.config.getoption("multi_hop_upgrade_path", default=None)):
+            request.config.cache.set(UPGRADE_PATH_PENDING_SETUP_ERROR_KEY,
+                                     {"error_type": ErrorType.PTFHOST_SETUP_FAILED.value})
         raise
 
     yield

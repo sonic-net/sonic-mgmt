@@ -44,6 +44,13 @@ class ErrorType(str, Enum):
     PTFHOST_SETUP_FAILED = "PTFHOST_SETUP_FAILED"
 
 
+# Marker key for setup failures recorded by session-scoped fixtures, where
+# request.node is the Session (empty name) rather than a test. Deliberately NOT
+# prefixed with CUSTOM_MSG_PREFIX so it is never emitted directly; the
+# upgrade_path conftest applies it to each affected test's own result key.
+UPGRADE_PATH_PENDING_SETUP_ERROR_KEY = "upgrade_path_pending_setup_error"
+
+
 def get_upgrade_path_result_key(node_name):
     """Build the per-test cache key for the upgrade-path error classification.
 

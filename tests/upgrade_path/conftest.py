@@ -1,7 +1,11 @@
 import pytest
 
 from tests.common.helpers.upgrade_helpers import xcvr_skip_list  # noqa: F401
-from tests.common.fixtures.advanced_reboot import ErrorType, get_upgrade_path_result_key
+from tests.common.fixtures.advanced_reboot import (
+    ErrorType,
+    get_upgrade_path_result_key,
+    UPGRADE_PATH_PENDING_SETUP_ERROR_KEY,
+)
 from tests.common.helpers.constants import CUSTOM_MSG_PREFIX
 
 
@@ -23,6 +27,7 @@ def _clear_stale_results(config):
     for path in cache_dir.glob('**/*'):
         if path.is_file() and path.name.startswith(_UPGRADE_PATH_RESULT_PREFIX):
             config.cache.set(path.name, None)
+    config.cache.set(UPGRADE_PATH_PENDING_SETUP_ERROR_KEY, None)
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -47,6 +52,14 @@ def pytest_runtest_makereport(item, call):
     # test's teardown, so clearing must happen before that emission. Teardown
     # outcome is known here via call.excinfo: a test that passed or skipped in
     # setup/call but failed in teardown keeps its classification.
+    if call.when == "setup" and call.excinfo is not None:
+        # A session-scoped fixture (e.g. copy_ptftests_directory) recorded a
+        # shared setup failure: apply it to this test's own key, so every test
+        # affected by the cached fixture failure is classified, not just the
+        # first requesting one.
+        pending = item.config.cache.get(UPGRADE_PATH_PENDING_SETUP_ERROR_KEY, None)
+        if isinstance(pending, dict) and pending.get("error_type"):
+            item.config.cache.set(_upgrade_path_result_cache_key(item), pending)
     if call.when == "teardown" and call.excinfo is None:
         rep_setup = getattr(item, "rep_setup", None)
         rep_call = getattr(item, "rep_call", None)
