@@ -86,11 +86,11 @@ def _resolve_l3_interfaces(mg_facts, port_index_map):
 
 
 @pytest.fixture(scope="module")
-def l3_intf_setup(duthosts, rand_one_dut_hostname, tbinfo):
+def l3_intf_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     """
     Identify routed L3 interfaces (IPv4 and IPv6) and PTF ports.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     port_index_map = mg_facts["minigraph_ptf_indices"]
@@ -224,6 +224,15 @@ def _skip_if_virtual(duthost):
         )
 
 
+def _skip_if_dnx(duthost):
+    """Skip on broadcom-dnx VoQ where ARP request/reply increments RX_DRP."""
+    if duthost.facts.get("platform_asic") == "broadcom-dnx":
+        pytest.skip(
+            "ARP RX_DRP check not applicable on broadcom-dnx VoQ platforms: "
+            "RX_DRP is incremented for broadcast packets"
+        )
+
+
 def _send_and_verify_no_drop(
     duthost, ptfadapter, dut_port, ptf_port_idx, pkt,
     pkt_desc, pkt_count=ARP_PKT_COUNT
@@ -274,6 +283,7 @@ class TestArpL3NoRxDrop:
         setup = l3_intf_setup
         duthost = setup["duthost"]
         _skip_if_virtual(duthost)
+        _skip_if_dnx(duthost)
 
         intf = setup["ipv4_intf"]
         if intf is None:
@@ -303,6 +313,7 @@ class TestArpL3NoRxDrop:
         setup = l3_intf_setup
         duthost = setup["duthost"]
         _skip_if_virtual(duthost)
+        _skip_if_dnx(duthost)
 
         intf = setup["ipv4_intf"]
         if intf is None:
