@@ -3,9 +3,11 @@ import time
 import pytest
 
 from tests.common.platform.processes_utils import wait_critical_processes, get_critical_processes_status
+from tests.common.plugins.sanity_check.recover import recover_chassis
 from tests.common.reboot import wait_for_startup
 from tests.common.utilities import wait_until
 from tests.common.errors import RunAnsibleModuleFail
+from tests.common.vs_data import is_vs_device
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -19,6 +21,9 @@ SSH_STATE_STARTED = "started"
 class TestMemoryExhaustion:
     """
     This test case is used to verify that DUT will reboot when it runs out of memory.
+
+    Virtual linecards do not reboot with their supervisor. Restore them in teardown
+    to repopulate the supervisor's CHASSIS_APP_DB before subsequent disruptive tests.
     """
     def wait_lc_healthy_if_sup(self, duthost, duthosts, localhost):
         # For sup, we also need to ensure linecards are back and healthy for following tests
@@ -45,6 +50,11 @@ class TestMemoryExhaustion:
             # Wait until all critical processes are healthy.
             wait_critical_processes(duthost)
             self.wait_lc_healthy_if_sup(duthost, duthosts, localhost)
+
+        if (is_vs_device(duthost) and duthost.get_facts().get("modular_chassis")
+                and duthost.is_supervisor_node()):
+            logging.info("Restoring virtual linecards after supervisor memory exhaustion")
+            recover_chassis(duthosts.frontend_nodes)
 
     def test_memory_exhaustion(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
