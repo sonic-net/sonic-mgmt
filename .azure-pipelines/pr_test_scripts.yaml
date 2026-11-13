@@ -812,7 +812,12 @@ t0-vpp:
   - everflow/test_everflow_ipv6.py
   - everflow/test_everflow_per_interface.py
   - everflow/test_everflow_testbed.py
+  - fdb/test_fdb.py
+  - fdb/test_fdb_churn.py
   - fdb/test_fdb_flush.py
+  - fdb/test_fdb_mac_expire.py
+  - fdb/test_fdb_mac_learning.py
+  - fdb/test_fdb_mac_move.py
   - fib/test_fib.py
   - fips/test_fips.py
   - generic_config_updater/test_aaa.py
@@ -1060,6 +1065,12 @@ dualtor-aa-vpp:
   - dualtor_mgmt/test_grpc_periodical_sync.py
   - dualtor_mgmt/test_ingress_drop.py
   - dualtor_mgmt/test_server_failure.py
+  - fdb/test_fdb.py
+  - fdb/test_fdb_churn.py
+  - fdb/test_fdb_flush.py
+  - fdb/test_fdb_mac_expire.py
+  - fdb/test_fdb_mac_learning.py
+  - fdb/test_fdb_mac_move.py
 
 dualtor-vpp:
   - arp/test_arp_dualtor.py
