@@ -6,6 +6,7 @@
         "primary_ckn": "6162636465666768696A6B6C6D6E6F707172737475767778797A303132333435",
         "policy": "security",
         "send_sci": "true",
+        "replay_protect": "false",
         "rekey_period": 240
     },
     "snappi": {
