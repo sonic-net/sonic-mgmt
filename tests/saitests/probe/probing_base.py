@@ -182,9 +182,9 @@ class ProbingBase(sai_base_test.ThriftInterfaceDataPlane):
         3. Setup traffic streams (subclass)
         4. Initialize BufferOccupancyController
         5. Execute probing logic (subclass)
+        6. Restore TX on held ports, including on probing or validation failure
 
-        Note: Buffer hold/drain is managed by executor.prepare() in each algorithm phase,
-              not by this base class.
+        Note: Per-phase buffer hold/drain is managed by executor.prepare().
 
         Subclasses should NOT override this method.
         Instead, implement get_probe_config(), setup_traffic(), probe().
@@ -215,7 +215,10 @@ class ProbingBase(sai_base_test.ThriftInterfaceDataPlane):
         # Step 5: Execute probing logic (abstract method)
         # Note: Buffer hold/drain is managed by executor.prepare() in each algorithm phase
         # Step 6: Assert result against expected value (if provided)
-        self.assert_probing_result(self.probe(), self.get_expected_threshold())
+        try:
+            self.assert_probing_result(self.probe(), self.get_expected_threshold())
+        finally:
+            self.buffer_ctrl.drain_all_buffers()
 
     #
     # Abstract Methods - Must be implemented by subclasses
