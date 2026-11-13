@@ -1102,7 +1102,12 @@ def check_neighbors_are_gone(duthosts, all_cfg_facts, per_host, asic, neighbors)
 
     asicdb_neigh_table = asicdb.dump_neighbor_table()
     app_neigh_table = appdb.dump_neighbor_table()
-    voqdb = VoqDbCli(duthosts.supervisor_nodes[0])
+    if len(duthosts) == 1:
+        voqdb = VoqDbCli(duthosts.frontend_nodes[0])
+    elif len(duthosts) > 1:
+        voqdb = VoqDbCli(duthosts.supervisor_nodes[0])
+    else:
+        raise RuntimeError("Length of duthosts is:{}".format(len(duthosts)))
     voq_dump = voqdb.dump_neighbor_table()
 
     for neighbor in neighbors:
