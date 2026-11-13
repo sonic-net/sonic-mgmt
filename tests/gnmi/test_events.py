@@ -7,6 +7,7 @@ import pytest
 from tests.common.dualtor.mux_simulator_control import (  # noqa: F401
     toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_host_m,
 )
+from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.gnmi.events.event_utils import (
     event_publish_tool,
     read_event_counters,
@@ -18,9 +19,7 @@ from tests.gnmi.events.event_utils import (
 pytestmark = [
     pytest.mark.topology("any"),
     pytest.mark.disable_loganalyzer,
-    pytest.mark.usefixtures(
-        "setup_gnmi_ntp_client_server", "setup_gnmi_server", "setup_gnmi_rotated_server", "check_dut_timestamp"
-    ),
+    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "gnmi_tls", "check_dut_timestamp"),
 ]
 
 EVENTS_TESTS_PATH = "./gnmi/events"
@@ -49,7 +48,6 @@ def test_events(
     rand_one_dut_hostname,
     ptfhost,
     ptfadapter,
-    gnxi_path,
     test_eventd_healthy,
     toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_host_m,  # noqa: F811
     setup_standby_ports_on_non_enum_rand_one_per_hwsku_host_m,
@@ -64,7 +62,7 @@ def test_events(
         if file.endswith("_events.py") and not file.endswith("eventd_events.py"):
             module = __import__(file[: len(file) - 3])
             try:
-                module.test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, DATA_DIR, validate_yang)
+                module.test_event(duthost, tbinfo, test_eventd_healthy, ptfhost, ptfadapter, DATA_DIR, validate_yang)
             except pytest.skip.Exception as e:
                 logger.info("Skipping test file: {} due to {}".format(file, e))
                 continue

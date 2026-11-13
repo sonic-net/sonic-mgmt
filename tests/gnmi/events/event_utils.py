@@ -8,7 +8,6 @@ import ptf.testutils as testutils
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -29,14 +28,18 @@ def listen_for_events(
 ):
     """Subscribe to the EVENTS target on the gnmi container and write matched events to op_file.
 
-    Uses the GNMI_MODE environment and the gnmi client certs.
+    Uses the managed TLS fixture's endpoint and PTF certificate paths.
     """
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    ip = duthost.mgmt_ip
-    port = env.gnmi_port
+    tls = gnxi_path
+    ip = tls.host
+    port = tls.port
     cmd = "/root/env-python3/bin/python /root/gnxi/gnmi_cli_py/py_gnmicli.py "
     cmd += "-t %s -p %u " % (ip, port)
-    cmd += "-rcert /root/gnmiCA.pem -pkey /root/gnmiclient.key -cchain /root/gnmiclient.crt "
+    cmd += "-rcert %s -pkey %s -cchain %s " % (
+        tls.cert_paths.ca_cert,
+        tls.cert_paths.client_key,
+        tls.cert_paths.client_cert,
+    )
     cmd += '-m subscribe -x "all[heartbeat=2]" -xt EVENTS '
     cmd += "--subscribe_mode 0 --submode 1 --interval 0 --update_count %d --create_connections 1 " % update_count
     if filter_event_regex:
