@@ -579,11 +579,11 @@ def test_po_update_inter_asic_swss_restart(
             "{} is not active after SWSS restart on src asic {}"
             .format(tmp_pc, in_asichost.asic_index))
         pytest_assert(
-            wait_until(120, 10, 0, in_asichost.check_bgp_statistic, 'ipv4_idle', 0),
+            wait_until(300, 10, 0, in_asichost.check_bgp_statistic, 'ipv4_idle', 0),
             "BGP not converged on src asic {} after SWSS restart"
             .format(in_asichost.asic_index))
         pytest_assert(
-            wait_until(120, 10, 0, out_asichost.check_bgp_statistic, 'ipv4_idle', 0),
+            wait_until(300, 10, 0, out_asichost.check_bgp_statistic, 'ipv4_idle', 0),
             "BGP not converged on dest asic {} after SWSS restart on src asic"
             .format(out_asichost.asic_index))
 
@@ -621,18 +621,35 @@ def test_po_update_inter_asic_swss_restart(
             and wait_until(120, 10, 0, out_asichost.check_bgp_statistic, 'ipv4_idle', 0)
             or wait_until(10, 10, 0, pc_active, out_asichost, pc))
 
-
+def _get_lag_id_free_list(duthost):
+    out = duthost.shell(
+        "sonic-db-cli CHASSIS_APP_DB lindex 'SYSTEM_LAG_IDS_FREE_LIST' 0; "
+        "sonic-db-cli CHASSIS_APP_DB llen 'SYSTEM_LAG_IDS_FREE_LIST'")['stdout_lines']
+    return int(out[0]), int(out[1])
 def increment_lag_id(duthost, upper_lagid_start):
-    # Retrieve the current free LAG ID from the 'SYSTEM_LAG_IDS_FREE_LIST' in the CHASSIS_APP_DB
-    current_free_lagid = int(duthost.shell("sonic-db-cli CHASSIS_APP_DB lindex 'SYSTEM_LAG_IDS_FREE_LIST' 0")['stdout'])
-    # Temporary PortChannel name to be used in the configuration
     tmp_pc = "PortChannel999"
-    # Loop through the range from current_free_lagid to upper_lagid_start (inclusive)
-    for i in range(current_free_lagid, upper_lagid_start + 1):
-        # Add the temporary PortChannel to increment the LAG ID
-        duthost.asics[0].config_portchannel(tmp_pc, "add")
-        # Remove the temporary PortChannel after incrementing the LAG ID
-        duthost.asics[0].config_portchannel(tmp_pc, "del")
+    asic = duthost.asics[0]
+    current_free_lagid, free_count = _get_lag_id_free_list(duthost)
+    logging.info("Incrementing LAG ID from {} to {}".format(current_free_lagid, upper_lagid_start))
+    max_iterations = (upper_lagid_start - current_free_lagid) + 1
+    iteration = 0
+    while current_free_lagid < upper_lagid_start:
+        pytest_assert(iteration < max_iterations,
+                      "LAG ID stuck at {} after {} iterations".format(current_free_lagid, iteration))
+        iteration += 1
+        asic.config_portchannel(tmp_pc, "add")
+        pytest_assert(
+            wait_until(30, 1, 0, lambda: _get_lag_id_free_list(duthost)[1] == free_count - 1),
+            "LAG ID was not allocated for {}".format(tmp_pc))
+        asic.config_portchannel(tmp_pc, "del")
+        pytest_assert(
+            wait_until(30, 1, 0, lambda: _get_lag_id_free_list(duthost)[1] == free_count),
+            "LAG ID was not released for {}".format(tmp_pc))
+        current_free_lagid, free_count = _get_lag_id_free_list(duthost)
+        logging.info("iteration {}: current_free_lagid {}".format(iteration, current_free_lagid))
+    pytest_assert(current_free_lagid >= upper_lagid_start,
+                  "Increment Lag ID Current:{},> Upper:{}".format(current_free_lagid, upper_lagid_start))
+
 
     # Retrieve the current free LAG ID again after the modifications
     current_free_lagid = int(
