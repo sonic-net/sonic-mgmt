@@ -302,6 +302,19 @@ class TestBMCApi(PlatformApiTestBase):
             pytest.skip("BMC is not present, skipping BMC platform API tests")
 
     @pytest.fixture(scope="class")
+    def skip_if_sonic_bmc_os(self, duthosts, enum_rand_one_per_hwsku_hostname, skip_if_no_bmc):
+        """Skip the Redfish-only cases when the BMC runs SONiC BMC.
+
+        There the switch host talks to the BMC over Redis, which carries the BMC EEPROM
+        data only. The APIs and CLIs below have no Redis counterpart, so the host side
+        rejects them.
+        """
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        if bmc.is_sonic_bmc_os(duthost):
+            pytest.skip(f"Not supported when the BMC OS is '{bmc.BMC_OS_SONIC}': the switch host reaches the BMC "
+                        "over Redis, and this API/CLI is available over Redfish only")
+
+    @pytest.fixture(scope="class")
     def bmc_fw_pkg(self, fw_pkg_name, skip_if_no_bmc):
         """Load BMC firmware package only after BMC presence is confirmed."""
         if fw_pkg_name is None:
@@ -523,10 +536,20 @@ class TestBMCApi(PlatformApiTestBase):
         pytest_assert(serial is not None, "Unable to retrieve BMC serial number")
         pytest_assert(str(serial) in bmc_eeprom_info, f"BMC serial number appears incorrect: {serial}")
 
-    def test_get_revision(self, platform_api_conn):    # noqa: F811
+    def test_get_revision(self, duthosts, enum_rand_one_per_hwsku_hostname,
+                          platform_api_conn):    # noqa: F811
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         revision = bmc.get_revision(platform_api_conn)
         pytest_assert(revision is not None, "Unable to retrieve BMC revision")
-        pytest_assert(revision == 'N/A', f"BMC revision appears incorrect: {revision}")
+        if bmc.is_sonic_bmc_os(duthost):
+            # Over Redis the revision comes from the Label Revision TLV of the BMC EEPROM,
+            # so it has to agree with what get_eeprom() reports for the same BMC.
+            expected_revision = bmc.get_eeprom(duthost).get('Revision', 'N/A')
+        else:
+            # Redfish exposes no revision for the BMC, so the API falls back to 'N/A'.
+            expected_revision = 'N/A'
+        pytest_assert(revision == expected_revision,
+                      f"BMC revision appears incorrect: {revision}, expected: {expected_revision}")
 
     def test_get_status(self, platform_api_conn):    # noqa: F811
         status = bmc.get_status(platform_api_conn)
@@ -556,9 +579,15 @@ class TestBMCApi(PlatformApiTestBase):
         version = bmc.get_version(duthost)
         bmc_summary = duthost.command("sudo show platform bmc summary")["stdout"]
         pytest_assert(version is not None, f"Unable to retrieve BMC version: {version}")
-        pytest_assert(version in bmc_summary, f"BMC version appears incorrect: {version}")
+        if bmc.is_sonic_bmc_os(duthost):
+            # The switch host gets no firmware version over Redis, so the API and the CLI report 'N/A'.
+            pytest_assert(version == 'N/A', f"BMC version appears incorrect: {version}, expected: N/A")
+            pytest_assert("FirmwareVersion: N/A" in bmc_summary,
+                          f"'show platform bmc summary' does not report FirmwareVersion as N/A: {bmc_summary}")
+        else:
+            pytest_assert(version in bmc_summary, f"BMC version appears incorrect: {version}")
 
-    def test_reset_root_password(self, duthosts, enum_rand_one_per_hwsku_hostname, bmc_ip):
+    def test_reset_root_password(self, duthosts, enum_rand_one_per_hwsku_hostname, skip_if_sonic_bmc_os, bmc_ip):
         """
         Test BMC root password reset with platform API
 
@@ -582,7 +611,7 @@ class TestBMCApi(PlatformApiTestBase):
         pytest_assert(res[0] == 0, f"Failed to reset BMC root password {res[1]}")
         self._validate_bmc_login(duthost, bmc_ip, self.bmc_root_password)
 
-    def test_reset_root_password_cli(self, duthosts, enum_rand_one_per_hwsku_hostname, bmc_ip):
+    def test_reset_root_password_cli(self, duthosts, enum_rand_one_per_hwsku_hostname, skip_if_sonic_bmc_os, bmc_ip):
         """
         Test CLI command for reset BMC root password
 
@@ -677,7 +706,7 @@ class TestBMCApi(PlatformApiTestBase):
         finally:
             duthost.command(BMC_RESET_ROOT_PASSWORD_COMMAND)
 
-    def test_bmc_dump(self, duthosts, enum_rand_one_per_hwsku_hostname):
+    def test_bmc_dump(self, duthosts, enum_rand_one_per_hwsku_hostname, skip_if_sonic_bmc_os):
         """
         Test BMC dump with API
 
@@ -696,7 +725,7 @@ class TestBMCApi(PlatformApiTestBase):
         pytest_assert(duthost.command(
             f"ls -l {bmc_dump_path}")["rc"] == 0, f"BMC dump file not found: {bmc_dump_path}")
 
-    def test_bmc_firmware_update(self, duthosts, enum_rand_one_per_hwsku_hostname,
+    def test_bmc_firmware_update(self, duthosts, enum_rand_one_per_hwsku_hostname, skip_if_sonic_bmc_os,
                                  bmc_fw_pkg, bmc_firmware_command_type, backup_platform_file,
                                  bmc_ip, recover_bmc_firmware, request, creds):
         """
@@ -792,7 +821,7 @@ class TestBMCApi(PlatformApiTestBase):
                     ids.add(id_segment)
         return ids
 
-    def test_bmc_session_open_close(self, duthosts, enum_rand_one_per_hwsku_hostname,
+    def test_bmc_session_open_close(self, duthosts, enum_rand_one_per_hwsku_hostname, skip_if_sonic_bmc_os,
                                     bmc_ip, cleanup_bmc_subscriptions):
         """
         Test CLIs commands for open and close BMC session
