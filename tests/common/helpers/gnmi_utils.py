@@ -494,7 +494,7 @@ def dump_gnmi_debug_state(duthost, localhost=None, error: Optional[BaseException
         ]
         # One round trip; ";" so that a failing command doesn't stop the rest.
         script = "; ".join(f"echo '=== {title} ==='; {command} 2>&1" for title, command in commands)
-        res = duthost.shell(script, module_ignore_errors=True)
+        res = duthost.shell(script, module_ignore_errors=True, verbose=False)
         logger.info("gNMI state for DUT %s:\n%s%s", duthost.hostname, res["stdout"], res["stderr"])
         if localhost is not None:
             verify_tcp_port(localhost, duthost.mgmt_ip, env.gnmi_port)

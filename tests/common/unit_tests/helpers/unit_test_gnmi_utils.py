@@ -48,11 +48,13 @@ class FakeDut:
     def __init__(self, fail=False):
         self.fail = fail
         self.commands = []
+        self.verbose = []
 
-    def shell(self, cmd, module_ignore_errors=False):
+    def shell(self, cmd, module_ignore_errors=False, verbose=True):
         if self.fail:
             raise RuntimeError("DUT unreachable")
         self.commands.append(cmd)
+        self.verbose.append(verbose)
         return {"stdout": "", "stderr": ""}
 
 
@@ -62,6 +64,8 @@ def test_dump_marks_error(gu, error):
     gu.dump_gnmi_debug_state(dut, error=error)
     assert gu.gnmi_state_dumped(error)
     assert len(dut.commands) == 1
+    # The shell wrapper would otherwise log the whole dump again at DEBUG.
+    assert dut.verbose == [False]
     assert "=== GNMI process ===" in dut.commands[0]
     assert "cat /root/gnmi.log" in dut.commands[0]
 
