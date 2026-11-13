@@ -175,6 +175,66 @@ def skip_lossy_buffer_only(is_lossy_only_pool):
         pytest.skip("Skip test for lossy only pool")
 
 
+# Parameter set -> nodeid of the seed test whose shared fixture failed.
+# Per xdist worker, so it only helps when the seed and its tests share a worker.
+_qos_sai_fixture_failures = {}
+
+
+def pytest_sessionstart(session):
+    """Clear failures left over from a previous session on a reused xdist worker."""
+    _qos_sai_fixture_failures.clear()
+
+
+def _is_qos_sai_item(item):
+    return bool(getattr(item, 'cls', None)) and item.cls.__name__ == 'TestQosSai'
+
+
+def _qos_sai_param_set(item):
+    """Return the select_src_dst_dut_and_asic parameter set for a TestQosSai item, or 'default'."""
+    callspec = getattr(item, 'callspec', None)
+    if callspec and 'select_src_dst_dut_and_asic' in callspec.params:
+        return callspec.params['select_src_dst_dut_and_asic']
+    return 'default'
+
+
+def _qos_sai_shared_fixture_failed(item):
+    """Return True if a class/module/session fixture of item failed in setup."""
+    # Only these failures cascade: pytest caches them and re-raises them for every later test.
+    for fixturedefs in item._fixtureinfo.name2fixturedefs.values():
+        fixturedef = fixturedefs[-1]
+        cached = fixturedef.cached_result
+        if fixturedef.scope != "function" and cached is not None and cached[2] is not None:
+            return True
+    return False
+
+
+def pytest_runtest_makereport(item, call):
+    """Record a shared-fixture failure on the seed test for its parameter set."""
+    if not _is_qos_sai_item(item) or 'fixture_seed' not in item.keywords:
+        return
+    if call.when != "setup" or call.excinfo is None:
+        return
+    # A skip or xfail in setup is intentional, not a failure.
+    if call.excinfo.errisinstance((pytest.skip.Exception, pytest.xfail.Exception)):
+        return
+    if _qos_sai_shared_fixture_failed(item):
+        _qos_sai_fixture_failures[_qos_sai_param_set(item)] = item.nodeid
+
+
+def pytest_runtest_setup(item):
+    """xfail TestQosSai tests whose parameter set already has a recorded seed failure."""
+    if not _is_qos_sai_item(item):
+        return
+
+    # Seed tests must fail naturally so the root cause surfaces as an ERROR.
+    if 'fixture_seed' in item.keywords:
+        return
+
+    seed = _qos_sai_fixture_failures.get(_qos_sai_param_set(item))
+    if seed:
+        pytest.xfail(f"seed fixture failed for this parameter set; see {seed}")
+
+
 @pytest.fixture(scope="module", autouse=True)
 def enable_dscp_remapping_on_dualtor_flag(request, duthost):
     """
