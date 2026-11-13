@@ -94,7 +94,8 @@ def test_voq_fabric_isolation_status(duthosts, enum_frontend_dut_hostname):
 
 
 def check_skip_poll(host, asicName, port, skip_poll):
-    cmd = "sonic-db-cli -s {} STATE_DB hget 'FABRIC_PORT_TABLE|PORT{}' 'SKIP_CRC_ERR_ON_LNKUP_CNT'".format(asicName, port)
+    cmd = "sonic-db-cli -s {} STATE_DB hget 'FABRIC_PORT_TABLE|PORT{}' 'SKIP_CRC_ERR_ON_LNKUP_CNT'".format(
+        asicName, port)
     cmd_output = host.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
     num_poll = cmd_output[0]
     if num_poll == skip_poll:

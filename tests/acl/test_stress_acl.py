@@ -333,7 +333,8 @@ def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_
                              acl_rule_list, 0, "drop", dst_ip_addr=dst_ip_addr)
 
             del_rule_id = random.choice(acl_rule_list)
-            rand_selected_dut.shell('sonic-db-cli -s --authenticate CONFIG_DB del "ACL_RULE|STRESS_ACL| RULE_{}"'.format(del_rule_id))
+            rand_selected_dut.shell(
+                'sonic-db-cli -s --authenticate CONFIG_DB del "ACL_RULE|STRESS_ACL| RULE_{}"'.format(del_rule_id))
             acl_rule_list.remove(del_rule_id)
 
             wait_until(wait_timeout, 2, 0, acl_rule_loaded, rand_selected_dut, acl_rule_list)

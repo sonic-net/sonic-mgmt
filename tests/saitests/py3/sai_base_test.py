@@ -274,9 +274,11 @@ class ThriftInterface(BaseTest):
                 scheduler_name = self.original_dut_port_queue_scheduler_map[dut_port][q] if \
                     self.original_dut_port_queue_scheduler_map else DEFAULT_QUEUE_SCHEDULER_CONFIG[q]
                 cmd_set_q_scheduler = (
-                    f" sudo -n sonic-db-cli -s --authenticate CONFIG_DB hset 'QUEUE|{dut_port}|{q}' scheduler {scheduler_name}"
+                    (f" sudo -n sonic-db-cli -s --authenticate CONFIG_DB hset "
+                     f"'QUEUE|{dut_port}|{q}' scheduler {scheduler_name}")
                 )
-                cmd_del_q_scheduler = f" sudo -n sonic-db-cli -s --authenticate CONFIG_DB hdel 'QUEUE|{dut_port}|{q}' scheduler "
+                cmd_del_q_scheduler = (f" sudo -n sonic-db-cli -s --authenticate CONFIG_DB hdel "
+                                       f"'QUEUE|{dut_port}|{q}' scheduler ")
                 cmd_recover_q_scheduler_config = cmd_set_q_scheduler if scheduler_name else cmd_del_q_scheduler
                 self.exec_cmd_on_dut(
                     self.server, self.test_params['dut_username'],

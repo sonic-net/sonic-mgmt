@@ -857,7 +857,8 @@ def test_backend_error_messages(rand_selected_dut, reload, global_hash_capabilit
          },
         {'info': 'Update the ecmp hash algorithm with an invalid value via redis cli and check if there '
                  'is an error in the log.',
-         'command': "sonic-db-cli -s --authenticate CONFIG_DB HSET 'SWITCH_HASH|GLOBAL' 'ecmp_hash_algorithm' 'INVALID_FIELD'",
+         'command': ("sonic-db-cli -s --authenticate CONFIG_DB HSET "
+                     "'SWITCH_HASH|GLOBAL' 'ecmp_hash_algorithm' 'INVALID_FIELD'"),
          'expected_regex': [
              'ERR swss#orchagent:.*parseSwHashAlgorithm: Failed to parse field\\(ecmp_hash_algorithm\\): '
              'invalid value\\(INVALID_FIELD\\).*']
@@ -865,7 +866,8 @@ def test_backend_error_messages(rand_selected_dut, reload, global_hash_capabilit
          },
         {'info': 'Update the lag hash algorithm with an invalid value via redis cli and check if there '
                  'is an error in the log.',
-         'command': "sonic-db-cli -s --authenticate CONFIG_DB HSET 'SWITCH_HASH|GLOBAL' 'lag_hash_algorithm' 'INVALID_FIELD'",
+         'command': ("sonic-db-cli -s --authenticate CONFIG_DB HSET "
+                     "'SWITCH_HASH|GLOBAL' 'lag_hash_algorithm' 'INVALID_FIELD'"),
          'expected_regex': [
              'ERR swss#orchagent:.*parseSwHashAlgorithm: Failed to parse field\\(lag_hash_algorithm\\): '
              'invalid value\\(INVALID_FIELD\\).*']

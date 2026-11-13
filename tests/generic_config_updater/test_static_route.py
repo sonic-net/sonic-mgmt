@@ -31,7 +31,7 @@ def setup_and_cleanup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
     else:
         sonic_db_cli = "sonic-db-cli -s"
     # add a static route to create the STATIC_ROUTE table
-    duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb::/32\
+    duthost.command(sonic_db_cli + " --authenticate CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb::/32\
         nexthop 'fc00::1' ifname 'Ethernet0'")
 
     yield

@@ -255,7 +255,8 @@ def get_k8s_table(duthost):
 def k8s_config_cleanup(duthost):
     """ Clean up k8s config to avoid conflict
     """
-    cmds = 'sonic-db-cli -s CONFIG_DB keys "KUBERNETES_MASTER|*" | xargs -r sonic-db-cli -s --authenticate CONFIG_DB del'
+    cmds = ('sonic-db-cli -s CONFIG_DB keys "KUBERNETES_MASTER|*" | xargs -r '
+            'sonic-db-cli -s --authenticate CONFIG_DB del')
     output = duthost.shell(cmds)
     pytest_assert(not output['rc'], "k8s config cleanup failed.")
 

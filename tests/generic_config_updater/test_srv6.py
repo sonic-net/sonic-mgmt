@@ -29,10 +29,13 @@ def setup_and_cleanup(duthosts, rand_one_dut_hostname, enum_frontend_asic_index)
     else:
         sonic_db_cli = "sonic-db-cli -s"
     # add a locator configuration entry
-    duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_LOCATORS\\|loc1 prefix fcbb:bbbb:1:: func_len 0")
+    duthost.command(
+        sonic_db_cli +
+        " --authenticate CONFIG_DB HSET SRV6_MY_LOCATORS\\|loc1 prefix fcbb:bbbb:1:: func_len 0")
     # add a uN sid configuration entry
     duthost.command(sonic_db_cli +
-                    " CONFIG_DB HSET SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48 action uN decap_dscp_mode pipe")
+                    " --authenticate CONFIG_DB HSET "
+                    "SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48 action uN decap_dscp_mode pipe")
 
     yield
 

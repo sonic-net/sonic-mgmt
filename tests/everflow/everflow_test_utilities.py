@@ -1208,7 +1208,7 @@ class BaseEverflowTest(object):
         for namespace in duthost.get_frontend_asic_namespace_list():
             if config_method == CONFIG_MODE_CLI:
                 sonic_db_cmd = "sonic-db-cli -s {}".format("-n " + namespace if namespace else "")
-                command = ("{} CONFIG_DB hmset \"POLICER|{}\" "
+                command = ("{} --authenticate CONFIG_DB hmset \"POLICER|{}\" "
                            "meter_type packets mode sr_tcm cir {} cbs {} "
                            "red_packet_action drop").format(sonic_db_cmd, policer_name, rate_limit, rate_limit)
             elif config_method == CONFIG_MODE_CONFIGLET:
@@ -1219,7 +1219,7 @@ class BaseEverflowTest(object):
         for namespace in duthost.get_frontend_asic_namespace_list():
             if config_method == CONFIG_MODE_CLI:
                 sonic_db_cmd = "sonic-db-cli -s {}".format("-n " + namespace if namespace else "")
-                command = "{} CONFIG_DB del \"POLICER|{}\"".format(sonic_db_cmd, policer_name)
+                command = "{} --authenticate CONFIG_DB del \"POLICER|{}\"".format(sonic_db_cmd, policer_name)
             elif config_method == CONFIG_MODE_CONFIGLET:
                 pass
 

@@ -257,7 +257,7 @@ def apply_static_route_config(duthost, unselected_duthost, prefix, nexthop_addrs
     cmd_op = "hmset" if op == "add" else "del"
     cmd_suffix = " nexthop {}".format(",".join(nexthop_addrs)) if op == "add" else ""
 
-    cmd = "sonic-db-cli -s CONFIG_DB {} 'STATIC_ROUTE|{}'{}".format(cmd_op, prefix, cmd_suffix)
+    cmd = "sonic-db-cli -s --authenticate CONFIG_DB {} 'STATIC_ROUTE|{}'{}".format(cmd_op, prefix, cmd_suffix)
 
     duthost.shell(cmd, module_ignore_errors=True)
 

@@ -180,7 +180,8 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     for d in cleanup_duthosts:
         for vlan in mg_facts["minigraph_vlans"]:
             d.shell(
-                'docker exec -i database sonic-db-cli -s --authenticate CONFIG_DB DEL "VXLAN_TUNNEL_MAP|tlVxlan|map%s"' % vlan)
+                ('docker exec -i database sonic-db-cli -s --authenticate CONFIG_DB '
+                 'DEL "VXLAN_TUNNEL_MAP|tlVxlan|map%s"') % vlan)
         d.shell(
             'docker exec -i database sonic-db-cli -s --authenticate CONFIG_DB DEL "VXLAN_TUNNEL|tlVxlan"')
 
@@ -199,7 +200,8 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname):
         for d in target_duthosts:
             for vlan in setup["mg_facts"]["minigraph_vlans"]:
                 d.shell(
-                    'docker exec -i database sonic-db-cli -s --authenticate CONFIG_DB DEL "VXLAN_TUNNEL_MAP|tlVxlan|map%s"' % vlan)
+                    ('docker exec -i database sonic-db-cli -s --authenticate CONFIG_DB '
+                     'DEL "VXLAN_TUNNEL_MAP|tlVxlan|map%s"') % vlan)
             d.shell(
                 'docker exec -i database sonic-db-cli -s --authenticate CONFIG_DB DEL "VXLAN_TUNNEL|tlVxlan"')
         return False, request.param

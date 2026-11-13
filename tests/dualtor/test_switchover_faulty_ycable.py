@@ -102,7 +102,8 @@ def get_tor_mux_probe_state(duthost, mux_port):
 
 def get_tor_mux_cable_info(duthost, mux_port):
     """Get the target ToR mux port info."""
-    return ast.literal_eval(duthost.shell("sonic-db-cli -s STATE_DB hgetall \"MUX_CABLE_INFO|%s\"" % mux_port)["stdout"])
+    return ast.literal_eval(duthost.shell(
+        "sonic-db-cli -s STATE_DB hgetall \"MUX_CABLE_INFO|%s\"" % mux_port)["stdout"])
 
 
 @pytest.fixture(scope="module")

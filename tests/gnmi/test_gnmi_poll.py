@@ -43,9 +43,11 @@ def _modify_fake_appdb_table(duthost, namespace, add=True, entries=1):
         cmd_prefix = "sonic-db-cli -s -n {}".format(namespace)
     for entry in range(entries):
         if add:
-            cmd = cmd_prefix + " APPL_DB hset FAKE_APPL_DB_TABLE_{0}:fake_key{0} dummy{0} val".format(entry)
+            cmd = cmd_prefix + " --authenticate APPL_DB hset FAKE_APPL_DB_TABLE_{0}:fake_key{0} dummy{0} val".format(
+                entry
+            )
         else:
-            cmd = cmd_prefix + " APPL_DB hdel FAKE_APPL_DB_TABLE_{0}:fake_key{0} dummy{0}".format(entry)
+            cmd = cmd_prefix + " --authenticate APPL_DB hdel FAKE_APPL_DB_TABLE_{0}:fake_key{0} dummy{0}".format(entry)
         assert duthost.shell(cmd)["rc"] == 0, "Unable to modify FAKE_APPL_DB_TABLE_{}".format(entry)
 
 

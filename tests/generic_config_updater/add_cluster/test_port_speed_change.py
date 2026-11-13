@@ -312,7 +312,8 @@ def verify_port_speed_in_dbs(duthost, enum_rand_one_frontend_asic_index, cli_nam
     cmd = "sonic-db-cli -s {} CONFIG_DB HGET \"PORT|{}\" \"speed\"".format(cli_namespace_prefix, selected_random_port)
     port_speed_config_db = duthost.shell(cmd, module_ignore_errors=True)['stdout']
 
-    cmd = "sonic-db-cli -s {} APPL_DB HGET \"PORT_TABLE:{}\" \"speed\"".format(cli_namespace_prefix, selected_random_port)
+    cmd = "sonic-db-cli -s {} APPL_DB HGET \"PORT_TABLE:{}\" \"speed\"".format(
+        cli_namespace_prefix, selected_random_port)
     port_speed_appl_db = duthost.shell(cmd, module_ignore_errors=True)['stdout']
 
     cmd = "sonic-db-cli -s {} APPL_DB HGET \"PORT_TABLE:{}\" \"core_port_id\"".format(
@@ -373,7 +374,7 @@ def get_fec_for_speed(duthost, speed):
 
 def get_port_index_in_acl_table(duthost, enum_rand_one_asic_namespace, acl_table, port):
     cmd = "sudo sonic-db-cli -s -n {} CONFIG_DB HGET \"ACL_TABLE|{}\" ports@".format(enum_rand_one_asic_namespace,
-                                                                                  acl_table)
+                                                                                     acl_table)
     output = duthost.shell(cmd, module_ignore_errors=True)['stdout']
     ports_in_acl_table = output.split(',')
     pytest_assert(ports_in_acl_table, f"Failed to get any ports in acl table {acl_table}.")

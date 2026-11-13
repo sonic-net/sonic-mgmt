@@ -41,9 +41,9 @@ def configure_vxlan_global_params(duthost):
         ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=int(prev_vxlan_port), dutmac=prev_vxlan_router_mac)
     else:
         ecmp_utils.configure_vxlan_switch(duthost, dutmac=prev_vxlan_router_mac)
-        duthost.shell("sonic-db-cli -s APPL_DB HDEL 'SWITCH_TABLE:switch' 'vxlan_port'")
+        duthost.shell("sonic-db-cli -s --authenticate APPL_DB HDEL 'SWITCH_TABLE:switch' 'vxlan_port'")
     if not prev_vxlan_router_mac:
-        duthost.shell("sonic-db-cli -s APPL_DB HDEL 'SWITCH_TABLE:switch' 'vxlan_router_mac'")
+        duthost.shell("sonic-db-cli -s --authenticate APPL_DB HDEL 'SWITCH_TABLE:switch' 'vxlan_router_mac'")
 
 
 def are_keys_in_app_db(duthost, table, keys, check_exist="all"):
@@ -137,10 +137,10 @@ def setup(duthost, tbinfo, configure_vxlan_global_params):
         logger.info("Deleting VNETs...")
         vnets = []
         if vnet4:
-            duthost.shell(f"sonic-db-cli -s CONFIG_DB DEL 'VNET|{vnet4}'")
+            duthost.shell(f"sonic-db-cli -s --authenticate CONFIG_DB DEL 'VNET|{vnet4}'")
             vnets.append(vnet4)
         if vnet6:
-            duthost.shell(f"sonic-db-cli -s CONFIG_DB DEL 'VNET|{vnet6}'")
+            duthost.shell(f"sonic-db-cli -s --authenticate CONFIG_DB DEL 'VNET|{vnet6}'")
             vnets.append(vnet6)
         pytest_assert(wait_until(10, 2, 0, are_keys_in_app_db, duthost, "VNET_TABLE", vnets, "none"),
                       "Could not remove VNETS from APP DB.")
@@ -148,10 +148,10 @@ def setup(duthost, tbinfo, configure_vxlan_global_params):
         logger.info("Deleting VxLAN tunnels...")
         tunnels = []
         if tunnel_v4:
-            duthost.shell(f"sonic-db-cli -s CONFIG_DB DEL 'VXLAN_TUNNEL|{tunnel_v4}'")
+            duthost.shell(f"sonic-db-cli -s --authenticate CONFIG_DB DEL 'VXLAN_TUNNEL|{tunnel_v4}'")
             tunnels.append(tunnel_v4)
         if tunnel_v6:
-            duthost.shell(f"sonic-db-cli -s CONFIG_DB DEL 'VXLAN_TUNNEL|{tunnel_v6}'")
+            duthost.shell(f"sonic-db-cli -s --authenticate CONFIG_DB DEL 'VXLAN_TUNNEL|{tunnel_v6}'")
             tunnels.append(tunnel_v6)
         pytest_assert(wait_until(10, 2, 0, are_keys_in_app_db, duthost, "VXLAN_TUNNEL_TABLE", tunnels, "none"),
                       "Could not remove VxLAN tunnels from APP DB.")

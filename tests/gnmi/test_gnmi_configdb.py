@@ -70,7 +70,9 @@ def setup_vrf_configuration(duthosts, rand_one_dut_hostname, vrf_config):
     try:
         if vrf_name == MGMT_VRF_NAME and not mgmt_vrf_enabled:
             duthost.shell("sudo systemctl stop snmpd snmp-subagent", module_ignore_errors=True)
-            duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB hset "MGMT_VRF_CONFIG|vrf_global" "mgmtVrfEnabled" "true"')
+            duthost.shell(
+                'sonic-db-cli -s --authenticate CONFIG_DB hset "MGMT_VRF_CONFIG|vrf_global" "mgmtVrfEnabled" "true"'
+            )
             duthost.shell("sudo systemctl start snmpd snmp-subagent", module_ignore_errors=True)
         if vrf_name is None:
             duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB hdel "GNMI|gnmi" vrf')
@@ -80,12 +82,16 @@ def setup_vrf_configuration(duthosts, rand_one_dut_hostname, vrf_config):
 
     finally:
         if original_vrf_exists:
-            duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB hset "GNMI|gnmi" vrf {}'.format(shlex.quote(original_vrf)))
+            duthost.shell(
+                'sonic-db-cli -s --authenticate CONFIG_DB hset "GNMI|gnmi" vrf {}'.format(shlex.quote(original_vrf))
+            )
         else:
             duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB hdel "GNMI|gnmi" vrf')
         if vrf_name == MGMT_VRF_NAME and not mgmt_vrf_enabled:
             duthost.shell("sudo systemctl stop snmpd snmp-subagent", module_ignore_errors=True)
-            duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB hset "MGMT_VRF_CONFIG|vrf_global" "mgmtVrfEnabled" "false"')
+            duthost.shell(
+                'sonic-db-cli -s --authenticate CONFIG_DB hset "MGMT_VRF_CONFIG|vrf_global" "mgmtVrfEnabled" "false"'
+            )
             duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB hdel "MGMT_VRF_CONFIG|vrf_global" "mgmtVrfEnabled"')
             # Tests may save while the management VRF is enabled.
             duthost.shell("sudo config save -y")

@@ -56,9 +56,9 @@ def configure_vxlan_global(duthost):
                                           dutmac=prev_vxlan_router_mac or None)
     else:
         ecmp_utils.configure_vxlan_switch(duthost, dutmac=prev_vxlan_router_mac or None)
-        duthost.shell("sonic-db-cli -s APPL_DB HDEL 'SWITCH_TABLE:switch' 'vxlan_port'")
+        duthost.shell("sonic-db-cli -s --authenticate APPL_DB HDEL 'SWITCH_TABLE:switch' 'vxlan_port'")
     if not prev_vxlan_router_mac:
-        duthost.shell("sonic-db-cli -s APPL_DB HDEL 'SWITCH_TABLE:switch' 'vxlan_router_mac'")
+        duthost.shell("sonic-db-cli -s --authenticate APPL_DB HDEL 'SWITCH_TABLE:switch' 'vxlan_router_mac'")
 
 
 def are_all_vxlan_tunnels_in_app_db(duthost, vxlan_tunnels, check_exist=True):
@@ -166,7 +166,7 @@ def create_vxlan_tunnels(duthost, tbinfo, configure_vxlan_global):  # noqa F811
     yield tunnels
     # Clean-up
     for vxlan_tunnel in tunnels.keys():
-        duthost.shell(f"sonic-db-cli -s CONFIG_DB DEL \"VXLAN_TUNNEL|{vxlan_tunnel}\"")
+        duthost.shell(f"sonic-db-cli -s --authenticate CONFIG_DB DEL \"VXLAN_TUNNEL|{vxlan_tunnel}\"")
     pytest_assert(wait_until(10, 2, 0, are_all_vxlan_tunnels_in_app_db, duthost, tunnels.keys(), False),
                   "VxLAN tunnels are not removed from APP DB.")
 
@@ -205,7 +205,7 @@ def create_vnets(duthost, create_vxlan_tunnels):  # noqa F811
     yield vnets
     # Clean-up
     for vnet in vnets.values():
-        duthost.shell(f"sonic-db-cli -s CONFIG_DB DEL \"VNET|{vnet}\"")
+        duthost.shell(f"sonic-db-cli -s --authenticate CONFIG_DB DEL \"VNET|{vnet}\"")
     pytest_assert(wait_until(10, 2, 0, is_no_vxlan_tunnel_in_asic_db, duthost),
                   "VxLAN tunnels are not removed from ASIC DB.")
 

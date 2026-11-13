@@ -7,7 +7,6 @@ import logging
 from socket import IPPROTO_GRE, IPPROTO_TCP
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
 from tests.common.helpers.sonic_db import redis_cli_command
 
 logger = logging.getLogger(__name__)

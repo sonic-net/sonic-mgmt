@@ -80,7 +80,7 @@ def setup_env(duthosts, rand_one_dut_front_end_hostname, cli_namespace_prefix):
 def bgp_prefix_test_setup(duthost, cli_namespace_prefix):
     """ Clean up bgp prefix config before test
     """
-    cmds = 'sonic-db-cli -s {} CONFIG_DB del "BGP_ALLOWED_PREFIXES|*"'.format(cli_namespace_prefix)
+    cmds = 'sonic-db-cli -s --authenticate {} CONFIG_DB del "BGP_ALLOWED_PREFIXES|*"'.format(cli_namespace_prefix)
     output = duthost.shell(cmds)
     pytest_assert(not output['rc'], "bgp prefix test setup failed.")
 

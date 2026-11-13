@@ -221,7 +221,9 @@ def stop_container(duthost, tbinfo):
     time.sleep(30)  # Wait 30 seconds for container_checker to fire event
 
     if output:
-        duthost.shell('sonic-db-cli -s --authenticate STATE_DB hset "FEATURE|{}" "container_id" {}'.format(container, output))
+        duthost.shell(
+            'sonic-db-cli -s --authenticate STATE_DB hset "FEATURE|{}" "container_id" {}'.format(container, output)
+        )
 
     duthost.shell("config feature autorestart {} enabled".format(container))
     duthost.shell("systemctl restart {}".format(container))

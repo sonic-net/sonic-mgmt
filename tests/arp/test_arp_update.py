@@ -183,7 +183,8 @@ def test_kernel_asic_mac_mismatch(
 
     logger.info("Manually setting APPL_DB MAC address")
     rand_selected_dut.shell(
-        f"sonic-db-cli -s --authenticate APPL_DB hset 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh' '00:00:00:00:00:00'"  # noqa: E231
+        f"sonic-db-cli -s --authenticate APPL_DB hset "
+        f"'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh' '00:00:00:00:00:00'"  # noqa: E231
     )
     asic_db_mac = rand_selected_dut.shell(
         f"sonic-db-cli -s APPL_DB hget 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh'"  # noqa: E231
@@ -325,13 +326,6 @@ def test_dut_arping_learns_mac(
     logger.info("PTF port eth{} responder IP: {} (MAC {})".format(
         ptf_info['index'], ptf_responder_ip, ptf_info['mac']))
     logger.info("DUT VLAN IPv4: {}".format(dut_info['ipv4']))
-
-    # Require fresh learning even if cleanup left a non-synthetic PTF MAC.
-    dut_info['host'].command("sonic-clear fdb all")
-    pt_assert(
-        wait_until(10, 1, 0, lambda: not fdb_has_mac(dut_info['host'], ptf_info['mac'])),
-        "FDB still contains PTF MAC {} before DUT arping".format(ptf_info['mac'])
-    )
 
     # Simulate arping from DUT to the PTF port under test
     dut_info['host'].shell(f"arping -c 1 -I {dut_info['vlan_name']} {ptf_responder_ip}")

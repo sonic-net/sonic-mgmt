@@ -51,7 +51,7 @@ class BFDNotifier:
             "Up":          "SAI_BFD_SESSION_STATE_UP"
         }
 
-        asic_db = swsscommon.DBConnector("ASIC_DB", 0, False)
+        asic_db = swsscommon.DBConnector("ASIC_DB", 0, False, "", True)
         ntf = swsscommon.NotificationProducer(asic_db, "NOTIFICATIONS")
         fvp = swsscommon.FieldValuePairs()
         for bfd_id in bfd_ids:

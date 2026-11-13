@@ -83,7 +83,8 @@ def config_setup(request, rand_selected_dut, srv6_crm_total_sids, upstream_links
         ipv6_intf_info = rand_selected_dut.show_and_parse('show ipv6 interface')
         ifname, nexthop = get_random_uplink_port(rand_selected_dut, upstream_links, ipv6_intf_info)
         logger.info(f"Selected uplink interface and nexthop: {ifname}, nexthop: {nexthop}")
-        rand_selected_dut.command(f"sonic-db-cli -s --authenticate CONFIG_DB HSET STATIC_ROUTE\\|default\\|{ROUTE_BASE}::/16 "
+        rand_selected_dut.command(f"sonic-db-cli -s --authenticate CONFIG_DB HSET "
+                                  f"STATIC_ROUTE\\|default\\|{ROUTE_BASE}::/16 "
                                   f"nexthop {nexthop} ifname {ifname}")
 
     with allure.step('Enable SRv6 counterpoll'):
@@ -134,7 +135,8 @@ def config_setup(request, rand_selected_dut, srv6_crm_total_sids, upstream_links
         wait_until(10, 1, 0, verify_srv6_crm_status, rand_selected_dut, used_mysid_num, available_mysid_num)
 
     with allure.step('Delete static route for SRv6'):
-        rand_selected_dut.command(f"sonic-db-cli -s --authenticate CONFIG_DB DEL STATIC_ROUTE\\|default\\|{ROUTE_BASE}::/16")
+        rand_selected_dut.command(
+            f"sonic-db-cli -s --authenticate CONFIG_DB DEL STATIC_ROUTE\\|default\\|{ROUTE_BASE}::/16")
 
     rand_selected_dut.shell('sudo config save -y')
 
@@ -183,19 +185,26 @@ def setup_uN(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbi
     sonic_db_cli = "sonic-db-cli -s" + cli_options
 
     # add a locator configuration entry
-    duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_LOCATORS\\|loc1 prefix fcbb:bbbb:1:: func_len 0")
+    duthost.command(
+        sonic_db_cli +
+        " --authenticate CONFIG_DB HSET SRV6_MY_LOCATORS\\|loc1 prefix fcbb:bbbb:1:: func_len 0")
     # add a uN sid configuration entry
     duthost.command(sonic_db_cli +
-                    " CONFIG_DB HSET SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48 action uN decap_dscp_mode pipe")
+                    " --authenticate CONFIG_DB HSET "
+                    "SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48 action uN decap_dscp_mode pipe")
     random.seed(time.time())
     # add the static route for IPv6 forwarding towards PTF's uSID and the blackhole route in a random order
     if random.randint(0, 1) == 0:
-        duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48 nexthop {} ifname {}"
+        duthost.command(sonic_db_cli + " --authenticate CONFIG_DB HSET "
+                                       "STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48 nexthop {} ifname {}"
                         .format(neighbor_ip, dut_port))
-        duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb::/32 blackhole true")
+        duthost.command(
+            sonic_db_cli + " --authenticate CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb::/32 blackhole true")
     else:
-        duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb::/32 blackhole true")
-        duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48 nexthop {} ifname {}"
+        duthost.command(
+            sonic_db_cli + " --authenticate CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb::/32 blackhole true")
+        duthost.command(sonic_db_cli + " --authenticate CONFIG_DB HSET "
+                                       "STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48 nexthop {} ifname {}"
                         .format(neighbor_ip, dut_port))
     duthost.command("config save -y")
     # Verify that the ASIC DB has the SRv6 SID entries
@@ -216,10 +225,10 @@ def setup_uN(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbi
     yield setup_info
 
     # delete the SRv6 configuration
-    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_LOCATORS\\|loc1")
-    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48")
-    duthost.command(sonic_db_cli + " CONFIG_DB DEL STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48")
-    duthost.command(sonic_db_cli + " CONFIG_DB DEL STATIC_ROUTE\\|default\\|fcbb:bbbb::/32")
+    duthost.command(sonic_db_cli + " --authenticate CONFIG_DB DEL SRV6_MY_LOCATORS\\|loc1")
+    duthost.command(sonic_db_cli + " --authenticate CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48")
+    duthost.command(sonic_db_cli + " --authenticate CONFIG_DB DEL STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48")
+    duthost.command(sonic_db_cli + " --authenticate CONFIG_DB DEL STATIC_ROUTE\\|default\\|fcbb:bbbb::/32")
     duthost.command("config save -y")
 
 

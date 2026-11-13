@@ -23,11 +23,14 @@ def test_uN_config(duthosts, enum_frontend_dut_hostname, enum_rand_one_asic_inde
     vtysh_shell = "vtysh" + cli_options
 
     # add a locator configuration entry
-    duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_LOCATORS\\|loc1 prefix fcbb:bbbb:1:: func_len 0")
+    duthost.command(
+        sonic_db_cli +
+        " --authenticate CONFIG_DB HSET SRV6_MY_LOCATORS\\|loc1 prefix fcbb:bbbb:1:: func_len 0")
     time.sleep(WAIT_TIME)
     # add a uN sid configuration entry
     duthost.command(sonic_db_cli +
-                    " CONFIG_DB HSET SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48 action uN decap_dscp_mode pipe")
+                    " --authenticate CONFIG_DB HSET "
+                    "SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48 action uN decap_dscp_mode pipe")
     time.sleep(WAIT_TIME)
 
     frr_config = duthost.command(vtysh_shell + " -c \"show running-config\"")["stdout"]
@@ -44,9 +47,9 @@ def test_uN_config(duthosts, enum_frontend_dut_hostname, enum_rand_one_asic_inde
         "SID entry in APPL_DB was not programmed correctly"
 
     # delete the configurations
-    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48")
+    duthost.command(sonic_db_cli + " --authenticate CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48")
     time.sleep(WAIT_TIME)
-    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_LOCATORS\\|loc1")
+    duthost.command(sonic_db_cli + " --authenticate CONFIG_DB DEL SRV6_MY_LOCATORS\\|loc1")
     time.sleep(WAIT_TIME)
 
     frr_config = duthost.command(vtysh_shell + " -c \"show running-config\"")["stdout"]
@@ -81,9 +84,9 @@ def test_uDT46_config(duthosts, enum_frontend_dut_hostname, enum_rand_one_asic_i
     time.sleep(WAIT_TIME)
 
     # add a locator configuration entry
-    duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_LOCATORS\\|loc1 prefix fcbb:bbbb:1::")
+    duthost.command(sonic_db_cli + " --authenticate CONFIG_DB HSET SRV6_MY_LOCATORS\\|loc1 prefix fcbb:bbbb:1::")
     # add a uDT46 sid configuration entry
-    duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1:2::/64 \
+    duthost.command(sonic_db_cli + " --authenticate CONFIG_DB HSET SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1:2::/64 \
                     action uDT46 decap_vrf Vrf1 decap_dscp_mode uniform")
     time.sleep(WAIT_TIME)
 
@@ -105,9 +108,9 @@ def test_uDT46_config(duthosts, enum_frontend_dut_hostname, enum_rand_one_asic_i
         "SID entry in APPL_DB was not programmed correctly"
 
     # delete the configurations
-    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1:2::/64")
+    duthost.command(sonic_db_cli + " --authenticate CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1:2::/64")
     time.sleep(WAIT_TIME)
-    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_LOCATORS\\|loc1")
+    duthost.command(sonic_db_cli + " --authenticate CONFIG_DB DEL SRV6_MY_LOCATORS\\|loc1")
     time.sleep(WAIT_TIME)
 
     frr_config = duthost.command(vtysh_shell + " -c \"show running-config\"")["stdout"]

@@ -1812,7 +1812,8 @@ def remove_external_portchannels_for_chassis_packet(config_facts,
     for pc_name in config_facts.get("PORTCHANNEL_MEMBER", {}).keys():
         if pc_name in external_portchannels:
             for member in config_facts["PORTCHANNEL_MEMBER"][pc_name].keys():
-                cmd = f"sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB del 'PORTCHANNEL_MEMBER|{pc_name}|{member}'"
+                cmd = (f"sudo sonic-db-cli -s "
+                       f"{cli_namespace_prefix} CONFIG_DB del 'PORTCHANNEL_MEMBER|{pc_name}|{member}'")
                 run_and_check(json_namespace, cmd, f"Deleting external PORTCHANNEL_MEMBER {pc_name}|{member}")
         else:
             logger.info(f"Preserving internal PORTCHANNEL_MEMBER: {pc_name}")
@@ -1929,7 +1930,8 @@ def remove_cluster_via_sonic_db_cli_chassis_packet(config_facts,
                 logger.info(f"Skipping admin down for BP interface: {iface}")
                 continue
             run_and_check(json_namespace,
-                          f"sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB hset 'PORT|{iface}' admin_status down",
+                          (f"sudo sonic-db-cli -s "
+                           f"{cli_namespace_prefix} CONFIG_DB hset 'PORT|{iface}' admin_status down"),
                           f"Set {iface} admin down")
 
         # BUFFER_PG handling: Selective removal (preserving BP interfaces)
@@ -2354,7 +2356,8 @@ def remove_cluster_via_sonic_db_cli(config_facts,
         # PORT
         for iface in active_interfaces:
             run_and_check(json_namespace,
-                          f"sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB hset 'PORT|{iface}' admin_status down",
+                          (f"sudo sonic-db-cli -s "
+                           f"{cli_namespace_prefix} CONFIG_DB hset 'PORT|{iface}' admin_status down"),
                           f"Set {iface} admin down")
         # BUFFER_PG
         cmd = (
