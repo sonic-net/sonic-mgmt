@@ -809,6 +809,7 @@ def test_bgp_stress_link_flap_with_monitor(duthosts, enum_frontend_dut_hostname,
     BGP Monitor sessions allow external systems to receive BGP routing updates.
     Only 'dut' flap type is tested since the goal is to verify BGP Monitor stability
     under interface flaps, not to exhaustively cover all flap types in longevity scope.
+    Monitor reconvergence uses the same 300-second timeout as initial establishment.
     """
     duthost = duthosts[enum_frontend_dut_hostname]
 
@@ -878,10 +879,10 @@ def test_bgp_stress_link_flap_with_monitor(duthosts, enum_frontend_dut_hostname,
         pytest_assert(wait_until(600, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
                       "Not all BGP sessions are established on DUT after test")
 
-        # Verify BGP Monitor sessions are still established
-        pytest_assert(is_bgp_monitor_session_established(duthost, bgp_monitor_ips),
+        # Monitor peers reconnect independently after the regular BGP peers recover.
+        pytest_assert(wait_until(300, 10, 0, is_bgp_monitor_session_established, duthost, bgp_monitor_ips),
                       "BGP Monitor sessions not established after stress test")
-        logger.info("BGP Monitor sessions remain established after stress test")
+        logger.info("BGP Monitor sessions established after stress test")
 
     finally:
         # Cleanup BGP Monitor configuration
@@ -899,6 +900,7 @@ def test_bgp_stress_link_flap_with_sentinel_and_monitor(duthosts, enum_frontend_
     This test verifies that both features work together under stress conditions.
     Only 'dut' flap type is tested since the goal is to verify feature stability
     under interface flaps, not to exhaustively cover all flap types in longevity scope.
+    Monitor reconvergence uses the same 300-second timeout as initial establishment.
     """
     duthost = duthosts[enum_frontend_dut_hostname]
 
@@ -973,10 +975,10 @@ def test_bgp_stress_link_flap_with_sentinel_and_monitor(duthosts, enum_frontend_
         pytest_assert(wait_until(600, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
                       "Not all BGP sessions are established on DUT after test")
 
-        # Verify BGP Monitor sessions are still established
-        pytest_assert(is_bgp_monitor_session_established(duthost, bgp_monitor_ips),
+        # Monitor peers reconnect independently after the regular BGP peers recover.
+        pytest_assert(wait_until(300, 10, 0, is_bgp_monitor_session_established, duthost, bgp_monitor_ips),
                       "BGP Monitor sessions not established after stress test")
-        logger.info("BGP Monitor sessions remain established after stress test")
+        logger.info("BGP Monitor sessions established after stress test")
 
     finally:
         # Cleanup both BGP Sentinel and Monitor configurations

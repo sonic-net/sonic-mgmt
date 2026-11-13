@@ -1,8 +1,10 @@
-"""Focused tests for converged BGP Monitor backplane selection."""
+"""Focused tests for BGP Monitor backplane selection and stress recovery."""
 
 from pathlib import Path
 import sys
-from unittest.mock import Mock, patch
+from unittest.mock import DEFAULT, Mock, call, patch
+
+import pytest
 
 
 _TESTS_DIR = Path(__file__).resolve().parents[2]
@@ -20,6 +22,7 @@ def _tbinfo(converged=False):
     properties = {
         "configuration_properties": {
             "common": {
+                "dut_asn": 65100,
                 "nhipv4": "10.10.246.254",
                 "nhipv6": "FC0A::FF",
             },
@@ -118,3 +121,63 @@ def test_ordinary_route_commands_remain_unchanged():
         "ip route add fc00:1::32 via fc0a::1d",
         "ping fc00:1::32 -c 3 -I backplane",
     ]
+
+
+@pytest.mark.parametrize("test_function", [
+    bgp_stress.test_bgp_stress_link_flap_with_monitor,
+    bgp_stress.test_bgp_stress_link_flap_with_sentinel_and_monitor,
+])
+@pytest.mark.parametrize("monitor_recovers", [True, False])
+def test_monitor_recovery_waits_after_regular_peers(test_function, monitor_recovers):
+    duthost = Mock(is_multi_asic=False)
+    duthost.setup.return_value = {
+        "ansible_facts": {
+            "ansible_Loopback0": {
+                "ipv4": {"address": "10.1.0.32"},
+                "ipv6": [{"address": "fc00:1::32"}],
+            },
+        },
+    }
+    monitor_ips = ["10.10.246.254", "fc0a::ff"]
+    with patch.multiple(
+        bgp_stress,
+        setup_bgp_sentinel=DEFAULT,
+        add_route_to_dut_lo=DEFAULT,
+        setup_bgp_monitor=DEFAULT,
+        start_exabgp_monitors=DEFAULT,
+        _run_stress_link_flap_test=DEFAULT,
+        is_bgp_monitor_session_established=DEFAULT,
+        cleanup_bgp_sentinel=DEFAULT,
+        cleanup_bgp_monitor=DEFAULT,
+        wait_until=DEFAULT,
+    ) as mocks:
+        mocks["add_route_to_dut_lo"].return_value = ("10.10.246.29", "fc0a::1d")
+        mocks["setup_bgp_monitor"].return_value = monitor_ips
+        mocks["wait_until"].side_effect = [True, True, monitor_recovers]
+        kwargs = {
+            "duthosts": {"dut": duthost},
+            "enum_frontend_dut_hostname": "dut",
+            "setup": {"neighhosts": {"10.0.0.57": {}}},
+            "nbrhosts": {},
+            "fanouthosts": {},
+            "ptfhost": Mock(),
+            "tbinfo": _tbinfo(),
+            "test_type": "dut",
+            "get_function_completeness_level": "debug",
+            "backup_and_restore_config_db": None,
+        }
+        if monitor_recovers:
+            test_function(**kwargs)
+        else:
+            with pytest.raises(pytest.fail.Exception, match="BGP Monitor sessions not established after stress test"):
+                test_function(**kwargs)
+
+        monitor_check = mocks["is_bgp_monitor_session_established"]
+        assert mocks["wait_until"].call_args_list == [
+            call(300, 10, 0, monitor_check, duthost, monitor_ips),
+            call(600, 10, 0, duthost.check_bgp_session_state, ["10.0.0.57"]),
+            call(300, 10, 0, monitor_check, duthost, monitor_ips),
+        ]
+        mocks["cleanup_bgp_monitor"].assert_called_once()
+        if test_function is bgp_stress.test_bgp_stress_link_flap_with_sentinel_and_monitor:
+            mocks["cleanup_bgp_sentinel"].assert_called_once_with(duthost)
