@@ -207,6 +207,46 @@ def test_ordinary_csonic_received_routes_keep_historical_commands():
     ]
 
 
+@pytest.mark.parametrize(
+    'bgp_vrf, ipv6, output, expected_command',
+    [
+        (
+            'VrfARISTA01T0',
+            False,
+            '*> 172.16.10.0/24 10.0.0.32 0 64001 i no-export',
+            'vtysh -c "show bgp vrf VrfARISTA01T0 ipv4 unicast '
+            'community no-export"',
+        ),
+        (
+            'VrfARISTA01T0',
+            True,
+            '*> 2000:172:16:10::/64 fc00::41 0 64001 i no-export',
+            'vtysh -c "show bgp vrf VrfARISTA01T0 ipv6 unicast '
+            'community no-export"',
+        ),
+        (
+            None,
+            False,
+            '*> 172.16.10.0/24 10.0.0.32 0 64001 i no-export',
+            "vtysh -c 'show ip bgp community no-export'",
+        ),
+    ],
+)
+def test_csonic_no_export_query_uses_logical_vrf(
+        bgp_vrf, ipv6, output, expected_command):
+    host = CsonicHost('csonic-prime', bgp_vrf=bgp_vrf)
+    commands = []
+
+    def docker_exec(command, **kwargs):
+        commands.append(command)
+        return {'rc': 0, 'stdout': output}
+
+    host._docker_exec = docker_exec
+
+    assert bgp_helpers.get_no_export_output(host, ipv6=ipv6)
+    assert commands == [expected_command]
+
+
 def test_gr_helper_reports_every_logical_peer_on_shared_csonic_prime():
     peer1 = CsonicHost('csonic-prime', bgp_vrf='VrfARISTA01T2')
     peer2 = CsonicHost('csonic-prime', bgp_vrf='VrfARISTA03T2')
