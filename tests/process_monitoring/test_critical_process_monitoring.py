@@ -22,6 +22,7 @@ from tests.common.helpers.dut_utils import get_program_info
 from tests.common.helpers.dut_utils import get_group_program_info
 from tests.common.helpers.dut_utils import is_container_running
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from tests.common.platform.bmc_utils import get_host_boot_id
 
 logger = logging.getLogger(__name__)
 
@@ -639,6 +640,11 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
 
     # Check if database container is being tested
     is_testing_database = "database" not in skip_containers
+    boot_id_before_recovery = None
+    if is_testing_database and not is_vs_device(duthost):
+        boot_id_before_recovery = get_host_boot_id(duthost)
+        pytest_assert(re.fullmatch(r"[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}", boot_id_before_recovery),
+                      "Could not read a valid DUT boot ID before testing critical processes")
 
     # add log to indicate start of yield
     logger.info("Starting test to monitor critical processes...")
@@ -707,6 +713,25 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
 
         # Wait for SSH to come back up
         wait_for_startup(duthost, localhost, delay=10, timeout=timeout)
+
+        if not is_vs_device(duthost):
+            boot_id_after_recovery = []
+
+            def _get_boot_id_after_recovery():
+                boot_id = get_host_boot_id(duthost)
+                if not re.fullmatch(r"[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}", boot_id):
+                    return False
+                boot_id_after_recovery.append(boot_id)
+                return True
+
+            pytest_assert(wait_until(wait_time, 5, 0, _get_boot_id_after_recovery),
+                          "Could not read a valid DUT boot ID within {} seconds after reboot"
+                          .format(wait_time))
+            boot_id_after_recovery = boot_id_after_recovery[0]
+            if boot_id_after_recovery == boot_id_before_recovery:
+                pytest.fail("Reboot failed for {}: DUT boot ID did not change ({})"
+                            .format(duthost.hostname, boot_id_before_recovery))
+
         logger.info("SSH is up, waiting for critical processes to recover...")
 
         # After a reboot with redis killed, /var/run/redis/sonic-db/database_config.json
