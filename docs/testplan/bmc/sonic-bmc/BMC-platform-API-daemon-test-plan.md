@@ -128,18 +128,25 @@ Tests mark `@pytest.mark.topology('bmc')` to opt into the BMC topology. No new t
 
 ### 4. Platform API Connection
 
-Two new helpers under `tests/common/helpers/platform_api/` mirror the upstream classes and call through the existing `platform_api_conn` fixture:
+Three helpers under `tests/common/helpers/platform_api/` mirror the upstream classes and call through the existing `platform_api_conn` fixture:
 
 | Helper | Upstream class | Endpoint prefix |
 |---|---|---|
 | `liquid_cooling.py` | `LiquidCoolingBase` | `/platform/chassis/liquid_cooling/{name}` |
 | `leak_sensor.py` | `LeakageSensorBase` / `LeakSensorProfileBase` | `/platform/chassis/liquid_cooling/leak_sensor/{index}/{name}` |
+| `leak_sensor_test.py` | `LeakageSensorTestBase` | `/platform/chassis/liquid_cooling/leak_sensor_test/{name}` |
+
+`platform_api_server.py` accepts an optional `kwargs` object in the request body. `set_test_leak()` takes a keyword-only `severity`, sent as the string `MINOR` or `CRITICAL` and converted to `LeakSeverity` by the server.
 
 ### 5. Liquid Cooling Feature Gate
 
 Leak-sensor tests run only on liquid-cooled systems. A module-scoped autouse fixture `skip_if_not_liquid_cooled` probes `Chassis().is_liquid_cooled()` once over SSH and skips the module when `False`. Per-test setup calls `liquid_cooling.get_num_leak_sensors()` over the platform API and skips when the count is 0.
 
-### 6. Test Style Conventions
+### 6. Leak Test API Feature Gate
+
+Leak injection tests use the vendor-independent leak test API (`LeakageSensorTestBase`, reached through `LiquidCoolingBase.get_leak_sensor_test()`). Injected leaks are flagged through `LeakageSensorBase.is_test_leak()` and never trigger a mitigation action. Every test that injects a leak first calls `is_leak_test_supported()` and skips (or falls back to a vendor mocker) when the platform does not support injection, and also skip when a real (non-test) leak is already active, since injection cannot be verified in that state. All injected leaks are withdrawn with `clear_test_leaks()` on teardown.
+
+### 7. Test Style Conventions
 
 - One API call per assertion; no duplicate consecutive reads to "confirm consistency."
 - Identity attributes validated for type/shape (e.g. non-empty string) rather than compared against `platform.json` values.
@@ -253,6 +260,18 @@ This module is also part of the BMC liquid-cooling API scope. It validates the s
 - `test_get_all_leak_sensors`
 
 It complements Test Cases #1-#3 by covering aggregate leak-sensor API behavior on liquid-cooled BMC platforms.
+
+#### Leak Test API Coverage
+
+Skipped when `is_leak_test_supported()` is unavailable or False. All injections are withdrawn on teardown.
+
+**File**: `tests/platform_tests/api/test_thermal_leak_sensor.py`
+- `test_leak_sensor_test_leak` (severity: default, `MINOR`, `CRITICAL`): for each sensor, `set_test_leak(name, True)` returns True; `is_test_leak_enabled()`, `is_leak()` and `is_test_leak()` are True and `get_leak_severity()` is not None; repeated injection is idempotent; `set_test_leak(name, False)` returns True, `is_test_leak_enabled()` and `is_test_leak()` become False and `get_leak_severity()` becomes None; repeated withdrawal is idempotent.
+
+**File**: `tests/platform_tests/api/test_liquid_cooling_leakage.py`
+- `test_is_leak_test_supported`: returns a bool.
+- `test_set_test_leak_unknown_sensor`: `set_test_leak()` and `is_test_leak_enabled()` on an unknown sensor name return False rather than raise.
+- `test_clear_test_leaks`: returns True when nothing is injected; after injecting on every sensor it withdraws all of them.
 
 ---
 
@@ -618,28 +637,23 @@ Verify that an explicitly configured nonzero `power_on_delay` is ignored when th
 
 #### Test Case #19: test_thermalctld_leak_status
 
-**Status**: **Deferred / Not currently supported**
+**Test Objective**:
+Verify leak status tracking and reporting with a leak injected through the leak test platform API. Skipped when the platform does not support leak test injection.
 
-**Reason**: Reliable verification of `SYSTEM_LEAK_STATUS device_leak_status` requires either a real hardware leak (cannot be exercised in the test fleet) or a vendor-specific leak-injection knob (not yet standardised across platforms). Direct STATE_DB injection bypasses thermalctld's own state-machine and would only re-test what the bmcctld and thermalctld event-trigger tests already cover.
-
-This test will be enabled once a generic vendor-agnostic leak-injection mechanism is added to `sonic-platform-common` (tracked separately). Until then the test file contains a `pytest.skip("Not supported until generic leak injection is available")` placeholder so the test ID stays reserved.
-
-**Planned Test Steps (for reference, not executed)**:
-1. Query `SYSTEM_LEAK_STATUS:system device_leak_status` — verify in {MINOR, MAJOR, CRITICAL, None}
-2. For each `LIQUID_COOLING_INFO` sensor:
-   - `leaking` must be `Yes | No | N/A`
-   - `leak_sensor_status` must be `Good | Fault`
-   - `leak_severity` must be `MINOR | CRITICAL` (per-sensor; MAJOR is a system-level aggregate only)
-3. Query each `LEAK_PROFILE` entry — verify `max_minor_duration_sec > 0`
-4. When `device_leak_status = CRITICAL`, assert at least one sensor shows `leak_severity = CRITICAL`
-5. Verify CRITICAL leak propagates to `HOST_STATE:switch-host device_status`
+**Test Steps**:
+1. When `SYSTEM_LEAK_STATUS:system device_leak_status` is already `CRITICAL` from a real leak, verify `HOST_STATE:switch-host device_status` is set and is not `ONLINE` (injected test leaks never trigger mitigation, so this cannot be driven by injection)
+2. Select one sensor whose `max_minor_duration_sec` will not escalate during the test and inject a `MINOR` test leak
+3. Wait for `LIQUID_COOLING_INFO|<sensor>` to show `leaking=Yes`, `leak_severity=MINOR`, `leak_sensor_status=Good`, and `SYSTEM_LEAK_STATUS|system device_leak_status=MINOR` (`MAJOR` is a system-level aggregate only, so `device_leak_status` is validated against `MINOR | MAJOR | CRITICAL | None`)
+4. For each `LIQUID_COOLING_INFO` sensor: `leaking` in `Yes | No | N/A`, `leak_sensor_status` in `Good | Fault`, `leak_severity` in `MINOR | CRITICAL | None` (per-sensor; MAJOR is a system-level aggregate only)
+5. Verify each `LEAK_PROFILE` `max_minor_duration_sec` is non-negative (0 means escalation is unsupported)
+6. `finally`: `clear_test_leaks()` and wait for `device_leak_status` to return to `None`
 
 ---
 
 #### Test Case #20: test_thermalctld_event_trigger
 
 **Test Objective**:
-Inject a leaking sensor state into LIQUID_COOLING_INFO and verify STATE_DB presence and the associated syslog entry.
+Inject a leak through the leak test platform API and verify the STATE_DB entry and the thermalctld syslog entries for the leak and its recovery. Skipped when the platform does not support leak test injection.
 
 **LIQUID_COOLING_INFO schema** (from `LiquidCoolingUpdater._refresh_leak_status`):
 - `leaking` — `Yes | No | N/A`
@@ -651,12 +665,14 @@ Inject a leaking sensor state into LIQUID_COOLING_INFO and verify STATE_DB prese
 - Recovery → `log_notice('...sensor {} recovered from leaking')`
 
 **Test Steps**:
-1. Inject `LIQUID_COOLING_INFO:test_sensor_leaking` with `leaking=Yes, leak_sensor_status=Good`; verify STATE_DB presence and syslog contains `reported leaking`
-2. `finally`: delete injected key
+1. Select one non-escalating sensor and inject a `MINOR` test leak
+2. Verify `LIQUID_COOLING_INFO|<sensor>` shows `leaking=Yes`, `leak_severity=MINOR`, `leak_sensor_status=Good`
+3. Verify syslog contains `reported leaking` for the sensor
+4. `finally`: `clear_test_leaks()`
+5. Verify `device_leak_status` returns to `None` and syslog contains `recovered from leaking` for the sensor
 
 **Expected Result**:
-- The trigger produces STATE_DB evidence or a syslog entry on a liquid-cooled system
-- The injected key is cleaned up regardless of outcome
+- STATE_DB and syslog reflect the injected leak and its recovery
 
 ---
 
@@ -664,14 +680,10 @@ Inject a leaking sensor state into LIQUID_COOLING_INFO and verify STATE_DB prese
 
 **File**: `tests/platform_tests/daemon/test_thermalctld.py`
 
-**Status**: **Deferred / Not currently supported**
-
-**Reason**: Verifying `SYSTEM_LEAK_STATUS|system` aggregation requires flipping `is_leak()` on real sensor objects (a vendor-specific or generic leak-injection mechanism). Direct STATE_DB injection into `LIQUID_COOLING_INFO` cannot drive thermalctld's in-memory aggregator (`self.leaking_sensors`, populated only from hardware polls in `_refresh_leak_status`).
-
-The test file contains a `pytest.skip("Not supported until generic leak injection is available")` placeholder so the test ID stays reserved.
-
-**Test Objective (planned)**:
+**Test Objective**:
 Exercise the §2.1.5 aggregation truth table end-to-end: hardware `is_leak()` → in-memory `self.leaking_sensors` → `LIQUID_COOLING_INFO|<sensor>` (per-sensor row) → `SYSTEM_LEAK_STATUS|system device_leak_status` (aggregated).
+
+Leaks are injected through the leak test platform API (`LeakTestApiInjector`). When the platform does not support it, the test falls back to the vendor mocker (`LiquidLeakageMockerBMC`) and skips if there is none.
 
 **Aggregation truth table**:
 
@@ -694,24 +706,22 @@ skipped); the MAX-T escalation rule is independent of MIN-N and still applies. N
 `CRITICAL_SYSTEM_LEAK` now results only from an actual CRITICAL sensor — a lingering single Minor
 leak escalates to MAJOR, not CRITICAL.
 
-**Planned Test Steps (for reference, not executed)**:
-1. Pre-flight: skip if leak injection is not supported on this platform. Skip if current `device_leak_status` is already `CRITICAL`. For the count-based MAJOR case, resolve MIN-N (from `LEAK_CONTROL_POLICY|system_major_leak_num_min_sensors`, else the platform default); skip that case if MIN-N < 2 (count rule off). The escalation case does not depend on MIN-N.
-2. **Rule 1** — inject a leak on 1 sensor with leak_severity `CRITICAL`; wait ≤2 poll cycles; assert `LIQUID_COOLING_INFO|<s0>.leaking=Yes, leak_sensor_status=Good, leak_severity=CRITICAL` and `SYSTEM_LEAK_STATUS|system.device_leak_status=CRITICAL`. Clear the leak; wait for `device_leak_status` to recover.
-3. **Rule 3 (MAJOR)** — inject a leak on MIN-N sensors, each with leak_severity `MINOR`; wait ≤2 poll cycles; assert every per-sensor row has `leaking=Yes, leak_severity=MINOR` and `SYSTEM_LEAK_STATUS=MAJOR` (aggregation of concurrent Minor leaks, no CRITICAL present). Recover.
-4. **Rule 4 (precedence)** — inject 1 MINOR + 1 CRITICAL sensor; wait ≤2 poll cycles; assert `SYSTEM_LEAK_STATUS=CRITICAL` (a single CRITICAL wins over concurrent Minor leaks). Recover.
-5. **Rule 2 (escalation)** — temporarily set `LEAK_PROFILE|<type>.max_minor_duration_sec=5`; inject a leak on 1 sensor with leak_severity `MINOR`; wait ≤2 poll cycles → assert `SYSTEM_LEAK_STATUS=MINOR`; wait >5s → assert escalates to `SYSTEM_LEAK_STATUS=MAJOR`. Recover; restore profile.
-6. **Rule 5** — with the default `max_minor_duration_sec`, inject a leak on 1 sensor with leak_severity `MINOR`; wait ≤2 poll cycles; assert `SYSTEM_LEAK_STATUS=MINOR` and per-sensor `leak_severity=MINOR`. Recover.
-7. `finally`: clear any injected leaks, restore any modified `LEAK_PROFILE` rows, and verify `device_leak_status` returns to its original value.
+**Test Steps** (parametrized per rule):
+1. Pre-flight: skip if no leak injection mechanism is available. Skip if a real leak is already present (`device_leak_status` is already `CRITICAL`). For the count-based MAJOR case, skip if MAJOR_SYSTEM_LEAK is not supported on the image, then resolve MIN-N (from `LEAK_CONTROL_POLICY|system_major_leak_num_min_sensors`, else the platform default); skip that case if MIN-N is unavailable or < 2 (count rule off), otherwise inject MIN-N `MINOR` leaks. The escalation case does not depend on MIN-N.
+2. Select sensors whose `max_minor_duration_sec` fits the rule (any for the aggregation rules, within the observation window for escalation, long or unsupported for the no-escalation case)
+3. Inject the leak severities for the rule; assert each `LIQUID_COOLING_INFO|<sensor>` shows `leaking=Yes`, `leak_sensor_status=Good` and the injected severity
+4. Wait ≤2 poll cycles; assert `SYSTEM_LEAK_STATUS|system device_leak_status` equals the expected value (escalation: wait past `max_minor_duration_sec` and assert `MAJOR`)
+5. `finally`: set sensors back to `None`, `clear_test_leaks()`, and wait for `device_leak_status` to return to `None`
 
 **Expected Result**:
 - Rule 1: 1 CRITICAL sensor → `SYSTEM_LEAK_STATUS=CRITICAL`
+- Rule 2 (escalation): 1 MINOR sensor beyond `max_minor_duration_sec` → `SYSTEM_LEAK_STATUS` transitions `MINOR` → `MAJOR`
 - Rule 3: MIN-N MINOR sensors → `SYSTEM_LEAK_STATUS=MAJOR`
 - Rule 4: MINOR + CRITICAL sensors → `SYSTEM_LEAK_STATUS=CRITICAL` (precedence)
-- Rule 2: 1 MINOR sensor + shortened threshold → `SYSTEM_LEAK_STATUS` transitions `MINOR` → `MAJOR` after `max_minor_duration_sec`
-- Rule 5: 1 MINOR sensor (default threshold, < MIN-N) → `SYSTEM_LEAK_STATUS=MINOR`
-- Every per-sensor `LIQUID_COOLING_INFO` row reflects the mocked `leaking` and `leak_severity` consistently
-- After clearing the injected leaks, `device_leak_status` clears within ≤2 poll cycles; all profile fields and original system state restored
-- syslog contains the expected thermalctld `Liquid cooling leakage sensor <name> reported leaking` / `recovered from leaking` lines for each mocked sensor
+- Rule 5: 1 MINOR sensor (< MIN-N, below threshold) → `SYSTEM_LEAK_STATUS=MINOR`
+- Every per-sensor `LIQUID_COOLING_INFO` row reflects the injected `leaking` and `leak_severity` consistently
+- After clearing the injected leaks, `device_leak_status` clears within ≤2 poll cycles
+- syslog contains `Liquid cooling leakage sensor <name> reported leaking` for each injected sensor and `recovered from leaking` (or `recovered from CRITICAL leak`) after clearing
 
 ---
 
