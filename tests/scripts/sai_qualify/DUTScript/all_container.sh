@@ -3,7 +3,7 @@
 #Stop or start all the containers in the DUT
 
 #containers can be started, they must be in order
-containers=("swss" "syncd" "radv" "lldp" "dhcp_relay" "teamd" "bgp" "pmon" "telemetry" "acms" "snmp")
+containers=("swss" "syncd" "radv" "lldp" "dhcp_relay" "teamd" "bgp" "pmon" "acms" "snmp")
 op_containers(){
     for cnt in ${containers[*]}; do
         if [[ x"$skip" =~ x"$cnt" ]]; then

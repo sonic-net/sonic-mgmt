@@ -36,11 +36,6 @@ def test_recover_rsyslog_rate_limit(duthosts, enum_dut_hostname):
     for feature_name, state in list(features_dict.items()):
         if 'enabled' not in state:
             continue
-        if feature_name == "telemetry":
-            # Skip telemetry if there's no docker image
-            output = duthost.shell("docker images", module_ignore_errors=True)['stdout']
-            if "sonic-telemetry" not in output:
-                continue
         if feature_name == "frr_bmp":
             # Skip frr_bmp since it's not container just bmp option used by bgpd
             continue

@@ -282,11 +282,6 @@ def test_disable_rsyslog_rate_limit(duthosts):
                 continue
             if feature_name == "frr_bmp":
                 continue
-            if feature_name == "telemetry":
-                # Skip telemetry if there's no docker image
-                output = dut.shell("docker images", module_ignore_errors=True)['stdout']
-                if "sonic-telemetry" not in output:
-                    continue
             try:
                 dut.modify_syslog_rate_limit(feature_name, rl_option='disable')
             except Exception as e:

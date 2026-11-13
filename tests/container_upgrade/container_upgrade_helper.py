@@ -10,7 +10,7 @@ from tests.common.utilities import cleanup_prev_images
 from tests.common.helpers.upgrade_helpers import install_sonic
 from tests.common.reboot import reboot
 from tests.common.helpers.custom_msg_utils import add_custom_msg
-from tests.common.helpers.dut_utils import is_container_running, migrate_container_systemd
+from tests.common.helpers.dut_utils import is_container_running
 
 
 logger = logging.getLogger(__name__)
@@ -22,8 +22,6 @@ TEST_RESULTS_KEY = "test_results"
 CONTAINER_STRING_KEY = "container_bundle"
 
 container_name_mapping = {
-    "docker-sonic-telemetry": "telemetry",
-    "docker-telemetry-watchdog": "telemetry_watchdog",
     "docker-sonic-gnmi": "gnmi",
     "docker-gnmi-watchdog": "gnmi_watchdog",
     "docker-auditd": "auditd",
@@ -35,21 +33,6 @@ container_name_mapping = {
     "docker-restapi-watchdog": "restapi_watchdog",
     "docker-restapi-sidecar": "restapi_sidecar",
 }
-
-existing_systemd_services = [
-    "telemetry"
-]
-
-
-def find_systemd_service(container_name):
-    """Check if a container corresponds to a systemd-managed service.
-
-    Returns the service name if found, None otherwise.
-    """
-    for service in existing_systemd_services:
-        if service in container_name:
-            return service
-    return None
 
 
 def parse_containers(container_string):
@@ -196,15 +179,8 @@ def pull_run_dockers(duthost, creds, env):
         duthost.shell(f"docker stop {name}", module_ignore_errors=True)
         duthost.shell(f"docker rm {name}", module_ignore_errors=True)
         duthost.shell(f"docker tag {docker_image} {container}:latest")
-        if "IS_V1_ENABLED=true" in optional_parameters \
-                and "watchdog" not in name and "sidecar" not in name:
-            systemd_service = find_systemd_service(name)
-            if systemd_service:
-                # This service is managed by systemd, so restart it through systemd
-                # instead of running a standalone docker container
-                migrate_container_systemd(duthost, systemd_service, parameters)
-                continue
-        else:
+        if "IS_V1_ENABLED=true" not in optional_parameters \
+                or "watchdog" in name or "sidecar" in name:
             if duthost.shell(f"docker run -d {parameters} {optional_parameters} --name {name} {docker_image}",
                              module_ignore_errors=True)['rc'] != 0:
                 pytest.fail("Not able to run container using pulled image")

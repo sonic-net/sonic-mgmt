@@ -19,7 +19,7 @@ import utilities.common as cutils
 supported_gnmi_operations = ["set", "get", "cli"]
 
 
-def get_docker_command(container="telemetry"):
+def get_docker_command(container="gnmi"):
     """
     API to return docker container command for execution
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
@@ -124,7 +124,7 @@ def gnmi_set(dut, xpath, json_content, **kwargs):
         file_name = "sonic_gnmi_{}.json".format(current_datetime)
         tmp_path = "{}/{}".format(temp_dir, file_name)
         docker_path = '/{}'.format(file_name)
-        cp_cmd = 'docker cp {} telemetry:{}'.format(tmp_path, docker_path)
+        cp_cmd = 'docker cp {} gnmi:{}'.format(tmp_path, docker_path)
         rm_cmds = ['rm {}'.format(tmp_path), '{} -c "rm {}"'.format(docker_command, docker_path)]
         file_operation = util_obj.write_to_json_file(json_content, tmp_path)
         if not file_operation:
@@ -295,31 +295,31 @@ def client_auth(dut, **kwargs):
     :return:
     """
     st.log("Configuring gNMI authentication.")
-    docker_name = "telemetry"
-    command = redis.build(dut, redis.CONFIG_DB, 'hmset "TELEMETRY|gnmi" client_auth')
+    docker_name = "gnmi"
+    command = redis.build(dut, redis.CONFIG_DB, 'hmset "GNMI|gnmi" client_auth')
     if 'auth_type' in kwargs:
         if kwargs.get('auth_type'):
-            command = redis.build(dut, redis.CONFIG_DB, 'hmset "TELEMETRY|gnmi" client_auth "{}"'.format(kwargs.get('auth_type')))
+            command = redis.build(dut, redis.CONFIG_DB, 'hmset "GNMI|gnmi" client_auth "{}"'.format(kwargs.get('auth_type')))
         else:
-            command = redis.build(dut, redis.CONFIG_DB, 'hdel "TELEMETRY|gnmi" client_auth')
+            command = redis.build(dut, redis.CONFIG_DB, 'hdel "GNMI|gnmi" client_auth')
         st.config(dut, command, on_cr_recover="retry5")
     if 'server_key' in kwargs:
         if kwargs.get('server_key'):
-            command = redis.build(dut, redis.CONFIG_DB, 'hmset "TELEMETRY|certs" server_key "{}"'.format(kwargs.get('server_key')))
+            command = redis.build(dut, redis.CONFIG_DB, 'hmset "GNMI|certs" server_key "{}"'.format(kwargs.get('server_key')))
         else:
-            command = redis.build(dut, redis.CONFIG_DB, 'hdel "TELEMETRY|certs" server_key')
+            command = redis.build(dut, redis.CONFIG_DB, 'hdel "GNMI|certs" server_key')
         st.config(dut, command, on_cr_recover="retry5")
     if 'server_crt' in kwargs:
         if kwargs.get('server_crt'):
-            command = redis.build(dut, redis.CONFIG_DB, 'hmset "TELEMETRY|certs" server_crt "{}"'.format(kwargs.get('server_crt')))
+            command = redis.build(dut, redis.CONFIG_DB, 'hmset "GNMI|certs" server_crt "{}"'.format(kwargs.get('server_crt')))
         else:
-            command = redis.build(dut, redis.CONFIG_DB, 'hdel "TELEMETRY|certs" server_crt')
+            command = redis.build(dut, redis.CONFIG_DB, 'hdel "GNMI|certs" server_crt')
         st.config(dut, command, on_cr_recover="retry5")
     if 'ca_crt' in kwargs:
         if kwargs.get('ca_crt'):
-            command = redis.build(dut, redis.CONFIG_DB, 'hmset "TELEMETRY|certs" ca_crt "{}"'.format(kwargs.get('ca_crt')))
+            command = redis.build(dut, redis.CONFIG_DB, 'hmset "GNMI|certs" ca_crt "{}"'.format(kwargs.get('ca_crt')))
         else:
-            command = redis.build(dut, redis.CONFIG_DB, 'hdel "TELEMETRY|certs" ca_crt')
+            command = redis.build(dut, redis.CONFIG_DB, 'hdel "GNMI|certs" ca_crt')
         st.config(dut, command, on_cr_recover="retry5")
     if kwargs.get('restart'):
         docker_operation(dut, docker_name, 'restart')
@@ -363,7 +363,7 @@ def crypto_cert_key_install(dut, **kwargs):
     ca_cert_file_name_no_ext = ca_cert_file_name.replace(".crt", "")
     profile_name = kwargs.get("profile_name")
     trust_store = kwargs.get("trust_store")
-    docker_name = kwargs.get("docker_name", "telemetry")
+    docker_name = kwargs.get("docker_name", "gnmi")
     skip_errors = kwargs.get('skip_errors', True)
     cli_type = 'klish'
     cmds = []
@@ -530,7 +530,7 @@ def gnmi_debug(dut):
     :param dut:
     :return:
     """
-    command = 'sonic-cfggen -d -v "TELEMETRY"'
+    command = 'sonic-cfggen -d -v "GNMI"'
     st.config(dut, command)
 
 
@@ -546,7 +546,7 @@ def copy_gnmi_utils(dut, src_path, dst_path="/tmp", gnmi_files=["gnmi_set", "gnm
     st.log("Copying gNMI Utils {}".format(gnmi_files))
     dut_path = src_path
     for file in gnmi_files:
-        command = "docker cp telemetry:/usr/sbin/{} {}".format(file, dut_path)
+        command = "docker cp gnmi:/usr/sbin/{} {}".format(file, dut_path)
         st.config(dut, command)
         st.download_file_from_dut(dut, "{}/{}".format(dut_path, file), "{}/".format(dst_path))
     return True
