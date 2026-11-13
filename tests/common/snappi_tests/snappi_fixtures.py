@@ -16,7 +16,7 @@ from ansible.utils.unsafe_proxy import AnsibleUnsafeText
 from copy import copy
 from tests.common.utilities import wait_until
 from tests.common.errors import RunAnsibleModuleFail
-from ipaddress import ip_address, IPv4Address, IPv6Address
+from ipaddress import ip_address, ip_network, IPv4Address, IPv6Address
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
 from tests.common.snappi_tests.common_helpers import get_addrs_in_subnet, get_peer_snappi_chassis, \
     get_ipv6_addrs_in_subnet, parse_override, pfc_queue_group_size
@@ -1570,6 +1570,35 @@ def _ensure_macsec_profile(duthost, profile_name, profile):
     return True
 
 
+def _select_macsec_rx_subnet(config_facts, peer_port, original_subnet, prefix_length):
+    """Choose an expanded RX subnet without overlapping another configured IPv4 interface."""
+    occupied = []
+    for table in ('INTERFACE', 'PORTCHANNEL_INTERFACE', 'VLAN_INTERFACE',
+                  'LOOPBACK_INTERFACE', 'VLAN_SUB_INTERFACE'):
+        for interface, addresses in config_facts.get(table, {}).items():
+            for address in addresses:
+                if '/' not in address:
+                    continue
+                if table == 'INTERFACE' and interface == peer_port and address == original_subnet:
+                    continue
+                network = ip_network(address, strict=False)
+                if network.version == 4:
+                    occupied.append(network)
+
+    gateway = ip_address(dut_ip_for_non_macsec_port)
+    candidate = ip_network('{}/{}'.format(gateway, prefix_length), strict=False)
+    while True:
+        conflicts = [network for network in occupied if candidate.overlaps(network)]
+        if not conflicts:
+            return '{}/{}'.format(gateway, candidate.prefixlen)
+        next_address = int(max([candidate.broadcast_address] + [
+            network.broadcast_address for network in conflicts])) + 1
+        pytest_assert(next_address < 2 ** 32,
+                      'No non-overlapping IPv4 subnet available for MACsec RX interface {}'.format(peer_port))
+        candidate = ip_network((next_address, int(prefix_length)), strict=False)
+        gateway = candidate.network_address + 1
+
+
 def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=True):
     """
     Configures macsec on snappi interfaces
@@ -1613,6 +1642,8 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
             int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
             subnet = [ele for ele in int_addrs if "." in ele]
             if int(port['port_id']) == 0 and int(subnet[0].split("/")[1]) > int(static_prefix_length):
+                rx_subnet = _select_macsec_rx_subnet(
+                    config_facts, peer_port, subnet[0], static_prefix_length)
                 logger.info('Removing existing IP {} from interface {}'.format(subnet[0], port['peer_port']))
                 reconfigure_port = port
                 reconfigure_port['original_subnet'] = subnet[0]
@@ -1623,16 +1654,14 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
                     duthost.command('sudo config interface -n {} ip remove {} {}/{} \n' .
                                     format(port['asic_value'], port['peer_port'],
                                            subnet[0].split("/")[0], subnet[0].split("/")[1]))
-                logger.info('Adding IP {}/{} to interface {}'.
-                            format(dut_ip_for_non_macsec_port, static_prefix_length, port['peer_port']))
+                logger.info('Adding IP {} to interface {}'.format(rx_subnet, port['peer_port']))
                 if port['asic_value'] is None:
-                    duthost.command('sudo config interface ip add {} {}/{} \n'.
-                                    format(port['peer_port'], dut_ip_for_non_macsec_port, static_prefix_length))
+                    duthost.command('sudo config interface ip add {} {} \n'.
+                                    format(port['peer_port'], rx_subnet))
                 else:
-                    duthost.command('sudo config interface -n {} ip add {} {}/{} \n' .
-                                    format(port['asic_value'], port['peer_port'],
-                                           dut_ip_for_non_macsec_port, static_prefix_length))
-                subnet = [dut_ip_for_non_macsec_port + '/' + str(static_prefix_length)]
+                    duthost.command('sudo config interface -n {} ip add {} {} \n' .
+                                    format(port['asic_value'], port['peer_port'], rx_subnet))
+                subnet = [rx_subnet]
             port['ipAddress'] = get_addrs_in_subnet(subnet[0], 1, exclude_ips=[subnet[0].split("/")[0]])[0]
             if not subnet:
                 pytest_assert(False, "No IP address found for peer port {}".format(peer_port))

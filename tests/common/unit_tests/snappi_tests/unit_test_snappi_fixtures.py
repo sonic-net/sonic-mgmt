@@ -3,6 +3,7 @@
 import ast
 import json
 from copy import deepcopy
+from ipaddress import ip_address, ip_network
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, call, mock_open
@@ -110,7 +111,9 @@ def _macsec_fixture_context(original_profile):
         },
     }
     namespace = _load(
-        "__intf_config_macsec", "cleanup_config", sys=SimpleNamespace(argv=["--snappi_macsec"]),
+        "__intf_config_macsec", "_select_macsec_rx_subnet", "cleanup_config",
+        sys=SimpleNamespace(argv=["--snappi_macsec"]), ip_address=ip_address, ip_network=ip_network,
+        dut_ip_for_non_macsec_port="40.1.1.1",
         os=SimpleNamespace(path=SimpleNamespace(expanduser=lambda path: path)),
         json=json, open=mock_open(read_data=json.dumps(settings)), reconfigure_port={},
         macsec_enabled_ports=[], macsec_profile_duthosts=[], macsec_profile_name="",
@@ -120,6 +123,144 @@ def _macsec_fixture_context(original_profile):
         __gen_mac=lambda index: "00:00:00:00:00:01", gen_data_flow_dest_ip=MagicMock(),
         SnappiPortConfig=MagicMock(), SnappiPortType=SimpleNamespace(MacsecInterface="macsec"))
     return namespace, host, port, config, device, settings
+
+
+@pytest.mark.parametrize("occupied, expected", [
+    ({}, "40.1.1.1/27"),
+    ({"Ethernet8": {"40.1.1.1/28": {}}}, "40.1.1.33/27"),
+    ({"Ethernet8": {"40.1.1.1/24": {}}}, "40.1.2.1/27"),
+    ({"Ethernet8": {"40.1.1.1/27": {}}, "Ethernet16": {"40.1.1.33/27": {}}}, "40.1.1.65/27"),
+    ({"Ethernet8": {"2001:db8::1/64": {}}}, "40.1.1.1/27"),
+])
+def test_macsec_rx_subnet_avoids_existing_interface_networks(occupied, expected):
+    """Cover the reported /28 collision, wider overlaps, consecutive blocks, and IPv6."""
+    original = "10.1.2.0/31"
+    facts = {"INTERFACE": dict(occupied, Ethernet12={original: {}})}
+    namespace = _load("_select_macsec_rx_subnet", ip_address=ip_address, ip_network=ip_network,
+                      dut_ip_for_non_macsec_port="40.1.1.1")
+
+    subnet = namespace["_select_macsec_rx_subnet"](facts, "Ethernet12", original, "27")
+
+    assert subnet == expected
+    network = ip_network(subnet, strict=False)
+    assert network.num_addresses - 3 >= 14
+    assert not any(network.overlaps(ip_network(address, strict=False))
+                   for addresses in occupied.values() for address in addresses if ':' not in address)
+
+
+@pytest.mark.parametrize("table", [
+    "PORTCHANNEL_INTERFACE", "VLAN_INTERFACE", "LOOPBACK_INTERFACE", "VLAN_SUB_INTERFACE",
+])
+def test_macsec_rx_subnet_checks_other_routed_interface_types(table):
+    """A receive subnet must not overlap non-Ethernet routed interfaces either."""
+    namespace = _load("_select_macsec_rx_subnet", ip_address=ip_address, ip_network=ip_network,
+                      dut_ip_for_non_macsec_port="40.1.1.1")
+    facts = {table: {"test-interface": {"40.1.1.1/27": {}}}}
+
+    assert namespace["_select_macsec_rx_subnet"](facts, "Ethernet12", "10.1.2.0/31", 27) == "40.1.1.33/27"
+
+
+@pytest.mark.parametrize("additional_address, expected", [
+    (None, "40.1.1.1/27"), ("40.1.1.2/32", "40.1.1.33/27"),
+])
+def test_macsec_rx_subnet_excludes_only_the_address_being_replaced(additional_address, expected):
+    """Allow expanding the RX subnet itself, but preserve other addresses on that interface."""
+    original = "40.1.1.1/28"
+    addresses = {original: {}}
+    if additional_address:
+        addresses[additional_address] = {}
+    namespace = _load("_select_macsec_rx_subnet", ip_address=ip_address, ip_network=ip_network,
+                      dut_ip_for_non_macsec_port="40.1.1.1")
+
+    assert namespace["_select_macsec_rx_subnet"](
+        {"INTERFACE": {"Ethernet12": addresses}}, "Ethernet12", original, 27) == expected
+
+
+def _macsec_rx_fixture_context(namespace):
+    context, host, port, config, device, settings = _macsec_fixture_context(None)
+    port.update(port_id="0", asic_value=namespace)
+    host.config_facts.return_value["ansible_facts"]["INTERFACE"] = {
+        "Ethernet8": {"40.1.1.1/28": {}}, "Ethernet12": {"10.1.2.0/31": {}},
+    }
+    if namespace is not None:
+        host.get_port_asic_instance.return_value = SimpleNamespace(asic_index=0)
+        host.get_namespace_from_asic_id.return_value = namespace
+    context.update(
+        subnet_mask_from_hosts=lambda count: 27,
+        get_addrs_in_subnet=lambda subnet, *args, **kwargs: [str(ip_network(subnet, strict=False).network_address + 2)],
+        get_ip_addresses=lambda start, count: [str(ip_address(start) + offset) for offset in range(count)],
+        SnappiPortType=SimpleNamespace(IPInterface="ip"))
+    ports = [port, {"peer_device": "other_dut"}, {"peer_device": "other_dut"}]
+    return context, host, port, config, ports
+
+
+@pytest.mark.parametrize("namespace", [None, "asic0"])
+def test_macsec_rx_subnet_configuration_and_cleanup(namespace):
+    """Wire the collision-free gateway to all 14 receivers and restore the original DUT address."""
+    context, host, port, config, ports = _macsec_rx_fixture_context(namespace)
+    command_prefix = "sudo config interface " + ("-n {} ".format(namespace) if namespace else "")
+    ip_stacks = [SimpleNamespace() for _ in range(14)]
+    device = config.devices.device.return_value[0]
+    device.ethernets.add.return_value.ipv4_addresses.add.side_effect = ip_stacks
+
+    assert context["__intf_config_macsec"](config, [], host, ports)
+    assert port["original_subnet"] == "10.1.2.0/31"
+    assert port["subnet"] == "40.1.1.33/27"
+    assert port["ipGateway"] == "40.1.1.33"
+    assert port["ipAddress"] == "40.1.1.34"
+    port_configs = context["SnappiPortConfig"].call_args_list
+    assert len(port_configs) == 14
+    assert [entry.kwargs["ip"] for entry in port_configs] == [
+        "40.1.1.{}".format(last) for last in range(34, 48)]
+    assert all(entry.kwargs["gw"] == "40.1.1.33" and entry.kwargs["prefix_len"] == 27
+               for entry in port_configs)
+    assert [(stack.address, stack.gateway, stack.prefix) for stack in ip_stacks] == [
+        ("40.1.1.{}".format(last), "40.1.1.33", 27) for last in range(34, 48)]
+
+    context["cleanup_config"]([host], ports)
+    context["cleanup_config"]([host], ports)
+
+    assert host.command.call_args_list == [
+        call(command_prefix + "ip remove Ethernet12 10.1.2.0/31 \n"),
+        call(command_prefix + "ip add Ethernet12 40.1.1.33/27 \n"),
+        call(command_prefix + "ip remove Ethernet12 40.1.1.33/27 \n"),
+        call(command_prefix + "ip add Ethernet12 10.1.2.0/31 \n"),
+    ]
+    assert context["reconfigure_port"] == {}
+
+
+def test_macsec_rx_subnet_preserves_an_existing_sufficiently_large_network():
+    """Keep the original gateway and avoid DUT commands when the RX subnet already fits."""
+    context, host, port, config, ports = _macsec_rx_fixture_context(None)
+    host.config_facts.return_value["ansible_facts"]["INTERFACE"]["Ethernet12"] = {"192.0.2.1/24": {}}
+    context["_select_macsec_rx_subnet"] = MagicMock()
+
+    assert context["__intf_config_macsec"](config, [], host, ports)
+    assert port["subnet"] == "192.0.2.1/24"
+    assert port["ipGateway"] == "192.0.2.1"
+    assert len(context["SnappiPortConfig"].call_args_list) == 14
+    assert all(entry.kwargs["gw"] == "192.0.2.1" and entry.kwargs["prefix_len"] == 24
+               for entry in context["SnappiPortConfig"].call_args_list)
+
+    context["cleanup_config"]([host], ports)
+
+    context["_select_macsec_rx_subnet"].assert_not_called()
+    host.command.assert_not_called()
+    assert context["reconfigure_port"] == {}
+
+
+def test_macsec_rx_subnet_exhaustion_fails_before_changing_dut():
+    """Do not remove the original address when no non-overlapping IPv4 subnet exists."""
+    context, host, _, config, ports = _macsec_rx_fixture_context(None)
+    host.config_facts.return_value["ansible_facts"]["LOOPBACK_INTERFACE"] = {
+        "Loopback0": {"0.0.0.0/0": {}},
+    }
+
+    with pytest.raises(AssertionError, match="No non-overlapping IPv4 subnet available.*Ethernet12"):
+        context["__intf_config_macsec"](config, [], host, ports)
+
+    host.command.assert_not_called()
+    assert context["reconfigure_port"] == {}
 
 
 @pytest.mark.parametrize("original_profile", [None, "original-profile", PROFILE_NAME])

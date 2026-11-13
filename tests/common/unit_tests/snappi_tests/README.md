@@ -45,6 +45,21 @@ ongoing traffic. Running engines, invalid or changing counters, missing flows,
 and RX greater than TX still fail. Hardware validation of this readiness
 correction is pending.
 
+For MACsec RX subnet selection and configuration restoration:
+```bash
+python3 -m pytest --noconftest \
+  tests/common/unit_tests/snappi_tests/unit_test_snappi_fixtures.py -v
+```
+
+When the RX interface subnet is too small for the receiver devices, the fixture
+prefers the existing test gateway range but skips networks overlapping other
+configured IPv4 interfaces. For example, an existing `40.1.1.1/28` on another
+port prevents assigning `40.1.1.1/27` to the RX port. The selected gateway is
+shared by the DUT and all receiver stacks, and cleanup restores the RX port's
+original address. Regressions cover routed interface types, larger and
+consecutive conflicts, IPv6 coexistence, and single- and multi-ASIC restoration.
+This correction still requires hardware validation.
+
 ### Run a specific test case
 ```bash
 python3 -m pytest --noconftest \
