@@ -497,7 +497,8 @@ def create_srv6_sid(duthost,
 
 def del_srv6_sid(duthost, locator_name, ip_addr):
     logger.info(f'Delete sid: SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}')
-    duthost.shell(f'sonic-db-cli -s --authenticate CONFIG_DB DEL "SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}"')
+    duthost.shell(
+        f'sonic-db-cli -s --authenticate CONFIG_DB DEL "SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}"')
 
 
 def validate_srv6_in_appl_db(duthost,

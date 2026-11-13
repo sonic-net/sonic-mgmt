@@ -53,7 +53,8 @@ def setup_gnmi_forpyclient(duthost):
     client_auth = str(client_auth_out[0])
 
     if client_auth == "true":
-        duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB HSET "%s|gnmi" "client_auth" "false"' % (env.gnmi_config_table),
+        duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB HSET "%s|gnmi" '
+                      '"client_auth" "false"' % (env.gnmi_config_table),
                       module_ignore_errors=False)
         duthost.shell("systemctl reset-failed %s" % (env.gnmi_container))
         duthost.service(name=env.gnmi_container, state="restarted")

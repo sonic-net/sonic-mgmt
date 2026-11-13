@@ -187,7 +187,7 @@ def test_route_and_srv6_configuration_commands_retain_namespace(relative, name, 
     argv = shlex.split(host.command.call_args.args[0])
     expected = ['sonic-db-cli', '-s'] + (['-n', 'asic3'] if multi else [])
     assert argv[:len(expected)] == expected
-    assert argv[len(expected):len(expected)+2] == ['CONFIG_DB', 'HSET']
+    assert argv[len(expected):len(expected)+3] == ['--authenticate', 'CONFIG_DB', 'HSET']
 
 
 @pytest.mark.parametrize('multi', [False, True])

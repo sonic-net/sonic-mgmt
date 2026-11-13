@@ -574,8 +574,10 @@ def _configure_gnoi_tls_server(duthost):
     # Configure certificate paths using centralized config
     config_db_settings = grpc_config.get_config_db_cert_settings()
     duthost.shell(f'sonic-db-cli -s --authenticate CONFIG_DB hset "GNMI|certs" ca_crt "{config_db_settings["ca_crt"]}"')
-    duthost.shell(f'sonic-db-cli -s --authenticate CONFIG_DB hset "GNMI|certs" server_crt "{config_db_settings["server_crt"]}"')
-    duthost.shell(f'sonic-db-cli -s --authenticate CONFIG_DB hset "GNMI|certs" server_key "{config_db_settings["server_key"]}"')
+    duthost.shell(
+        f'sonic-db-cli -s --authenticate CONFIG_DB hset "GNMI|certs" server_crt "{config_db_settings["server_crt"]}"')
+    duthost.shell(
+        f'sonic-db-cli -s --authenticate CONFIG_DB hset "GNMI|certs" server_key "{config_db_settings["server_key"]}"')
 
     # Register client certificate with appropriate roles
     duthost.shell(

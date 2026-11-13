@@ -151,12 +151,14 @@ def gnmi_container(duthost):
 
 
 def add_gnmi_client_common_name(duthost, cname, role="gnmi_readwrite"):
-    command = 'sudo sonic-db-cli -s --authenticate CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role@" "{}"'.format(cname, role)
+    command = 'sudo sonic-db-cli -s --authenticate CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role@" "{}"'.format(
+        cname, role)
     duthost.shell(command, module_ignore_errors=True)
 
 
 def del_gnmi_client_common_name(duthost, cname):
-    duthost.shell('sudo sonic-db-cli -s --authenticate CONFIG_DB del "GNMI_CLIENT_CERT|{}"'.format(cname), module_ignore_errors=True)
+    duthost.shell('sudo sonic-db-cli -s --authenticate CONFIG_DB del "GNMI_CLIENT_CERT|{}"'.format(cname),
+                  module_ignore_errors=True)
 
 
 def create_ca_conf(crl, filename):

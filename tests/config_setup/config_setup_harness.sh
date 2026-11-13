@@ -130,10 +130,10 @@ ztp() {
 }
 
 sonic-db-cli() {
-    # Transport selection does not change the stubbed database operation.
-    if [ "$1" = "-s" ]; then
+    # Connection options do not change the stubbed database operation.
+    while [ "$1" = "-s" ] || [ "$1" = "--authenticate" ]; do
         shift
-    fi
+    done
     if [ "$1" = "STATE_DB" ] && [ "$2" = "hget" ]; then
         if [ "$3" = "WARM_RESTART_ENABLE_TABLE|system" ] && \
            [ "$4" = "enable" ]; then

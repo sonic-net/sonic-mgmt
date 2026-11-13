@@ -36,6 +36,8 @@ def redis_cli_argv(host, database):
 def redis_cli_command(host, database):
     """Quote the configured native CLI prefix for a shell command."""
     return " ".join(shlex.quote(argument) for argument in redis_cli_argv(host, database))
+
+
 def get_chassis_db_address_from_dut(host):
     """Return chassis DB / supervisor midplane IP configured on the DUT."""
     paths = [
@@ -268,13 +270,15 @@ CONFIG_DB = 'CONFIG_DB'
 STATE_DB = 'STATE_DB'
 
 
-def _run_sonic_db_cli(duthost, command):
+def _run_sonic_db_cli(duthost, command, authenticate=False):
     """Run local DBs on their ASIC socket and chassis DBs over TCP"""
     database = command.split(None, 1)[0]
     if database in ('CHASSIS_APP_DB', 'CHASSIS_STATE_DB'):
         cli = 'sonic-db-cli'
     else:
         cli = duthost.sonic_db_cli if isinstance(duthost, SonicAsic) else 'sonic-db-cli -s'
+        if authenticate:
+            cli += ' --authenticate'
     return duthost.shell(
         "{} {}".format(cli, command),
         module_ignore_errors=True
@@ -332,6 +336,7 @@ def redis_hset(duthost, db, key, **fields):
             key=shlex.quote(str(key)),
             parts=parts,
         ),
+        authenticate=True,
     )
 
 
@@ -346,6 +351,7 @@ def redis_hdel(duthost, db, key, *fields):
             key=shlex.quote(str(key)),
             fields=' '.join(shlex.quote(str(field)) for field in fields),
         ),
+        authenticate=True,
     )
 
 
@@ -360,6 +366,7 @@ def redis_del(duthost, db, *keys):
                     db=db,
                     key=shlex.quote(str(k)),
                 ),
+                authenticate=True,
             )
         )
     return results

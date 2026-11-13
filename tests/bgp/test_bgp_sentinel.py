@@ -194,7 +194,8 @@ def dut_lo_addr(rand_selected_dut, enum_rand_one_frontend_asic_index):
 def cleanup_leftovers_bgp_config(duthost, tbinfo, ptf_bp_v6):
     duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinel'", asic_index='all', authenticate=True)
     duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinelV6'", asic_index='all', authenticate=True)
-    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_MONITORS|{}'".format(ptf_bp_v6), asic_index='all', authenticate=True)
+    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_MONITORS|{}'".format(ptf_bp_v6),
+                                 asic_index='all', authenticate=True)
 
 
 @pytest.fixture(scope="module", params=['BGPSentinel'])
