@@ -54,7 +54,7 @@ def setupFerret(duthost, ptfhost, tbinfo):
             ptfhost (AnsibleHost): Packet Test Framework (PTF)
 
         Returns:
-            None
+            str: Ferret data-plane endpoint IP
     '''
     ptfhost.copy(src="arp/files/ferret.py", dest="/opt")
 
@@ -96,7 +96,7 @@ def setupFerret(duthost, ptfhost, tbinfo):
 
     pytest_assert(len(result['stdout'].strip()) > 0, 'Empty DIP returned')
 
-    dip = result['stdout']
+    dip = result['stdout'].strip()
     logger.info('VxLan Sender {0}'.format(dip))
 
     vxlan_port_out = duthost.shell('redis-cli -n 0 hget "SWITCH_TABLE:switch" "vxlan_port"')
@@ -123,6 +123,7 @@ def setupFerret(duthost, ptfhost, tbinfo):
 
     logger.info('Refreshing supervisor control with ferret configuration')
     ptfhost.shell('supervisorctl reread && supervisorctl update && supervisorctl start ferret')
+    return dip
 
 
 def setupRouteToPtfhost(duthost, ptfhost):
