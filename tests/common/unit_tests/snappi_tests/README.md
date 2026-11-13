@@ -17,6 +17,16 @@ python3 -m pytest --noconftest \
   tests/common/unit_tests/snappi_tests/unit_test_common_helpers.py -v
 ```
 
+For final MACsec statistics readiness checks:
+```bash
+python3 -m pytest --noconftest \
+  tests/common/unit_tests/snappi_tests/unit_test_traffic_generation.py -v
+```
+
+These checks cover delayed TX/RX updates, missing flows, nonzero frame rates,
+counter stability, and explicit timeout diagnostics. Genuine positive packet
+loss is returned unchanged for the existing test-specific assertions.
+
 ### Run a specific test case
 ```bash
 python3 -m pytest --noconftest \

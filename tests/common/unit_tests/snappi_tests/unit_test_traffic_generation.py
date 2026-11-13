@@ -108,11 +108,12 @@ def _macsec_run_context(stop_before, poll_device_runtime=False, traffic_state="s
     ixnet.Traffic.State = traffic_state
     host = MagicMock()
     host.facts = {"num_asic": 1}
-    config = SimpleNamespace(ports=[SimpleNamespace(name="Port 0")], devices=[
+    config = SimpleNamespace(lags=[], ports=[SimpleNamespace(name="Port 0")], devices=[
         SimpleNamespace(ethernets=[SimpleNamespace(mac="00:00:00:00:00:01")])])
     params = SimpleNamespace(
         reboot_type=None, poll_device_runtime=poll_device_runtime, packet_capture_type=0,
         stop_data_flows_before_final_stats=stop_before, flow_name_prio_map={"Test Flow Prio 3": 3},
+        flow_name_stats_identity_map={},
         multi_dut_params=SimpleNamespace(ingress_duthosts=[], egress_duthosts=[], multi_dut_ports=[]),
         base_flow_config={
             "dut_port_config": {"Tx": [{"Ethernet12": [3]}]},
@@ -199,3 +200,149 @@ def test_macsec_final_stop_respects_existing_traffic_state(state, stop_count):
         host, api, config, ["Test Flow Prio 3"], ["Test Flow Prio 3", "Pause Storm"], 15, params)
 
     assert api._ixnetwork.Traffic.StopStatelessTrafficBlocking.call_count == stop_count
+
+
+MACSEC_IDENTITY_MAP = {
+    'Test Flow 1 -> 0': ('Port 1', 'Port 0', 3),
+    'Test Flow 2 -> 0': ('Port 2', 'Port 0', 11),
+}
+
+
+def _macsec_stats_row(port='Port 1', pgid='3', tx='100', rx='100', tx_rate='0', rx_rate='0'):
+    return {
+        'Tx Port': port,
+        'Rx Port': 'Port 0',
+        'PGID': pgid,
+        'Tx Frames': tx,
+        'Rx Frames': rx,
+        'Tx Frame Rate': tx_rate,
+        'Rx Frame Rate': rx_rate,
+    }
+
+
+def _macsec_stats_snapshot(**kwargs):
+    return [_macsec_stats_row(**kwargs), _macsec_stats_row(port='Port 2', pgid='11')]
+
+
+@pytest.fixture
+def stats_waiter():
+    """Load final-statistics polling without integration-test dependencies."""
+    fetch = MagicMock()
+    sleep = MagicMock()
+    namespace = _load(
+        '_macsec_row_identity', '_wait_for_macsec_flow_statistics',
+        fetch_flow_metrics_for_macsec=fetch, time=SimpleNamespace(sleep=sleep),
+        SNAPPI_POLL_DELAY_SEC=2, logger=MagicMock())
+    return namespace['_wait_for_macsec_flow_statistics'], fetch, sleep
+
+
+def test_waits_for_stale_tx_counters(stats_waiter):
+    """Reproduce RX exceeding the earlier TX snapshot, then let TX catch up."""
+    wait, fetch, sleep = stats_waiter
+    stale = _macsec_stats_snapshot(tx='136656369', rx='167624521')
+    settled = _macsec_stats_snapshot(tx='167624521', rx='167624521')
+    fetch.side_effect = [SimpleNamespace(Rows=rows) for rows in (stale, settled, settled)]
+
+    assert wait(None, MACSEC_IDENTITY_MAP) is settled
+    assert fetch.call_count == 3
+    assert sleep.call_count == 2
+
+
+@pytest.mark.parametrize('first', [
+    _macsec_stats_snapshot(tx_rate='0.1'),
+    _macsec_stats_snapshot(rx_rate='0.1'),
+    _macsec_stats_snapshot(tx=''),
+    _macsec_stats_snapshot(rx=''),
+    _macsec_stats_snapshot(tx_rate=''),
+    _macsec_stats_snapshot(rx_rate=''),
+    _macsec_stats_snapshot(tx='0', rx='0'),
+    _macsec_stats_snapshot(rx='-1'),
+    _macsec_stats_snapshot()[:1],
+    [],
+])
+def test_waits_for_all_flows_and_complete_stopped_counters(stats_waiter, first):
+    """Reject partial rows, missing flows, and nonzero fractional frame rates."""
+    wait, fetch, _ = stats_waiter
+    settled = _macsec_stats_snapshot()
+    fetch.side_effect = [SimpleNamespace(Rows=rows) for rows in (first, settled, settled)]
+
+    assert wait(None, MACSEC_IDENTITY_MAP) is settled
+    assert fetch.call_count == 3
+
+
+def test_waits_for_stable_counts(stats_waiter):
+    """Zero frame rates alone do not mean counters have finished updating."""
+    wait, fetch, _ = stats_waiter
+    settled = _macsec_stats_snapshot(tx='120', rx='120')
+    fetch.side_effect = [
+        SimpleNamespace(Rows=rows) for rows in (_macsec_stats_snapshot(), settled, settled)
+    ]
+
+    assert wait(None, MACSEC_IDENTITY_MAP) is settled
+    assert fetch.call_count == 3
+
+
+def test_preserves_real_packet_loss(stats_waiter):
+    """Return genuine positive loss unchanged for the existing flow verifier."""
+    wait, fetch, _ = stats_waiter
+    rows = _macsec_stats_snapshot(rx='90')
+    fetch.return_value = SimpleNamespace(Rows=rows)
+
+    assert wait(None, MACSEC_IDENTITY_MAP) is rows
+    assert rows[0]['Rx Frames'] == '90'
+    assert fetch.call_count == 2
+
+
+def test_ignores_unregistered_rows(stats_waiter):
+    """Unrelated or egress-only rows must not block registered flows."""
+    wait, fetch, _ = stats_waiter
+    rows = _macsec_stats_snapshot() + [
+        _macsec_stats_row(port='', tx=''), _macsec_stats_row(port='Port 3', pgid='17', tx_rate='100'),
+    ]
+    fetch.return_value = SimpleNamespace(Rows=rows)
+
+    assert wait(None, MACSEC_IDENTITY_MAP) is rows
+
+
+@pytest.mark.parametrize('rows, message', [
+    (_macsec_stats_snapshot(rx='101'), 'RX=101'),
+    (_macsec_stats_snapshot()[:1], 'Missing statistics'),
+    (_macsec_stats_snapshot() + [_macsec_stats_row()], 'duplicate statistics rows'),
+])
+def test_fails_explicitly_when_statistics_do_not_settle(stats_waiter, rows, message):
+    """Fail persistent invalid statistics with diagnostics, not as packet loss."""
+    wait, fetch, sleep = stats_waiter
+    fetch.return_value = SimpleNamespace(Rows=rows)
+
+    with pytest.raises(AssertionError, match=message):
+        wait(None, MACSEC_IDENTITY_MAP, max_attempts=3)
+    assert fetch.call_count == 3
+    assert sleep.call_count == 2
+
+
+def test_times_out_if_counters_keep_changing(stats_waiter):
+    """Bound polling even when every individual snapshot is otherwise valid."""
+    wait, fetch, _ = stats_waiter
+    fetch.side_effect = [
+        SimpleNamespace(Rows=_macsec_stats_snapshot(tx=str(count), rx=str(count)))
+        for count in (100, 101, 102)
+    ]
+
+    with pytest.raises(AssertionError, match='counters are still changing'):
+        wait(None, MACSEC_IDENTITY_MAP, max_attempts=3)
+
+
+def test_run_traffic_waits_for_registered_final_macsec_statistics():
+    """Use the settled snapshot for verification, rather than a new unchecked read."""
+    namespace, api, host, config, params, _, _ = _macsec_run_context(False)
+    params.flow_name_stats_identity_map = MACSEC_IDENTITY_MAP
+    namespace.update(_load('_macsec_row_identity', '_to_number'))
+    settled = _macsec_stats_snapshot()
+    waiter = MagicMock(return_value=settled)
+    namespace['_wait_for_macsec_flow_statistics'] = waiter
+
+    final, _, _ = namespace["run_traffic"](
+        host, api, config, ["Test Flow Prio 3"], ["Test Flow Prio 3", "Pause Storm"], 15, params)
+
+    assert final is settled
+    waiter.assert_called_once_with(api, MACSEC_IDENTITY_MAP)

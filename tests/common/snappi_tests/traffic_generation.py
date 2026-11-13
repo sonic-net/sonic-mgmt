@@ -773,6 +773,47 @@ def _to_number(value):
         return None
 
 
+def _wait_for_macsec_flow_statistics(api, identity_map, max_attempts=20):
+    """Wait for all registered flows to have stopped and their final counters to settle."""
+    tracked_identities = set(identity_map.values())
+    previous_counts = None
+    fields = ('Tx Frames', 'Rx Frames', 'Tx Frame Rate', 'Rx Frame Rate')
+    for attempt in range(max_attempts):
+        rows = fetch_flow_metrics_for_macsec(api).Rows
+        counts = {}
+        pending = []
+        for row in rows:
+            identity = _macsec_row_identity(row)
+            if identity not in tracked_identities:
+                continue
+            try:
+                tx_frames, rx_frames = (int(row[field]) for field in fields[:2])
+                tx_rate, rx_rate = (float(row[field]) for field in fields[2:])
+            except (TypeError, ValueError):
+                pending.append('{} has incomplete counters or rates'.format(identity))
+                continue
+            if identity in counts:
+                pending.append('{} has duplicate statistics rows'.format(identity))
+            counts[identity] = (tx_frames, rx_frames)
+            if tx_frames <= 0 or not 0 <= rx_frames <= tx_frames or tx_rate != 0 or rx_rate != 0:
+                pending.append('{}: TX={}, RX={}, TX rate={}, RX rate={}'.format(
+                    identity, tx_frames, rx_frames, tx_rate, rx_rate))
+
+        missing = tracked_identities - counts.keys()
+        if missing:
+            pending.append('Missing statistics for {}'.format(sorted(missing)))
+        if not pending and counts == previous_counts:
+            return rows
+        previous_counts = counts if not pending else None
+        logger.info('Waiting for final MACsec statistics, snapshot %s/%s: %s',
+                    attempt + 1, max_attempts, '; '.join(pending) or 'checking counter stability')
+        if attempt + 1 < max_attempts:
+            time.sleep(SNAPPI_POLL_DELAY_SEC)
+
+    pytest_assert(False, 'MACsec flow statistics did not settle after {} snapshots: {}'.format(
+        max_attempts, '; '.join(pending) or 'counters are still changing'))
+
+
 def _log_in_flight_macsec_flow_stats(in_flight_flow_metrics, data_flow_names, snappi_extra_params):
     """Log per-flow TX/RX frame counts from in-flight MACsec TGEN flow statistics."""
     prio_count = 7
@@ -1124,6 +1165,9 @@ def run_traffic(duthost,
         logger.info("Dumping per-flow statistics")
         if not ptype:
             flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
+        elif snappi_extra_params.flow_name_stats_identity_map:
+            flow_metrics = _wait_for_macsec_flow_statistics(
+                api, snappi_extra_params.flow_name_stats_identity_map)
         else:
             flow_metrics = fetch_flow_metrics_for_macsec(api).Rows
     logger.info("Stopping transmit on all remaining flows")
