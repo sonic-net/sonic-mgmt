@@ -36,6 +36,14 @@
     dev_vlans: "{{ dev_vlans|default([]) + item.value }}"
   loop: "{{ devinfo['ansible_facts']['device_vlan_range'] | default ({}) | dict2items }}"
 
+- name: Validate explicitly selected root fanout
+  assert:
+    that:
+      - root_fanout in lab_devices
+      - lab_devices[root_fanout]['Type'] == 'FanoutRoot'
+    fail_msg: "root_fanout must name a FanoutRoot in the selected connection graph"
+  when: root_fanout is defined
+
 - name: Find the root fanout switch
   set_fact:
     ansible_host: "{{ item.value['mgmtip'] }}"
@@ -43,7 +51,9 @@
     root_dev: "{{ item.key }}"
     root_hwsku: "{{ item.value['HwSku'] }}"
   with_dict: "{{ lab_devices }}"
-  when: item.value['Type'] == 'FanoutRoot'
+  when:
+    - item.value['Type'] == 'FanoutRoot'
+    - root_fanout is not defined or item.key == root_fanout
 
 - block:
     - set_fact:
