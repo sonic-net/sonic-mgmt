@@ -390,6 +390,9 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
     vlan_ports = []
     vlan_mac = None
     vlan_config = None
+    extra_vars = None
+    saved_vlan2_rule_vars = {}
+    vlan2_rule_var_names = []
     # Need to refresh below constants for two scenarios of M0
     global DOWNSTREAM_DST_IP, DOWNSTREAM_IP_TO_ALLOW, DOWNSTREAM_IP_TO_BLOCK
 
@@ -434,12 +437,16 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
                     vlan2_allow_ip, vlan2_block_ip = DOWNSTREAM_IP_TO_ALLOW_VLAN2000, DOWNSTREAM_IP_TO_BLOCK_VLAN2000
                 else:
                     vlan2_allow_ip, vlan2_block_ip = DOWNSTREAM_IP_TO_ALLOW, DOWNSTREAM_IP_TO_BLOCK
-                rand_selected_dut.host.options["variable_manager"].extra_vars.update({
+                vlan2_rule_vars = {
                     "vlan2_allow_ipv4": vlan2_allow_ip["ipv4"],
                     "vlan2_block_ipv4": vlan2_block_ip["ipv4"],
                     "vlan2_allow_ipv6": vlan2_allow_ip["ipv6"],
                     "vlan2_block_ipv6": vlan2_block_ip["ipv6"]
-                })
+                }
+                extra_vars = rand_selected_dut.host.options["variable_manager"].extra_vars
+                saved_vlan2_rule_vars = {key: extra_vars.get(key) for key in vlan2_rule_vars if key in extra_vars}
+                extra_vars.update(vlan2_rule_vars)
+                vlan2_rule_var_names = list(vlan2_rule_vars)
         except KeyError:
             logger.error("topo {} keys are missing in the tbinfo:{}".format(tbinfo['topo']['name'], tbinfo))
     if topo in ["t0", "mx", "m0_vlan"]:
@@ -651,6 +658,13 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
         setattr(ptfadapter, "force_reload_macsec", True)
 
     yield setup_information
+
+    # Do not leak the VLAN specific rule IPs to other tests rendering the same ACL rule templates
+    for key in vlan2_rule_var_names:
+        if key in saved_vlan2_rule_vars:
+            extra_vars[key] = saved_vlan2_rule_vars[key]
+        else:
+            extra_vars.pop(key, None)
 
     logger.info("Removing temporary directory \"{}\"".format(DUT_TMP_DIR))
     for duthost in duthosts:
