@@ -691,6 +691,56 @@ def get_macsec_counters(duthost, port):
     return (out_dict['egress'], out_dict['ingress'])
 
 
+def get_mka_status(host, port):
+    '''
+    Parse a detailed MKA observation, or None when show emits no valid session observation.
+    Participants are keyed by lower-case CKN:
+    {'role': 'primary'|'fallback', 'principal': bool, 'active': bool, 'live': int}
+    '''
+    output = host.command("show macsec {} --mka {}".format(getns_prefix(host, port), port),
+                          verbose=False)["stdout"]
+    if not output.strip():
+        return None
+    labels = {
+        "Interface": "interface",
+        "Profile": "profile",
+        "PAE KaY status": "kay",
+        "Controlled port mode": "mode",
+        "Config status": "config",
+        "MKA hello time": "hello",
+        "Local key server": "local_key_server",
+    }
+    status = {}
+    lines = output.splitlines()
+    for line in lines:
+        key, _, value = line.partition(":")
+        if key.strip() in labels:
+            status[labels[key.strip()]] = value.strip()
+    assert set(status) == set(labels.values()) and status["interface"] == port, \
+        "Incomplete MKA status for {}".format(port)
+    status["participants"] = {}
+    header = next((i for i, line in enumerate(lines)
+                   if line.split()[:5] == ["CKN", "Role", "Principal", "Active", "Live"]), None)
+    if header is None:
+        return status
+    for line in lines[header + 2:]:
+        if not line.strip():
+            break
+        fields = line.split()
+        assert len(fields) >= 5, "Malformed MKA participant row for {}".format(port)
+        ckn, role, principal, active, live = fields[:5]
+        assert (role in ("primary", "fallback") and principal in ("true", "false")
+                and active in ("true", "false") and live.isdigit()), \
+            "Malformed MKA participant row for {}".format(port)
+        status["participants"][ckn.lower()] = {
+            "role": role,
+            "principal": principal == "true",
+            "active": active == "true",
+            "live": int(live),
+        }
+    return status
+
+
 def clear_macsec_counters(duthost):
     assert duthost.command("sonic-clear macsec")["failed"] is False
 

@@ -24,6 +24,25 @@ def pytest_collection_modifyitems(config, items):
                 item.add_marker(skip_per_interface)
 
 
+@pytest.hookimpl(tryfirst=True)
+def pytest_runtest_makereport(item, call):
+    """Keep fallback-profile CAKs out of failure locals and fixture argument representations."""
+    if item.path.name != "test_fallback_cak.py":
+        return None
+    showlocals = item.config.option.showlocals
+    try:
+        item.config.option.showlocals = False
+        report = pytest.TestReport.from_item_and_call(item, call)
+        if report.failed and call.excinfo is not None:
+            report.longrepr = call.excinfo.getrepr(
+                showlocals=False, funcargs=False,
+                style="short" if item.config.option.tbstyle == "short" else "long",
+                tbfilter=not item.config.option.fulltrace)
+        return report
+    finally:
+        item.config.option.showlocals = showlocals
+
+
 @pytest.fixture(scope="module")
 def profile_name(macsec_profile):
     return macsec_profile['name']

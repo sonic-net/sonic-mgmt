@@ -48,7 +48,7 @@
 | Check the Data plane                                                 | Completed |                                                   |
 | Refresh SAK - timer based                                            | Completed |                                                   |
 | Refresh SAK - packet number based                                    |  Ongoing  |                                                   |
-| MACsec Key rotation, Primary/Fallback CAK                            | Not start | Feature hasn't been supported                    |
+| MACsec Key rotation, Primary/Fallback CAK                            |  Ongoing  |                                                   |
 | MACsec Counters                                                      |  Ongoing  |                                                   |
 | COPP                                                                 |  Ongoing  |                                                   |
 | Port channel with MACsec                                             | Completed |                                                   |
@@ -116,6 +116,34 @@ About the detail to set the testbed, please refer the doc: https://github.com/so
 
 ``` bash
 ./run_tests.sh -u -n vms-kvm-t0 -d vlab-01 -c macsec/test_macsec.py -f vtestbed.csv -i veos_vtb -e "--neighbor_type=sonic"
+```
+
+Fallback cases reuse the selected shared or per-interface profiles and their current bindings.
+Profiles missing fallback get a temporary dual-CA baseline. Compatible installed profiles can also
+be temporarily bound to initially unbound ports without being deleted.
+Before any writes, setup enumerates all profile attachments in the SONiC ASIC namespace or EOS
+interface configuration, including shutdown ports and Port-Channels.
+If a selected profile also has unmanaged attachments, the test leaves that profile and those ports
+untouched and moves only the affected managed endpoints to one test-owned counterpart per host,
+profile and namespace. Fully managed shared profiles remain reused.
+Cleanup restores the original bindings, rechecks attachments before deleting owned profiles, and
+waits for both endpoints of originally protected links to recover.
+Original MACsec feature-enable states are preserved on the DUT and SONiC peers.
+`--per_interface_macsec` is supported. `--macsec_profile all` excludes the static fallback profiles.
+VS DUT links to EOS still require `send_sci=true` in both effective endpoint profiles.
+Existing EOS profiles must expose type-7 keys and explicit cipher/priority settings for restoration.
+SONiC binding snapshots use CONFIG_DB rather than operational SA state; key reads target the selected
+profile in its ASIC namespace. EOS uses the existing
+`show running-config section mac security` response, which can include other profiles, and filters
+the requested profile locally. Raw output is suppressed and CAKs stay within the test process.
+Failure reports omit CAK-bearing locals and argument values, including with `--showlocals`.
+Setup follows reused-profile sharing once and reads each selected profile's settings once per endpoint.
+On LRH/URH, the module derives missing routed controlled peers from matching minigraph neighbors
+and unique IPv4 minigraph BGP sessions instead of assuming T1/T3 neighbor labels.
+The CLI and live-link cases remain in the same module with their existing selectors and explicit cleanup.
+
+```
+./run_tests.sh -u -n vms-kvm-t0 -d vlab-01 -c macsec/test_fallback_cak.py -f vtestbed.csv -i veos_vtb -e "--neighbor_type=sonic --macsec_profile=MACSEC_PROFILE_FALLBACK"
 ```
 
 ## Common Configuration
@@ -336,7 +364,56 @@ SAI_MACSEC_SA_ATTR_CONFIGURED_EGRESS_XPN            │
 
 #### MACsec Key rotation, Primary/Fallback CAK
 
-   TODO
+Covers the [fallback CAK HLD](https://github.com/sonic-net/SONiC/pull/2495) and [MKA state HLD](https://github.com/sonic-net/SONiC/pull/2545).
+Uses two same-ASIC links to distinct neighbors, a test-owned profile with primary and fallback CAKs, and a 30-second rekey period.
+Traffic is ping between the two neighbors, through the DUT. State is read with `show macsec --mka`, `show macsec --profile` and `show macsec <port>`.
+An empty detailed MKA response is a missing observation to retry, not a retained successful session.
+macsecmgrd applies key updates in place and does not guarantee hitless updates. Zero-loss cases are operator-staged, with the other CA live on every link.
+
+- Operational state
+    1. Check both CKNs and the rekey period in the profile.
+    2. Check the port is secured by the primary CA, and the TX SAK is an active RX SAK.
+
+- Staged primary/fallback rotation
+    1. Ping both ways at 10 pps.
+    2. Replace each affected DUT profile once, then its peers. For the primary, expect the fallback CA in between.
+    3. Expect the primary CA and no packet loss. Restore the original CAKs outside the measured window.
+
+- Periodic rekey during rotation
+    1. Skip only this case if the selected key server's rekey timer is disabled.
+    2. Keep the existing timer. Observe natural SAK refreshes before and after CAK rotation, with unchanged CKNs.
+    3. Expect no packet loss. A CAK-induced SAK change alone does not count.
+
+- Primary mismatch
+    1. Ping both ways at 10 pps.
+    2. Make the peer primary CAK wrong. cEOS deletes it first.
+    3. Expect the fallback CA. Restore the peer primary CAK and expect the primary CA.
+    4. Expect no packet loss.
+
+- Primary update without a live fallback
+    1. Make one peer's fallback CAK wrong. Expect no live fallback peer on that port.
+    2. Update the DUT primary CAK. Expect the new primary and fallback participants, config in-sync, on that port. Traffic loss is allowed.
+    3. A sibling sharing that profile moves to fallback; a distinct profile stays on its original primary.
+    4. Update only affected peers. Expect each port on its configured primary.
+
+- Both CAKs wrong
+    cEOS is skipped: it may retain the removed principal participant.
+    1. Pin existing protected neighbor-loopback routes through the routing daemons. Reuse matching static pins and remove only pins added by the test. Incompatible, ECMP, or unprotected routes are skipped before writes.
+    2. Before key mutation, prove both SONiC neighbor capture points receive exact test ICMP echo requests. Missing capture tools or plaintext visibility cause an explicit skip.
+    3. Update the peer primary, then fallback CAK, to wrong keys.
+    4. Expect the new CKNs in-sync with no live peer, the port not secured, both protected routes still present, and zero matching requests received in either direction. SAs may be retained. Each capture must remain alive during transmission, have readable output, and report zero kernel drops; capture failures are not evidence of blocking.
+    5. Restore the CAKs. Expect matching requests received in both directions. Cleanup stops only owned capture PIDs and removes only their exact files.
+
+- Profile validation
+    1. Add a profile with half a fallback key, a duplicate CKN or an invalid CAK. Expect failure.
+    2. Update an unattached profile primary. Expect the new CKN.
+    3. Update with an unchanged, unknown, colliding or invalid key, or on a primary-only profile. Expect failure and no change.
+
+- Stress, with `--run-stress-tests`
+    1. Alternate primary and fallback rotations 10 times. Expect no packet loss.
+
+Not covered: config reload, reboot and EOS SAK inspection.
+Component tests cover WPA key remove/add order, add retry and persistent `degraded` status; there is no public stimulus for them.
 
 #### MACsec Counters
 
