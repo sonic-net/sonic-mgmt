@@ -267,6 +267,7 @@ class EosHost(AnsibleHostBase):
         self.shell_user = shell_user
         self.shell_passwd = shell_passwd
         self.is_multi_asic = False
+        self._is_multiagent = None
         # VRF scoping for converged (multi-VRF) topologies. When set, BGP config
         # parents are transparently rewritten to be VRF-scoped in eos_config().
         # Left as None on stock topologies so behavior is byte-identical.
@@ -560,9 +561,14 @@ class EosHost(AnsibleHostBase):
         return out
 
     def is_multiagent(self):
-        out = self.eos_command(commands=["show ip route summary | json"])
-        model = out["stdout"][0]["protoModelStatus"]["operatingProtoModel"]
-        return model == "multi-agent"
+        # Cache it: the protocol model is fixed per run, so probe once instead of on
+        # every kill_bgpd()/start_bgpd(). Each eos_command() is a fresh SSH login, and
+        # re-probing on every parallel flap floods cEOS mgmt SSH (auth failures).
+        if self._is_multiagent is None:
+            out = self.eos_command(commands=["show ip route summary | json"])
+            model = out["stdout"][0]["protoModelStatus"]["operatingProtoModel"]
+            self._is_multiagent = (model == "multi-agent")
+        return self._is_multiagent
 
     def kill_bgpd(self):
         agent = 'Bgp' if self.is_multiagent() else 'Rib'
