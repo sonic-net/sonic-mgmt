@@ -1,0 +1,14 @@
+- name: Select existing SONiC fanout authentication
+  set_fact:
+    ansible_ssh_user: "{{ lookup('vars', item ~ '_user') }}"
+    ansible_ssh_pass: "{{ lookup('vars', item ~ '_password') }}"
+  loop:
+    - fanout_sonic
+    - fanout_tacacs_sonic
+    - fanout_tacacs
+  when:
+    - inventory_hostname != generic_dut
+    - "'fanout' in group_names"
+    - (item ~ '_user') in vars
+    - (item ~ '_password') in vars
+  no_log: true

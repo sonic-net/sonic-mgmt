@@ -1,0 +1,189 @@
+# Offline Generic HWSKU planner
+
+`ansible/module_utils/generic_hwsku.py` plans one deterministic mixed-breakout
+scenario from recorded capabilities, wiring, policy and reserved resources.
+It performs no file/device I/O and does not change `add-topo`, `deploy-mg`,
+`remove-topo` or ordinary topology behavior. Live collection, configuration
+rendering/application, recovery and pytest integration are separate work.
+
+## API
+
+```python
+from ansible.module_utils.generic_hwsku import (
+    canonical_json, plan_scenario, validate_manifest,
+)
+
+manifest = plan_scenario(snapshot, defaults, group_settings, host_settings)
+validate_manifest(manifest, snapshot, defaults, group_settings, host_settings)
+serialized = canonical_json(manifest)
+```
+
+Settings merge field by field: DUT settings override inventory-group settings,
+which override shared defaults. Planner version 4 derives coverage counts and
+the routed-port count when their optional overrides are absent. It supplies
+deterministic address/VLAN/search defaults, selecting a profile automatically
+only when the snapshot has exactly one supported profile. A live caller must
+verify that the effective addresses, VLAN and policy are usable on its reserved
+resources; offline defaults are not an allocation or execution grant.
+Inputs and manifests are JSON-compatible dictionaries; callers own artifact
+storage and must validate a saved manifest against its original snapshot before
+consuming it. Digests detect modification, not authorization or trust.
+
+## Snapshot contract, schema 1
+
+The top-level fields are `schema_version: 1`, `dut`, `devices`, `links`,
+`endpoints`, `lookup`, `supported_profiles`, `sources`, and optional
+`excluded_lookup`. Unknown fields, duplicate identities and malformed values
+are errors. Speeds are positive integers in Mbps; lanes, channels, indices,
+capacities and headroom costs are nonnegative integers, not booleans.
+
+| Record | Fields and meaning |
+|---|---|
+| Device | `name`, `platform`, `base_hwsku`, `realized_hwsku`, `image`, `asic_count`, `dedicated`, `port_capacity`, `headroom_capacity`, `cages`; optional per-cage `port_credits` and `headroom_credits` |
+| Cage | `name`, `group`, `protected_reason` (empty if eligible), `modes`; optional `role` (`data` by default, or `service`) and `media_speeds` |
+| Expansion | `id` (unique within cage), `name` (canonical advertised mode), `group_mode`, `ports` |
+| Port | `name`, `alias`, `index`, ordered `lanes`, physical `channels`, `speed`, `fec`, `autoneg`, supported `cables` |
+| Physical link | `dut_cage`, `dut_channel`, `leaf`, `leaf_cage`, `leaf_channel`, `excluded_reason` (empty if eligible) |
+| Reserved transport endpoint | `id`, `leaf`, `cage`, `channels`, `ptf_index`, `trunk`, `vlan`, `host_interface`, `roles` (a nonempty subset of `routed`, `access`) |
+| Supported lookup row | `speed`, `cable`, `headroom` |
+| Excluded lookup row | `speed`, `cable`, `reason`, `evidence_sha256` |
+
+`sources` contains lowercase SHA256 digests under `capabilities`, `parser`,
+`links`, `lookup` and `policy`. The collector must bind them to the actual
+installed platform/canonical parser output, unchanged baseline connectivity,
+effective lookup and reviewed policy. Device/image/ownership assertions must
+also be verified by the future live collector; an offline planner cannot
+establish that a supplied assertion is true.
+
+Each device must be a dedicated, reserved single-ASIC device on the same
+platform as the DUT. All non-DUT devices are leaf peers. Capacities are the
+verified **available scenario budget after reserving unrelated baseline
+usage**, not raw ASIC maxima. `port_capacity` includes inactive children of a
+selected leaf expansion. Zero available capacity is valid for protected or
+unused devices; every selected expansion must still fit its device's budget.
+Optional per-cage credits describe verified original allocations that are
+reclaimable only when that cage is actually selected. Protected or unselected
+credits never become spare budget.
+Policy must provide conservative additive `headroom`
+costs and available per-device `headroom_capacity` for the supported profile.
+The planner sums these supplied costs on both active ends; it does not compute
+buffer-manager thresholds, derive pool sizes, or replace live convergence
+checks. A platform without this verified policy is not ready for collection.
+
+The collector supplies every canonical expansion, including alternate-speed
+variants and mixed-speed children. Variants have distinct expansion IDs but
+retain their canonical advertised mode name. Every expansion of a cage must
+describe the same complete physical lane/channel set. ASIC lane order is
+preserved. Breakout children within one cage may share a physical `index`;
+logical port names and aliases remain unique, and PTF endpoint indices are
+independently allocated from reserved transport. The planner never divides
+lanes, parses a breakout string, invents
+aliases, assumes FEC, or infers connectivity from Ethernet interface numbers.
+
+`media_speeds`, when supplied, is a list of unique positive Mbps values backed
+by recorded module capabilities, separately from ASIC-supported speeds. Every
+child of a selected expansion must satisfy its cage's limit on both devices.
+An empty list prevents selecting the cage. Omission does not establish hardware
+readiness. Media limits constrain selection, not the advertised coverage
+requirements; a live caller must freeze and recheck the evidence.
+
+`group_mode` is a platform-policy compatibility token: selected expansions in
+one device's shared `group` must agree on it. Independent cages use distinct
+groups. Excluded channels protect both whole cages; protection propagates
+through shared groups and their connected peers. Protected-only capabilities
+are listed separately, never counted as executed/covered.
+
+Every physical channel has at most one peer. A DUT child must map to exactly
+one complete peer child with matching speed/FEC/autoneg. A transport endpoint's
+channels must be contained in that child's connected peer channels. Thus a
+merged child selects one existing endpoint; it does not merge baseline VLANs.
+Selected endpoints cannot share a PTF index, host interface, endpoint ID or
+`(trunk, vlan)`. Different trunks may legitimately reuse a VLAN number.
+
+`lookup` contains all required physically supported `(speed, cable)` pairs,
+with policy-provided costs; there is no artificial cable-by-mode Cartesian
+product. A pair whose speed exists only on protected cages is explicitly
+excluded. Other unsupported rows must be moved to `excluded_lookup` with
+evidence, not silently dropped to make a plan fit.
+
+## Automatic counts and service coverage
+
+For each eligible advertised `(mode, speed)`, the requested count is:
+
+```text
+N = max(canonical same-speed child count for that mode,
+        required lookup cable-row count for that speed,
+        optional min_subports lower bound)
+```
+
+These are distinct logical children, even when they share a physical
+`PORT.index`. The minimum operating speed alone does not determine N.
+For example, four canonical children and six required cable rows request six
+instances. An override may increase but never reduce the derived requirement.
+
+Primary data-port mode/count and lookup coverage remain hard requirements.
+Explicitly source-classified, single-lane, single-child service cages are a
+separate best-effort class, not an automatic escape for constrained data ports.
+The planner first obtains a feasible primary witness, then optimizes service
+mode/speed, lookup and requested-count coverage around that witness.
+
+`requirements.service` retains the advertised requests. `coverage.service`
+records requested versus actual counts, every missing lookup row and
+`SERVICE_COVERAGE_INCOMPLETE` warnings. Any shortfall keeps overall
+`coverage.complete` false. For example, two 10G-limited service modules may
+select two 10G ports while the advertised 25G request remains visibly unmet.
+Neither media limits nor service best effort remove primary obligations.
+
+## Settings
+
+| Field | Constraint |
+|---|---|
+| `min_subports` | Optional positive lower bound; otherwise N is derived from canonical children and lookup |
+| `routed_ports` | Optional exact positive count; otherwise derive it from feasible traffic endpoints, retaining a separate access endpoint |
+| `access_vlan` | Default 100; 1-4094 and separate from selected leaf/PTF transport VLANs |
+| `routed_network` | Default `198.18.0.0/16`; canonical IPv4 pool with one /31 DUT/PTF pair per routed port |
+| `access_network` | Default `198.19.0.0/16`; nonoverlapping pool with gateway and distinct peers; /30 or larger |
+| `profile` | A member of `supported_profiles`; automatic only for an unambiguous single supported profile |
+| `max_search_nodes` | Default 100000; positive cumulative deterministic budget; exhaustion is unknown, not infeasibility |
+
+Addresses and roles are assigned while satisfying resource constraints.
+Routed ports receive stable /31 pairs; access ports share the access gateway
+but have distinct PTF addresses. The traffic witnesses cover both directions
+between a routed anchor and every other selected endpoint. These are planned
+paths, not generated SAI test results or proof of packet forwarding.
+
+## Search and manifest
+
+Stable ordering selects the most constrained uncovered demand first. Bounded
+backtracking jointly assigns DUT/leaf expansions, supported cable rows,
+transport and forwarding roles. Remaining per-cage capacity provides an upper
+bound for pruning. Every child of a selected DUT expansion must be connected;
+unconnected children of selected leaf expansions remain explicitly inactive.
+The first complete solution is accepted, not a minimum-cage optimum.
+
+Physical and traffic requirements share one layout. Without an exact
+`routed_ports` override, proven traffic infeasibility may produce a complete
+physical-only plan with no packet cases; that is never a traffic pass. The
+traffic attempt, physical-only retry and best-effort service optimization share
+one cumulative node budget. Budget exhaustion never triggers a fallback or
+returns a success-shaped partial result.
+
+The manifest records schema/planner versions, source/device/image identity,
+effective settings, required coverage, exclusions, canonical layout, endpoint
+mapping/addresses, headroom witnesses and directed traffic paths. Coverage
+witnesses name distinct children for every required mode/speed and lookup
+pair. Its scenario ID binds normalized inputs and layout; separate SHA256
+digests bind layout, mapping and the entire manifest. The whole-manifest
+digest is computed before adding its own `manifest_sha256` field.
+
+`validate_manifest` independently replays the declared selections against
+canonical input facts, resource limits and coverage requirements, then rebuilds
+and compares all witnesses and digests. It does **not** repeat the search or
+trust a success flag. Treat the serialized manifest as frozen; deployment and
+tests must consume it rather than replan. Observed DB bindings and execution
+results belong in separate version-bound evidence.
+
+Errors are explicit: `InvalidInput`, `PrerequisiteError`, `InfeasiblePlan`,
+`SearchBudgetExceeded` and `InvalidManifest`. No error returns a partial
+success manifest, reduces a primary requirement or hides a service shortfall. Successful
+offline planning is neither device readiness nor qualification acceptance.

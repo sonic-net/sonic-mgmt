@@ -1,0 +1,123 @@
+- name: Collect exact Generic HWSKU device facts without configuring services
+  hosts: "{{ generic_collect_hosts }}"
+  connection: ssh
+  gather_facts: false
+  any_errors_fatal: true
+  tasks:
+    - name: Select original device authentication
+      include_tasks: generic_hwsku_device_auth.yml
+      vars:
+        generic_dut: "{{ generic_collect_dut }}"
+
+    - name: Create this invocation's private collection directory
+      tempfile:
+        state: directory
+        prefix: sonic-generic-facts-
+      register: generic_facts_directory
+
+    - name: Capture and fetch private original facts
+      block:
+        - name: Read canonical capabilities, image and separate running/startup state
+          generic_hwsku_device_facts:
+            destination: "{{ generic_facts_directory.path }}/facts.json"
+          become: true
+
+        - name: Fetch facts without disclosing original configurations
+          fetch:
+            src: "{{ generic_facts_directory.path }}/facts.json"
+            dest: "{{ generic_local_directory }}/{{ inventory_hostname }}.json"
+            flat: true
+          become: true
+          no_log: true
+
+        - name: Restrict the controller copy
+          file:
+            path: "{{ generic_local_directory }}/{{ inventory_hostname }}.json"
+            mode: "0600"
+          delegate_to: localhost
+          no_log: true
+      always:
+        - name: Remove only this invocation's temporary remote facts
+          file:
+            path: "{{ generic_facts_directory.path }}"
+            state: absent
+          become: true
+
+- name: Resolve only the target baseline VM host
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    generic_candidates: >-
+      {{ groups.get(generic_collect_server, [generic_collect_server])
+         | intersect(groups.get('servers', []))
+         | intersect(groups.get('vm_host', [])) | sort }}
+  tasks:
+    - name: Require one eligible baseline server
+      assert:
+        that:
+          - generic_candidates | length == 1
+        fail_msg: "Generic collection requires one exact server in servers and vm_host."
+    - name: Bind the exact baseline server identity
+      set_fact:
+        generic_collect_vm_host: "{{ generic_candidates[0] }}"
+
+- name: Read existing host and PTF transport
+  hosts: "{{ hostvars['localhost'].generic_collect_vm_host }}"
+  gather_facts: false
+  tasks:
+    - name: Select original host authentication
+      include_tasks: generic_hwsku_host_auth.yml
+    - name: Reuse the ordinary topology's Docker registry configuration
+      include_vars: vars/docker_registry.yml
+      no_log: true
+      when: not (generic_collect_cleanup_only | default(false))
+    - name: Allocate this invocation's host-facts directory
+      tempfile:
+        state: directory
+        prefix: sonic-generic-host-facts-
+      register: generic_host_directory
+    - name: Capture baseline links and container identity privately
+      block:
+        - name: Install only the read-only collector helper
+          copy:
+            src: "{{ playbook_dir }}/library/generic_hwsku_device_facts.py"
+            dest: "{{ generic_host_directory.path }}/generic_hwsku_device_facts.py"
+            mode: "0600"
+        - name: Capture existing host/PTF metadata
+          generic_hwsku_host_facts:
+            container: "ptf_{{ generic_collect_group }}"
+            inventory_name: "{{ inventory_hostname }}"
+            image_reference: >-
+              {{ omit if generic_collect_cleanup_only | default(false) else
+                 (ptf_registry_host | default(docker_registry_host)) ~ '/' ~ generic_collect_ptf_image_name ~ ':' ~ generic_collect_ptf_image_tag }}
+            cleanup_only: "{{ generic_collect_cleanup_only | default(false) }}"
+            external_interface: "{{ external_port }}"
+            management:
+              bridge: "{{ mgmt_bridge }}"
+              addresses: "{{ generic_collect_ptf_addresses }}"
+              gateway: "{{ mgmt_gw | default('') }}"
+              gateway_v6: "{{ mgmt_gw_v6 | default('') }}"
+            destination: "{{ generic_host_directory.path }}/host.json"
+          become: true
+          environment:
+            PYTHONPATH: "{{ generic_host_directory.path }}"
+        - name: Fetch private host/PTF metadata
+          fetch:
+            src: "{{ generic_host_directory.path }}/host.json"
+            dest: "{{ generic_local_directory }}/host.json"
+            flat: true
+          become: true
+          no_log: true
+        - name: Restrict the controller copy
+          file:
+            path: "{{ generic_local_directory }}/host.json"
+            mode: "0600"
+          delegate_to: localhost
+          no_log: true
+      always:
+        - name: Remove only the current host collection directory
+          file:
+            path: "{{ generic_host_directory.path }}"
+            state: absent
+          become: true

@@ -6,6 +6,7 @@
 # Ansible files
 .ansible
 ansible.log
+/.generic_hwsku/
 
 # Test generated files
 tests/logs
