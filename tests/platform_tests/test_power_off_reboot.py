@@ -145,6 +145,12 @@ def _validate_psu_power(duthost, psu, pdus, expected_psu_count, dut_psu_status=N
     return dut_psu_status
 
 
+# min PSUs to power on together. Unlisted platforms default to 1.
+MIN_PSU_ON = {
+    "x86_64-nvidia_sn5640-r0": 2
+}
+
+
 @pytest.fixture(scope="module", autouse=True)
 def set_max_time_for_interfaces(duthosts, enum_supervisor_dut_hostname):
     """
@@ -333,6 +339,7 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
     # 3. Turn off all PSUs, turn on one of the PSU, then turn on the other PSU, then check.
     power_on_seq_list = []
     dut_psu_status = None
+    psu_pdus_list = []
     for psu, pdus in psu_to_pdus.items():
         dut_psu_status = _validate_psu_power(
             duthost,
@@ -342,9 +349,14 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
             dut_psu_status,
         )
         if not is_chassis:
-            power_on_seq_list.append(pdus)
-    # Append all_outlets unless it would duplicate the single existing entry
-    # For chassis the list is empty here, so all_outlets becomes the only entry
+            psu_pdus_list.append(pdus)
+    # Special case: platforms in MIN_PSU_ON power on PSUs in groups (e.g. 4 PSUs -> 1+2, 3+4, then all).
+    min_psu_count = 1
+    if duthost.facts["platform"] in MIN_PSU_ON:
+        min_psu_count = MIN_PSU_ON[duthost.facts["platform"]]
+    for i in range(0, len(psu_pdus_list), min_psu_count):
+        group = psu_pdus_list[i:i + min_psu_count]
+        power_on_seq_list.append([outlet for pdus in group for outlet in pdus])
     if len(power_on_seq_list) != 1:
         power_on_seq_list.append(all_outlets)
     logging.info("Got all power on sequences {}".format(power_on_seq_list))
