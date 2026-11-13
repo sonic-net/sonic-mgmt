@@ -85,8 +85,8 @@ def restore_bgp_sessions(duthost):
 
 def test_dualtor_bgp_update_delay(duthost, ip_version, select_bgp_neighbor):
     """
-    This testcase aims to validate that, for a dualtor T0, after startup BGP sessions,
-    it should always sleep for 10 seconds delay before sending out any BGP updates.
+    This testcase aims to validate that, for a dualtor T0, BGP updates are delayed
+    for at least 10 seconds from the start of the BGP startup command.
     And the BGP updates come from T1s should comes earlier than the BGP update to the T1s,
     so the T0 could always have default route ready before T1 learns any route from T0.
     """
@@ -126,8 +126,9 @@ def test_dualtor_bgp_update_delay(duthost, ip_version, select_bgp_neighbor):
 
         time.sleep(20)
 
-    bgp_startup_time = datetime.strptime(startup_ret['end'], "%Y-%m-%d %H:%M:%S.%f")
-    logging.debug("BGP neighbor is started at %s", bgp_startup_time)
+    # BGP can resume before the config CLI exits, so its end is not the timer's start.
+    bgp_startup_time = datetime.strptime(startup_ret['start'], "%Y-%m-%d %H:%M:%S.%f")
+    logging.debug("BGP startup command is started at %s", bgp_startup_time)
 
     with tempfile.NamedTemporaryFile() as tmp_pcap:
         duthost.fetch(src=bgp_pcap, dest=tmp_pcap.name, flat=True)
