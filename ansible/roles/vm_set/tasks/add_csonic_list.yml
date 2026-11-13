@@ -50,6 +50,7 @@
       path: "{{ csonic_ovs_build_context.path }}"
       args:
         CSONIC_BASE_IMAGE: "{{ csonic_image }}"
+        CSONIC_OVS_BUILDER_IMAGE: "{{ csonic_ovs_builder_image }}"
   when: csonic_lag_backend == 'userspace_ovs'
 
 - name: Remove temporary userspace OVS image build context
