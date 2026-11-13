@@ -435,6 +435,7 @@ def gnmi_subscribe_polling_py(
     timeout,
     namespace=None,
     ip=None,
+    tls=None,
 ):
     """
     Send a POLL-mode GNMI subscribe request via py_gnmicli.
@@ -446,17 +447,27 @@ def gnmi_subscribe_polling_py(
     The DB is given via the target (-xt <target>[/<namespace>]) with table-relative
     xpaths, not via a sonic-db origin with the DB in the path.
 
+    tls optionally supplies the existing managed fixture's endpoint and PTF
+    certificate paths; omitted callers retain their original connection settings.
+
     Returns the ptfhost.shell result dict (rc / stdout / stderr).
     """
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    ip = ip or duthost.mgmt_ip
-    port = env.gnmi_port
+    if tls is None:
+        ip = ip or duthost.mgmt_ip
+        port = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE).gnmi_port
+        ca_cert, client_key, client_cert = "/root/gnmiCA.pem", "/root/gnmiclient.key", "/root/gnmiclient.crt"
+    else:
+        ip = ip or tls.host
+        port = tls.port
+        ca_cert = tls.cert_paths.ca_cert
+        client_key = tls.cert_paths.client_key
+        client_cert = tls.cert_paths.client_cert
     ns = "/{}".format(namespace) if namespace else ""
     cmd = "/root/env-python3/bin/python /root/gnxi/gnmi_cli_py/py_gnmicli.py "
     cmd += "-t %s -p %u " % (ip, port)
-    cmd += "-rcert /root/gnmiCA.pem "
-    cmd += "-pkey /root/gnmiclient.key "
-    cmd += "-cchain /root/gnmiclient.crt "
+    cmd += "-rcert %s " % ca_cert
+    cmd += "-pkey %s " % client_key
+    cmd += "-cchain %s " % client_cert
     cmd += "-m subscribe "
     # Quote each xpath so an escaped slash in a route prefix (e.g. 0.0.0.0\/0)
     # survives the shell and reaches py_gnmicli as a single path element.
