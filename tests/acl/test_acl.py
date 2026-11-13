@@ -222,7 +222,8 @@ def reload_minigraph_with_optional_override(duthost):
         config_source="minigraph",
         safe_reload=True,
         override_config=override_config,
-        check_intf_up_ports=True
+        check_intf_up_ports=True,
+        wait_for_bgp=True
     )
 
 
