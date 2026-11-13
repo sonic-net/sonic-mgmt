@@ -201,27 +201,31 @@ def get_no_export_output(vm_host, ipv6=False):
         ipv6: Boolean flag to check IPv6 routes
     """
     if ipv6:
-        ipv6_pattern = r'[0-9a-fA-F:]+\/\d+\s+[0-9a-fA-F:]+.*'
-        if isinstance(vm_host, EosHost):
-            out = vm_host.eos_command(commands=['show ipv6 bgp match community no-export'])["stdout"]
-            return re.findall(ipv6_pattern, out[0])
-        elif isinstance(vm_host, SonicHost):
-            out = vm_host.command("vtysh -c 'show ipv6 bgp community no-export'")["stdout"]
-            # For SonicHost, output is already a string, no need to index
-            return re.findall(ipv6_pattern, out)
-        else:
-            raise TypeError(f"Unsupported host type: {type(vm_host)}. Expected EosHost or SonicHost.")
+        route_pattern = r'[0-9a-fA-F:]+\/\d+\s+[0-9a-fA-F:]+.*'
+        eos_command = 'show ipv6 bgp match community no-export'
+        sonic_command = "vtysh -c 'show ipv6 bgp community no-export'"
     else:
-        ipv4_pattern = r'\d+\.\d+.\d+.\d+\/\d+\s+\d+\.\d+.\d+.\d+.*'
-        if isinstance(vm_host, EosHost):
-            out = vm_host.eos_command(commands=['show ip bgp community no-export'])["stdout"]
-            return re.findall(ipv4_pattern, out[0])
-        elif isinstance(vm_host, SonicHost):
-            out = vm_host.command("vtysh -c 'show ip bgp community no-export'")["stdout"]
-            # For SonicHost, output is already a string, no need to index
-            return re.findall(ipv4_pattern, out)
-        else:
-            raise TypeError(f"Unsupported host type: {type(vm_host)}. Expected EosHost or SonicHost.")
+        route_pattern = r'\d+\.\d+.\d+.\d+\/\d+\s+\d+\.\d+.\d+.\d+.*'
+        eos_command = 'show ip bgp community no-export'
+        sonic_command = "vtysh -c 'show ip bgp community no-export'"
+
+    if isinstance(vm_host, EosHost):
+        out = vm_host.eos_command(commands=[eos_command])["stdout"]
+        return re.findall(route_pattern, out[0])
+
+    if isinstance(vm_host, (SonicHost, CsonicHost)):
+        if isinstance(vm_host, CsonicHost) and vm_host.bgp_vrf:
+            # CsonicHost scopes legacy ``show * bgp`` reads to the logical
+            # runtime VRF. Keep the high-level command here so that host owns
+            # the exact FRR grammar and ordinary SONiC/cSONiC stay unchanged.
+            sonic_command = 'show {} bgp community no-export'.format(
+                'ipv6' if ipv6 else 'ip')
+        out = vm_host.command(sonic_command)["stdout"]
+        return re.findall(route_pattern, out)
+
+    raise TypeError(
+        f"Unsupported host type: {type(vm_host)}. "
+        "Expected EosHost, SonicHost, or CsonicHost.")
 
 
 def apply_default_bgp_config(duthost, copy=False):
