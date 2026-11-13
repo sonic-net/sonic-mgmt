@@ -41,7 +41,7 @@ Testing cert rotation on the gnmi container.
 def _gnmi_get_ok(duthost, ptfhost):
     """Return True if an OTHERS/proc/uptime GET against the gnmi server succeeds."""
     try:
-        gnmi_get(duthost, ptfhost, ["proc/uptime"], target="OTHERS", origin=None)
+        gnmi_get(duthost, ptfhost, ["proc/uptime"], target="OTHERS", origin=None, dump_on_error=False)
         return True
     except Exception as e:
         logger.debug("gnmi get failed: {}".format(e))

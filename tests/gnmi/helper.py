@@ -285,7 +285,7 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None
         raise error
 
 
-def gnmi_get(duthost, ptfhost, path_list, ip=None, target=None, origin="sonic-db", raw=False):
+def gnmi_get(duthost, ptfhost, path_list, ip=None, target=None, origin="sonic-db", raw=False, dump_on_error=True):
     """
     Send GNMI get request with GNMI client
 
@@ -297,6 +297,8 @@ def gnmi_get(duthost, ptfhost, path_list, ip=None, target=None, origin="sonic-db
         origin: gNMI origin (-xo); defaults to "sonic-db", pass None to omit
         raw: when True, return the raw client stdout instead of the parsed result
             list (used by callers that parse the GetResponse themselves)
+        dump_on_error: when False, don't dump gNMI debug state on error, e.g. for a
+            probe that is expected to fail, or retried
 
     Returns:
         msg_list: list for get result (or the raw stdout string when raw=True)
@@ -326,7 +328,8 @@ def gnmi_get(duthost, ptfhost, path_list, ip=None, target=None, origin="sonic-db
     if error in msg:
         result = msg.split(error, 1)
         get_error = Exception("GRPC error:" + result[1])
-        dump_gnmi_debug_state(duthost, error=get_error)
+        if dump_on_error:
+            dump_gnmi_debug_state(duthost, error=get_error)
         raise get_error
     if raw:
         return msg
@@ -337,7 +340,8 @@ def gnmi_get(duthost, ptfhost, path_list, ip=None, target=None, origin="sonic-db
         return [msg.strip("\n") for msg in msg_list]
     else:
         get_error = Exception("error:" + msg)
-        dump_gnmi_debug_state(duthost, error=get_error)
+        if dump_on_error:
+            dump_gnmi_debug_state(duthost, error=get_error)
         raise get_error
 
 
