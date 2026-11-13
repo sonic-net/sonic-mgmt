@@ -144,6 +144,9 @@ t1-lag:
   - vxlan/test_vnet_bgp_route_precedence.py
 
 t2:
+  # Needs protection next hop group support in orchagent and SAI
+  # (SAI_NEXT_HOP_GROUP_TYPE_PROTECTION); KVM has none
+  - protection_nhg/test_protection_nhg.py
   # KVM do not support bfd test
   - bfd/test_bfd_static_route.py
   - bfd/test_bfd_traffic.py
