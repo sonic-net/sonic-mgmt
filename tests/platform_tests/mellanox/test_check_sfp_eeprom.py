@@ -6,7 +6,7 @@ from .util import check_sfp_eeprom_info
 from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.platform.processes_utils import check_pmon_uptime_minutes
+from tests.common.platform.processes_utils import check_pmon_uptime_minutes, PMON_READY_TIMEOUT_SECS
 from tests.platform_tests.mellanox.conftest import CPO_PORT_TYPE
 import logging
 
@@ -53,7 +53,7 @@ def test_check_sfp_eeprom_with_option_dom(rand_selected_dut, show_eeprom_cmd, sf
         2. When cable support dom, check the corresponding keys related to monitor exist,
            and the the corresponding value has correct format
     """
-    pytest_assert(wait_until(360, 10, 0, check_pmon_uptime_minutes, rand_selected_dut),
+    pytest_assert(wait_until(PMON_READY_TIMEOUT_SECS, 10, 0, check_pmon_uptime_minutes, rand_selected_dut),
                   "Pmon docker is not ready for test")
 
     with allure.step("Run: {} to get transceiver eeprom info".format(show_eeprom_cmd)):
