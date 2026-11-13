@@ -19,7 +19,7 @@ parameters:
 
 - name: STOP_ON_FAILURE
   type: string
-  default: "True"
+  default: "False"
 
 - name: TEST_PLAN_NUM
   type: string
@@ -62,7 +62,45 @@ parameters:
 # Example: {"t0_checker": ["bgp/test_bgp_command.py", "bgp/test_ping_bgp_neighbor.py"], "t1_checker": ["bgp/test_bgp_fact.py"]}
 - name: IMPACT_AREA_INFO
   type: object
-  default: {}
+  default:
+    t0-vpp_checker:
+    - acl/test_src_mac_rewrite.py
+    - arp/test_stress_arp.py
+    - bmp/test_bmp_configdb.py
+    - bmp/test_bmp_redis_instance.py
+    - bmp/test_bmp_statedb.py
+    - bmp/test_docker_restart.py
+    - bmp/test_frr_bmp_sanity.py
+    - cacl/test_cacl_application.py
+    - decap/test_subnet_decap.py
+    - dhcp_relay/test_dhcp_counter_stress.py
+    - dhcp_relay/test_dhcp_pkt_recv.py
+    - high_frequency_telemetry/test_hft_end_to_end.py
+    - high_frequency_telemetry/test_high_frequency_telemetry.py
+    - l2/test_l2_configure.py
+    - mclag/test_mclag_l3.py
+    - mvrf/test_mgmtvrf.py
+    - nat/test_dynamic_nat.py
+    - nat/test_static_nat.py
+    - ospf/test_ospf.py
+    - ospf/test_ospf_bfd.py
+    - packet_trimming/test_packet_trimming_asymmetric.py
+    - packet_trimming/test_packet_trimming_config_asymmetric.py
+    - packet_trimming/test_packet_trimming_config_symmetric.py
+    - packet_trimming/test_packet_trimming_symmetric.py
+    - pc/test_retry_count.py
+    - portstat/test_portstat.py
+    - pvst/test_pvst.py
+    - radv/test_radv_ipv6_ra.py
+    - radv/test_radv_restart.py
+    - radv/test_radv_run.py
+    - reboot/test_reboot_blocking_mode.py
+    - span/test_erspan_sampling_truncation.py
+    - stress/test_stress_routes.py
+    - vlan/test_sw_mode.py
+    - vxlan/test_scale_ecmp.py
+    - vxlan/test_vxlan_tunnel_route_scale.py
+    - vxlan/test_vxlan_vnet_bgp_subintf.py
 
 - name: OVERRIDE_PARAMS
   type: object
