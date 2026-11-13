@@ -68,6 +68,7 @@ def test_dump_marks_error(gu, error):
     # The shell wrapper would otherwise log the whole dump again at DEBUG.
     assert dut.verbose == [False]
     assert "=== GNMI process ===" in dut.commands[0]
+    assert "docker top gnmi -efwww" in dut.commands[0]
     assert "cat /root/gnmi.log" in dut.commands[0]
 
 

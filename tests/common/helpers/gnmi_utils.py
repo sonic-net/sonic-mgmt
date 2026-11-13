@@ -488,7 +488,8 @@ def dump_gnmi_debug_state(duthost, localhost=None, error: Optional[BaseException
         env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
         read_gnmi_log = "cat" if gnmi_log_lines is None else f"tail -n {gnmi_log_lines}"
         commands = [
-            ("GNMI process", f"docker exec {env.gnmi_container} ps -efwww"),
+            # Only the container's own processes: "docker exec ... ps" can list every process on the host.
+            ("GNMI process", f"docker top {env.gnmi_container} -efwww"),
             ("System time", f"docker exec {env.gnmi_container} date"),
             # Written by the server that apply_cert_config starts with -v=10.
             ("GNMI log", _capped(f"docker exec {env.gnmi_container} {read_gnmi_log} /root/gnmi.log")),
