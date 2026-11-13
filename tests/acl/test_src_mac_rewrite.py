@@ -789,7 +789,7 @@ def cleanup_test_configuration(duthost, vxlan_tunnel_name=None):
 
         # Reload configuration to apply the restored config
         logger.info("Reloading configuration to apply restored settings...")
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
         logger.info("Configuration reload completed")
 
     except Exception as e:
