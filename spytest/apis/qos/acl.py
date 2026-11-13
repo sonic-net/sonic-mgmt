@@ -1683,11 +1683,11 @@ def get_group_id(dut):
     Author: Jagadish Chatrasi (jagadish.chatrasi@broadcom.com)
     """
     group_ids = list()
-    command = "sonic-db-cli ASIC_DB keys *ACL_TABLE:oid*"
+    command = "sonic-db-cli -s ASIC_DB keys *ACL_TABLE:oid*"
     out = st.show(dut, command)
     acl_oids = [entry['oid'] for entry in out if 'oid' in entry]
     for acl_oid in acl_oids:
-        command = "sonic-db-cli ASIC_DB HGET VIDTORID oid:{}".format(acl_oid)
+        command = "sonic-db-cli -s ASIC_DB HGET VIDTORID oid:{}".format(acl_oid)
         out = st.show(dut, command)
         group_ids.append((int("0x{}".format(out[0]['oid'][-8:]), 16) & int(0xFFFFFFFF)) if isinstance(out, list) and out and 'oid' in out[0] and len(out[0]['oid']) >= 10 else 5)
     return group_ids
