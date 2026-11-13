@@ -3,7 +3,11 @@ import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.gnmi_utils import GNMIEnvironment
+from tests.common.helpers.gnmi_utils import (
+    GNMIEnvironment,
+    dump_gnmi_debug_state,
+    gnmi_state_dumped,
+)
 from tests.common.utilities import wait_tcp_connection, wait_until
 from tests.gnmi.conftest import rotate_gnmi_certs
 
@@ -37,7 +41,7 @@ Testing cert rotation on the gnmi container.
 def _gnmi_get_ok(duthost, ptfhost):
     """Return True if an OTHERS/proc/uptime GET against the gnmi server succeeds."""
     try:
-        gnmi_get(duthost, ptfhost, ["proc/uptime"], target="OTHERS", origin=None)
+        gnmi_get(duthost, ptfhost, ["proc/uptime"], target="OTHERS", origin=None, dump_on_error=False)
         return True
     except Exception as e:
         logger.debug("gnmi get failed: {}".format(e))
@@ -97,6 +101,11 @@ def test_gnmi_post_cert_add(duthosts, rand_one_dut_hostname, ptfhost, localhost)
         pytest_assert(
             wait_until(30, 5, 0, _gnmi_get_ok, duthost, ptfhost), "gnmi request should complete after cert rotation"
         )
+    except (Exception, pytest.fail.Exception) as e:
+        # Dump now: the recovery below restarts the gNMI server and truncates its log.
+        if not gnmi_state_dumped(e, duthost.hostname):
+            dump_gnmi_debug_state(duthost, error=e)
+        raise
     finally:
         # Guarantee recovery no matter where the test failed: drop the archive
         # left by archive_gnmi_certs, re-establish a valid matched cert pair
