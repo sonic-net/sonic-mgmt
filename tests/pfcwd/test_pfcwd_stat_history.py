@@ -79,17 +79,15 @@ def _history_was_recorded(duthost, port, queue, before):
     if current is None:
         return False
 
-    # History must have updated with an increase in recent pause time or transitions
+    # History must have updated with a new recent pause and an increase in total pause time.
+    # Rx pause transitions is the switch's ON2OFF counter, which history does not write
     timestamp = current["recent_pause_timestamp"]
     has_recent_pause = (
         timestamp not in ("", "N/A")
         and timestamp != before["recent_pause_timestamp"]
         and current["recent_pause_time_us"] > 0
     )
-    total_advanced = (
-        current["transitions"] > before["transitions"]
-        or current["total_pause_time_us"] > before["total_pause_time_us"]
-    )
+    total_advanced = current["total_pause_time_us"] > before["total_pause_time_us"]
     return has_recent_pause and total_advanced
 
 
@@ -247,9 +245,8 @@ def test_pfcwd_stat_history(stat_history_test_setup):
         "Recent pause timestamp did not change after the PFC storm",
     )
     pytest_assert(
-        history["transitions"] > before["transitions"]
-        or history["total_pause_time_us"] > before["total_pause_time_us"],
-        "PFC history counters did not increase after the PFC storm",
+        history["total_pause_time_us"] > before["total_pause_time_us"],
+        "Total pause time did not increase after the PFC storm",
     )
 
 
@@ -370,16 +367,10 @@ def test_pfcwd_stat_history_is_cumulative(stat_history_test_setup):
         current = _get_history(duthost, port, PFC_QUEUE)
         pytest_assert(current is not None, "Failed to read history after storm")
 
-        # Every period must increase both cumulative duration and transition count
+        # Every period must increase the cumulative duration
         pytest_assert(
             current["total_pause_time_us"] > previous["total_pause_time_us"],
             "Total pause time did not accumulate after storm {}".format(cycle),
-        )
-        pytest_assert(
-            current["transitions"] > previous["transitions"],
-            "Pause transition count did not accumulate after storm {}".format(
-                cycle
-            ),
         )
 
         # the recent period should be more recent than the previous recent pause
