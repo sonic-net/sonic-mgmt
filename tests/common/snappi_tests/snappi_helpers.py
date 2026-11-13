@@ -494,7 +494,7 @@ def is_traffic_converged(snappi_api, flow_names=[], threshold_perentage=0.01):
              then loss_percentage = ((1000-998)/1000)*100 = 0.2% > 0.01% => returns False
 
     """
-    threshold = float(threshold_perentage / 100)
+    threshold = float(threshold_perentage)  # already a percentage value, not a fraction - don't divide by 100 again
     request = snappi_api.metrics_request()
     request.flow.flow_names = flow_names
     flow_stats = snappi_api.get_metrics(request).flow_metrics
