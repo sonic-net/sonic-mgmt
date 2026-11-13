@@ -7,23 +7,33 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_grap
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
      snappi_api                                                                                     # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id
+from tests.common.broadcom_data import is_broadcom_dnx_device
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, config_wred, \
     enable_ecn, config_ingress_lossless_buffer_alpha, stop_pfcwd, disable_packet_aging, \
-    config_capture_pkt, traffic_flow_mode, calc_pfc_pause_flow_rate, get_pfc_frame_count  # noqa: F401
+    config_capture_pkt, traffic_flow_mode, calc_pfc_pause_flow_rate, get_pfc_frame_count, \
+    clear_counters, get_egress_queue_count, \
+    get_tx_frame_count, get_rx_frame_count, \
+    get_wred_counter, log_dut_counters, \
+    log_prio_dscp_map  # noqa: F401
+from tests.common.helpers.counterpoll_helper import ConterpollHelper
+from collections import Counter
 from tests.common.snappi_tests.read_pcap import get_ipv4_pkts
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.traffic_generation import setup_base_traffic_config, generate_test_flows, \
     generate_pause_flows, run_traffic                                       # noqa: F401
+from tabulate import tabulate
 import json
 from tests.snappi_tests.files.helper import get_fabric_mapping
 
 logger = logging.getLogger(__name__)
 
 EXP_DURATION_SEC = 1
-DATA_START_DELAY_SEC = 0.1
+DATA_START_DELAY_SEC = 2
 SNAPPI_POLL_DELAY_SEC = 2
 PAUSE_FLOW_NAME = 'Pause Storm'
 DATA_FLOW_NAME = 'Data Flow'
+CAPTURE_SLICE_SIZE = 32  # bytes kept per captured frame; enough for L2 + IPv4 header (DSCP/ECN)
+DNX_EXP_DURATION_SEC = 20  # longer run so the DUT-poll branch samples a stable egress-offset plateau
 
 
 def get_npu_voq_queue_counters(duthost, interface, priority, clear=False):
@@ -306,7 +316,8 @@ def run_ecn_test(api,
                  lossless_prio,
                  prio_dscp_map,
                  iters,
-                 snappi_extra_params=None):
+                 snappi_extra_params=None,
+                 lossless_prio_list=None):
     """
     Run multidut ECN test
 
@@ -319,6 +330,8 @@ def run_ecn_test(api,
         dut_port (str): DUT port to test
         lossless_prio (int): lossless priority
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
+        lossless_prio_list (list): all lossless priorities, used only to flag the
+            "Lossless" column in the per-iteration DSCP map dump.
 
     Returns:
         Return captured IP packets (list of list)
@@ -336,6 +349,8 @@ def run_ecn_test(api,
     tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
     ingress_duthost = tx_port['duthost']
 
+    exp_duration_sec = DNX_EXP_DURATION_SEC if is_broadcom_dnx_device(egress_duthost) else EXP_DURATION_SEC
+
     pytest_assert(testbed_config is not None, 'Failed to get L2/3 testbed config')
 
     logger.info("Stopping PFC watchdog")
@@ -344,6 +359,9 @@ def run_ecn_test(api,
     logger.info("Disabling packet aging if necessary")
     disable_packet_aging(egress_duthost)
     disable_packet_aging(ingress_duthost)
+    logger.info("Enabling WRED queue counters")
+    ConterpollHelper.enable_counterpoll(egress_duthost, ['wredqueue'])
+    ConterpollHelper.enable_counterpoll(ingress_duthost, ['wredqueue'])
 
     # Configure WRED/ECN thresholds
     logger.info("Configuring WRED and ECN thresholds")
@@ -406,7 +424,7 @@ def run_ecn_test(api,
     logger.info("Setting pause flow config params")
     snappi_extra_params.traffic_flow_config.pause_flow_config = {
         "flow_name": PAUSE_FLOW_NAME,
-        "flow_dur_sec": EXP_DURATION_SEC,
+        "flow_dur_sec": exp_duration_sec,
         "flow_rate_percent": None,
         "flow_rate_pps": calc_pfc_pause_flow_rate(speed_gbps),
         "flow_rate_bps": None,
@@ -439,9 +457,14 @@ def run_ecn_test(api,
     snappi_extra_params.packet_capture_ports = [testbed_config.ports[port_id].name]
 
     result = []
+    snappi_extra_params.egress_offset = 0  # VOQ slip-through packets to trim; derived from polling below
+    # Slice frames so bursts can exceed the ~1k full-frame capture-buffer limit.
+    snappi_extra_params.capture_slice_size = CAPTURE_SLICE_SIZE
     logger.info("Running {} iteration(s)".format(iters))
     for i in range(iters):
         logger.info("Running iteration {}".format(i))
+        # Log the DUT's live priority (TC) -> DSCP map each iteration.
+        log_prio_dscp_map(prio_dscp_map, lossless_prio_list, [lossless_prio])
         snappi_extra_params.packet_capture_file = "ECN_cap-{}".format(i)
         logger.info("Packet capture file: {}.pcapng".format(snappi_extra_params.packet_capture_file))
 
@@ -450,17 +473,58 @@ def run_ecn_test(api,
                            capture_type=snappi_extra_params.packet_capture_type,
                            capture_name=snappi_extra_params.packet_capture_file)
 
+        # Reset DUT counters so the post-run reading reflects only this iteration's traffic.
+        logger.info("Clearing DUT counters before iter %d traffic", i)
+        clear_counters(egress_duthost,  rx_port['peer_port'])
+        clear_counters(ingress_duthost, tx_port['peer_port'])
+
         logger.info("Running traffic")
-        run_traffic(duthost=egress_duthost,
-                    api=api,
-                    config=testbed_config,
-                    data_flow_names=data_flow_names,
-                    all_flow_names=all_flow_names,
-                    exp_dur_sec=EXP_DURATION_SEC,
-                    snappi_extra_params=snappi_extra_params)
+        _, switch_device_results, _ = run_traffic(duthost=egress_duthost,
+                                                  api=api,
+                                                  config=testbed_config,
+                                                  data_flow_names=data_flow_names,
+                                                  all_flow_names=all_flow_names,
+                                                  exp_dur_sec=exp_duration_sec,
+                                                  snappi_extra_params=snappi_extra_params)
+        # VOQ Broadcom DNX (e.g. Q3D): the mid-poll egress TX sample (during pause, before drain) is the slip count.
+        if is_broadcom_dnx_device(egress_duthost) and switch_device_results:
+            samples = switch_device_results["tx_frames"].get(lossless_prio, [])
+            if samples:
+                snappi_extra_params.egress_offset = max(snappi_extra_params.egress_offset, samples[len(samples) // 2])
+                logger.info("VOQ egress-offset (prio %d): egress queue samples = %s -> mid-poll offset = %d",
+                            lossless_prio, samples, snappi_extra_params.egress_offset)
 
-        result.append(get_ipv4_pkts(snappi_extra_params.packet_capture_file + ".pcapng", protocol_num=17))
+        # Log post-run DUT counters from both involved ports.
+        log_dut_counters(
+            [('EGRESS  (DUT->tgen)', egress_duthost, rx_port['peer_port']),
+             ('INGRESS (tgen->DUT)', ingress_duthost, tx_port['peer_port'])],
+            [lossless_prio],
+            "after iter {} (prio {})".format(i, lossless_prio))
 
+        ip_pkts_this_iter = get_ipv4_pkts(
+            snappi_extra_params.packet_capture_file + ".pcapng", protocol_num=17
+        )
+        result.append(ip_pkts_this_iter)
+
+        # Capture-side DSCP/ECN distribution
+        if ip_pkts_this_iter:
+            ECN_NAMES = {0: 'Not-ECT', 1: 'ECT(1)', 2: 'ECT(0)', 3: 'CE (marked)'}
+            dist = Counter(
+                ((pkt.tos >> 2) & 0x3F, pkt.tos & 0x3) for pkt in ip_pkts_this_iter
+            )
+            dscp_rows = [
+                [dscp, ecn, ECN_NAMES.get(ecn, '?'), count]
+                for (dscp, ecn), count in sorted(dist.items())
+            ]
+            logger.info(
+                "Captured packet DSCP/ECN distribution (iter %d, %d packets):\n%s",
+                i, len(ip_pkts_this_iter),
+                tabulate(
+                    dscp_rows,
+                    headers=['DSCP', 'ECN bits', 'ECN state', 'Packets'],
+                    tablefmt='psql',
+                ),
+            )
     return result
 
 
