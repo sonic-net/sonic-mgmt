@@ -100,6 +100,9 @@ def dut_disable_arp_update(rand_selected_dut):
     """
     Fixture to disable arp update before the test and re-enable it afterwards
 
+    A SWSS restart can re-enable the updater during the module, so teardown
+    also accepts an already-started updater and verifies its RUNNING state.
+
     Args:
         rand_selected_dut(AnsibleHost) : dut instance
     """
@@ -110,8 +113,12 @@ def dut_disable_arp_update(rand_selected_dut):
 
     yield
 
-    assert duthost.shell("docker exec -t swss supervisorctl start arp_update")['stdout_lines'][0] \
-        == 'arp_update: started'
+    result = duthost.shell("docker exec -t swss supervisorctl start arp_update")['stdout']
+    pytest_assert(result in ('arp_update: started', 'arp_update: ERROR (already started)'),
+                  "Failed to re-enable arp_update: {}".format(result))
+    status = duthost.shell("docker exec -t swss supervisorctl status arp_update")['stdout']
+    pytest_assert(status.split()[:2] == ['arp_update', 'RUNNING'],
+                  "arp_update is not running after the test: {}".format(status))
 
 
 @pytest.fixture(autouse=True, scope="module")
