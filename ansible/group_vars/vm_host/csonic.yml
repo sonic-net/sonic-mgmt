@@ -7,11 +7,16 @@ csonic_image_pull: false
 # csonic_image during add-topo.
 csonic_lag_backend: "{{ lookup('env', 'SONIC_MGMT_CSONIC_LAG_BACKEND') | default('teamd', true) }}"
 csonic_userspace_ovs_image: "{{ csonic_image }}-userspace-ovs"
+# Some non-cSONiC playbooks materialize every vm_host variable without loading
+# vars/docker_registry.yml. Keep those paths independent of this cSONiC setting.
+csonic_debian_registry_host: >-
+  {{ debian_docker_registry_host | default('publicmirror.azurecr.io:443') }}
+csonic_ovs_builder_image: "{{ csonic_debian_registry_host }}/debian:bookworm"
 
 # Net base container holds the network namespace that the cSONiC container
 # joins (network_mode: container:net_...). It only needs to stay alive and
 # carry net_admin; any maintained, small base image works.
-# debian:jessie was EOL in 2019 and is no longer pullable, so default to a
-# supported slim image. pull=false means pull only when absent locally.
-csonic_netbase_image: debian:bookworm-slim
+# Use the existing SONiC Debian mirror to avoid Docker Hub pull limits.
+# pull=false means pull only when absent locally.
+csonic_netbase_image: "{{ csonic_debian_registry_host }}/debian:bookworm"
 csonic_netbase_image_pull: false
