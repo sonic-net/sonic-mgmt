@@ -105,7 +105,7 @@ def _remove_routes(host, name, tunnel):
         "import redis\n"
         "from swsscommon.redis import connection_pool\n"
         "path='/var/run/redis/redis.sock'\n"
-        "r=redis.Redis(connection_pool=connection_pool(unix_socket_path=path,db=4)); "
+        "r=redis.Redis(connection_pool=connection_pool(unix_socket_path=path,db=4,authenticate=True)); "
         "keys=list(r.scan_iter(match=" + repr(prefix) + ")); "
         "[r.delete(*keys[i:i+500]) for i in range(0,len(keys),500)]; "
         "assert not list(r.scan_iter(match=" + repr(prefix) + ")); "

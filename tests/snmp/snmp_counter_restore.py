@@ -17,6 +17,8 @@ class SnmpCounterFieldRestorer:
     def _command(self, operation, interface_oid, counter_name, *values):
         args = ["sudo", "sonic-db-cli", "-s", "COUNTERS_DB", operation,
                 f"COUNTERS:{interface_oid}", counter_name]
+        if operation in {"HSET", "HDEL"}:
+            args.insert(3, "--authenticate")
         args.extend(str(value) for value in values)
         result = self._duthost.command(
             argv=args, strip_empty_ends=False, module_ignore_errors=True)

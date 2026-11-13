@@ -473,7 +473,7 @@ if [[ "$REBOOT_TYPE" = "warm-reboot" || "$REBOOT_TYPE" = "fastfast-reboot" ]]; t
     if [[ "$REBOOT_TYPE" = "fastfast-reboot" ]]; then
         sonic-db-cli -s --authenticate ASIC_DB FLUSHDB > /dev/null
         sonic-db-cli -s --authenticate COUNTERS_DB FLUSHDB > /dev/null
-        sonic-db-cli FLEX_COUNTER_DB FLUSHDB > /dev/null
+        sonic-db-cli -s --authenticate FLEX_COUNTER_DB FLUSHDB > /dev/null
     fi
 
     # TODO: backup_database preserves FDB_TABLE

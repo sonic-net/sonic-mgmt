@@ -160,13 +160,13 @@ bfd_cmds = [
 ]
 
 redis_db_cmds = [
-    "{}sonic-db-dump -n 'APPL_DB' -y",
-    "{}sonic-db-dump -n 'ASIC_DB' -y",
-    "{}sonic-db-dump -n 'COUNTERS_DB' -y",
-    "{}sonic-db-dump -n 'CONFIG_DB' -y",
-    "{}sonic-db-dump -n 'FLEX_COUNTER_DB' -y",
-    "{}sonic-db-dump -n 'STATE_DB' -y",
-    "{}sonic-db-dump -n 'COUNTERS_DB' -y",
+    re.compile(r"{}sonic-db-dump(?: -t 'unix_socket')? -n 'APPL_DB' -y"),
+    re.compile(r"{}sonic-db-dump(?: -t 'unix_socket')? -n 'ASIC_DB' -y"),
+    re.compile(r"{}sonic-db-dump(?: -t 'unix_socket')? -n 'COUNTERS_DB' -y"),
+    re.compile(r"{}sonic-db-dump(?: -t 'unix_socket')? -n 'CONFIG_DB' -y"),
+    re.compile(r"{}sonic-db-dump(?: -t 'unix_socket')? -n 'FLEX_COUNTER_DB' -y"),
+    re.compile(r"{}sonic-db-dump(?: -t 'unix_socket')? -n 'STATE_DB' -y"),
+    re.compile(r"{}sonic-db-dump(?: -t 'unix_socket')? -n 'COUNTERS_DB' -y"),
 ]
 
 docker_cmds = [

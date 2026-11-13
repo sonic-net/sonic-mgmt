@@ -56,7 +56,8 @@ def test_cleanup_uses_local_login_and_preserves_unrelated_keys(monkeypatch):
     if credentials is None:
         auth.connection_pool.assert_not_called()
     else:
-        auth.connection_pool.assert_called_once_with(unix_socket_path='/var/run/redis/redis.sock', db=4)
+        auth.connection_pool.assert_called_once_with(
+            unix_socket_path='/var/run/redis/redis.sock', db=4, authenticate=True)
     redis.Redis.assert_called_once_with(connection_pool=credentials)
     assert keys == unrelated
 
