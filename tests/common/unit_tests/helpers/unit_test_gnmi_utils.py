@@ -1,6 +1,6 @@
 # Copyright 2026 Nexthop Systems Inc. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Unit tests for the gNMI debug dump and its dedup marker in tests/common/helpers/gnmi_utils.py,
+"""Unit tests for the gNMI debug dump and its per-DUT dedup marker in tests/common/helpers/gnmi_utils.py,
 and for the code that calls it on failure: the tests/gnmi failure hook and gnmi_tls.
 
 Run (from the repository root):
@@ -63,7 +63,7 @@ class FakeDut:
 def test_dump_marks_error(gu, error):
     dut = FakeDut()
     gu.dump_gnmi_debug_state(dut, error=error)
-    assert gu.gnmi_state_dumped(error)
+    assert gu.gnmi_state_dumped(error, "dut1")
     assert len(dut.commands) == 1
     # The shell wrapper would otherwise log the whole dump again at DEBUG.
     assert dut.verbose == [False]
@@ -93,7 +93,7 @@ def test_capped_log(gu, monkeypatch, tmp_path, content, expected):
 def test_failed_dump_neither_raises_nor_marks(gu):
     error = Exception("helper failed")
     gu.dump_gnmi_debug_state(FakeDut(fail=True), error=error)
-    assert not gu.gnmi_state_dumped(error)
+    assert not gu.gnmi_state_dumped(error, "dut1")
     gu.logger.warning.assert_called_once()
 
 
@@ -109,14 +109,18 @@ def _raised(func):
     return excinfo.value
 
 
+def test_error_marked_for_another_dut_is_not_dumped_for_this_one(gu):
+    assert not gu.gnmi_state_dumped(_marked(gu), "dut2")
+
+
 def test_unmarked_error_is_not_dumped(gu):
-    assert not gu.gnmi_state_dumped(Exception("test failed"))
+    assert not gu.gnmi_state_dumped(Exception("test failed"), "dut1")
 
 
 def test_cause_of_marked_error_counts(gu):
     def wrap():
         raise RuntimeError("wrapped") from _marked(gu)
-    assert gu.gnmi_state_dumped(_raised(wrap))
+    assert gu.gnmi_state_dumped(_raised(wrap), "dut1")
 
 
 def test_context_of_marked_error_counts(gu):
@@ -125,7 +129,7 @@ def test_context_of_marked_error_counts(gu):
             raise _marked(gu)
         except Exception as e:
             pytest.fail("Set request failed: " + str(e))
-    assert gu.gnmi_state_dumped(_raised(fail_in_except))
+    assert gu.gnmi_state_dumped(_raised(fail_in_except), "dut1")
 
 
 def test_context_hidden_by_from_none_does_not_count(gu):
@@ -134,7 +138,7 @@ def test_context_hidden_by_from_none_does_not_count(gu):
             raise _marked(gu)
         except Exception:
             raise RuntimeError("unrelated") from None
-    assert not gu.gnmi_state_dumped(_raised(replace))
+    assert not gu.gnmi_state_dumped(_raised(replace), "dut1")
 
 
 def test_caught_marked_error_does_not_count_for_a_later_failure(gu):
@@ -144,13 +148,13 @@ def test_caught_marked_error_does_not_count_for_a_later_failure(gu):
         except Exception:
             pass
         assert False, "real failure"
-    assert not gu.gnmi_state_dumped(_raised(expected_error_then_failure))
+    assert not gu.gnmi_state_dumped(_raised(expected_error_then_failure), "dut1")
 
 
 def test_cyclic_chain_terminates(gu):
     first, second = Exception("first"), Exception("second")
     first.__cause__, second.__cause__ = second, first
-    assert not gu.gnmi_state_dumped(first)
+    assert not gu.gnmi_state_dumped(first, "dut1")
 
 
 # Loads the real failure hook and gnmi_tls, with each module's dump replaced by one that records who
@@ -167,9 +171,9 @@ from tests.gnmi.conftest import pytest_runtest_makereport  # noqa: F401
 def recorder(source):
     def dump(duthost, localhost=None, error=None, gnmi_log_lines=None):
         with open("dumps.jsonl", "a") as f:
-            f.write(json.dumps([source, str(error)]) + "\\n")
+            f.write(json.dumps([source, duthost.hostname, str(error)]) + "\\n")
         if error is not None:
-            error._gnmi_state_dumped = True
+            error._gnmi_dumped_hosts = getattr(error, "_gnmi_dumped_hosts", set()) | {duthost.hostname}
     return dump
 
 
@@ -184,12 +188,13 @@ grpc_fixtures._gnmi_uds_flow = failing_uds_flow
 
 
 class FakeDut:
-    hostname = "dut1"
+    def __init__(self, hostname):
+        self.hostname = hostname
 
 
 @pytest.fixture(scope="session")
 def duthosts():
-    return [FakeDut()]
+    return [FakeDut("dut1"), FakeDut("dut2")]
 
 
 @pytest.fixture(scope="session")
@@ -203,7 +208,7 @@ import pytest
 
 def dumped_error(message):
     error = RuntimeError(message)
-    error._gnmi_state_dumped = True
+    error._gnmi_dumped_hosts = {"dut1"}
     return error
 
 
@@ -277,11 +282,20 @@ def test_each_failure_is_dumped_once(pytester, monkeypatch):
     result = pytester.runpytest_subprocess("-p", "no:cacheprovider")
     result.assert_outcomes(passed=1, failed=5, errors=5)
     dumps = [json.loads(line) for line in (pytester.path / "dumps.jsonl").read_text().splitlines()]
+    # Errors dumped for dut1 elsewhere still get dut2 dumped by the hook.
     assert dumps == [
-        ["hook", "call failure"],
-        ["hook", "setup failure"],
-        ["hook", "call failure before teardown"],
-        ["hook", "teardown failure"],
-        ["hook", "module setup failure"],
-        ["gnmi_tls", "UDS setup failure"],
+        ["hook", "dut1", "call failure"],
+        ["hook", "dut2", "call failure"],
+        ["hook", "dut1", "setup failure"],
+        ["hook", "dut2", "setup failure"],
+        ["hook", "dut1", "call failure before teardown"],
+        ["hook", "dut2", "call failure before teardown"],
+        ["hook", "dut1", "teardown failure"],
+        ["hook", "dut2", "teardown failure"],
+        ["hook", "dut2", "dumped by a helper"],
+        ["hook", "dut2", "wrapper: dumped by a helper, then wrapped"],
+        ["hook", "dut1", "module setup failure"],
+        ["hook", "dut2", "module setup failure"],
+        ["gnmi_tls", "dut1", "UDS setup failure"],
+        ["hook", "dut2", "UDS setup failure"],
     ]

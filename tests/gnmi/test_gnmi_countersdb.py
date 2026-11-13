@@ -223,7 +223,7 @@ def test_gnmi_queue_buffer_cnt(rand_one_dut_hostname, gnmi_tls):  # noqa: F811
             pytest_assert(pre_del_cnt > post_del_cnt, "Number of queue counters count differs from expected")
     except (Exception, pytest.fail.Exception) as e:
         # Dump now: the config reload below restarts the gNMI server and truncates its log.
-        if not gnmi_state_dumped(e):
+        if not gnmi_state_dumped(e, duthost.hostname):
             dump_gnmi_debug_state(duthost, error=e)
         raise
     finally:

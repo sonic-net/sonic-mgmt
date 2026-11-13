@@ -480,7 +480,7 @@ def dump_gnmi_debug_state(duthost, localhost=None, error: Optional[BaseException
 
     Logs the last gnmi_log_lines lines of /root/gnmi.log, or all of it if None; the syslogs are always tailed.
     Each log is then cut to its last GNMI_LOG_MAX_BYTES bytes, with a note saying so.
-    If the dump succeeds and error is given, mark error so the failure hook doesn't dump it again.
+    If the dump succeeds and error is given, mark error with this DUT, so the failure hook doesn't dump it again.
     Never raises, so that a failing dump cannot hide the failure being debugged.
     """
     try:
@@ -502,7 +502,7 @@ def dump_gnmi_debug_state(duthost, localhost=None, error: Optional[BaseException
         if localhost is not None:
             verify_tcp_port(localhost, duthost.mgmt_ip, env.gnmi_port)
         if error is not None:
-            error._gnmi_state_dumped = True
+            error._gnmi_dumped_hosts = getattr(error, "_gnmi_dumped_hosts", set()) | {duthost.hostname}
     except Exception as e:
         logger.warning("Failed to dump gNMI state for DUT %s: %s", duthost.hostname, e)
 
@@ -517,16 +517,17 @@ def _capped(read_log: str) -> str:
     )
 
 
-def gnmi_state_dumped(error: BaseException) -> bool:
+def gnmi_state_dumped(error: BaseException, hostname: str) -> bool:
     """
-    Whether gNMI state was dumped for error, or for an exception in the chain that pytest reports with it.
+    Whether gNMI state of DUT hostname was dumped for error, or for an exception in the chain that pytest
+    reports with it.
 
     A failure raised while handling a dumped one, e.g. in cleanup, counts too: it is usually a wrapper or a
     consequence of the first failure, which is the one to debug.
     """
     seen = set()
     while error is not None and id(error) not in seen:
-        if getattr(error, "_gnmi_state_dumped", False):
+        if hostname in getattr(error, "_gnmi_dumped_hosts", ()):
             return True
         seen.add(id(error))
         # Follow the chain the way Python prints it: "raise ... from None" hides the context.

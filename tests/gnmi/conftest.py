@@ -48,7 +48,7 @@ VRF_SCENARIOS = [
 @pytest.hookimpl(hookwrapper=True)  # type: ignore[misc]
 def pytest_runtest_makereport(item: pytest.Function, call: pytest.CallInfo):
     """
-    Dump gNMI debug state from every DUT when a gNMI test fails, unless a helper already dumped it.
+    Dump gNMI debug state from every DUT when a gNMI test fails, except DUTs a helper already dumped it for.
 
     This runs after the failed phase, so the dump goes to the session log, not the test's captured log.
     It also runs after the test's own cleanup: a test whose cleanup restarts the server must dump before it,
@@ -68,15 +68,15 @@ def pytest_runtest_makereport(item: pytest.Function, call: pytest.CallInfo):
 
 
 def dump_all_gnmi_states(item: pytest.Function, phase: str, error: BaseException) -> None:
-    """Log which DUTs the failed test selected, then gNMI server state for every DUT, unless error was dumped."""
-    # Skips errors a helper dumped before raising, and cached module-scoped fixture failures:
-    # pytest re-raises the same exception object for each later test in the module.
-    if gnmi_state_dumped(error):
-        return
-
+    """Log which DUTs the failed test selected, then gNMI server state for every DUT not yet dumped for error."""
     duthosts = item.funcargs.get("duthosts")
     if duthosts is None:
         logger.warning("%s failed in %s before duthosts was set up; no gNMI state to dump", item.nodeid, phase)
+        return
+    # Skips DUTs a helper dumped before raising, and cached module-scoped fixture failures:
+    # pytest re-raises the same exception object for each later test in the module.
+    undumped = [duthost for duthost in duthosts if not gnmi_state_dumped(error, duthost.hostname)]
+    if not undumped:
         return
 
     # Fixtures that picked a DUT, e.g. rand_one_dut_hostname or enum_rand_one_per_hwsku_hostname.
@@ -90,7 +90,7 @@ def dump_all_gnmi_states(item: pytest.Function, phase: str, error: BaseException
     logger.info("%s failed in %s; DUT selection: %s", item.nodeid, phase, ", ".join(selection) or "none")
 
     localhost = item.funcargs.get("localhost")
-    for duthost in duthosts:
+    for duthost in undumped:
         # Tail: this can run for every failing test in a module, while that module's -v=10 log keeps growing.
         dump_gnmi_debug_state(duthost, localhost, error, gnmi_log_lines=GNMI_LOG_TAIL_LINES)
 
