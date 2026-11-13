@@ -420,6 +420,10 @@ bgp/test_bgp_allow_list.py:
       - "'t1' not in topo_type"
       - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "'isolated' in topo_name"
+  xfail:
+    reason: "Community 1010:1010 is stripped during route propagation on t1-d96u4 topology"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26845 and 't1-d96u4' in topo_name"
 
 bgp/test_bgp_bbr.py:
   skip:
