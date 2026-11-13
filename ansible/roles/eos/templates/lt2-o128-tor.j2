@@ -37,8 +37,7 @@ vrf instance {{ vrf_name }}
 {% endfor %}
 !
 {% else %}
-vrf definition MGMT
- rd 1:1
+vrf instance MGMT
 !
 {% endif %}
 spanning-tree mode mstp
@@ -257,6 +256,9 @@ router bgp {{ conv_config['bgp']['asn'] }}
 {% endfor %}
 {% else %}
 router bgp {{ host['bgp']['asn'] }}
+ vrf MGMT
+  rd 1:1
+ exit
  router-id {{ host['interfaces']['Loopback0']['ipv4'] | ansible.utils.ipaddr('address') }}
  !
  graceful-restart restart-time {{ bgp_gr_timer }}

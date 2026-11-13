@@ -27,6 +27,7 @@ from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr     # no
 from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG, DEFAULT_NAMESPACE
 from tests.common.utilities import get_plt_wait_time, wait_until, check_msg_in_syslog
 from tests.common.utilities import get_all_upstream_neigh_type, get_all_downstream_neigh_type
+from tests.common.utilities import get_upstream_neigh_type
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa: F401
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.interface_utils import check_all_interface_information
@@ -44,7 +45,7 @@ pytestmark = [
     pytest.mark.acl,
     pytest.mark.multi_binding_acl,
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
-    pytest.mark.topology("t0", "t1", "t2", "lrh", "urh", "lt2", "m0", "mx", "m1"),
+    pytest.mark.topology("t0", "t1", "t2", "lrh", "urh", "lt2", "ft2", "m0", "mx", "m1"),
     pytest.mark.disable_memory_utilization
 ]
 
@@ -204,14 +205,25 @@ def remove_dataacl_table(duthosts):
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         # Recover DUT by reloading minigraph
         for duthost in duthosts:
-            executor.submit(
-                config_reload,
-                duthost,
-                config_source="minigraph",
-                safe_reload=True,
-                override_config=True,
-                check_intf_up_ports=True
-            )
+            executor.submit(reload_minigraph_with_optional_override, duthost)
+
+
+def reload_minigraph_with_optional_override(duthost):
+    """
+    Reload minigraph, applying golden config override only if the golden
+    config file actually exists on the DUT. Passing override_config=True
+    causes config_reload/load_minigraph to abort test with
+    "Cannot find 'golden_config_db.json'!".
+    """
+    golden_cfg = duthost.stat(path="/etc/sonic/golden_config_db.json")
+    override_config = golden_cfg.get("stat", {}).get("exists", False)
+    config_reload(
+        duthost,
+        config_source="minigraph",
+        safe_reload=True,
+        override_config=override_config,
+        check_intf_up_ports=True
+    )
 
 
 def remove_dataacl_table_single_dut(table_name, duthost):
@@ -241,6 +253,9 @@ def get_t2_info(duthosts, tbinfo):
     upstream_port_id_to_router_mac_map, downstream_port_id_to_router_mac_map = {}, {}
     downstream_port_ids, upstream_port_ids = [], []
     port_channels = dict()
+    # Standard T2 topologies use T3 uplinks, while isolated T2 topologies use PT1 peers.
+    # PT1 names also contain "T1", so classify upstream neighbors before downstream T1 neighbors.
+    upstream_neigh_type = get_upstream_neigh_type(tbinfo) or "T3"
 
     for duthost in duthosts:
         if duthost.is_supervisor_node():
@@ -258,14 +273,14 @@ def get_t2_info(duthosts, tbinfo):
             mg_facts = duthost.get_extended_minigraph_facts(tbinfo, namespace)
             for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
                 port_id = mg_facts["minigraph_ptf_indices"][interface]
-                if "T1" in neighbor["name"] or "LT2" in neighbor["name"]:
-                    downstream_ports_per_dut[namespace].append(interface)
-                    downstream_port_ids.append(port_id)
-                    downstream_port_id_to_router_mac_map[port_id] = router_mac
-                elif "T3" in neighbor["name"]:
+                if upstream_neigh_type in neighbor["name"]:
                     upstream_ports_per_dut[namespace].append(interface)
                     upstream_port_ids.append(port_id)
                     upstream_port_id_to_router_mac_map[port_id] = router_mac
+                elif "T1" in neighbor["name"] or "LT2" in neighbor["name"]:
+                    downstream_ports_per_dut[namespace].append(interface)
+                    downstream_port_ids.append(port_id)
+                    downstream_port_id_to_router_mac_map[port_id] = router_mac
                 mg_facts = duthost.get_extended_minigraph_facts(tbinfo, namespace)
 
             port_channels[namespace] = mg_facts["minigraph_portchannels"]
@@ -525,9 +540,34 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
         # For LT2, add portchannels for downstream links
         for k, v in list(port_channels.items()):
             acl_table_ports[v['namespace']].append(k)
-        # Add RIF for upstream links
+        # Add standalone RIFs for upstream links. PortChannel members cannot
+        # also be bound to the ACL table as physical interfaces.
+        pc_members = defaultdict(set)
+        for pc in port_channels.values():
+            pc_members[pc['namespace']].update(pc.get('members', []))
         for namespace, port in list(upstream_ports.items()):
-            acl_table_ports[namespace] += port
+            acl_table_ports[namespace] += [
+                interface for interface in port if interface not in pc_members[namespace]
+            ]
+    elif topo in ("urh", "lrh"):
+        # For URH/LRH, ports may be in portchannels — raw PC member interfaces
+        # cannot bind ACLs, so add PortChannel names and filter out ports in portchannels.
+        ports_in_pc = set()
+        for pc_name, pc_info in list(port_channels.items()):
+            pc_namespace = pc_info.get('namespace', '')
+            acl_table_ports[pc_namespace].append(pc_name)
+            if pc_namespace:
+                acl_table_ports[''].append(pc_name)
+            ports_in_pc.update(pc_info.get('members', []))
+
+        # Add any standalone interfaces not in a portchannel
+        for namespace, ports in list(upstream_ports.items()) + list(downstream_ports.items()):
+            for port in ports:
+                if port in ports_in_pc:
+                    continue
+                acl_table_ports[namespace].append(port)
+                if namespace:
+                    acl_table_ports[''].append(port)
     else:
         for namespace, port in list(upstream_ports.items()):
             acl_table_ports[namespace] += port
@@ -1072,6 +1112,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                 if duthost.facts["platform"] in ["x86_64-8111_32eh_o-r0",
                                                  "x86_64-8122_64eh_o-r0",
                                                  "x86_64-8122_64ehf_o-r0",
+                                                 "x86_64-8122x_64ef_o-r0",
                                                  "x86_64-8223_64e_mo-r0",
                                                  "x86_64-8223_64ef_mo-r0"]:
                     skip_byte_accounting = True

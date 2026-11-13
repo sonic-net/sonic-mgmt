@@ -82,22 +82,24 @@ class MultiAsicSonicHost(object):
                 active_asics = []
         service_list += self._DEFAULT_SERVICES
 
+        config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
         # NOTE: Add mux to critical services for dualtor
         if (
-            self.facts.get('router_subtype', '') == 'DualToR' and
-            self.facts.get('features', {}).get('mux', {}).get('state', '') == 'enabled'
+            "DEVICE_METADATA" in config_facts and
+            "localhost" in config_facts["DEVICE_METADATA"] and
+            "subtype" in config_facts["DEVICE_METADATA"]["localhost"] and
+                config_facts["DEVICE_METADATA"]["localhost"]["subtype"] == "DualToR" and
+            "mux" in config_facts["FEATURE"] and config_facts["FEATURE"]["mux"]["state"] == "enabled"
         ):
             service_list.append("mux")
 
-        _features = self.facts.get('features', {})
-
-        if _features.get('dhcp_relay', {}).get('state', '') == 'enabled':
+        if "dhcp_relay" in config_facts["FEATURE"] and config_facts["FEATURE"]["dhcp_relay"]["state"] == "enabled":
             service_list.append("dhcp_relay")
 
-        if _features.get('dhcp_server', {}).get('state', '') == 'enabled':
+        if "dhcp_server" in config_facts["FEATURE"] and config_facts["FEATURE"]["dhcp_server"]["state"] == "enabled":
             service_list.append("dhcp_server")
 
-        is_dpu = self.facts.get('switch_type', '') == 'dpu'
+        is_dpu = config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu'
         if is_dpu and 'snmp' in service_list:
             service_list.remove('snmp')
 
@@ -113,11 +115,11 @@ class MultiAsicSonicHost(object):
             if service == 'teamd' and is_dpu:
                 logger.info("Removing teamd from default services for switch_type DPU")
                 continue
-            if service not in _features:
+            if service not in config_facts['FEATURE']:
                 continue
-            if _features.get(service, {}).get('has_per_asic_scope', '') == "False":
+            if config_facts['FEATURE'][service]['has_per_asic_scope'] == "False":
                 continue
-            if _features.get(service, {}).get('state', '') == "disabled":
+            if config_facts['FEATURE'][service]['state'] == "disabled":
                 continue
             filtered_asic_services.append(service)
         self.sonichost.DEFAULT_ASIC_SERVICES = filtered_asic_services

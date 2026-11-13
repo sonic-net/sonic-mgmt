@@ -8,8 +8,16 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
 pytestmark = [
-    pytest.mark.topology('m1'),
+    pytest.mark.topology('m1', 'lma'),
 ]
+
+LMA_ROLE_ASSIGNMENTS = (
+    ("MgmtSpineRouter", "MgmtSpineRouter"),
+    ("MgmtAccessRouter", "MgmtAccessRouter"),
+    ("UpperMgmtAggregator", "UpperMgmtAggregator"),
+    ("MgmtSpineRouter", "CoreTs"),
+    ("MgmtAccessRouter", "CoreMgmtRouter"),
+)
 
 
 def apply_gcu_patch(duthost, json_patch):
@@ -86,6 +94,21 @@ def verify_bgp_session_established(duthost, neighbors):
     return True
 
 
+def select_lma_neighbor_roles(neighbor_metadata):
+    """Map native LMA peers to the supported LowerMgmtAggregator role matrix."""
+    neighbors_by_type = {}
+    for neighbor_name, metadata in sorted(neighbor_metadata.items()):
+        neighbors_by_type.setdefault(metadata.get("type"), []).append(neighbor_name)
+
+    assignments = {}
+    for source_type, target_type in LMA_ROLE_ASSIGNMENTS:
+        candidates = neighbors_by_type.get(source_type, [])
+        pytest_assert(candidates, "LMA topology has no remaining {} neighbor".format(source_type))
+        assignments[candidates.pop(0)] = target_type
+    return assignments
+
+
+@pytest.mark.topology('m1')
 @pytest.mark.parametrize("ip_version", [4, 6])
 @pytest.mark.parametrize("combo", [
     # entry: [DUT type, [BGP neighbor types]]
@@ -120,3 +143,48 @@ def test_bgp_establish_combo(duthost, ip_version, combo):
     pytest_assert(output['rc'] == 0, "Failed to restart bgp service")
     pytest_assert(wait_until(120, 10, 20, verify_bgp_session_established, duthost, mock_bgp_neighbors),
                   "Not all BGP sessions are established")
+
+
+@pytest.mark.topology('lma')
+def test_lma_bgp_establish_combo(duthost):
+    """Verify the native LowerMgmtAggregator role matrix on LMA."""
+    bgp_facts = duthost.get_bgp_neighbors()
+    original_neighbors = set(bgp_facts)
+    pytest_assert(original_neighbors, "No BGP neighbors found on the LMA DUT")
+    pytest_assert(
+        wait_until(180, 10, 0, verify_bgp_session_established, duthost, original_neighbors),
+        "Not all original LMA BGP sessions are established before the test",
+    )
+
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    all_neighbor_metadata = config_facts.get("DEVICE_NEIGHBOR_METADATA", {})
+    neighbor_names = {fact.get("description") for fact in bgp_facts.values() if fact.get("description")}
+    missing_metadata = sorted(neighbor_names - set(all_neighbor_metadata))
+    pytest_assert(
+        not missing_metadata,
+        "Missing DEVICE_NEIGHBOR_METADATA for BGP neighbors: {}".format(missing_metadata),
+    )
+
+    role_assignments = select_lma_neighbor_roles(
+        {name: all_neighbor_metadata[name] for name in neighbor_names}
+    )
+
+    json_patches = [
+        {
+            "op": "replace",
+            "path": "/DEVICE_NEIGHBOR_METADATA/{}/type".format(neighbor_name),
+            "value": target_type,
+        }
+        for neighbor_name, target_type in role_assignments.items()
+        if all_neighbor_metadata[neighbor_name].get("type") != target_type
+    ]
+    apply_gcu_patch(duthost, json_patches)
+
+    output = duthost.shell("systemctl reset-failed bgp", module_ignore_errors=True)
+    pytest_assert(output['rc'] == 0, "Failed to reset-failed bgp service")
+    output = duthost.shell("sudo systemctl restart bgp", module_ignore_errors=True)
+    pytest_assert(output['rc'] == 0, "Failed to restart bgp service")
+    pytest_assert(
+        wait_until(180, 10, 20, verify_bgp_session_established, duthost, original_neighbors),
+        "Not all LMA BGP sessions are established for the supported role matrix",
+    )

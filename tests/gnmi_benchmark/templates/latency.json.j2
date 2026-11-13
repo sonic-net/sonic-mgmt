@@ -1,0 +1,45 @@
+{#
+  Latency distribution for successful logical requests only. All durations are
+  milliseconds (ms); failed RPCs are counted separately in grpc_status_counts.
+
+  Reading the summary:
+    p50: median; at least 50% of successful requests completed within this time.
+    p95 / p99: at least 95% / 99% completed within this time (tail latency).
+    Percentiles use nearest rank: sorted_samples[ceil(N * percentile / 100) - 1].
+    With only 10 samples, p95 and p99 both select the maximum; they do not give
+    a detailed estimate of the tail. No samples means null average/percentiles/max,
+    zero sum and all-zero bucket counts.
+
+  Reading bucket_counts (grpc_a66_latency_ms_v1):
+    Upper bounds come from grpc_a66_latency_ms_bounds.json.j2: 41 bounds, 42 buckets.
+    Index 0 contains exactly 0 ms (negative samples are rejected).
+    Index i=1..40 counts (bounds[i-1], bounds[i]]; index 41 counts >100000 ms.
+    These counts are mutually exclusive, NOT cumulative; their sum equals samples.
+    A bucket's percentage is 100 * bucket_counts[i] / samples when samples > 0.
+
+  Approximate regions (sum the indicated zero-based indices):
+    0..7:  0..1 ms          8..18:  >1..25 ms
+    19..24: >25..100 ms     25..34: >100..1000 ms
+    35..38: >1..20 seconds  39..40: >20..100 seconds
+    41: >100 seconds
+    These regions describe durations, not pass/fail thresholds or an SLO.
+
+  Example: all 10 Set RPCs taking about 23 seconds produces bucket_counts[39]=10
+  for (20000, 50000] ms, with every other bucket zero. Exact percentiles are
+  computed from the original samples, not estimated from these coarse buckets.
+  Changing bounds or semantics requires a new histogram profile version.
+#}
+{
+  "sample_population": "successful_logical_requests",
+  "samples": {{ samples | tojson }},
+  {# Sum of per-request latency; with concurrency this is not wall-clock elapsed. #}
+  "sum": {{ total | tojson }},
+  "average": {{ average | tojson }},
+  "p50": {{ p50 | tojson }},
+  "p95": {{ p95 | tojson }},
+  "p99": {{ p99 | tojson }},
+  "max": {{ maximum | tojson }},
+  "percentile_method": "nearest_rank",
+  "bucket_semantics": "lower_exclusive_upper_inclusive",
+  "bucket_counts": {{ bucket_counts | tojson }}
+}

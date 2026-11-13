@@ -315,6 +315,10 @@ def restart_bgp_container(duthost):
     # 1. Restart all ASICs in parallel
     for service, _ in service_container_pairs:
         duthost.shell(
+            "sudo systemctl reset-failed {}".format(service),
+            module_ignore_errors=True,
+        )
+        duthost.shell(
             "sudo systemctl restart {}".format(service),
             module_ignore_errors=True,
         )
@@ -717,15 +721,13 @@ class TestAnchorPrefixRegression:
             # On spine devices the new "AsPath Manager is enabled for <TYPE>"
             # line must appear. On non-spine devices it must not.
             if spine:
-                new_line = collect_syslog_since_marker(
-                    duthost, marker,
-                    "AsPath Manager is enabled for",
-                )
                 pytest_assert(
-                    new_line.strip(),
+                    wait_until(30, 5, 0,
+                               lambda d=duthost, m=marker: collect_syslog_since_marker(
+                                   d, m, "AsPath Manager is enabled for").strip()),
                     "Expected 'AsPath Manager is enabled for <DEVICE_TYPE>'"
                     " log line on spine device {} after bgpcfgd restart in"
-                    " {}".format(duthost.hostname, container),
+                    " {}".format(duthost.hostname, container)
                 )
 
             # bgpcfgd must not have logged a traceback since the restart.

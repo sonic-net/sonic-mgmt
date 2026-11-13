@@ -1,0 +1,183 @@
+diff --git a/lib/lacp.c b/lib/lacp.c
+index 3252f17eb..0fdd29a46 100644
+--- a/lib/lacp.c
++++ b/lib/lacp.c
+@@ -48,7 +48,6 @@ VLOG_DEFINE_THIS_MODULE(lacp);
+
+ #define LACP_FAST_TIME_TX 1000  /* Fast transmission rate. */
+ #define LACP_SLOW_TIME_TX 30000 /* Slow transmission rate. */
+-#define LACP_RX_MULTIPLIER 3    /* Multiply by TX rate to get RX rate. */
+
+ #define LACP_INFO_LEN 15
+ OVS_PACKED(
+@@ -110,6 +109,7 @@ struct lacp {
+     struct member *key_member;  /* Member whose ID will be aggregation key. */
+
+     bool fast;               /* True if using fast probe interval. */
++    uint8_t rx_multiplier;   /* Missed PDUs before receive timeout. */
+     bool negotiated;         /* True if LACP negotiations were successful. */
+     bool update;             /* True if lacp_update() needs to be called. */
+     bool fallback_ab; /* True if fallback to active-backup on LACP failure. */
+@@ -317,6 +317,7 @@ lacp_configure(struct lacp *lacp, const struct lacp_settings *s)
+
+     lacp->active = s->active;
+     lacp->fast = s->fast;
++    lacp->rx_multiplier = s->rx_multiplier;
+
+     if (lacp->fallback_ab != s->fallback_ab_cfg) {
+         lacp->fallback_ab = s->fallback_ab_cfg;
+@@ -389,7 +390,7 @@ lacp_process_packet(struct lacp *lacp, const void *member_,
+
+     member->status = LACP_CURRENT;
+     tx_rate = lacp->fast ? LACP_FAST_TIME_TX : LACP_SLOW_TIME_TX;
+-    timer_set_duration(&member->rx, LACP_RX_MULTIPLIER * tx_rate);
++    timer_set_duration(&member->rx, member->lacp->rx_multiplier * tx_rate);
+
+     member->ntt_actor = pdu->partner;
+
+@@ -799,7 +800,8 @@ member_set_expired(struct member *member) OVS_REQUIRES(mutex)
+     member->partner.state |= LACP_STATE_TIME;
+     member->partner.state &= ~LACP_STATE_SYNC;
+
+-    timer_set_duration(&member->rx, LACP_RX_MULTIPLIER * LACP_FAST_TIME_TX);
++    timer_set_duration(&member->rx,
++                       LACP_DEFAULT_RX_MULTIPLIER * LACP_FAST_TIME_TX);
+ }
+
+ static void
+diff --git a/lib/lacp.h b/lib/lacp.h
+index 5ba17c36a..15a5050fd 100644
+--- a/lib/lacp.h
++++ b/lib/lacp.h
+@@ -23,6 +23,8 @@
+
+ /* LACP Protocol Implementation. */
+
++#define LACP_DEFAULT_RX_MULTIPLIER 3
++
+ enum lacp_status {
+     LACP_NEGOTIATED,                  /* Successful LACP negotiations. */
+     LACP_CONFIGURED,                  /* LACP is enabled but not negotiated. */
+@@ -35,6 +37,7 @@ struct lacp_settings {
+     uint16_t priority;                /* System priority. */
+     bool active;                      /* Active or passive mode? */
+     bool fast;                        /* Fast or slow probe interval. */
++    uint8_t rx_multiplier;            /* Missed PDUs before receive timeout. */
+     bool fallback_ab_cfg;             /* Fallback to BM_SLB on LACP failure. */
+ };
+
+diff --git a/tests/lacp.at b/tests/lacp.at
+index f44331e85..5f3f64727 100644
+--- a/tests/lacp.at
++++ b/tests/lacp.at
+@@ -50,6 +50,57 @@ AT_CHECK([ovs-appctl bond/show])
+ OVS_VSWITCHD_STOP
+ AT_CLEANUP
+
++AT_SETUP([lacp - configurable receive multiplier])
++OVS_VSWITCHD_START([dnl
++        add-port br0 p0 --\
++        set Port p0 lacp=active other-config:lacp-time=fast \
++            other-config:lacp-rx-multiplier=6 --\
++        set Interface p0 type=patch options:peer=p1 --\
++        add-br br1 --\
++        set Bridge br1 datapath-type=dummy fail-mode=secure --\
++        add-port br1 p1 --\
++        set Port p1 lacp=active other-config:lacp-time=fast --\
++        set Interface p1 type=patch options:peer=p0])
++
++AT_CHECK([ovs-appctl netdev-dummy/set-admin-state up], [0], [OK
++])
++ovs-appctl time/stop
++
++# Wait for LACP negotiation to finish.
++i=0
++while :; do
++    if ovs-appctl lacp/show p0 | grep -q 'member: p0: current' &&
++       ovs-appctl lacp/show p1 | grep -q 'member: p1: current'; then
++        break
++    fi
++    i=`expr $i + 1`
++    if test $i = 50; then
++        AT_FAIL_IF([:])
++    fi
++    ovs-appctl time/warp 100
++done
++
++# Stop LACP traffic in both directions.  The default multiplier peer expires
++# after three fast intervals, while p0 remains current through its sixth.
++AT_CHECK([ovs-vsctl \
++-- add-port br0 null0 -- set Interface null0 type=patch options:peer=p1 \
++-- set Interface p1 options:peer=null0 \
++-- add-port br1 null1 -- set Interface null1 type=patch options:peer=p0 \
++-- set Interface p0 options:peer=null1])
++
++ovs-appctl time/warp 4100 100
++AT_CHECK([ovs-appctl lacp/show p0 | grep 'member: p0: current'], [0],
++         [ignore])
++AT_CHECK([ovs-appctl lacp/show p1 | grep 'member: p1: expired'], [0],
++         [ignore])
++
++ovs-appctl time/warp 2100 100
++AT_CHECK([ovs-appctl lacp/show p0 | grep 'member: p0: expired'], [0],
++         [ignore])
++
++OVS_VSWITCHD_STOP
++AT_CLEANUP
++
+ AT_SETUP([lacp - multi port config])
+ OVS_VSWITCHD_START([dnl
+         add-bond br0 bond p1 p2 --\
+diff --git a/vswitchd/bridge.c b/vswitchd/bridge.c
+index bfb2adef1..b570ceb72 100644
+--- a/vswitchd/bridge.c
++++ b/vswitchd/bridge.c
+@@ -4428,7 +4428,7 @@ static struct lacp_settings *
+ port_configure_lacp(struct port *port, struct lacp_settings *s)
+ {
+     const char *lacp_time, *system_id;
+-    int priority;
++    int priority, rx_multiplier;
+
+     if (!enable_lacp(port, &s->active)) {
+         return NULL;
+@@ -4463,6 +4463,17 @@ port_configure_lacp(struct port *port, struct lacp_settings *s)
+     lacp_time = smap_get_def(&port->cfg->other_config, "lacp-time", "");
+     s->fast = !strcasecmp(lacp_time, "fast");
+
++    rx_multiplier = smap_get_int(&port->cfg->other_config,
++                                 "lacp-rx-multiplier",
++                                 LACP_DEFAULT_RX_MULTIPLIER);
++    if (rx_multiplier < 1 || rx_multiplier > UINT8_MAX) {
++        VLOG_WARN("port %s: LACP receive multiplier (%d) must be between "
++                  "1 and %u; using %d", port->name, rx_multiplier,
++                  (unsigned int) UINT8_MAX, LACP_DEFAULT_RX_MULTIPLIER);
++        rx_multiplier = LACP_DEFAULT_RX_MULTIPLIER;
++    }
++    s->rx_multiplier = rx_multiplier;
++
+     s->fallback_ab_cfg = smap_get_bool(&port->cfg->other_config,
+                                        "lacp-fallback-ab", false);
+
+diff --git a/vswitchd/vswitch.xml b/vswitchd/vswitch.xml
+index 2b57fc0e3..fc6143462 100644
+--- a/vswitchd/vswitch.xml
++++ b/vswitchd/vswitch.xml
+@@ -2233,6 +2233,17 @@
+           </p>
+         </column>
+
++        <column name="other_config" key="lacp-rx-multiplier"
++                type='{"type": "integer", "minInteger": 1,
++                       "maxInteger": 255}'>
++          <p>
++            The number of consecutive expected LACP heartbeats that may be
++            missed before a member's receive state expires.  The receive
++            timeout is this value multiplied by the <code>lacp-time</code>
++            heartbeat interval.  It defaults to <code>3</code>.
++          </p>
++        </column>
++
+         <column name="other_config" key="lacp-fallback-ab"
+                 type='{"type": "boolean"}'>
+           <p>

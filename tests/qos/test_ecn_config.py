@@ -7,7 +7,7 @@ import logging
 import time
 import pytest
 import json
-from tests.qos.qos_fixtures import lossless_prio_list  # noqa F401
+from tests.qos.qos_fixtures import all_queues_list  # noqa F401
 
 
 pytestmark = [
@@ -98,6 +98,10 @@ def verify_command_result(result, cmd):
     traceback_found = "Traceback" in result["stdout"]
     # Raise an AssertionError if "Traceback" is found
     assert not traceback_found, "Traceback found in {}".format(cmd)
+
+
+def is_availability_based_hwsku(duthost):
+    return any(npu in duthost.facts["hwsku"] for npu in ["Cisco-8122", "Cisco-8223"])
 
 
 @pytest.mark.disable_loganalyzer
@@ -259,13 +263,20 @@ def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, request):
                                          '''.format(port, pg_to_test, g_idx, voq_idx,
                                                     age_idx, raw_value, mark_list)
 
-                ''' Verify drop is 7 for last quant only'''
+                ''' Verify drop is 7 at the last VoQ quant. On availability-based
+                    hwskus, global region 0 (lowest availability) also drops
+                    every VoQ; occupancy-based hwskus drop only at the last
+                    VoQ quant. '''
                 if voq_drop_data:
+                    availability_based = is_availability_based_hwsku(duthost)
                     for g_idx in range(sms_quant_len):
                         for voq_idx in range(voq_quant_len):
                             for age_idx in range(age_quant_len):
                                 actual_value = voq_drop_data[g_idx][voq_idx][age_idx]
-                                expected_value = 7 if voq_idx == (voq_quant_len - 1) else 0
+                                if (availability_based and g_idx == 0) or voq_idx == (voq_quant_len - 1):
+                                    expected_value = 7
+                                else:
+                                    expected_value = 0
                                 assert (
                                         actual_value == expected_value
                                 ), '''
@@ -276,7 +287,7 @@ def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, request):
 
 
 def test_ecn_config_utility(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                            enum_rand_one_frontend_asic_index, lossless_prio_list):  # noqa: F811
+                            enum_rand_one_frontend_asic_index, all_queues_list):  # noqa: F811
 
     # Verify the ecn config utility CLI's
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -302,35 +313,35 @@ def test_ecn_config_utility(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                 ecn_list[key.strip()] = value.strip()
     logging.info("ecn config : {}".format(ecn_list))
 
-    # Verify ecnconfig status on lossless queue
-    test_prio_list = lossless_prio_list
-    for prio in test_prio_list:
-        cmd = 'sudo ecnconfig {} -q {}'.format(asic, prio)
+    # Verify ecnconfig status on all queues
+    test_queue_list = all_queues_list
+    for queue in test_queue_list:
+        cmd = 'sudo ecnconfig {} -q {}'.format(asic, queue)
         result = duthost.command(cmd)
         assert result['rc'] == 0, f"Missing ecn configuration : {result['stderr']}"
         if 'queue' in result['stdout_lines'][1]:
             status = result['stdout_lines'][1].split(':')
             logging.info("{} status is {}".format(status[0], status[1]))
         try:
-            # toggle the ecn status on prio queue
+            # toggle the ecn status on queue
             if status[1] == "off":
-                cmd = 'sudo ecnconfig {} -q {} on'.format(asic, prio)
+                cmd = 'sudo ecnconfig {} -q {} on'.format(asic, queue)
             else:
-                cmd = 'sudo ecnconfig {} -q {} off'.format(asic, prio)
+                cmd = 'sudo ecnconfig {} -q {} off'.format(asic, queue)
             result = duthost.command(cmd)
         except Exception as e:
             logging.info("Error on setting ecn queue : {}".format(e))
         assert result['rc'] == 0, 'Set wred_profile command failed '
 
     # revert the changes
-    for prio in test_prio_list:
-        cmd = 'sudo ecnconfig {} -q {}'.format(asic, prio)
+    for queue in test_queue_list:
+        cmd = 'sudo ecnconfig {} -q {}'.format(asic, queue)
         result = duthost.command(cmd)
         status = result['stdout_lines'][1].split(':')
         if status[1] == "off":
-            cmd = 'sudo ecnconfig {} -q {} on'.format(asic, prio)
+            cmd = 'sudo ecnconfig {} -q {} on'.format(asic, queue)
         else:
-            cmd = 'sudo ecnconfig {} -q {} off'.format(asic, prio)
+            cmd = 'sudo ecnconfig {} -q {} off'.format(asic, queue)
         result = duthost.command(cmd)
         assert result['rc'] == 0, 'Set wred_profile command failed '
 

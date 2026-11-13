@@ -4,6 +4,7 @@ import json
 import time
 import random
 import ipaddress
+import ast
 from collections import defaultdict
 
 import ptf.packet as packet
@@ -15,6 +16,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.config_reload import config_reload
 from tests.common.helpers.bgp import BGPNeighbor, NEIGHBOR_SAVE_DEST_TMPL, \
     BGP_SAVE_DEST_TMPL, _write_variable_from_j2_to_configdb, wait_tcp_connection
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +33,12 @@ SUBNET_DECAP_SRC_IP_V4 = "20.20.20.0/24"
 SUBNET_DECAP_SRC_IP_V6 = "fc01::/120"
 OUTER_DST_IP_V4 = "192.168.0.200"
 OUTER_DST_IP_V6 = "fc02:1000::200"
+VIP_ROUTE_V4 = "192.168.1.0/24"
+VIP_OUTER_DST_IP_V4 = "192.168.1.1"
+VIP_ROUTE_V6 = "fc02:2000::/120"
+VIP_OUTER_DST_IP_V6 = "fc02:2000::1"
+SUBNET_DECAP_TUNNEL_NAME_V4 = "IPINIP_SUBNET"
+SUBNET_DECAP_TUNNEL_NAME_V6 = "IPINIP_SUBNET_V6"
 
 
 @pytest.fixture(scope='module')
@@ -206,6 +214,32 @@ def verify_packet_with_expected(ptfadapter, stage, pkt, exp_pkt, send_port,
         testutils.verify_packet(ptfadapter, exp_pkt, recv_port, timeout=timeout)
 
 
+def get_vip_route(ip_version):
+    if ip_version == "IPv4":
+        return VIP_ROUTE_V4
+    return VIP_ROUTE_V6
+
+
+def get_subnet_decap_tunnel_name(ip_version):
+    if ip_version == "IPv4":
+        return SUBNET_DECAP_TUNNEL_NAME_V4
+    return SUBNET_DECAP_TUNNEL_NAME_V6
+
+
+def is_vip_decap_term_programmed(duthost, ip_version, vip_prefix):
+    tunnel_name = get_subnet_decap_tunnel_name(ip_version)
+    cmd = 'sonic-db-cli STATE_DB hgetall "TUNNEL_DECAP_TERM_TABLE|{}|{}"'.format(
+        tunnel_name, vip_prefix
+    )
+    output = duthost.command(cmd, module_ignore_errors=True)["stdout"].strip()
+    try:
+        decap_term = ast.literal_eval(output or "{}")
+    except (SyntaxError, ValueError):
+        logger.warning("Failed to parse VIP decap term output: %s", output)
+        return False
+    return decap_term.get("term_type") == "MP2MP" and decap_term.get("subnet_type") == "vip"
+
+
 @pytest.mark.parametrize("ip_version", ["IPv4", "IPv6"])
 @pytest.mark.parametrize("stage", ["positive", "negative"])
 def test_vlan_subnet_decap(request, rand_selected_dut, tbinfo, ptfhost, ptfadapter, ip_version, stage,
@@ -282,7 +316,7 @@ def setup_IPv4_SLB_connection(rand_selected_dut, ptfhost, prepare_vlan_subnet_te
 
     # announce the VIP route
     vip_route = {
-        "prefix": "192.168.1.0/24",
+        "prefix": VIP_ROUTE_V4,
         "nexthop": peer_addr,
         "aspath": "{}".format(slb_bgp.asn)
     }
@@ -414,7 +448,7 @@ def setup_IPv6_SLB_connection(rand_selected_dut, ptfhost, prepare_vlan_subnet_te
 
     # announce the VIP route
     vip_route = {
-        "prefix": "fc02:2000::/120",
+        "prefix": VIP_ROUTE_V6,
         "nexthop": peer_addr,
         "aspath": "{}".format(slb_bgp.asn)
     }
@@ -459,9 +493,14 @@ def test_vip_packet_decap(rand_selected_dut, ptfhost, ptfadapter, ip_version,
     else:
         neighbor_ip = request.getfixturevalue("setup_IPv6_SLB_connection")
 
-    # verify that STATE_DB gets programmed
-    decap_entries = duthost.command('sonic-db-cli STATE_DB keys "*TUNNEL_DECAP_TABLE*"')["stdout_lines"]
-    assert len(decap_entries) > 0, "No decap entries found in STATE_DB"
+    # Verify that the specific VIP decap term is programmed. A broad VLAN
+    # subnet term can decap overlapping traffic and hide VIP term failures.
+    vip_route = get_vip_route(ip_version)
+    subnet_decap_tunnel_name = get_subnet_decap_tunnel_name(ip_version)
+    assert wait_until(30, 2, 0, is_vip_decap_term_programmed, duthost, ip_version, vip_route), \
+        "VIP decap term TUNNEL_DECAP_TERM_TABLE|{}|{} is not programmed in STATE_DB".format(
+            subnet_decap_tunnel_name, vip_route
+        )
 
     # construct encapsulated packet and expected packet
     if ip_version == "IPv4":
@@ -475,7 +514,7 @@ def test_vip_packet_decap(rand_selected_dut, ptfhost, ptfadapter, ip_version,
             eth_dst=duthost.asic_instance().get_router_mac(),
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
             ip_src="20.20.20.10",
-            ip_dst="192.168.1.1",
+            ip_dst=VIP_OUTER_DST_IP_V4,
             inner_frame=inner_packet[packet.IP]
         )
         expected_packet = inner_packet.copy()
@@ -495,7 +534,7 @@ def test_vip_packet_decap(rand_selected_dut, ptfhost, ptfadapter, ip_version,
             eth_dst=duthost.asic_instance().get_router_mac(),
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
             ipv6_src="fc01::10",
-            ipv6_dst="fc02:2000::1",
+            ipv6_dst=VIP_OUTER_DST_IP_V6,
             inner_frame=inner_packet[packet.IPv6]
         )
         expected_packet = inner_packet.copy()

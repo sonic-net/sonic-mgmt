@@ -11,6 +11,7 @@ from tests.common.devices.eos import EosHost
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m   # noqa: F401
 from tests.common.dualtor.dual_tor_utils import lower_tor_host   # noqa: F401
 from tests.vlan.test_vlan import populate_mac_table   # noqa: F401
+from tests.common.utilities import flush_permanent_neighbors
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +92,7 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
             interface_name = 'Ethernet1'
             dev_name = 'eth1'
         # in case of lower tor host we need to use the next portchannel
-        if "dualtor-aa" in tbinfo["topo"]["name"] and rand_one_dut_hostname == lower_tor_host.hostname:
+        if "dualtor" in tbinfo["topo"]["name"] and rand_one_dut_hostname == lower_tor_host.hostname:
             interface_name = 'Port-Channel2'
             dev_name = _portchannel_netdev_name(vm_info['host'], 2)
 
@@ -236,7 +237,7 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
     yield vm_host_info, ptfhost_info
 
     logger.info("Removing all added ipv4 and ipv6 neighbors")
-    duthost.shell("sudo ip neigh flush nud permanent")
+    flush_permanent_neighbors(duthost)
 
 
 def verify_icmp_packet(dut_mac, src_port, dst_port, ptfadapter, tbinfo,

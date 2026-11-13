@@ -1,12 +1,16 @@
 """Shared helpers for BMC platform tests (syslog, event.log, Switch-Host)."""
 
 import logging
+import shlex
+import time
+
 from contextlib import contextmanager
 
 import pytest
 
+
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.sonic_db import STATE_DB, redis_hget, redis_hset
+from tests.common.helpers.sonic_db import CONFIG_DB, STATE_DB, redis_hget, redis_hgetall, redis_hset
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -25,6 +29,26 @@ BMC_INITIATED_REBOOT_CAUSES = (
     CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC,
     CAUSE_POWER_LOSS,
 )
+
+MAX_BMC_CLOCK_SKEW_SECONDS = 60
+
+
+def assert_bmc_clock_in_sync(duthost, max_skew_seconds=MAX_BMC_CLOCK_SKEW_SECONDS):
+    """Fail if the BMC and sonic-mgmt container clocks are too far apart."""
+    container_now = int(time.time())
+    bmc_now = int(duthost.shell("date -u +%s")["stdout"].strip())
+    skew = container_now - bmc_now
+
+    pytest_assert(
+        abs(skew) <= max_skew_seconds,
+        "BMC clock is {}s {} sonic-mgmt container ({} vs {}). "
+        "Synchronize the clocks before running BMC tests.".format(
+            abs(skew),
+            "behind" if skew > 0 else "ahead of",
+            time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(container_now)),
+            time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(bmc_now)),
+        ),
+    )
 
 
 # --- pmon daemon helpers ---------------------------------------------------
@@ -128,10 +152,12 @@ class BmcLogAnalyzer:
         marker = "{}.{}".format(self.marker_prefix,
                                 time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime()))
         start_line = "start-LogAnalyzer-{}".format(marker)
+        self.duthost.shell("sync {}".format(shlex.quote(BMC_EVENT_LOG)))
         self.duthost.shell(
             "echo '{}' >> {}".format(start_line, BMC_EVENT_LOG),
             module_ignore_errors=True,
         )
+        self.duthost.shell("sync {}".format(shlex.quote(BMC_EVENT_LOG)))
         logger.debug("BmcLogAnalyzer: wrote marker '%s' to %s", start_line, BMC_EVENT_LOG)
         return marker
 
@@ -150,10 +176,13 @@ class BmcLogAnalyzer:
             return self._get_syslog_analyzer().analyze(marker, fail=fail)
 
         start_line = "start-LogAnalyzer-{}".format(marker)
+        self.duthost.shell("sync {}".format(shlex.quote(BMC_EVENT_LOG)))
         result = self.duthost.shell(
-            "awk '/{}/ {{found=1; next}} found' {} 2>/dev/null".format(
-                start_line.replace("'", r"'\''"), BMC_EVENT_LOG),
-            module_ignore_errors=True,
+            "sed -n {} {}".format(
+                shlex.quote(r"/{}/,$p".format(start_line)),
+                shlex.quote(BMC_EVENT_LOG)
+            ),
+            module_ignore_errors=True
         )
         content = (result.get('stdout', '') or '').strip()
 
@@ -195,17 +224,37 @@ def bmc_log_zgrep(duthost, pattern, tail=20, files='/var/log/syslog*'):
     LogAnalyzer.analyze() instead so the scan is bounded by markers.
 
     Returns the matching lines (tail-N) as a string; empty if no match.
+
+    Ansible logs every shell/command module invocation to syslog, echoing the
+    full command line (including this search pattern) in a line tagged with
+    ``ansible-ansible.legacy.command`` / ``ansible-ansible.legacy.shell``.
+    Those lines are filtered out before ``tail`` so the scan cannot self-match
+    its own command-invocation syslog entry.
     """
     r = duthost.shell(
-        f"zgrep -hI -E '{pattern}' {files} 2>/dev/null | tail -{tail}",
+        f"zgrep -hI -E '{pattern}' {files} 2>/dev/null "
+        f"| grep -vE 'ansible-ansible\\.legacy\\.(command|shell)' "
+        f"| tail -{tail}",
         module_ignore_errors=True,
     )
-    if r.get('rc') == 0:
-        return (r.get('stdout', '') or '').strip()
-    return ''
+    return (r.get('stdout', '') or '').strip()
 
 
 # --- Leak-sensor injection helpers ----------------------------------------
+
+LIQUID_COOLING_INFO_TABLE = 'LIQUID_COOLING_INFO'
+
+
+def get_sensor_data(duthost, sensor_name):
+    """
+    Return LIQUID_COOLING_INFO|<sensor_name> from STATE_DB as a field dict.
+
+    Reads via ``sonic-db-cli STATE_DB HGETALL`` and parses the result into a
+    Python dictionary (e.g. leaking, leak_severity, leak_sensor_status).
+    Returns an empty dict when the key is absent.
+    """
+    return redis_hgetall(duthost, STATE_DB, f'{LIQUID_COOLING_INFO_TABLE}|{sensor_name}')
+
 
 def inject_leak_sensor(duthost, sensor_name, leak_severity, leaking='Yes', leak_sensor_status='Good',
                        sensor_type=None, location=None):
@@ -223,7 +272,7 @@ def inject_leak_sensor(duthost, sensor_name, leak_severity, leaking='Yes', leak_
         fields['type'] = sensor_type
     if location is not None:
         fields['location'] = location
-    redis_hset(duthost, STATE_DB, f'LIQUID_COOLING_INFO|{sensor_name}', **fields)
+    redis_hset(duthost, STATE_DB, f'{LIQUID_COOLING_INFO_TABLE}|{sensor_name}', **fields)
 
 
 def get_system_leak_status(duthost):
@@ -236,11 +285,85 @@ def set_system_leak_status(duthost, status):
     redis_hset(duthost, STATE_DB, 'SYSTEM_LEAK_STATUS|system', device_leak_status=status)
 
 
+def get_platform_major_leak_num_min_sensors(duthost, default=0):
+    """Return the platform-defined MIN-N from LiquidCoolingBase.get_major_leak_num_min_sensors().
+
+    This is the system-wide default used by thermalctld when there is no user override.
+    A value of 0 means the count-based MAJOR rule is off (the MAX-T escalation rule is
+    independent of MIN-N). Returns `default` if the API is unavailable on this platform.
+    """
+    out = duthost.shell(
+        "python3 -c 'from sonic_platform.chassis import Chassis; "
+        "print(Chassis().get_liquid_cooling().get_major_leak_num_min_sensors())'",
+        module_ignore_errors=True)
+    try:
+        return int((out.get('stdout') or '').strip())
+    except (TypeError, ValueError):
+        return default
+
+
+def is_major_leak_supported(duthost):
+    """True if the image supports MAJOR system leak (read-only probe of the major-leak-threshold CLI)."""
+    out = duthost.shell("config liquid-cool major-leak-threshold --help 2>&1", module_ignore_errors=True)
+    return out['rc'] == 0
+
+
+def power_down_action_configured(duthost, action_field):
+    """True if the effective policy action in `action_field` (for example system_major_leak_action)
+    is a power-down action (power_off or graceful_shutdown), so an injected event would really
+    shut the Switch-Host down. Read-only; LEAK_CONTROL_POLICY is not modified. Unset means the
+    syslog_only default."""
+    action = redis_hget(duthost, CONFIG_DB, 'LEAK_CONTROL_POLICY|policy', action_field)
+    return action in ('power_off', 'graceful_shutdown')
+
+
+def action_is_syslog_only(duthost, action_field):
+    """True if the effective policy action in `action_field` is syslog_only (unset means the
+    syslog_only default). Read-only; LEAK_CONTROL_POLICY is not modified."""
+    action = redis_hget(duthost, CONFIG_DB, 'LEAK_CONTROL_POLICY|policy', action_field)
+    return action in ('', None, 'syslog_only')
+
+
+def get_major_leak_min_sensors(duthost, default=None):
+    """Return the effective MIN-N: the number of concurrent Minor leaks at or above
+    which thermalctld classifies the system as MAJOR_SYSTEM_LEAK.
+
+    Resolution order (mirrors thermalctld):
+      1. User override LEAK_CONTROL_POLICY|policy system_major_leak_num_min_sensors in CONFIG_DB (>= 2)
+      2. Platform API LiquidCoolingBase.get_major_leak_num_min_sensors()
+      3. `default` (None) if neither is available; a missing value is not a configured threshold
+
+    A value of 0 means the count-based MAJOR rule is off; the MAX-T escalation rule is
+    independent of MIN-N.
+    """
+    # LEAK_CONTROL_POLICY is a single-row table; the CLI writes key "policy".
+    # redis_hget returns '' for a missing field, which int() rejects below.
+    val = redis_hget(duthost, CONFIG_DB, 'LEAK_CONTROL_POLICY|policy',
+                     'system_major_leak_num_min_sensors')
+    try:
+        override = int(val)
+    except (TypeError, ValueError):
+        override = None
+    # thermalctld ignores an override below 2 and falls back to the platform value.
+    if override is not None and override >= 2:
+        return override
+    platform_val = get_platform_major_leak_num_min_sensors(duthost, default=None)
+    return platform_val if platform_val is not None else default
+
+
 # --- Switch-Host power-cycle verification ---------------------------------
 
 def get_host_uptime(host):
     """Return `uptime -s` (boot timestamp) of the paired Switch-Host; '' on failure."""
     return host.shell("uptime -s", module_ignore_errors=True).get('stdout', '').strip()
+
+
+def get_host_boot_id(host):
+    """Return the kernel boot ID; and '' on failure."""
+    return host.shell(
+        "cat /proc/sys/kernel/random/boot_id",
+        module_ignore_errors=True
+    ).get('stdout', '').strip()
 
 
 def wait_host_off(duthost, host, timeout=180, interval=10, delay=30):

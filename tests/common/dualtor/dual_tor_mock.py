@@ -384,6 +384,12 @@ def apply_peer_switch_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mo
         wait_until(120, 5, 5, check_config_applied),
         "Timed out waiting for PEER_SWITCH and DEVICE_METADATA configuration to remain applied after swss restart"
     )
+    # neighsyncd reads the PEER_SWITCH config only in its constructor. Restart it so the new
+    # config takes effect, unless swss was already restarted above (th2/td3) after writing it.
+    if not ((restart_swss) and (dut.get_asic_name() != 'gb')):
+        logger.info("Restarting neighsyncd to pick up the PEER_SWITCH configuration")
+        dut.shell('docker exec swss supervisorctl restart neighsyncd')
+        wait_critical_processes(dut)
 
 
 @pytest.fixture(scope='module')
@@ -435,6 +441,14 @@ def apply_mux_cable_table_to_dut(cleanup_mocked_configs, rand_selected_dut,
         return out['stdout_lines'][0] == str(num_tor_mux_intfs)
     logger.info("Applying MUX_CABLE table")
     dut = rand_selected_dut
+    # Cisco 8000 Gibraltar host-route standby mixes a tunnel NH into an IP ECMP
+    # that SAI creates as L2, then rejects the tunnel member. Prefix-route
+    # avoids that sequence. Other ASICs keep the YANG default (host-route).
+    PREFIX_ROUTE_ASICS = {'cisco-8000'}
+    asic_type = dut.facts.get('asic_type')
+    use_prefix_route = asic_type in PREFIX_ROUTE_ASICS
+    if use_prefix_route:
+        logger.info("Using MUX_CABLE neighbor_mode=prefix-route for %s", asic_type)
 
     server_ipv4_base_addr, server_ipv6_base_addr = mock_server_base_ip_addr
 
@@ -442,14 +456,14 @@ def apply_mux_cable_table_to_dut(cleanup_mocked_configs, rand_selected_dut,
     for i, intf in enumerate(tor_mux_intfs):
         server_ipv4 = str(server_ipv4_base_addr + i)
         server_ipv6 = str(server_ipv6_base_addr + i)
-        mux_cable_params.update(
-            {
-                intf: {
-                    'server_ipv4': server_ipv4,
-                    'server_ipv6': server_ipv6,
-                    'state': 'auto'
-                }
-            })
+        mux_entry = {
+            'server_ipv4': server_ipv4,
+            'server_ipv6': server_ipv6,
+            'state': 'auto'
+        }
+        if use_prefix_route:
+            mux_entry['neighbor_mode'] = 'prefix-route'
+        mux_cable_params.update({intf: mux_entry})
 
     mux_cable_params = {'MUX_CABLE': mux_cable_params}
     dut.copy(content=json.dumps(mux_cable_params, indent=2), dest="/tmp/mux_cable_params.json")

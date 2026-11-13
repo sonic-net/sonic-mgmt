@@ -139,6 +139,18 @@ def get_psu(conn, index):
     return chassis_api(conn, 'get_psu', [index])
 
 
+def get_num_pdbs(conn):
+    return chassis_api(conn, 'get_num_pdbs')
+
+
+def get_all_pdbs(conn):
+    return chassis_api(conn, 'get_all_pdbs')
+
+
+def get_pdb(conn, index):
+    return chassis_api(conn, 'get_pdb', [index])
+
+
 def get_num_thermals(conn):
     return chassis_api(conn, 'get_num_thermals')
 

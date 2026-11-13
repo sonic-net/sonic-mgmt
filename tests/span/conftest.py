@@ -3,9 +3,29 @@ Conftest file for span tests
 '''
 
 import pytest
+import logging
+import ipaddress
+import json
+from contextlib import ExitStack
 
 from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
-from tests.common.utilities import skip_release
+from tests.common.utilities import skip_release, wait_until
+from tests.common.helpers.assertions import pytest_assert as _pytest_assert
+from erspan_helpers import (   # noqa F401
+    ERSPAN_SESSION_NAME,
+    ERSPAN_SRC_IP,
+    ERSPAN_DST_IP,
+    ERSPAN_DST_PREFIX,
+    ERSPAN_DSCP,
+    ERSPAN_TTL,
+    ERSPAN_GRE_TYPE,
+    ERSPAN_DEFAULT_DIRECTION,
+    MIRROR_GRE_METADATA_LEN,
+    remove_mirror_session,
+    create_erspan_session_config,
+)
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module")
@@ -69,7 +89,7 @@ def skip_unsupported_release(duthost):
     skip_release(duthost, ["201811", "201911"])
 
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture(scope='module')
 def setup_monitor_port(duthosts, rand_one_dut_hostname, ports_for_test):
     '''
     Used to prepare monitor port for test
@@ -163,3 +183,409 @@ def setup_session(duthosts, rand_one_dut_hostname, session_info):
     }
     # Remove mirroring session
     duthost.command('config mirror_session remove {}'.format(session_info["session_name"]))
+
+
+# ---------------------------------------------------------------------------
+# ERSPAN sampling/truncation fixtures
+# ---------------------------------------------------------------------------
+
+# ERSPAN_* endpoint constants are imported from erspan_helpers (see imports above).
+
+RX_PROBE_IP = '198.18.254.1'
+TX_PROBE_IP = '198.18.254.2'
+
+
+def _get_routed_candidates(ip_interfaces, minigraph, status, config):
+    '''Select routed interfaces with no shared physical ports, preferring single-member interfaces.'''
+    ptf_map = minigraph['minigraph_ptf_indices']
+    candidates = []
+    portchannels = minigraph.get('minigraph_portchannels', {})
+    lag_members = {member for pc in config.get('PORTCHANNEL_MEMBER', {}).values() for member in pc}
+    vlan_members = {member for vlan in config.get('VLAN_MEMBER', {}).values() for member in vlan}
+    for name, addresses in ip_interfaces.items():
+        if (addresses.get('admin') != 'up' or addresses.get('oper_state') != 'up'
+                or not addresses.get('peer_ipv4') or addresses['peer_ipv4'] == 'N/A'):
+            continue
+        if name.startswith('PortChannel'):
+            members = sorted(config.get('PORTCHANNEL_MEMBER', {}).get(name, {}))
+            if not members or members != sorted(portchannels.get(name, {}).get('members', [])):
+                continue
+        else:
+            if not name.startswith('Ethernet') or name in lag_members:
+                continue
+            members = [name]
+        # As in Everflow get_port_info(), keep all LAG members in one path.
+        if any(p not in ptf_map or p in vlan_members
+               or status.get(p, {}).get('oper_state') != 'up' for p in members):
+            continue
+        members.sort(key=lambda p: int(ptf_map[p]))
+        indices = [int(ptf_map[p]) for p in members]
+        candidates.append({'name': members[0], 'index': indices[0], 'members': members,
+                           'indices': indices, 'l3_interface': name,
+                           'next_hop': addresses['peer_ipv4']})
+
+    candidates.sort(key=lambda p: (len(p['members']), p['index']))
+    disjoint = []
+    used_indices = set()
+    for candidate in candidates:
+        if used_indices.intersection(candidate['indices']):
+            continue
+        disjoint.append(candidate)
+        used_indices.update(candidate['indices'])
+    return disjoint
+
+
+def _add_route(duthost, cleanup, prefix, nexthop, interface):
+    '''Reuse matching FRR/kernel routes; clean up only new routes.
+
+    FRR may retain routes absent from the kernel while next hops are unresolved.
+    '''
+    existing = json.loads(duthost.shell('ip -j -4 route show exact {}'.format(prefix))['stdout'])
+    command = 'ip route {} {} {}'.format(prefix, nexthop, interface)
+    running = duthost.shell('vtysh -c "show running-config"')['stdout']
+    configured = [line.strip() for line in running.splitlines()
+                  if line.strip().split()[:3] == ['ip', 'route', prefix]]
+    accepted = {command, 'ip route {} {}'.format(prefix, nexthop)}
+    _pytest_assert(not configured or (len(configured) == 1 and configured[0] in accepted),
+                   'Conflicting FRR static route for {}: {}'.format(prefix, configured))
+
+    if existing:
+        _pytest_assert(_route_matches(existing, prefix, nexthop, interface),
+                       'Conflicting ERSPAN route for {}: expected via {} dev {}, found {}'.format(
+                           prefix, nexthop, interface, existing))
+        logger.info('Reusing existing ERSPAN route: %s', existing)
+    elif configured:
+        logger.info('Reusing configured FRR route, waiting for kernel convergence: %s', configured)
+    else:
+        cleanup.callback(duthost.command, 'vtysh -c "configure terminal" -c "no {}"'.format(command))
+        duthost.command('vtysh -c "configure terminal" -c "{}"'.format(command))
+
+    def installed():
+        routes = json.loads(duthost.shell('ip -j -4 route show exact {}'.format(prefix))['stdout'])
+        return _route_matches(routes, prefix, nexthop, interface)
+
+    _pytest_assert(wait_until(30, 1, 0, installed),
+                   'ERSPAN route {} via {} dev {} did not converge'.format(prefix, nexthop, interface))
+
+
+def _route_matches(routes, prefix, nexthop, interface):
+    '''Match one unicast next hop, including its logical egress interface.'''
+    return (len(routes) == 1
+            and ipaddress.ip_network(routes[0].get('dst', '0.0.0.0/0'), strict=False) == ipaddress.ip_network(prefix)
+            and routes[0].get('dev') == interface and routes[0].get('gateway') == nexthop
+            and routes[0].get('type', 'unicast') == 'unicast' and not routes[0].get('nexthops'))
+
+
+def _setup_rx_discard(duthost, cleanup):
+    '''Create or reuse an RX probe blackhole; clean up only our additions.'''
+    prefix = RX_PROBE_IP + '/32'
+    command = 'ip route {} blackhole'.format(prefix)
+    running = duthost.shell('vtysh -c "show running-config"')['stdout']
+    configured = [line.strip() for line in running.splitlines()
+                  if line.strip().split()[:3] == ['ip', 'route', prefix]]
+    _pytest_assert(not configured or configured == [command],
+                   'Conflicting FRR RX probe route: {}'.format(configured))
+    routes = json.loads(duthost.shell('ip -j -4 route show exact {}'.format(prefix))['stdout'])
+    if routes:
+        route = routes[0]
+        blackhole = route.get('type') == 'blackhole'
+        _pytest_assert(len(routes) == 1 and not route.get('nexthops')
+                       and ipaddress.ip_network(route.get('dst', '0.0.0.0/0'), strict=False)
+                       == ipaddress.ip_network(prefix)
+                       and blackhole,
+                       'Conflicting kernel RX probe route: {}'.format(routes))
+        if blackhole and not configured:
+            logger.info('Reusing existing RX probe blackhole: %s', routes)
+            return
+
+    if configured != [command]:
+        cleanup.callback(duthost.command, 'vtysh -c "configure terminal" -c "no {}"'.format(command))
+        duthost.command('vtysh -c "configure terminal" -c "{}"'.format(command))
+
+    def installed():
+        entries = json.loads(duthost.shell('ip -j -4 route show exact {}'.format(prefix))['stdout'])
+        return (len(entries) == 1 and entries[0].get('type') == 'blackhole'
+                and not entries[0].get('nexthops'))
+
+    _pytest_assert(wait_until(30, 1, 0, installed), 'RX probe blackhole did not converge: {}'.format(prefix))
+    logger.info('RX original probes to %s are discarded; ERSPAN collector route is separate', prefix)
+
+
+@pytest.fixture(scope="module")
+def erspan_capabilities(duthosts, rand_one_dut_hostname):
+    '''
+    Collect switch capability facts for sampling/truncation support.
+    Follows the everflow conftest.py pattern using switch_capabilities_facts().
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    facts = duthost.switch_capabilities_facts()
+    caps = (facts
+            .get("ansible_facts", {})
+            .get("switch_capabilities", {})
+            .get("switch", {}))
+    return caps
+
+
+@pytest.fixture(scope="module")
+def skip_if_ingress_sampling_unsupported(erspan_capabilities):
+    '''Skip if the platform does not support RX (ingress) sampled port mirroring.
+
+    Use for direction=rx dataplane tests, which require ingress sampling specifically.
+    '''
+    capable = erspan_capabilities.get("PORT_INGRESS_SAMPLE_MIRROR_CAPABLE", "false")
+    if capable.lower() != 'true':
+        pytest.skip("Skip: platform does not support ingress (RX) sampled port mirroring "
+                    "(PORT_INGRESS_SAMPLE_MIRROR_CAPABLE != true)")
+
+
+@pytest.fixture(scope="module")
+def skip_if_egress_sampling_unsupported(erspan_capabilities):
+    '''Skip if the platform does not support TX (egress) sampled port mirroring.
+
+    Use for direction=tx dataplane tests, which require egress sampling specifically.
+    '''
+    capable = erspan_capabilities.get("PORT_EGRESS_SAMPLE_MIRROR_CAPABLE", "false")
+    if capable.lower() != 'true':
+        pytest.skip("Skip: platform does not support egress (TX) sampled port mirroring "
+                    "(PORT_EGRESS_SAMPLE_MIRROR_CAPABLE != true)")
+
+
+@pytest.fixture(scope="module")
+def skip_if_truncation_unsupported(erspan_capabilities):
+    '''Skip test if the platform does not support sample packet truncation.'''
+    capable = erspan_capabilities.get("SAMPLEPACKET_TRUNCATION_CAPABLE", "false")
+    if capable.lower() != 'true':
+        pytest.skip(
+            "Skip: platform does not support sample packet truncation "
+            "(SAMPLEPACKET_TRUNCATION_CAPABLE != true)")
+
+
+@pytest.fixture(scope="module")
+def erspan_gre_metadata_len(duthosts, rand_one_dut_hostname):
+    '''Select the supported Mellanox GRE metadata layout; skip other ASICs.'''
+    duthost = duthosts[rand_one_dut_hostname]
+    asic_type = duthost.facts.get('asic_type')
+    if asic_type != 'mellanox':
+        pytest.skip('ERSPAN probe decoding supports only Mellanox GRE 0x8949 with '
+                    '22-byte metadata; unsupported ASIC: {}'.format(asic_type))
+    return MIRROR_GRE_METADATA_LEN
+
+
+@pytest.fixture(scope="module")
+def skip_if_vs_platform(duthosts, rand_one_dut_hostname):
+    '''Skip dataplane mirroring tests on the vs platform.
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    if duthost.facts["asic_type"] == "vs":
+        pytest.skip("Dataplane sampled mirroring is not testable on the vs platform")
+
+
+def _sampling_direction_supported(erspan_capabilities, direction):
+    '''Return True if the platform advertises the sampled-mirroring capability that
+    `direction` (rx/tx/both) requires (ingress for rx, egress for tx, both for both).'''
+    ingress = erspan_capabilities.get("PORT_INGRESS_SAMPLE_MIRROR_CAPABLE", "false").lower() == 'true'
+    egress = erspan_capabilities.get("PORT_EGRESS_SAMPLE_MIRROR_CAPABLE", "false").lower() == 'true'
+    if direction in ('rx', 'both') and not ingress:
+        return False
+    if direction in ('tx', 'both') and not egress:
+        return False
+    return True
+
+
+@pytest.fixture
+def sampling_direction(request, erspan_capabilities):
+    '''Parametrized sampled-mirroring direction (rx/tx/both) for config tests.
+
+    Sampled mirroring requires an explicit direction (swss), and each direction needs
+    the matching per-direction capability. Skip the parametrized direction when the
+    platform does not advertise it, so we never configure an unsupported direction (which
+    orchagent would reject with an ERR log).
+
+    Usage:
+        @pytest.mark.parametrize('sampling_direction', ['rx', 'tx', 'both'], indirect=True)
+        def test_something(sampling_direction): ...
+    '''
+    direction = request.param
+    if not _sampling_direction_supported(erspan_capabilities, direction):
+        pytest.skip("Skip: platform does not support {} sampled port mirroring".format(direction))
+    return direction
+
+
+@pytest.fixture
+def mirror_session_cleanup(duthosts, rand_one_dut_hostname):
+    '''Register mirror-session names for guaranteed removal at teardown.
+
+    A lightweight alternative to per-test try/finally remove_mirror_session boilerplate for
+    config-only tests. Unlike the erspan_session fixture it does no routing/STATE_DB setup.
+
+    Usage:
+        session_name = mirror_session_cleanup("my_session")
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    session_names = []
+
+    def register(session_name):
+        session_names.append(session_name)
+        return session_name
+
+    yield register
+
+    for session_name in session_names:
+        remove_mirror_session(duthost, session_name)
+
+
+@pytest.fixture(scope="module")
+def erspan_config_source(duthosts, rand_one_dut_hostname):
+    '''Select a front-panel physical source for CLI/configuration checks.'''
+    duthost = duthosts[rand_one_dut_hostname]
+    if duthost.is_multi_asic:
+        pytest.skip('ERSPAN sampling session setup currently requires a single-ASIC DUT')
+    config = duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
+    ports = [name for name, attrs in config.get('PORT', {}).items()
+             if name.startswith('Ethernet') and name[len('Ethernet'):].isdigit()
+             and attrs.get('role', 'Ext') == 'Ext']
+    if not ports:
+        pytest.skip('ERSPAN configuration tests require a front-panel physical port')
+    return min(ports, key=lambda name: int(name[len('Ethernet'):]))
+
+
+@pytest.fixture(scope="module")
+def erspan_ports(duthosts, rand_one_dut_hostname, tbinfo):
+    '''Discover existing routed paths using the common active-interface API.'''
+    duthost = duthosts[rand_one_dut_hostname]
+    # Session CLI/STATE_DB operations below are single-ASIC scoped.
+    if duthost.is_multi_asic:
+        pytest.skip('ERSPAN sampling session setup currently requires a single-ASIC DUT')
+    asic = duthost.asic_instance()
+    ip_interfaces = asic.show_ip_interface()['ansible_facts']['ip_interfaces']
+    minigraph = duthost.get_extended_minigraph_facts(tbinfo)
+    status = duthost.show_interface(command='status')['ansible_facts']['int_status']
+    config = duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
+    candidates = _get_routed_candidates(ip_interfaces, minigraph, status, config)
+    if len(candidates) < 3:
+        pytest.skip('ERSPAN needs three disjoint routed PTF paths')
+    candidate_interfaces = {p['l3_interface']: ip_interfaces[p['l3_interface']] for p in candidates}
+    active_interfaces = duthost.active_ip_interfaces(
+        candidate_interfaces, tbinfo, ns_arg=asic.namespace, intf_num=3, ip_type='ipv4')
+    usable = [p for p in candidates if p['l3_interface'] in active_interfaces]
+    if len(usable) < 3:
+        pytest.skip('ERSPAN needs three disjoint reachable routed PTF paths')
+    ports = dict(zip(('source', 'gre_egress', 'tx_ingress'), usable))
+    ports['namespace'] = asic.namespace
+    for role in ('source', 'tx_ingress'):
+        port = ports[role]
+        port['router_mac'] = duthost.get_dut_iface_mac(port['l3_interface'])
+        _pytest_assert(port['router_mac'], 'Cannot read router MAC for {}'.format(port['l3_interface']))
+        port['router_mac'] = port['router_mac'].strip()
+    logger.info('ERSPAN routed paths: %s', ports)
+    return ports
+
+
+@pytest.fixture(scope="module")
+def setup_erspan_route(duthosts, rand_one_dut_hostname, erspan_ports):
+    '''Route mirrors and TX probes through existing peers; discard RX originals.'''
+    duthost = duthosts[rand_one_dut_hostname]
+    with ExitStack() as cleanup:
+        for prefix, port in ((ERSPAN_DST_PREFIX, erspan_ports['gre_egress']),
+                             (TX_PROBE_IP + '/32', erspan_ports['source'])):
+            # active_ip_interfaces() already checks peer reachability.
+            _add_route(duthost, cleanup, prefix, port['next_hop'], port['l3_interface'])
+        _setup_rx_discard(duthost, cleanup)
+        yield
+
+
+@pytest.fixture
+def erspan_session(request, duthosts, rand_one_dut_hostname, erspan_ports):
+    '''
+    Create and teardown an ERSPAN mirror session with optional sample_rate/truncate_size.
+
+    Usage:
+        @pytest.mark.parametrize('erspan_session', [{'sample_rate': 256}], indirect=True)
+        def test_something(erspan_session): ...
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    params = getattr(request, 'param', {}) or {}
+    sample_rate = params.get('sample_rate')
+    truncate_size = params.get('truncate_size')
+    src_port = erspan_ports['source']['name']
+    direction = params.get('direction', ERSPAN_DEFAULT_DIRECTION)
+    # A single-member source ensures TX probes leave through the mirrored port.
+    if direction in ('tx', 'both') and len(erspan_ports['source']['members']) != 1:
+        pytest.skip('TX/BOTH ERSPAN dataplane tests require a single-member routed mirror source')
+    metadata_len = request.getfixturevalue('erspan_gre_metadata_len')
+    # Check eligibility before configuring routes.
+    request.getfixturevalue('setup_erspan_route')
+    request.addfinalizer(lambda: remove_mirror_session(duthost, ERSPAN_SESSION_NAME))
+
+    # create_erspan_session_config pre-cleans any leftover same-named session, then
+    # creates it with the requested direction / sampling / truncation parameters.
+    logger.info(
+        "Creating ERSPAN session %s on %s (direction=%s, sample_rate=%s, truncate_size=%s)",
+        ERSPAN_SESSION_NAME, src_port, direction, sample_rate, truncate_size)
+    create_erspan_session_config(
+        duthost, ERSPAN_SESSION_NAME,
+        sample_rate=sample_rate, truncate_size=truncate_size,
+        source_port=src_port, direction=direction)
+
+    # CONFIG_DB sanity
+    output = duthost.shell("show mirror_session")
+    logger.info("show mirror_session \n%s", output['stdout'])
+    _pytest_assert(
+        ERSPAN_SESSION_NAME in output['stdout'],
+        "Mirror session {} not found after creation".format(ERSPAN_SESSION_NAME),
+    )
+
+    # Wait for STATE_DB to converge: status=active AND monitor_port matches gre_egress
+    collector = erspan_ports['gre_egress']
+    expected_monitors = set(collector['members']) | {collector['l3_interface']}
+
+    def _session_ready():
+        status = duthost.shell(
+            "sonic-db-cli STATE_DB HGET 'MIRROR_SESSION_TABLE|{}' status".format(ERSPAN_SESSION_NAME),
+            module_ignore_errors=True
+        )['stdout'].strip()
+        monitor = duthost.shell(
+            "sonic-db-cli STATE_DB HGET 'MIRROR_SESSION_TABLE|{}' monitor_port".format(ERSPAN_SESSION_NAME),
+            module_ignore_errors=True
+        )['stdout'].strip()
+        return status == 'active' and monitor in expected_monitors
+
+    ready = wait_until(30, 2, 0, _session_ready)
+    state_dump = duthost.shell(
+        "sonic-db-cli STATE_DB HGETALL 'MIRROR_SESSION_TABLE|{}'".format(ERSPAN_SESSION_NAME),
+        module_ignore_errors=True
+    )['stdout']
+    config_dump = duthost.shell(
+        "sonic-db-cli CONFIG_DB HGETALL 'MIRROR_SESSION|{}'".format(ERSPAN_SESSION_NAME),
+        module_ignore_errors=True
+    )['stdout']
+    logger.info("STATE_DB MIRROR_SESSION_TABLE|%s \n%s", ERSPAN_SESSION_NAME, state_dump)
+    logger.info("CONFIG_DB MIRROR_SESSION|%s \n%s", ERSPAN_SESSION_NAME, config_dump)
+    logger.info("Expected monitor_port: %s", sorted(expected_monitors))
+    _pytest_assert(
+        ready,
+        "Mirror session {} not active or monitor_port not in {}; STATE_DB: {}".format(
+            ERSPAN_SESSION_NAME, sorted(expected_monitors), state_dump))
+
+    yield {
+        'session_name': ERSPAN_SESSION_NAME,
+        'source_index': erspan_ports['source']['index'],
+        'gre_egress_indices': collector['indices'],
+        'tx_ingress_index': erspan_ports['tx_ingress']['index'],
+        'sample_rate': sample_rate,
+        'truncate_size': truncate_size,
+        'probes': {
+            erspan_ports['source']['index']: {
+                'eth_dst': erspan_ports['source']['router_mac'], 'ip_dst': RX_PROBE_IP},
+            erspan_ports['tx_ingress']['index']: {
+                'eth_dst': erspan_ports['tx_ingress']['router_mac'], 'ip_dst': TX_PROBE_IP},
+        },
+        'mirror_session_info': {
+            'src_ip': ERSPAN_SRC_IP,
+            'dst_ip': ERSPAN_DST_IP,
+            'dscp': ERSPAN_DSCP,
+            'ttl': ERSPAN_TTL,
+            'gre_type': ERSPAN_GRE_TYPE,
+            'gre_metadata_len': metadata_len,
+        },
+    }

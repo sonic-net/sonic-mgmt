@@ -81,17 +81,21 @@ def ensure_application_of_updated_config(duthost, xoff, values, cli_namespace_pr
 
 @pytest.mark.parametrize("operation", ["replace"])
 def test_pg_headroom_update(duthost, ensure_dut_readiness, operation, skip_when_buffer_is_dynamic_model,
-                            enum_rand_one_frontend_asic_index, cli_namespace_prefix):
+                            enum_rand_one_frontend_asic_index, cli_namespace_prefix, tbinfo):
     namespace = duthost.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
     asic_type = get_asic_name(duthost)
     pytest_require("td2" not in asic_type, "PG headroom should be skipped on TD2")
-    tmpfile = generate_tmpfile(duthost)
 
     json_patch = list()
     values = list()
     xoff = dict()
     lossless_profiles = duthost.shell('sonic-db-cli {} CONFIG_DB keys *BUFFER_PROFILE\\|pg_lossless*'
                                       .format(cli_namespace_prefix))['stdout_lines']
+    if not lossless_profiles:
+        if tbinfo['topo']['type'] in ('uma', 'lma'):
+            pytest.skip("Lossless buffer profiles are not configured on DMA topologies")
+        pytest.fail("No lossless buffer profiles found")
+    tmpfile = generate_tmpfile(duthost)
     for profile in lossless_profiles:
         profile_name = profile.split('|')[-1]
         value = duthost.shell('sonic-db-cli {} CONFIG_DB hget "{}" "xoff"'
