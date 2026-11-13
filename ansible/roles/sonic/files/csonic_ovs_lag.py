@@ -27,7 +27,7 @@ def call(command, check=True):
 def config_db_tables():
     from swsscommon import swsscommon
 
-    config_db = swsscommon.ConfigDBConnector()
+    config_db = swsscommon.ConfigDBConnector(use_unix_socket_path=True)
     config_db.connect()
     return {
         "portchannels": config_db.get_table("PORTCHANNEL"),

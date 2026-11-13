@@ -40,7 +40,7 @@ class AclCapabilityModule(object):
         namespace_list = multi_asic.get_namespace_list()
         if multi_asic.is_multi_asic():
             SonicDBConfig.load_sonic_global_db_config()
-        conn = SonicV2Connector(namespace=namespace_list[0])
+        conn = SonicV2Connector(use_unix_socket_path=True, namespace=namespace_list[0])
         conn.connect(conn.STATE_DB)
         keys = conn.keys(conn.STATE_DB, 'ACL_STAGE_CAPABILITY_TABLE|*') or []
 
