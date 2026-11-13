@@ -776,6 +776,7 @@ t0-vpp:
   - arp/test_arp_update.py
   - arp/test_neighbor_mac_aging.py
   - arp/test_neighbor_mac_noptf.py
+  - arp/test_stress_arp.py
   - arp/test_tagged_arp.py
   - arp/test_unknown_mac.py
   - autorestart/test_container_autorestart.py
@@ -845,6 +846,7 @@ t0-vpp:
   - ip/test_ip_packet.py
   - ip/test_mgmt_ipv6_only.py
   - ipfwd/test_dip_sip.py
+  - l2/test_l2_configure.py
   - lldp/test_lldp.py
   - lldp/test_lldp_syncd.py
   - pc/test_lag_2.py
@@ -852,6 +854,10 @@ t0-vpp:
   - pc/test_lag_member_forwarding.py
   - pc/test_po_cleanup.py
   - pc/test_po_update.py
+  - radv/test_radv_ipv6_ra.py
+  - radv/test_radv_restart.py
+  - radv/test_radv_run.py
+  - reboot/test_reboot_blocking_mode.py
   - route/test_default_route.py
   - route/test_duplicate_route.py
   - route/test_forced_mgmt_route.py
@@ -874,6 +880,7 @@ t0-vpp:
   - vlan/test_autostate_disabled.py
   - vlan/test_host_vlan.py
   - vlan/test_secondary_subnet.py
+  - vlan/test_sw_mode.py
   - vlan/test_vlan.py
   - vlan/test_vlan_ping.py
   - vlan/test_vlan_ports_down.py
