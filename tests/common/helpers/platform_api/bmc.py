@@ -5,6 +5,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Values of the 'os' field of bmc_os.json in the HwSKU directory. They select the
+# protocol the switch host uses to reach the BMC: Redfish for OpenBMC, Redis for SONiC BMC.
+BMC_OS_SONIC = 'sonic'
+BMC_OS_OPENBMC = 'openbmc'
+
 
 def bmc_pmon_api(conn, name, args=None):
     if args is None:
@@ -36,6 +41,29 @@ def is_bmc_exists(duthost):
         return True
     else:
         return False
+
+
+def get_bmc_os(duthost):
+    """Return the BMC OS the switch host is configured to talk to.
+
+    Reads the 'show platform bmc os' CLI, which reports the 'os' field of
+    bmc_os.json in the HwSKU directory, defaulting to 'sonic' when the file is
+    missing or invalid. Images that predate this feature have no such command;
+    there Redfish was the only supported path, so 'openbmc' is reported instead.
+
+    Note that is_bmc_exists() cannot be used to tell the two apart: the switch
+    host exposes a BMC component in both cases.
+    """
+    res = duthost.shell('show platform bmc os', module_ignore_errors=True)
+    if res['rc'] != 0:
+        logger.info(f'"show platform bmc os" is not available on {duthost.hostname}, assuming {BMC_OS_OPENBMC}')
+        return BMC_OS_OPENBMC
+    return res['stdout'].strip().lower()
+
+
+def is_sonic_bmc_os(duthost):
+    """Return True when the switch host reaches the BMC over Redis instead of Redfish."""
+    return get_bmc_os(duthost) == BMC_OS_SONIC
 
 
 def get_name(conn):
