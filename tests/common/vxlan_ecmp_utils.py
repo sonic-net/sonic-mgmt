@@ -391,7 +391,7 @@ class Ecmp_Utils(object):
            vxlan_sport: The base UDP source port for VxLAN sport entropy.
            vxlan_mask : The number of bits to vary in the source port range.
         '''
-        if dutmac is None:
+        if not dutmac:
             dutmac = "aa:bb:cc:dd:ee:ff"
 
         switch_fields = {
