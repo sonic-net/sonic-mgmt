@@ -708,9 +708,11 @@ bgp/test_bgp_update_replication.py:
 
 bgp/test_bgp_vnet.py:
   skip:
-    reason: "Test is only enabled for VS, Cisco and Nvidia mellanox platforms"
+    reason: "Test is only enabled for VS, Cisco and Nvidia mellanox platforms. Also not supported on topologies without PortChannel uplinks due to GH issue https://github.com/sonic-net/sonic-mgmt/issues/26523"
+    conditions_logical_operator: or
     conditions:
       - "asic_type not in ['vs', 'cisco-8000', 'mellanox']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26523 and topo_name == 't0-isolated-d32u32s2-mix'"
 
 bgp/test_bgp_vnet_scale.py:
   skip:
@@ -4644,6 +4646,14 @@ qos/test_qos_probe.py:
       # If we do want to run this on DNX SKUs we'll need https://github.com/sonic-net/sonic-mgmt/issues/27076 fixed
       - "asic_subtype in ['broadcom-dnx']"
 
+qos/test_qos_probe.py::TestQosProbe:
+  skip:
+    reason: "MMU threshold probing is not applicable on this topology."
+    conditions_logical_operator: and
+    conditions:
+      - *lossyTopos
+      - "topo_name not in constants['QOS_SAI_TOPO']"
+
 qos/test_qos_probe.py::TestQosProbe::testQosHeadroomPoolProbe:
   skip:
     reason: "HeadroomPool probe fails on Mellanox SPC1 starting at iteration #2: all packets sent to pg=4 (immediately after a successful pg=3 probe on the same src port) are ingress-dropped, so the probe algorithm cannot find a PFC threshold for pg=4. Tracked by #24215 (SPC1)."
@@ -5185,12 +5195,13 @@ route/test_static_route.py::test_static_route_ecmp_ipv6:
 
 route/test_static_route.py::test_static_route_ecmp_warmboot:
   skip:
-    reason: "Warm reboot is not supported on dualtor, m0, m1, or mx topologies | Warm reboot does not apply to VPP tests"
+    reason: "Warm reboot is not supported on dualtor, m0, m1, or mx topologies, or on Broadcom TH5/TH6 platforms | Warm reboot does not apply to VPP tests"
     conditions_logical_operator: OR
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
       - "topo_type in ['m0', 'm1', 'mx']"
       - "asic_type in ['vpp']"
+      - "platform in ['x86_64-arista_7060x6_64pe_b', 'x86_64-arista_7060x6_16pe_384c_b', 'x86_64-arista_7060xe7_64prs_mv3_l']"
 
 route/test_static_route.py::test_static_route_ipv6:
   xfail:
@@ -5200,21 +5211,23 @@ route/test_static_route.py::test_static_route_ipv6:
 
 route/test_static_route.py::test_static_route_ipv6_warmboot:
   skip:
-    reason: "Warm reboot is not supported on dualtor, m0, m1, or mx topologies | Warm reboot does not apply to VPP tests"
+    reason: "Warm reboot is not supported on dualtor, m0, m1, or mx topologies, or on Broadcom TH5/TH6 platforms | Warm reboot does not apply to VPP tests"
     conditions_logical_operator: OR
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
       - "topo_type in ['m0', 'm1', 'mx']"
       - "asic_type in ['vpp']"
+      - "platform in ['x86_64-arista_7060x6_64pe_b', 'x86_64-arista_7060x6_16pe_384c_b', 'x86_64-arista_7060xe7_64prs_mv3_l']"
 
 route/test_static_route.py::test_static_route_warmboot:
   skip:
-    reason: "Warm reboot is not supported on dualtor, m0, m1, or mx topologies | Warm reboot does not apply to VPP tests"
+    reason: "Warm reboot is not supported on dualtor, m0, m1, or mx topologies, or on Broadcom TH5/TH6 platforms | Warm reboot does not apply to VPP tests"
     conditions_logical_operator: OR
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
       - "topo_type in ['m0', 'm1', 'mx']"
       - "asic_type in ['vpp']"
+      - "platform in ['x86_64-arista_7060x6_64pe_b', 'x86_64-arista_7060x6_16pe_384c_b', 'x86_64-arista_7060xe7_64prs_mv3_l']"
 
 #######################################
 #####           sai_qualify       #####
@@ -5652,6 +5665,12 @@ srv6/test_srv6_dataplane.py::TestSRv6DataPlaneBase::test_srv6_full_func:
     conditions:
       - "'isolated' in topo_name and release in ['202412']"
 
+srv6/test_srv6_qos.py:
+  skip:
+    reason: "SONiC-VPP lacks QoS queues required by these tests."
+    conditions:
+      - "asic_type in ['vpp']"
+
 srv6/test_srv6_static_config.py:
   skip:
     reason: "Only target mellanox SPC4+ platform with 202412 or 202511+ image. Requires particular image support (202412 or 202511+). SRv6 is not supported on older ASICs (Broadcom TH/TH2/TD3; Mellanox SPC1-3). Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128"
@@ -5671,10 +5690,10 @@ srv6/test_srv6_static_config.py::test_uDT46_config:
 
 srv6/test_srv6_vlan_forwarding.py:
   skip:
-    reason: "Only target mellanox SPC4+/brcm platform with 202412 or 202511+ image. SRv6 is not supported on older ASICs (Broadcom TH/TH2/TD3; Mellanox SPC1-3). Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128"
+    reason: "Only target Mellanox SPC4+, SRv6-capable Broadcom platforms, and SONiC-VPP with a master, 202412 or 202511+ image. SRv6 is not supported on older ASICs (Broadcom TH/TH2/TD3; Mellanox SPC1-3). Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128"
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['mellanox', 'broadcom'] or (release != 'master' and release != '202412' and release < '202511')"
+      - "asic_type not in ['mellanox', 'broadcom', 'vpp'] or (release != 'master' and release != '202412' and release < '202511')"
       - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
       - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
       - "topo_name in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32']"

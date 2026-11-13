@@ -371,8 +371,9 @@ def check_interface_status(duthost, namespace, interface_list, exp_status='up'):
         interface_list: The list of interfaces to verify
         exp_status: Expected status for all the interfaces
     """
+    ns_prefix = '' if namespace is None else '-n ' + namespace
     for interface in interface_list:
-        cmds = "show interface status {} -n {}".format(interface, namespace)
+        cmds = "show interface status {} {}".format(interface, ns_prefix)
         output = duthost.shell(cmds)
         pytest_assert(not output['rc'])
         status_data = output["stdout_lines"]

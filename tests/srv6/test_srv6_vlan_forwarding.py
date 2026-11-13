@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 pytestmark = [
-    pytest.mark.asic("mellanox", "broadcom", "vs"),
+    pytest.mark.asic("mellanox", "broadcom", "vpp", "vs"),
     pytest.mark.topology("t0")
 ]
 
