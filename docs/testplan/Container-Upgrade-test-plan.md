@@ -101,8 +101,6 @@ We will have a source testcase file container_upgrade/testcases.json that will h
 
 ```json
 [
-    telemetry/test_telemetry.py
-    telemetry/test_telemetry_cert_rotation.py
     snmp/test_snmp_cpu.py
     snmp/test_snmp/default_route.py
     snmp/test_snmp_fdb.py
