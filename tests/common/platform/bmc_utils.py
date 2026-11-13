@@ -7,7 +7,8 @@ import time
 from contextlib import contextmanager
 
 import pytest
-
+from ansible.errors import AnsibleConnectionFailure
+from pytest_ansible.errors import AnsibleConnectionFailure as PytestAnsibleConnectionFailure
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.sonic_db import CONFIG_DB, STATE_DB, redis_hget, redis_hgetall, redis_hset
@@ -397,6 +398,20 @@ def wait_host_off(duthost, host, timeout=180, interval=10, delay=30):
 def wait_host_on(host, timeout=420, interval=10, delay=30):
     """Wait until the Switch-Host's critical services are fully started."""
     return wait_until(timeout, interval, delay, lambda: host.critical_services_fully_started())
+
+
+def wait_host_rebooted(host, boot_id_before, timeout=420, interval=10, delay=0):
+    """Wait until the host has a new kernel boot ID, then until services start."""
+    def _new_boot():
+        try:
+            boot_id = get_host_boot_id(host)
+        except (AnsibleConnectionFailure, PytestAnsibleConnectionFailure):
+            return False
+        return bool(boot_id) and boot_id != boot_id_before
+
+    if not wait_until(timeout, interval, delay, _new_boot):
+        return False
+    return wait_host_on(host, timeout=timeout, interval=interval)
 
 
 SWITCH_HOST_STARTUP_ACK = "Starting up chassis module SWITCH-HOST"
