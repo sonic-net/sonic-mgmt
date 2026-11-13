@@ -305,7 +305,7 @@ The Expected Results column in the Test Cases table references the following nam
 Firmware state is unchanged after a failed or aborted operation, and the module, port, and system remain healthy:
 
 1. Active firmware version remains unchanged.
-2. If `dual_bank_supported` is true, inactive firmware version is invalid (i.e. `N/A` or `0.0.0`).
+2. If `dual_bank_supported` is true, inactive firmware version is invalid (i.e. reported as `N/A`).
 3. Committed Image remains unchanged.
 4. Running Image remains unchanged.
 5. TC #3 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold for configured threshold attributes.
