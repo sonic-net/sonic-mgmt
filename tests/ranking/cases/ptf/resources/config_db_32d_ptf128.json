@@ -1,0 +1,1040 @@
+{
+    "DEVICE_METADATA": {
+        "localhost": {
+            "hwsku": "V782-32d-d",
+            "platform": "x86_64-centec_v782_32d_d-r0",
+            "mac": "00:90:fb:85:28:38"
+        }
+    },
+    "PORT": {
+        "Ethernet0": {
+            "lanes": "136",
+            "alias": "eth-0-1",
+            "index": "0",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet1": {
+            "lanes": "137",
+            "alias": "eth-0-1/1",
+            "index": "1",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet2": {
+            "lanes": "138",
+            "alias": "eth-0-1/2",
+            "index": "2",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet3": {
+            "lanes": "139",
+            "alias": "eth-0-1/3",
+            "index": "3",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet4": {
+            "lanes": "140",
+            "alias": "eth-0-2",
+            "index": "4",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet5": {
+            "lanes": "141",
+            "alias": "eth-0-2/1",
+            "index": "5",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet6": {
+            "lanes": "142",
+            "alias": "eth-0-2/2",
+            "index": "6",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet7": {
+            "lanes": "143",
+            "alias": "eth-0-2/3",
+            "index": "7",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet8": {
+            "lanes": "128",
+            "alias": "eth-0-3",
+            "index": "8",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet9": {
+            "lanes": "129",
+            "alias": "eth-0-3/1",
+            "index": "9",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet10": {
+            "lanes": "130",
+            "alias": "eth-0-3/2",
+            "index": "10",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet11": {
+            "lanes": "131",
+            "alias": "eth-0-3/3",
+            "index": "11",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet12": {
+            "lanes": "132",
+            "alias": "eth-0-4",
+            "index": "12",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet13": {
+            "lanes": "133",
+            "alias": "eth-0-4/1",
+            "index": "13",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet14": {
+            "lanes": "134",
+            "alias": "eth-0-4/2",
+            "index": "14",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet15": {
+            "lanes": "135",
+            "alias": "eth-0-4/3",
+            "index": "15",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet16": {
+            "lanes": "120",
+            "alias": "eth-0-5",
+            "index": "16",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet17": {
+            "lanes": "121",
+            "alias": "eth-0-5/1",
+            "index": "17",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet18": {
+            "lanes": "122",
+            "alias": "eth-0-5/2",
+            "index": "18",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet19": {
+            "lanes": "123",
+            "alias": "eth-0-5/3",
+            "index": "19",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet20": {
+            "lanes": "124",
+            "alias": "eth-0-6",
+            "index": "20",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet21": {
+            "lanes": "125",
+            "alias": "eth-0-6/1",
+            "index": "21",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet22": {
+            "lanes": "126",
+            "alias": "eth-0-6/2",
+            "index": "22",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet23": {
+            "lanes": "127",
+            "alias": "eth-0-6/3",
+            "index": "23",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet24": {
+            "lanes": "112",
+            "alias": "eth-0-7",
+            "index": "24",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet25": {
+            "lanes": "113",
+            "alias": "eth-0-7/1",
+            "index": "25",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet26": {
+            "lanes": "114",
+            "alias": "eth-0-7/2",
+            "index": "26",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet27": {
+            "lanes": "115",
+            "alias": "eth-0-7/3",
+            "index": "27",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet28": {
+            "lanes": "116",
+            "alias": "eth-0-8",
+            "index": "28",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet29": {
+            "lanes": "117",
+            "alias": "eth-0-8/1",
+            "index": "29",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet30": {
+            "lanes": "118",
+            "alias": "eth-0-8/2",
+            "index": "30",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet31": {
+            "lanes": "119",
+            "alias": "eth-0-8/3",
+            "index": "31",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet32": {
+            "lanes": "104",
+            "alias": "eth-0-9",
+            "index": "32",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet33": {
+            "lanes": "105",
+            "alias": "eth-0-9/1",
+            "index": "33",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet34": {
+            "lanes": "106",
+            "alias": "eth-0-9/2",
+            "index": "34",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet35": {
+            "lanes": "107",
+            "alias": "eth-0-9/3",
+            "index": "35",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet36": {
+            "lanes": "108",
+            "alias": "eth-0-10",
+            "index": "36",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet37": {
+            "lanes": "109",
+            "alias": "eth-0-10/1",
+            "index": "37",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet38": {
+            "lanes": "110",
+            "alias": "eth-0-10/2",
+            "index": "38",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet39": {
+            "lanes": "111",
+            "alias": "eth-0-10/3",
+            "index": "39",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet40": {
+            "lanes": "96",
+            "alias": "eth-0-11",
+            "index": "40",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet41": {
+            "lanes": "97",
+            "alias": "eth-0-11/1",
+            "index": "41",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet42": {
+            "lanes": "98",
+            "alias": "eth-0-11/2",
+            "index": "42",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet43": {
+            "lanes": "99",
+            "alias": "eth-0-11/3",
+            "index": "43",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet44": {
+            "lanes": "100",
+            "alias": "eth-0-12",
+            "index": "44",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet45": {
+            "lanes": "101",
+            "alias": "eth-0-12/1",
+            "index": "45",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet46": {
+            "lanes": "102",
+            "alias": "eth-0-12/2",
+            "index": "46",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet47": {
+            "lanes": "103",
+            "alias": "eth-0-12/3",
+            "index": "47",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet48": {
+            "lanes": "88",
+            "alias": "eth-0-13",
+            "index": "48",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet49": {
+            "lanes": "89",
+            "alias": "eth-0-13/1",
+            "index": "49",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet50": {
+            "lanes": "90",
+            "alias": "eth-0-13/2",
+            "index": "50",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet51": {
+            "lanes": "91",
+            "alias": "eth-0-13/3",
+            "index": "51",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet52": {
+            "lanes": "92",
+            "alias": "eth-0-14",
+            "index": "52",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet53": {
+            "lanes": "93",
+            "alias": "eth-0-14/1",
+            "index": "53",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet54": {
+            "lanes": "94",
+            "alias": "eth-0-14/2",
+            "index": "54",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet55": {
+            "lanes": "95",
+            "alias": "eth-0-14/3",
+            "index": "55",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet56": {
+            "lanes": "80",
+            "alias": "eth-0-15",
+            "index": "56",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet57": {
+            "lanes": "81",
+            "alias": "eth-0-15/1",
+            "index": "57",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet58": {
+            "lanes": "82",
+            "alias": "eth-0-15/2",
+            "index": "58",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet59": {
+            "lanes": "83",
+            "alias": "eth-0-15/3",
+            "index": "59",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet60": {
+            "lanes": "84",
+            "alias": "eth-0-16",
+            "index": "60",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet61": {
+            "lanes": "85",
+            "alias": "eth-0-16/1",
+            "index": "61",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet62": {
+            "lanes": "86",
+            "alias": "eth-0-16/2",
+            "index": "62",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet63": {
+            "lanes": "87",
+            "alias": "eth-0-16/3",
+            "index": "63",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet64": {
+            "lanes": "72",
+            "alias": "eth-0-17",
+            "index": "64",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet65": {
+            "lanes": "73",
+            "alias": "eth-0-17/1",
+            "index": "65",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet66": {
+            "lanes": "74",
+            "alias": "eth-0-17/2",
+            "index": "66",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet67": {
+            "lanes": "75",
+            "alias": "eth-0-17/3",
+            "index": "67",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet68": {
+            "lanes": "76",
+            "alias": "eth-0-18",
+            "index": "68",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet69": {
+            "lanes": "77",
+            "alias": "eth-0-18/1",
+            "index": "69",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet70": {
+            "lanes": "78",
+            "alias": "eth-0-18/2",
+            "index": "70",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet71": {
+            "lanes": "79",
+            "alias": "eth-0-18/3",
+            "index": "71",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet72": {
+            "lanes": "64",
+            "alias": "eth-0-19",
+            "index": "72",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet73": {
+            "lanes": "65",
+            "alias": "eth-0-19/1",
+            "index": "73",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet74": {
+            "lanes": "66",
+            "alias": "eth-0-19/2",
+            "index": "74",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet75": {
+            "lanes": "67",
+            "alias": "eth-0-19/3",
+            "index": "75",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet76": {
+            "lanes": "68",
+            "alias": "eth-0-20",
+            "index": "76",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet77": {
+            "lanes": "69",
+            "alias": "eth-0-20/1",
+            "index": "77",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet78": {
+            "lanes": "70",
+            "alias": "eth-0-20/2",
+            "index": "78",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet79": {
+            "lanes": "71",
+            "alias": "eth-0-20/3",
+            "index": "79",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet80": {
+            "lanes": "56",
+            "alias": "eth-0-21",
+            "index": "80",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet81": {
+            "lanes": "57",
+            "alias": "eth-0-21/1",
+            "index": "81",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet82": {
+            "lanes": "58",
+            "alias": "eth-0-21/2",
+            "index": "82",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet83": {
+            "lanes": "59",
+            "alias": "eth-0-21/3",
+            "index": "83",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet84": {
+            "lanes": "60",
+            "alias": "eth-0-22",
+            "index": "84",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet85": {
+            "lanes": "61",
+            "alias": "eth-0-22/1",
+            "index": "85",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet86": {
+            "lanes": "62",
+            "alias": "eth-0-22/2",
+            "index": "86",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet87": {
+            "lanes": "63",
+            "alias": "eth-0-22/3",
+            "index": "87",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet88": {
+            "lanes": "48",
+            "alias": "eth-0-23",
+            "index": "88",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet89": {
+            "lanes": "49",
+            "alias": "eth-0-23/1",
+            "index": "89",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet90": {
+            "lanes": "50",
+            "alias": "eth-0-23/2",
+            "index": "90",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet91": {
+            "lanes": "51",
+            "alias": "eth-0-23/3",
+            "index": "91",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet92": {
+            "lanes": "52",
+            "alias": "eth-0-24",
+            "index": "92",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet93": {
+            "lanes": "53",
+            "alias": "eth-0-24/1",
+            "index": "93",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet94": {
+            "lanes": "54",
+            "alias": "eth-0-24/2",
+            "index": "94",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet95": {
+            "lanes": "55",
+            "alias": "eth-0-24/3",
+            "index": "95",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet96": {
+            "lanes": "40",
+            "alias": "eth-0-25",
+            "index": "96",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet97": {
+            "lanes": "41",
+            "alias": "eth-0-25/1",
+            "index": "97",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet98": {
+            "lanes": "42",
+            "alias": "eth-0-25/2",
+            "index": "98",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet99": {
+            "lanes": "43",
+            "alias": "eth-0-25/3",
+            "index": "99",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet100": {
+            "lanes": "44",
+            "alias": "eth-0-26",
+            "index": "100",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet101": {
+            "lanes": "45",
+            "alias": "eth-0-26/1",
+            "index": "101",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet102": {
+            "lanes": "46",
+            "alias": "eth-0-26/2",
+            "index": "102",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet103": {
+            "lanes": "47",
+            "alias": "eth-0-26/3",
+            "index": "103",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet104": {
+            "lanes": "32",
+            "alias": "eth-0-27",
+            "index": "104",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet105": {
+            "lanes": "33",
+            "alias": "eth-0-27/1",
+            "index": "105",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet106": {
+            "lanes": "34",
+            "alias": "eth-0-27/2",
+            "index": "106",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet107": {
+            "lanes": "35",
+            "alias": "eth-0-27/3",
+            "index": "107",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet108": {
+            "lanes": "36",
+            "alias": "eth-0-28",
+            "index": "108",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet109": {
+            "lanes": "37",
+            "alias": "eth-0-28/1",
+            "index": "109",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet110": {
+            "lanes": "38",
+            "alias": "eth-0-28/2",
+            "index": "110",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet111": {
+            "lanes": "39",
+            "alias": "eth-0-28/3",
+            "index": "111",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet112": {
+            "lanes": "24",
+            "alias": "eth-0-29",
+            "index": "112",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet113": {
+            "lanes": "25",
+            "alias": "eth-0-29/1",
+            "index": "113",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet114": {
+            "lanes": "26",
+            "alias": "eth-0-29/2",
+            "index": "114",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet115": {
+            "lanes": "27",
+            "alias": "eth-0-29/3",
+            "index": "115",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet116": {
+            "lanes": "28",
+            "alias": "eth-0-30",
+            "index": "116",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet117": {
+            "lanes": "29",
+            "alias": "eth-0-30/1",
+            "index": "117",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet118": {
+            "lanes": "30",
+            "alias": "eth-0-30/2",
+            "index": "118",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet119": {
+            "lanes": "31",
+            "alias": "eth-0-30/3",
+            "index": "119",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet120": {
+            "lanes": "16",
+            "alias": "eth-0-31",
+            "index": "120",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet121": {
+            "lanes": "17",
+            "alias": "eth-0-31/1",
+            "index": "121",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet122": {
+            "lanes": "18",
+            "alias": "eth-0-31/2",
+            "index": "122",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet123": {
+            "lanes": "19",
+            "alias": "eth-0-31/3",
+            "index": "123",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet124": {
+            "lanes": "20",
+            "alias": "eth-0-32",
+            "index": "124",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet125": {
+            "lanes": "21",
+            "alias": "eth-0-32/1",
+            "index": "125",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet126": {
+            "lanes": "22",
+            "alias": "eth-0-32/3",
+            "index": "126",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        },
+        "Ethernet127": {
+            "lanes": "23",
+            "alias": "eth-0-32/4",
+            "index": "127",
+            "speed": "10000",
+            "fec": "None",
+            "optical_mode": "0"
+        }
+    },
+    "MGMT_INTERFACE": {
+        "eth0|192.0.2.50/24": {
+            "gwaddr": "192.0.2.1"
+        }
+    }
+}
