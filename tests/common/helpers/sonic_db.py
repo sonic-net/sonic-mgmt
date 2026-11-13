@@ -36,6 +36,20 @@ def redis_cli_argv(host, database):
 def redis_cli_command(host, database):
     """Quote the configured native CLI prefix for a shell command."""
     return " ".join(shlex.quote(argument) for argument in redis_cli_argv(host, database))
+def get_chassis_db_address_from_dut(host):
+    """Return chassis DB / supervisor midplane IP configured on the DUT."""
+    paths = [
+        "/etc/sonic/chassisdb_address",
+        "/usr/share/sonic/device/{}/chassisdb.conf".format(host.facts["platform"]),
+    ]
+    for path in paths:
+        result = host.command("grep -m1 '^chassis_db_address=' {}".format(path),
+                              module_ignore_errors=True)
+        stdout = result.get("stdout", "").strip()
+        if stdout and "=" in stdout:
+            return stdout.split("=", 1)[1].strip()
+
+    raise RuntimeError("chassis_db_address not found on {}".format(host.hostname))
 
 
 class SonicDbCli(object):
@@ -656,8 +670,7 @@ class VoqDbCli(SonicDbCli):
     def __init__(self, host):
         """Initializes the class with the database parameters and finds the IP address of the database"""
         super(VoqDbCli, self).__init__(host, 'CHASSIS_APP_DB')
-        output = host.command("grep chassis_db_address /etc/sonic/chassisdb.conf")
-        self.ip = output['stdout'].split("=")[1]
+        self.ip = get_chassis_db_address_from_dut(host)
 
     def get_neighbor_key_by_ip(self, ipaddr):
         """Returns the key in the neighbor table that is for a specific IP neighbor

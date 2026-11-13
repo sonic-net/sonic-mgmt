@@ -139,6 +139,11 @@ When using PTF TACACS servers (default behavior):
 
 The TACACS server runs on the PTF container, which must have IPv6 connectivity to the DUT.
 
+The read-only and read-write user cases in `tests/ip/test_mgmt_ipv6_only.py`
+check one DUT per hardware SKU sequentially. Each DUT's TACACS context must
+finish before the next starts because the contexts share the PTF Ansible
+dispatcher, configuration files, and test TACACS daemon on port 59.
+
 ## Setting Up IPv6 on the PTF Container
 
 Ensure the PTF container has IPv6 configured:

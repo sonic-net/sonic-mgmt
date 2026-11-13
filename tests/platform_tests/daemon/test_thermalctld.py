@@ -3,7 +3,7 @@ Integration tests for thermalctld daemon with liquid cooling
 
 Tests cover:
 - Leak sensor monitoring and state tracking
-- Leak severity escalation (MINOR → CRITICAL)
+- Leak severity escalation (a lingering single MINOR leak escalates to MAJOR)
 - STATE_DB synchronization
 - Integration with bmcctld for critical events
 - Performance and reliability
@@ -30,6 +30,8 @@ from tests.common.helpers.sonic_db import (
 from tests.common.platform.bmc_utils import (
     BMC_EVENT_LOG,
     bmc_log_zgrep,
+    get_major_leak_min_sensors,
+    is_major_leak_supported,
     get_switch_host_or_skip_test,
     get_system_leak_status,
     inject_leak_sensor,
@@ -50,16 +52,22 @@ LIQUID_COOLING_INFO_TABLE = 'LIQUID_COOLING_INFO'
 LEAK_PROFILE_TABLE = 'LEAK_PROFILE'
 
 LEAK_SEVERITY_AGGREGATION_PARAMS = [
+    # Severity precedence (evaluated top-down): CRITICAL > MAJOR > MINOR.
     pytest.param(['CRITICAL'], 'CRITICAL', None, id='rule1_one_critical'),
-    pytest.param(['MINOR', 'MINOR'], 'CRITICAL', None, id='rule2_two_minor'),
-    pytest.param(['MINOR', 'CRITICAL'], 'CRITICAL', None, id='rule2_minor_critical'),
-    pytest.param(['CRITICAL', 'CRITICAL'], 'CRITICAL', None, id='rule2_two_critical'),
-    pytest.param(['MINOR'], 'MINOR', True, id='rule3_minor_escalation'),
-    pytest.param(['MINOR'], 'MINOR', False, id='rule4_minor_no_escalation')
+    # MIN-N or more concurrent Minor leaks aggregate to MAJOR (the actual number of
+    # Minor sensors injected is resolved from the platform MIN-N inside the test).
+    pytest.param(['MINOR', 'MINOR'], 'MAJOR', None, id='rule_major_multiple_minor'),
+    # Any single CRITICAL present wins over concurrent Minor leaks (precedence).
+    pytest.param(['MINOR', 'CRITICAL'], 'CRITICAL', None, id='rule_minor_and_critical'),
+    pytest.param(['CRITICAL', 'CRITICAL'], 'CRITICAL', None, id='rule_two_critical'),
+    # 1 Minor leak staying for MAX-T secs escalates the system to MAJOR.
+    pytest.param(['MINOR'], 'MINOR', True, id='rule_minor_escalation'),
+    # 1 Minor leak below both MIN-N and MAX-T stays MINOR.
+    pytest.param(['MINOR'], 'MINOR', False, id='rule_minor_no_escalation')
 ]
-# the time window to observe the escalation from MINOR to CRITICAL
+# the time window to observe the escalation from MINOR to MAJOR
 MIN_ESCALATION_TIMEOUT_SEC = 5  # 5 seconds is the minimum time window to observe the MINOR state
-MAX_ESCALATION_TIMEOUT_SEC = 120  # 120 seconds is the maximum time window to observe the CRITICAL state
+MAX_ESCALATION_TIMEOUT_SEC = 120  # 120 seconds is the maximum time window to observe the MAJOR state
 
 
 # https://github.com/sonic-net/sonic-platform-daemons/blob/master/sonic-thermalctld/scripts/thermalctld#L1438
@@ -161,9 +169,9 @@ class TestThermalctldDaemon:
         Verify leak status tracking, severity escalation, and bmcctld integration
 
         Validates:
-        - SYSTEM_LEAK_STATUS:system device_leak_status is valid (MINOR|CRITICAL|None)
+        - SYSTEM_LEAK_STATUS:system device_leak_status is valid (MINOR|MAJOR|CRITICAL|None)
         - LIQUID_COOLING_INFO sensors have leaking (Yes|No|N/A) and leak_sensor_status (Good|Fault)
-        - Severity levels are valid (MINOR|CRITICAL)
+        - Severity levels are valid (per-sensor MINOR|CRITICAL; MAJOR is system aggregate only)
         - Escalation timeout is configured in LEAK_PROFILE
         - Critical leak events propagate to bmcctld (HOST_STATE consistency)
 
@@ -175,8 +183,9 @@ class TestThermalctldDaemon:
         # Get system leak status
         status = get_system_leak_status(self.duthost)
         if status:
-            # LeakSeverity.value = "MINOR"|"CRITICAL"; "None" when no active leak
-            valid = ['MINOR', 'CRITICAL', 'None']
+            # LeakSeverity.value = "MINOR"|"MAJOR"|"CRITICAL"; "None" when no active leak.
+            # MAJOR is a system-level aggregate of MIN-N or more concurrent Minor leaks.
+            valid = ['MINOR', 'MAJOR', 'CRITICAL', 'None']
             pytest_assert(status in valid, f"device_leak_status '{status}' not in {valid}")
             logger.info(f"System leak status: {status}")
 
@@ -382,6 +391,21 @@ class TestThermalctldDaemon:
         if get_system_leak_status(self.duthost) == 'CRITICAL':
             pytest.skip("System leak status is already CRITICAL")
 
+        # MAJOR_SYSTEM_LEAK is triggered either by MIN-N or more concurrent Minor leaks,
+        # or by a single Minor leak persisting beyond max_minor_duration_sec (escalation).
+        # MIN-N is platform-defined (get_major_leak_num_min_sensors), user-overridable via
+        # LEAK_CONTROL_POLICY|system_major_leak_num_min_sensors. MIN-N 0 turns off only the
+        # count rule; the escalation rule is independent of MIN-N.
+        if expected_system_leak_status == 'MAJOR' and not is_major_leak_supported(self.duthost):
+            pytest.skip("MAJOR_SYSTEM_LEAK is not supported on this image")
+        min_n = get_major_leak_min_sensors(self.duthost)
+        if expected_system_leak_status == 'MAJOR' and escalation is not True:
+            if min_n is None:
+                pytest.skip("MIN-N is not available (platform API not implemented)")
+            if min_n < 2:
+                pytest.skip("Count-based MAJOR_SYSTEM_LEAK is off on this platform (MIN-N < 2)")
+            leak_severities = ['MINOR'] * min_n
+
         leak_mocker = mocker_factory(self.duthost, 'LiquidLeakageMockerBMC')
         if leak_mocker is None:
             pytest.skip("No LiquidLeakageMockerBMC available on this platform")
@@ -394,11 +418,12 @@ class TestThermalctldDaemon:
             sensor_indices = _select_leak_sensor_indices(
                 leak_mocker, len(leak_severities), None, None)
         elif escalation is True:
-            # MINOR sensor will escalate to CRITICAL
+            # A single MINOR sensor persisting > max_minor_duration_sec escalates the
+            # system to MAJOR_SYSTEM_LEAK (not CRITICAL).
             sensor_indices = _select_leak_sensor_indices(
                 leak_mocker, len(leak_severities), MIN_ESCALATION_TIMEOUT_SEC, MAX_ESCALATION_TIMEOUT_SEC)
         else:
-            # MINOR sensor will not escalate to CRITICAL
+            # MINOR sensor will not escalate (stays MINOR)
             sensor_indices = _select_leak_sensor_indices(
                 leak_mocker, len(leak_severities), MIN_ESCALATION_TIMEOUT_SEC, None)
 
@@ -435,10 +460,16 @@ class TestThermalctldDaemon:
                         leak_mocker.get_sensor_name(sensor_index),
                         leak_severity, leak, sensor_severity, leak_sensor_status))
 
-            # if escalation is True, wait for the sensor to escalate to CRITICAL
+            # if escalation is True, wait for the single lingering MINOR leak to
+            # escalate the system to MAJOR_SYSTEM_LEAK.
             if escalation is True:
                 time.sleep(leak_mocker.sensors[selected_sensor_names[0]]["max_minor_duration_sec"])
-                _wait_for_system_leak_status(leak_mocker, 'CRITICAL', 2 * poll_interval, poll_interval)
+                escalated = _wait_for_system_leak_status(
+                    leak_mocker, 'MAJOR', 2 * poll_interval, poll_interval)
+                pytest_assert(
+                    escalated,
+                    "Expected SYSTEM_LEAK_STATUS=MAJOR after escalation, got {}".format(
+                        leak_mocker.get_device_leak_status()))
 
             syslog_la = la._get_syslog_analyzer()
             syslog_la.expect_regex = [
@@ -555,6 +586,9 @@ class TestThermalctldDaemon:
 THERMALCTLD_DAEMON_NAME = "thermalctld"
 THERMALCTLD_DB_KEY_PATTERN = "TEMPERATURE_INFO|*"
 
+daemon_name = THERMALCTLD_DAEMON_NAME
+daemon_dut_hostname_fixture = "enum_rand_one_per_hwsku_hostname"
+
 SIG_STOP_SERVICE = None
 SIG_TERM = "-15"
 SIG_KILL = "-9"
@@ -569,16 +603,6 @@ def thermalctld_teardown_module(duthosts, enum_rand_one_per_hwsku_hostname):
     """Ensure thermalctld is left running after lifecycle tests."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     yield
-    daemon_status, _ = duthost.get_pmon_daemon_status(THERMALCTLD_DAEMON_NAME)
-    if daemon_status != expected_running_status:
-        duthost.start_pmon_daemon(THERMALCTLD_DAEMON_NAME)
-        time.sleep(10)
-
-
-@pytest.fixture
-def thermalctld_check_daemon_status(duthosts, enum_rand_one_per_hwsku_hostname):
-    """Ensure thermalctld is running before each lifecycle test."""
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     daemon_status, _ = duthost.get_pmon_daemon_status(THERMALCTLD_DAEMON_NAME)
     if daemon_status != expected_running_status:
         duthost.start_pmon_daemon(THERMALCTLD_DAEMON_NAME)
@@ -603,7 +627,7 @@ def _thermalctld_check_expected_status(duthost, expected_status):
 
 def _thermalctld_check_restarted(duthost, pre_pid):
     _, pid = duthost.get_pmon_daemon_status(THERMALCTLD_DAEMON_NAME)
-    return pid > pre_pid
+    return pid != -1 and pid != pre_pid
 
 
 @pytest.fixture(scope="module")
@@ -627,7 +651,7 @@ def test_pmon_thermalctld_running_status(duthosts, enum_rand_one_per_hwsku_hostn
                   "{} expected valid pid but got {}".format(THERMALCTLD_DAEMON_NAME, daemon_pid))
 
 
-def test_pmon_thermalctld_stop_and_start_status(thermalctld_check_daemon_status, duthosts,
+def test_pmon_thermalctld_stop_and_start_status(check_daemon_status, duthosts,
                                                 enum_rand_one_per_hwsku_hostname,
                                                 thermalctld_data_before_restart,
                                                 thermalctld_teardown_module):
@@ -653,12 +677,12 @@ def test_pmon_thermalctld_stop_and_start_status(thermalctld_check_daemon_status,
     pytest_assert(post_status == expected_running_status,
                   "{} expected {} after restart but is {}".format(
                       THERMALCTLD_DAEMON_NAME, expected_running_status, post_status))
-    pytest_assert(post_pid > pre_pid,
-                  "Restarted {} pid {} should be greater than pre-stop pid {}".format(
+    pytest_assert(post_pid != pre_pid,
+                  "Restarted {} pid {} should differ from pre-stop pid {}".format(
                       THERMALCTLD_DAEMON_NAME, post_pid, pre_pid))
 
 
-def test_pmon_thermalctld_term_and_start_status(thermalctld_check_daemon_status, duthosts,
+def test_pmon_thermalctld_term_and_start_status(check_daemon_status, duthosts,
                                                 enum_rand_one_per_hwsku_hostname,
                                                 thermalctld_data_before_restart,
                                                 thermalctld_teardown_module):
@@ -675,12 +699,12 @@ def test_pmon_thermalctld_term_and_start_status(thermalctld_check_daemon_status,
     pytest_assert(post_status == expected_running_status,
                   "{} expected {} after SIGTERM but is {}".format(
                       THERMALCTLD_DAEMON_NAME, expected_running_status, post_status))
-    pytest_assert(post_pid > pre_pid,
-                  "Restarted {} pid {} should be greater than pre-term pid {}".format(
+    pytest_assert(post_pid != pre_pid,
+                  "Restarted {} pid {} should differ from pre-term pid {}".format(
                       THERMALCTLD_DAEMON_NAME, post_pid, pre_pid))
 
 
-def test_pmon_thermalctld_kill_and_start_status(thermalctld_check_daemon_status, duthosts,
+def test_pmon_thermalctld_kill_and_start_status(check_daemon_status, duthosts,
                                                 enum_rand_one_per_hwsku_hostname,
                                                 thermalctld_data_before_restart,
                                                 thermalctld_teardown_module):
@@ -697,6 +721,6 @@ def test_pmon_thermalctld_kill_and_start_status(thermalctld_check_daemon_status,
     pytest_assert(post_status == expected_running_status,
                   "{} expected {} after SIGKILL but is {}".format(
                       THERMALCTLD_DAEMON_NAME, expected_running_status, post_status))
-    pytest_assert(post_pid > pre_pid,
-                  "Restarted {} pid {} should be greater than pre-kill pid {}".format(
+    pytest_assert(post_pid != pre_pid,
+                  "Restarted {} pid {} should differ from pre-kill pid {}".format(
                       THERMALCTLD_DAEMON_NAME, post_pid, pre_pid))

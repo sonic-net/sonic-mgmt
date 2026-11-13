@@ -5,6 +5,7 @@ import sys
 import threading
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import yaml
@@ -37,6 +38,7 @@ HELPERS = {
     "stop_flap_workers",
     "start_flap_worker",
     "assert_flap_workers_succeeded",
+    "pre_flap_stats",
     "wait_for_peer_memory_recovery",
     "flap_neighbor_session",
     "test_bgp_single_session_flaps",
@@ -443,6 +445,93 @@ def test_rib_relearning_uses_pre_flap_baseline(
         ) as exc_info:
             flap_helpers[test_name](setup)
         assert "stats[index][{}]".format(spike_index) in str(exc_info.value)
+
+
+def test_pre_flap_stats_capture_every_frontend_dut(flap_helpers):
+    duts = [
+        SimpleNamespace(hostname="linecard1"),
+        SimpleNamespace(hostname="linecard2"),
+    ]
+    sampled = []
+
+    def sample(dut):
+        sampled.append(dut.hostname)
+        return [len(sampled)] * 9
+
+    flap_helpers["get_cpu_stats"] = sample
+    snapshots = flap_helpers["pre_flap_stats"].__wrapped__(
+        SimpleNamespace(frontend_nodes=duts)
+    )
+
+    assert sampled == ["linecard1", "linecard2"]
+    assert snapshots == {"linecard1": [1] * 9, "linecard2": [2] * 9}
+
+    tree = ast.parse(MODULE_PATH.read_text())
+    fixture = next(
+        node for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "pre_flap_stats"
+    )
+    assert [arg.arg for arg in fixture.args.args] == ["duthosts"]
+    assert fixture.decorator_list[0].keywords[0].value.value == "module"
+
+
+@pytest.mark.parametrize("test_name", [
+    "test_bgp_single_session_flaps",
+    "test_bgp_multiple_session_flaps",
+])
+def test_later_linecard_keeps_baseline_from_before_first_flap(
+    flap_helpers, test_name
+):
+    full = [1, 1, 1, 16392000, 306960, 864, 16392000, 306960, 864]
+    depleted = full.copy()
+    depleted[3] = 130560
+    recovered = full.copy()
+    recovered[3] = 14342400
+    dut = SimpleNamespace(hostname="linecard2")
+
+    tree = ast.parse(MODULE_PATH.read_text())
+    setup_node = next(
+        node for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "setup"
+    )
+    snapshot_assignment = next(
+        node for node in setup_node.body
+        if isinstance(node, ast.Assign)
+        and isinstance(node.targets[0], ast.Subscript)
+        and isinstance(node.targets[0].value, ast.Name)
+        and node.targets[0].value.id == "setup_info"
+        and node.targets[0].slice.value == "pre_flap_stats"
+    )
+    namespace = {
+        "duthost": dut,
+        "get_cpu_stats": lambda _: depleted,
+        "pre_flap_stats": {dut.hostname: full},
+        "setup_info": {},
+    }
+    exec(compile(
+        ast.Module(body=[snapshot_assignment], type_ignores=[]),
+        str(MODULE_PATH), "exec"
+    ), namespace)
+
+    samples = iter([depleted] * 4 + [recovered] * 8)
+    completed = threading.Event()
+    completed.set()
+    flap_helpers.update({
+        "all_bgp_sessions_established": lambda *args: True,
+        "get_cpu_stats": lambda _: next(samples),
+        "start_flap_worker": lambda *_: (CapturingThread(), completed),
+        "stop_flap_workers": lambda *args: [],
+        "time": SimpleNamespace(sleep=lambda _: None),
+    })
+    neighbor = FakeNeighbor()
+    flap_helpers[test_name]({
+        "duthost": dut,
+        "asic_index": 0,
+        "neighbor_ips": ["10.0.0.13"],
+        "neighhost": neighbor,
+        "neighbors": [neighbor],
+        "pre_flap_stats": namespace["setup_info"]["pre_flap_stats"],
+    })
 
 
 def test_partial_start_reports_primary_and_worker_failures(flap_helpers):
