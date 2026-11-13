@@ -51,6 +51,7 @@ DAEMON_RESTART_CONTAINERS = {
     "syncd": ("syncd",),
 }
 DAEMON_RESTART_POLL_INTERVAL_SEC = 5
+PORTS_CREATED_POLL_INTERVAL_SEC = 5
 
 
 def _parse_supervisor_uptime_seconds(uptime):
@@ -159,25 +160,30 @@ def poll_ports_recovered(check_fn, wait_sec, interval_sec, label):
     return []
 
 
-def _perform_reboot(duthost, localhost, reboot_type):
-    """Reboot the DUT via the repo helper, returning once SSH reconnects.
+def _perform_reboot(duthost, localhost, reboot_type, safe_reboot=False):
+    """Reboot the DUT.
 
     Args:
-        localhost: controller fixture used to observe SSH loss/recovery.
-        reboot_type: one of ``cold`` / ``warm`` / ``fast``.
+        localhost: controller fixture.
+        reboot_type: ``cold``, ``warm`` or ``fast``.
+        safe_reboot: ``False`` returns once SSH reconnects; ``True`` also waits for
+            critical services and processes and confirms the DUT rebooted.
     """
-    logger.info("Performing %s reboot for transceiver scenario", reboot_type)
-    reboot(
-        duthost,
-        localhost,
-        reboot_type=reboot_type,
-        return_after_reconnect=True,
-    )
+    logger.info("Performing %s reboot for transceiver scenario (safe_reboot=%s)", reboot_type, safe_reboot)
+    if safe_reboot:
+        reboot(duthost, localhost, reboot_type=reboot_type, safe_reboot=True)
+    else:
+        reboot(duthost, localhost, reboot_type=reboot_type, return_after_reconnect=True)
 
 
-def perform_cold_reboot(duthost, localhost):
-    """Perform a cold reboot and return when DUT SSH connectivity is restored."""
-    _perform_reboot(duthost, localhost, "cold")
+def perform_cold_reboot(duthost, localhost, safe_reboot=False):
+    """Cold-reboot the DUT.
+
+    Args:
+        localhost: controller fixture.
+        safe_reboot: see :func:`_perform_reboot`.
+    """
+    _perform_reboot(duthost, localhost, "cold", safe_reboot=safe_reboot)
 
 
 def perform_warm_reboot(duthost, localhost):
@@ -188,6 +194,46 @@ def perform_warm_reboot(duthost, localhost):
 def perform_fast_reboot(duthost, localhost):
     """Perform a fast reboot and return when DUT SSH connectivity is restored."""
     _perform_reboot(duthost, localhost, "fast")
+
+
+def wait_ports_created(duthost, ports, wait_sec):
+    """Wait until every port's STATE_DB ``PORT_TABLE`` entry has ``state == ok``.
+
+    Link state is not checked, so this also works for ports expected to stay down.
+
+    Args:
+        duthost: DUT host object.
+        ports: logical ports.
+        wait_sec: max seconds to wait.
+
+    Returns:
+        None. Fails the test if any port isn't created in time.
+    """
+    deadline = time.monotonic() + wait_sec
+    ports_by_ns = {}
+    for port in ports:
+        ports_by_ns.setdefault(db_helpers.resolve_port_namespace(duthost, port), []).append(port)
+    state = {"not_created": sorted(ports)}
+
+    def _created():
+        not_created = []
+        for namespace, ns_ports in ports_by_ns.items():
+            port_table, err = db_helpers.get_state_db_table(duthost, "PORT_TABLE", namespace=namespace)
+            if err:
+                logger.info("STATE_DB PORT_TABLE not readable yet: %s", err)
+                not_created.extend(ns_ports)
+                continue
+            not_created.extend(
+                port for port in ns_ports if port_table.get(port, {}).get("state") != "ok"
+            )
+        state["not_created"] = sorted(not_created)
+        return not not_created
+
+    logger.info("Waiting up to %ss for %d port(s) to be created", wait_sec, len(ports))
+    pytest_assert(
+        _wait_until_deadline(deadline, PORTS_CREATED_POLL_INTERVAL_SEC, _created),
+        "Ports not created within {}s: {}".format(wait_sec, state["not_created"]),
+    )
 
 
 def perform_config_reload(duthost):
@@ -305,28 +351,34 @@ def perform_daemon_restart(duthost, daemon, settle_sec, affected_processes=None)
 
 
 def perform_sfputil_reset(duthost, reset_ports, toggle_ports, shutdown_wait_sec, startup_wait_sec,
-                          recover_wait_sec=0):
-    """Shut every toggle port, sfputil-reset each module, start them back up.
+                          recover_wait_sec=0, post_reset_check=None, skip_pre_reset_shutdown=False):
+    """``sfputil reset`` each module inside one bulk shutdown/startup of ``toggle_ports``.
 
-    ``sfputil reset <port>`` resets a whole physical module, dropping every
-    subport's datapath, so recovery toggles all of ``toggle_ports`` (every
-    subport of every reset module). All modules are reset within one bulk
-    shut/startup cycle (not one cycle per module), matching the other whole-DUT
-    scenario operations. EEPROM re-readability (the real I2C-recovery signal) is
-    owned by the feature verifier's poll, so this operation does not gate on
-    presence.
+    Default order: shutdown -> reset -> recover wait -> post_reset_check -> startup.
+    With ``skip_pre_reset_shutdown=True``: reset -> recover wait -> post_reset_check
+    -> shutdown -> startup, so the check sees what the reset alone did. If anything
+    raises, the shutdown still runs before the startup. EEPROM re-readability is
+    left to the caller's verifier.
 
     Args:
-        reset_ports: ports to issue ``sfputil reset`` on (one per module).
-        toggle_ports: every subport to shut before / start after the resets.
-        recover_wait_sec: settle time between the resets and the startup.
+        reset_ports: ports to reset, one per module.
+        toggle_ports: every sub-port of the reset modules.
+        recover_wait_sec: settle time before ``post_reset_check``.
+        post_reset_check: optional zero-arg callable returning failure strings, run
+            while the modules are still in their post-reset state.
+        skip_pre_reset_shutdown: reset with the ports still admin-up (see above).
 
     Returns:
-        list[str]: operation failures for the caller to aggregate.
+        list[str]: failures for the caller to aggregate.
     """
-    logger.info("sfputil reset of %d module(s), toggling %d port(s)",
-                len(reset_ports), len(toggle_ports))
-    failures = perform_ports_shutdown(duthost, toggle_ports, shutdown_wait_sec)
+    logger.info("sfputil reset of %d module(s), toggling %d port(s)%s",
+                len(reset_ports), len(toggle_ports),
+                ", ports admin-up during reset" if skip_pre_reset_shutdown else "")
+    failures = []
+    shutdown_done = False
+    if not skip_pre_reset_shutdown:
+        failures += perform_ports_shutdown(duthost, toggle_ports, shutdown_wait_sec)
+        shutdown_done = True
 
     try:
         for port in reset_ports:
@@ -337,8 +389,20 @@ def perform_sfputil_reset(duthost, reset_ports, toggle_ports, shutdown_wait_sec,
                 failures.append(err)
         if recover_wait_sec:
             time.sleep(recover_wait_sec)
+        if post_reset_check is not None:
+            failures += post_reset_check()
+        if skip_pre_reset_shutdown:
+            failures += perform_ports_shutdown(duthost, toggle_ports, shutdown_wait_sec)
+            shutdown_done = True
     finally:
-        failures += perform_ports_startup(duthost, toggle_ports, startup_wait_sec)
+        # Startup alone doesn't re-init ports that are still admin-up, so the
+        # modules would stay down in low power. Nested try: startup always runs.
+        try:
+            if not shutdown_done:
+                logger.info("Post-reset shutdown was skipped by an exception; shutting down before startup")
+                failures += perform_ports_shutdown(duthost, toggle_ports, shutdown_wait_sec)
+        finally:
+            failures += perform_ports_startup(duthost, toggle_ports, startup_wait_sec)
 
     return failures
 
@@ -433,3 +497,41 @@ def perform_lpmode_set(duthost, port, low_power=True):
     if err:
         return [err]
     return verify_lpmode(duthost, port, low_power)
+
+
+def verify_ports_lpmode(duthost, ports, low_power):
+    """Batched :func:`verify_lpmode`: one ``sfputil show lpmode`` dump checked
+    against every port in ``ports``, rather than one CLI call per port.
+
+    Returns a list of per-port failure strings.
+    """
+    if not ports:
+        return []
+    expected = "On" if low_power else "Off"
+    lpmode, err = cli_helpers.sfputil_show_lpmode(duthost)
+    if err:
+        return [err]
+    failures = [
+        f"port {port} low-power mode is {lpmode.get(port) or 'unknown'}, expected {expected}"
+        for port in ports if lpmode.get(port) != expected
+    ]
+    logger.info("Low-power mode %s on %d/%d port(s)",
+                expected, len(ports) - len(failures), len(ports))
+    return failures
+
+
+def perform_ports_lpmode_set(duthost, ports, low_power=True):
+    """Set every port into or out of low-power mode, then verify with one batched read.
+
+    Writes are back-to-back with no settle, so the caller applies one shared wait.
+
+    Returns:
+        list[str]: per-port failures.
+    """
+    failures = []
+    for port in ports:
+        elapsed, err = cli_helpers.sfputil_set_lpmode(duthost, port, low_power)
+        logger.info("Port %s: lpmode %s took %ss", port, "on" if low_power else "off", elapsed)
+        if err:
+            failures.append(err)
+    return failures + verify_ports_lpmode(duthost, ports, low_power)
