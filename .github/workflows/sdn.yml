@@ -22,7 +22,7 @@ jobs:
 
     # Mount Bazel cache
     - name: Mount Bazel Cache
-      uses: actions/cache/restore@v3
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: "/tmp/repo-cache"
         key: bazel-repo-cache-v3-${{ runner.os }}-${{ hashFiles('**/*_deps.bzl', 'WORKSPACE.bazel') }}
@@ -89,7 +89,7 @@ jobs:
 
     # Save Bazel cache
     - name: Save Bazel Cache
-      uses: actions/cache/save@v3
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       if: github.ref_name == 'master' || env.duration > 300
       with:
         path: "/tmp/repo-cache"
