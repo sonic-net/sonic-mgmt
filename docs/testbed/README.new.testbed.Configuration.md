@@ -55,6 +55,8 @@ There are 7 main sections in testbed.yaml that need to be edited:
 6. testbed
 7. topology
 
+There are also optional sections: testbed_config, pdu_links and lab_config.
+
 Each of the sections above contribute to the files that need to be written into in order for the test cases to run. For more information about what each file does, please reference [Testbed Inventory](#testbed-inventory) and [Testbed Physical Topology](#testbed-physical-topology).
 
 Within the testbed.yaml file:
@@ -225,6 +227,49 @@ docker_registry_username: root
 docker_registry_password: root
 ```
 
+### (OPTIONAL) pdu_links section:
+**USAGE**: files/sonic_lab_pdu_links.csv
+
+This section defines which PDU outlet is connected to which device PSU. Each top-level key is a PDU device name, and each key under `interfaces` is an outlet on that PDU. For every outlet, define:
+- EndDevice - the device that is powered by this outlet
+- EndPort - the PSU of the device, for example PSU1
+- EndFeed - (optional) the feed of the PSU, when one PSU is connected to more than one outlet. Leave it out if the PSU has only one feed.
+
+Example:
+```
+pdu_links:
+    pdu1:
+        interfaces:
+            10:
+                EndDevice: t0-dut
+                EndPort: PSU1
+            11:
+                EndDevice: t0-dut
+                EndPort: PSU0
+```
+
+The example above generates:
+```
+StartDevice,StartPort,EndDevice,EndPort,EndFeed
+pdu1,10,t0-dut,PSU1,
+pdu1,11,t0-dut,PSU0,
+```
+
+If this section is missing, the script writes only the header line to `files/sonic_lab_pdu_links.csv`. For details about PDU configuration, check doc [pdu wiring](./README.testbed.PDUWiring.md).
+
+### (OPTIONAL) lab_config section:
+**USAGE**: group_vars/lab/lab.yml
+
+This section defines lab-wide variables for the `lab` group. The script updates only the keys listed in this section. All other keys, comments and formatting in `group_vars/lab/lab.yml` stay the same. Keys that are not in the file yet are added at the end of the file. If the file does not exist, it is created.
+
+Example:
+```
+lab_config:
+    <key>: <value>
+```
+
+If this section is missing or empty, `group_vars/lab/lab.yml` is not changed.
+
 ### inventory file:
 
 The inventory file contains all device host/IP information for testbeds within its inventory.
@@ -327,10 +372,10 @@ Ensure that these configurations are correct to facilitate proper communication 
 
 # Credentials management
 
-This section briefly describes how sonic-mgmt manages credentials for authentication purposes. `Pytest` will also use these variables to execute tests. 
+This section briefly describes how sonic-mgmt manages credentials for authentication purposes. `Pytest` will also use these variables to execute tests.
 
 
-Variables are stored in [`ansible/group_vars/<group_name>/*.(yml|json)`](https://github.com/sonic-net/sonic-mgmt/tree/master/ansible/group_vars) where `<group_name>` is the name of the group declared in your inventory files. 
+Variables are stored in [`ansible/group_vars/<group_name>/*.(yml|json)`](https://github.com/sonic-net/sonic-mgmt/tree/master/ansible/group_vars) where `<group_name>` is the name of the group declared in your inventory files.
 
 The default ansible group name `all` refers to all the groups. Therefore, we store the shared configs in `ansible/group_vars/all` folder.
 For more information related to variable encryptions and how to use, please refer to [official Ansible variable documentation](https://docs.ansible.com/ansible/latest/playbook_guide/playbooks_variables.html) and [official Ansible encryption and decryption guide](https://docs.ansible.com/ansible/latest/vault_guide/vault_encrypting_content.html#encrypting-individual-variables-with-ansible-vault).
@@ -367,7 +412,7 @@ For explanations on how sonic-mgmt works with these variables, refer to [Fanout 
 - `fanout_tacacs_sonic_password`
 
 ### Local credentials
-These local credentials can be used in substitution of TACACS account. 
+These local credentials can be used in substitution of TACACS account.
 
 #### Network credential
 - `fanout_network_user`
