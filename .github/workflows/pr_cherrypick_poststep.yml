@@ -16,7 +16,7 @@ jobs:
         GITHUB_CONTEXT: ${{ toJson(github) }}
       run: echo $GITHUB_CONTEXT | jq
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
       with:
         persist-credentials: false
     - name: Main

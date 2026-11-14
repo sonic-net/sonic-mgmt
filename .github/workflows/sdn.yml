@@ -18,11 +18,11 @@ jobs:
 
     steps:
     # Checkout the code
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
 
     # Mount Bazel cache
     - name: Mount Bazel Cache
-      uses: actions/cache/restore@v3
+      uses: actions/cache/restore@6f8efc29b200d32929f49075959781ed54ec270c # v3
       with:
         path: "/tmp/repo-cache"
         key: bazel-repo-cache-v3-${{ runner.os }}-${{ hashFiles('**/*_deps.bzl', 'WORKSPACE.bazel') }}
@@ -44,7 +44,7 @@ jobs:
 
     # Save start time
     - name: Save Start Time
-      uses: josStorer/get-current-time@v2
+      uses: josStorer/get-current-time@6826799222c9d913068c04cb99e67f34dbf3caae # v2
       id: start-time
       with:
         format: X
@@ -73,7 +73,7 @@ jobs:
 
     # Save end time
     - name: Save End Time
-      uses: josStorer/get-current-time@v2
+      uses: josStorer/get-current-time@6826799222c9d913068c04cb99e67f34dbf3caae # v2
       id: end-time
       with:
         format: X
@@ -89,7 +89,7 @@ jobs:
 
     # Save Bazel cache
     - name: Save Bazel Cache
-      uses: actions/cache/save@v3
+      uses: actions/cache/save@6f8efc29b200d32929f49075959781ed54ec270c # v3
       if: github.ref_name == 'master' || env.duration > 300
       with:
         path: "/tmp/repo-cache"
