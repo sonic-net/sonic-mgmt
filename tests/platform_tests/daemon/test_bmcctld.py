@@ -13,7 +13,9 @@ import json
 import logging
 import pytest
 import re
+import sys
 import time
+from contextlib import contextmanager, ExitStack
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis
@@ -21,11 +23,12 @@ from tests.common.helpers.sonic_db import (
     CONFIG_DB,
     STATE_DB,
     redis_del,
+    redis_hdel,
     redis_hget,
     redis_hgetall,
     redis_hset,
 )
-from tests.common.reboot import reboot, REBOOT_TYPE_COLD
+from tests.common.reboot import reboot, REBOOT_TYPE_COLD, wait_for_startup
 from tests.common.platform.bmc_utils import (
     BMC_EVENT_LOG,
     CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC,
@@ -47,6 +50,7 @@ from tests.common.platform.bmc_utils import (
 from tests.common.platform.daemon_utils import check_pmon_daemon_enable_status
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service  # noqa: F401
+from tests.common.platform.device_utils import get_ansible_ssh_port
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -64,6 +68,57 @@ RACK_MANAGER_COMMAND_TABLE = 'RACK_MANAGER_COMMAND'
 RACK_MANAGER_ALERT_TABLE = 'RACK_MANAGER_ALERT'
 RACK_MANAGER_DATA_TABLE = 'RACK_MANAGER_DATA'
 HOST_STATE_KEY = 'switch-host'
+
+
+@contextmanager
+def _restore_on_exit(restore, description):
+    """Report cleanup errors without replacing an active test failure."""
+    try:
+        yield
+    finally:
+        primary_error = sys.exc_info()[1]
+        primary_failure = primary_error is not None and not isinstance(primary_error, pytest.skip.Exception)
+        try:
+            restore()
+        except (Exception, pytest.fail.Exception):
+            logger.exception("Failed cleanup: %s", description)
+            if not primary_failure:
+                raise
+
+
+@contextmanager
+def _critical_leak_power_off(duthost):
+    """Temporarily override only the critical system leak action."""
+    key, field = 'LEAK_CONTROL_POLICY|policy', 'system_critical_leak_action'
+    exists = duthost.shell(f"sonic-db-cli CONFIG_DB HEXISTS '{key}' {field}")['stdout'].strip().lower()
+    pytest_assert(exists in ('0', '1', 'false', 'true'), f"Invalid leak-policy snapshot: {exists!r}")
+    exists = exists in ('1', 'true')
+    original = None
+    if exists:
+        original = duthost.shell(f"sonic-db-cli CONFIG_DB HGET '{key}' {field}")['stdout']
+
+    def restore():
+        if exists:
+            result = redis_hset(duthost, CONFIG_DB, key, **{field: original})
+        else:
+            result = redis_hdel(duthost, CONFIG_DB, key, field)
+        pytest_assert(result['rc'] == 0 and not result.get('failed', False),
+                      f"Failed to restore original {field}={original!r}: {result}")
+
+    with _restore_on_exit(restore, f"original {field}={original!r} (present={exists})"):
+        duthost.shell("config liquid-cool leak-action system critical power_off")
+        yield
+
+
+def _bmcctld_syslog_messages(syslog):
+    """Select daemon records, never command invocation echoes containing the search text."""
+    messages = []
+    for line in syslog.splitlines():
+        record = re.split(r":\s", line, maxsplit=1)
+        if (len(record) == 2 and re.search(r"(?:^|[\s#])bmcctld(?:\[\d+\])?$", record[0])
+                and not re.search(r"ansible(?:-|\.)|Invoked with", line, re.IGNORECASE)):
+            messages.append(record[1])
+    return messages
 
 
 def _startup_power_on_observed(lines, is_liquid_cooled):
@@ -341,32 +396,43 @@ class TestBmcctldDaemon:
         # Switch-Host powered OFF and stays off (it does NOT reboot / come back on its own).
         host = get_switch_host_or_skip_test(self.duthost)
         critical_pre_boot = get_host_uptime(host)
+
+        def restore_leak():
+            result = redis_hset(self.duthost, STATE_DB,
+                                f'{SYSTEM_LEAK_STATUS_TABLE}|system', device_leak_status=orig_leak)
+            pytest_assert(result['rc'] == 0 and not result.get('failed', False),
+                          f"Failed to restore original system leak status {orig_leak!r}: {result}")
+
+        def recover_host():
+            recover_switch_host_after_power_off(self.duthost, host, context="after Trigger 2b")
+
+        def set_thermalctld_state(action):
+            result = self.duthost.shell(f"docker exec pmon supervisorctl {action} thermalctld")
+            pytest_assert(result['rc'] == 0 and not result.get('failed', False),
+                          f"Failed to {action} thermalctld: {result}")
+
         # Defensive: ensure the critical-leak action is power_off so this scenario stays
         # self-contained even if an earlier test mutated LEAK_CONTROL_POLICY.
-        self.duthost.shell("config liquid-cool leak-action system critical power_off",
-                           module_ignore_errors=True)
-        # Pause thermalctld so it doesn't overwrite the injected device_leak_status
-        with pause_pmon_daemon(self.duthost, 'thermalctld'):
-            try:
-                redis_hset(self.duthost, STATE_DB,
-                           f'{SYSTEM_LEAK_STATUS_TABLE}|system',
-                           device_leak_status='CRITICAL')
+        with _critical_leak_power_off(self.duthost):
+            with ExitStack() as cleanup:
+                # Unwind in reverse order: leak status, thermalctld, then Switch-Host.
+                cleanup.enter_context(_restore_on_exit(recover_host, "Switch-Host recovery after CRITICAL leak"))
+                cleanup.enter_context(_restore_on_exit(lambda: set_thermalctld_state('start'),
+                                                       "thermalctld restart after CRITICAL leak"))
+                set_thermalctld_state('stop')
+                cleanup.enter_context(_restore_on_exit(restore_leak, f"original system leak status {orig_leak!r}"))
+                result = redis_hset(self.duthost, STATE_DB,
+                                    f'{SYSTEM_LEAK_STATUS_TABLE}|system',
+                                    device_leak_status='CRITICAL')
+                pytest_assert(result['rc'] == 0 and not result.get('failed', False),
+                              f"Failed to inject CRITICAL system leak: {result}")
                 logger.info("Trigger 2b [STATE_DB SYSTEM_LEAK_STATUS]: device_leak_status → CRITICAL")
                 pytest_assert(
                     wait_host_off(self.duthost, host),
                     "Switch-Host did not power OFF after CRITICAL system leak (power_off action)"
                 )
                 trigger_results['SYSTEM_LEAK_STATUS_CRITICAL'] = True
-            finally:
-                redis_hset(self.duthost, STATE_DB,
-                           f'{SYSTEM_LEAK_STATUS_TABLE}|system',
-                           device_leak_status=orig_leak)
-
-        # Recovery: power_off leaves the Switch-Host OFF while admin_status stays 'up',
-        # so force a clean down->up transition, then confirm it came back up with a
-        # BMC-initiated reboot cause (the leak-triggered power_off is a BMC power action).
-        recover_switch_host_after_power_off(self.duthost, host, context="after Trigger 2b")
-        verify_bmc_initiated_reboot(host, critical_pre_boot, CAUSE_POWER_DOWN_FROM_BMC)
+            verify_bmc_initiated_reboot(host, critical_pre_boot, CAUSE_POWER_DOWN_FROM_BMC)
 
         # --- Trigger 3: STATE_DB RACK_MANAGER_ALERT MINOR / MAJOR severity ---
         # Handler logs "RACK_MGR_MINOR_EVENT" / "RACK_MGR_MAJOR_EVENT"; default action for
@@ -634,7 +700,8 @@ class TestBmcctldDaemon:
                 if saved_data[k]:
                     redis_hset(self.duthost, STATE_DB, data(k), **saved_data[k])
 
-    def test_bmcctld_power_on_delay(self, localhost, get_pdu_controller, platform_api_conn):  # noqa: F811
+    def test_bmcctld_power_on_delay(
+            self, localhost, get_pdu_controller, platform_api_conn, ansible_adhoc):  # noqa: F811
         """Verify cooling-aware Switch-Host startup after chassis power loss.
 
         Air-cooled hosts may already be ONLINE or power on immediately. Liquid-cooled
@@ -649,9 +716,23 @@ class TestBmcctldDaemon:
 
         orig_delay = self.duthost.shell(
             "sonic-db-cli CONFIG_DB HGET 'CHASSIS_MODULE|SWITCH-HOST' power_on_delay"
-        ).get('stdout', '').strip()
+        )['stdout'].strip()
+        pytest_assert(not orig_delay or orig_delay.isdigit(),
+                      f"Invalid original power_on_delay: {orig_delay!r}")
+        ssh_port = get_ansible_ssh_port(self.duthost, ansible_adhoc) or 22
+        bmc_ready = True
 
-        try:
+        def restore_delay():
+            pytest_assert(bmc_ready,
+                          f"BMC did not recover; cannot safely restore original power_on_delay={orig_delay!r}")
+            if orig_delay:
+                self.duthost.shell(f"config chassis modules power-on-delay SWITCH-HOST {orig_delay}")
+            else:
+                self.duthost.shell(
+                    "sonic-db-cli CONFIG_DB HDEL 'CHASSIS_MODULE|SWITCH-HOST' power_on_delay")
+            self.duthost.shell("sudo config save -y")
+
+        with _restore_on_exit(restore_delay, f"original power_on_delay={orig_delay!r}"):
             self.duthost.shell(
                 f"config chassis modules power-on-delay SWITCH-HOST {test_delay}"
             )
@@ -691,15 +772,8 @@ class TestBmcctldDaemon:
             la = make_bmc_loganalyzer(self.duthost, "bmcctld_power_on_delay_scenario_b")
             marker_b = la.init()
 
-            try:
-                for outlet in outlets:
-                    pytest_assert(pdu_ctrl.turn_off_outlet(outlet), f"Failed to power off PDU outlet {outlet}")
-                pytest_assert(
-                    wait_until(120, 5, 10,
-                               lambda: self.duthost.shell("true", module_ignore_errors=True).get('rc') != 0),
-                    "BMC remained reachable after removing chassis power",
-                )
-            finally:
+            def restore_power():
+                nonlocal bmc_ready
                 failed_outlets = []
                 for outlet in outlets:
                     try:
@@ -709,9 +783,31 @@ class TestBmcctldDaemon:
                         restored = False
                     if not restored:
                         failed_outlets.append(outlet)
+                if failed_outlets:
+                    logger.error("Failed to power on PDU outlets %s", failed_outlets)
+                # Await SSH/Ansible readiness and critical processes before CONFIG_DB cleanup.
+                try:
+                    wait_for_startup(self.duthost, localhost, delay=10, timeout=600, port=ssh_port)
+                    wait_critical_processes(self.duthost, timeout=600)
+                    bmc_ready = True
+                except (Exception, pytest.fail.Exception):
+                    logger.exception("BMC recovery failed; original power_on_delay=%r", orig_delay)
+                    raise
                 pytest_assert(not failed_outlets, f"Failed to power on PDU outlets {failed_outlets}")
 
-            wait_critical_processes(self.duthost, timeout=600)
+            bmc_ready = False
+            # Recover on success, timeout or exception before the outer configuration cleanup.
+            # The guard reports recovery errors without replacing an earlier test failure.
+            with _restore_on_exit(restore_power, "chassis power and BMC readiness"):
+                for outlet in outlets:
+                    pytest_assert(pdu_ctrl.turn_off_outlet(outlet), f"Failed to power off PDU outlet {outlet}")
+                # Probe locally: remote Ansible calls can raise despite module_ignore_errors.
+                stopped = localhost.wait_for(
+                    host=self.duthost.mgmt_ip, port=ssh_port, state='stopped',
+                    delay=10, timeout=120, module_ignore_errors=True)
+                pytest_assert(not stopped.get('failed', False),
+                              f"BMC remained reachable after removing chassis power: {stopped}")
+
             bmc_boot_id_post = get_host_boot_id(self.duthost)
             pytest_assert(bmc_boot_id_post and bmc_boot_id_post != bmc_boot_id,
                           "BMC boot ID did not change after chassis power cycle")
@@ -757,19 +853,6 @@ class TestBmcctldDaemon:
             switch_cause = switch_host.shell("show reboot-cause")['stdout'].strip().lower()
             pytest_assert(CAUSE_POWER_LOSS in switch_cause,
                           f"Switch-Host reboot cause must be power loss, got {switch_cause!r}")
-        finally:
-            if orig_delay and orig_delay.isdigit():
-                self.duthost.shell(
-                    f"config chassis modules power-on-delay SWITCH-HOST {orig_delay}",
-                    module_ignore_errors=True
-                )
-            else:
-                self.duthost.shell(
-                    "sonic-db-cli CONFIG_DB HDEL "
-                    "'CHASSIS_MODULE|SWITCH-HOST' power_on_delay",
-                    module_ignore_errors=True
-                )
-            self.duthost.shell("sudo config save -y", module_ignore_errors=True)
 
     def test_bmc_reboot_does_not_affect_switch_host(self, localhost):
         """Verify a BMC cold reboot does not power-cycle or reboot the paired Switch-Host.
@@ -826,10 +909,12 @@ class TestBmcctldDaemon:
             result = la.analyze(marker, fail=False)
             pytest_assert(result.get('total', {}).get('match', 0) > 0,
                           "Missing fresh already-ONLINE startup evidence after BMC cold reboot")
-            journal = self.duthost.shell("journalctl -b -t bmcctld -o json --no-pager")['stdout']
-            messages = [json.loads(line).get("MESSAGE", "") for line in journal.splitlines() if line.strip()]
+            # BMC syslog is tmpfs/current-boot, including its rotated files; the host
+            # journal need not receive records from the daemon's container.
+            syslog = self.duthost.shell("sudo zcat -f /var/log/syslog*")['stdout']
+            messages = _bmcctld_syslog_messages(syslog)
             pytest_assert(any(re.search(la.match_regex[0], message) for message in messages),
-                          "Missing current-boot bmcctld journal evidence of skipped boot sequence")
+                          "Missing current-boot bmcctld syslog evidence of skipped boot sequence")
             pytest_assert(not any("Waiting " in message and "SWITCH_HOST_POWER_ON_DELAY" in message
                                   for message in messages),
                           "bmcctld applied power_on_delay during BMC-only cold reboot")
