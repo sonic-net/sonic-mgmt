@@ -105,12 +105,24 @@ def setup_vnet_cfg(duthost, localhost, cfg_facts):
     reboot(duthost, localhost)
 
     bgp_asn = cfg_facts.get('DEVICE_METADATA', {}).get('localhost', {}).get('bgp_asn', '')
-    duthost.shell(
-        "vtysh "
-        "-c 'configure terminal' "
-        "-c 'router bgp {} vrf Vnet2' "
-        "-c 'address-family ipv4 unicast' "
-        "-c 'neighbor BGPSLBPassive allowas-in 1'".format(bgp_asn))
+
+    # The BGPSLBPassive dynamic peer-group only exists when an IPv4 ARISTA03T1 neighbor is
+    # present (see the BGP_PEER_RANGE guard in templates/vnet_config_db.j2). Topologies that
+    # lack such a neighbor never create the peer-group: this includes IPv6-only topologies
+    # and topologies whose VM naming has no ARISTA03T1 (e.g. the stride-8 t0-isolated-* d32u32
+    # variants, both v6 and dual-stack). Configuring allowas-in on a non-existent peer-group
+    # fails with "Specify remote-as or peer-group commands first", so only run it when the
+    # IPv4 dynamic peer is actually present.
+    has_ipv4_dynamic_peer = any(
+        data.get('name') == 'ARISTA03T1' and ':' not in neigh
+        for neigh, data in cfg_facts.get('BGP_NEIGHBOR', {}).items())
+    if has_ipv4_dynamic_peer:
+        duthost.shell(
+            "vtysh "
+            "-c 'configure terminal' "
+            "-c 'router bgp {} vrf Vnet2' "
+            "-c 'address-family ipv4 unicast' "
+            "-c 'neighbor BGPSLBPassive allowas-in 1'".format(bgp_asn))
 
 
 # fixtures
