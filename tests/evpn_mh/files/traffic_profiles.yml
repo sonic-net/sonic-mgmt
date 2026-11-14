@@ -1,0 +1,424 @@
+version: 1
+defaults:
+  packet_count: 100
+  frame_size: 100
+  ether_type: 34997
+  max_loss_percent: 2
+  max_duplicate_percent: 0
+  forbidden_max_percent: 0
+  packets_per_second: 20
+
+profiles:
+  remote_broadcast:
+    flows:
+      - name: h3_remote_broadcast
+        tx_endpoint: h3
+        receive_groups: [[sh1], [h1], [h2]]
+        packet:
+          kind: ethernet
+          src: h3
+          dst_mac: "ff:ff:ff:ff:ff:ff"
+
+  remote_multicast:
+    flows:
+      - name: h3_remote_multicast
+        tx_endpoint: h3
+        receive_groups: [[sh1], [h1], [h2]]
+        packet:
+          kind: ethernet
+          src: h3
+          dst_mac: "01:00:5e:44:44:44"
+
+  remote_unknown_unicast:
+    flows:
+      - name: h3_remote_unknown_unicast
+        tx_endpoint: h3
+        receive_groups: [[sh1], [h1], [h2]]
+        packet:
+          kind: ethernet
+          src: h3
+          dst_mac: "00:44:44:44:44:44"
+
+  inter_subnet:
+    flows:
+      - name: h1_to_h4
+        tx_endpoint: h1
+        receive_groups: [[h4]]
+        # Local MH -> remote-only VLAN uses two symmetric-IRB routing hops
+        # and the native remote SVI egress MAC. Only IPv4 checksum is masked.
+        ignore_expected_fields: [ipv4.checksum]
+        packet:
+          kind: ipv4_udp
+          src: h1
+          dst: h4
+          routed: true
+          udp_src: 10000
+          udp_dst: 20000
+      - name: h4_to_h1
+        tx_endpoint: h4
+        receive_groups: [[h1]]
+        ignore_expected_fields: [ipv4.checksum]
+        packet:
+          kind: ipv4_udp
+          src: h4
+          dst: h1
+          routed: true
+          udp_src: 20000
+          udp_dst: 10000
+      - name: h2_to_h4
+        tx_endpoint: h2
+        receive_groups: [[h4]]
+        ignore_expected_fields: [ipv4.checksum]
+        packet:
+          kind: ipv4_udp
+          src: h2
+          dst: h4
+          routed: true
+          udp_src: 10001
+          udp_dst: 20001
+      - name: h4_to_h2
+        tx_endpoint: h4
+        receive_groups: [[h2]]
+        ignore_expected_fields: [ipv4.checksum]
+        packet:
+          kind: ipv4_udp
+          src: h4
+          dst: h2
+          routed: true
+          udp_src: 20001
+          udp_dst: 10001
+
+  intra_subnet:
+    flows:
+      - name: h1_to_h2
+        tx_endpoint: h1
+        receive_groups: [[h2]]
+        packet:
+          kind: ipv4_udp
+          src: h1
+          dst: h2
+          udp_src: 10002
+          udp_dst: 20002
+      - name: h2_to_h1
+        tx_endpoint: h2
+        receive_groups: [[h1]]
+        packet:
+          kind: ipv4_udp
+          src: h2
+          dst: h1
+          udp_src: 20002
+          udp_dst: 10002
+      - name: sh1_to_h2
+        tx_endpoint: sh1
+        receive_groups: [[h2]]
+        packet:
+          kind: ipv4_udp
+          src: sh1
+          dst: h2
+          udp_src: 10005
+          udp_dst: 20005
+      - name: h2_to_sh1
+        tx_endpoint: h2
+        receive_groups: [[sh1]]
+        packet:
+          kind: ipv4_udp
+          src: h2
+          dst: sh1
+          udp_src: 20005
+          udp_dst: 10005
+      - name: h2_unknown_to_h3
+        tx_endpoint: h2
+        receive_groups: [[h3]]
+        forbidden_endpoints: [h4]
+        packet:
+          kind: ethernet
+          src: h2
+          dst_mac: "00:44:44:44:44:44"
+      - name: h1_unknown_to_h3
+        tx_endpoint: h1
+        receive_groups: [[h3]]
+        forbidden_endpoints: [h4]
+        packet:
+          kind: ethernet
+          src: h1
+          dst_mac: "00:44:44:44:44:44"
+      - name: h1_broadcast_to_h3
+        tx_endpoint: h1
+        receive_groups: [[h3]]
+        forbidden_endpoints: [h4]
+        packet:
+          kind: ethernet
+          src: h1
+          dst_mac: "ff:ff:ff:ff:ff:ff"
+
+  vlan_detached_drop:
+    prime_neighbors: false
+    flows:
+      - name: sh1_detached_vlan_drop
+        tx_endpoint: sh1
+        receive_groups: [[h2]]
+        forbidden_endpoints: [h2]
+        max_loss_percent: 100
+        packet:
+          kind: ipv4_udp
+          src: sh1
+          dst: h2
+          udp_src: 10003
+          udp_dst: 20003
+
+  l3_orphan_to_mh:
+    prime_neighbors: false
+    flows:
+      - name: l3_orphan_to_h2
+        tx_endpoint: sh1
+        receive_groups: [[h2_leg0]]
+        forbidden_endpoints: [h2_leg1]
+        # Ingress is VLAN20 tagged; egress to H2 is untagged, uses the
+        # anycast router MAC, and has TTL decremented exactly once.
+        ignore_expected_fields: [ipv4.checksum]
+        expected_packet:
+          vlan_id: 0
+        packet:
+          kind: ipv4_udp
+          src: l3_orphan
+          dst: h2
+          routed: true
+          vlan_id: remote_vlan
+          udp_src: 10004
+          udp_dst: 20004
+
+  local_bias:
+    flows:
+      - name: sh1_unknown_to_local_mh
+        tx_endpoint: sh1
+        # Unknown unicast from upper-ToR SH1 must reach the remote VLAN10
+        # endpoint and the upper local-bias leg of each Ethernet Segment,
+        # independent of either segment's DF.  Neither lower leg may receive
+        # a duplicate through the overlay.
+        receive_groups: [[h3], [h1_leg0], [h2_leg0]]
+        forbidden_endpoints: [h1_leg1, h2_leg1]
+        packet:
+          kind: ethernet
+          src: sh1
+          dst_mac: "00:44:44:44:44:44"
+
+  # Reusable reload/reboot baseline: routed MH-host<->remote-orphan traffic
+  # plus MH-host-originated unknown-unicast BUM to the remote VLAN endpoint.
+  remote_routed_bum:
+    flows:
+      - name: h2_routed_to_h4
+        tx_endpoint: h2
+        receive_groups: [[h4]]
+        ignore_expected_fields: [ipv4.checksum]
+        packet:
+          kind: ipv4_udp
+          src: h2
+          dst: h4
+          routed: true
+          udp_src: 11010
+          udp_dst: 21010
+      - name: h4_routed_to_h2
+        tx_endpoint: h4
+        receive_groups: [[h2]]
+        ignore_expected_fields: [ipv4.checksum]
+        packet:
+          kind: ipv4_udp
+          src: h4
+          dst: h2
+          routed: true
+          udp_src: 21010
+          udp_dst: 11010
+      - name: h2_unknown_to_h3
+        tx_endpoint: h2
+        receive_groups: [[h3]]
+        forbidden_endpoints: [h4]
+        packet:
+          kind: ethernet
+          src: h2
+          dst_mac: "00:44:44:44:44:45"
+
+  remote_unicast_ecmp:
+    flows:
+      - name: announce_h2_for_ecmp
+        tx_endpoint: h2
+        receive_groups: [[h3]]
+        transmit_only: true
+        post_send_delay_seconds: 5
+        packet: {kind: ethernet, src: h2, dst_mac: "ff:ff:ff:ff:ff:ff"}
+      - name: h3_to_mh_ecmp
+        tx_endpoint: h3
+        receive_groups: [[h2_leg0, h2_leg1]]
+        # Frozen legacy traffic intent increments both UDP ports across 500 tuples.
+        udp_src_count: 500
+        udp_dst_count: 500
+        udp_port_step: 1
+        min_port_share_percent: 10
+        packet_count: 500
+        packets_per_second: 100
+        packet:
+          kind: ipv4_udp
+          src: h3
+          dst: h2
+          udp_src: 12000
+          udp_dst: 22000
+
+  df_reboot_continuous:
+    continuous_parallel: true
+    barrier_packets: 20
+    event_window_seconds: 30
+    flows:
+      - name: h3_unknown_to_mh_during_reboot
+        tx_endpoint: h3
+        receive_groups: [[h2]]
+        duration_seconds: 600
+        packets_per_second: 100
+        minimum_packets: 1000
+        minimum_duration_seconds: 10
+        # The frozen continuous helper grades 92-108%.  Preserve that bound
+        # until per-event hardware calibration justifies a tighter contract.
+        max_loss_percent: 8
+        max_duplicate_percent: 8
+        sequence_field: raw
+        ignore_expected_fields: [payload]
+        packet:
+          kind: ethernet
+          src: h3
+          dst_mac: "00:44:44:44:44:44"
+      - name: h4_routed_to_h2_during_reboot
+        tx_endpoint: h4
+        receive_groups: [[h2]]
+        duration_seconds: 600
+        packets_per_second: 100
+        minimum_packets: 1000
+        minimum_duration_seconds: 10
+        max_loss_percent: 8
+        max_duplicate_percent: 8
+        sequence_field: udp_src
+        ignore_expected_fields: [ipv4.checksum]
+        packet:
+          kind: ipv4_udp
+          src: h4
+          dst: h2
+          routed: true
+          udp_src: 1000
+          udp_dst: 24000
+      - name: h2_routed_to_h4_during_reboot
+        tx_endpoint: h2
+        receive_groups: [[h4]]
+        duration_seconds: 600
+        packets_per_second: 100
+        minimum_packets: 1000
+        minimum_duration_seconds: 10
+        max_loss_percent: 8
+        max_duplicate_percent: 8
+        sequence_field: udp_src
+        ignore_expected_fields: [ipv4.checksum]
+        packet:
+          kind: ipv4_udp
+          src: h2
+          dst: h4
+          routed: true
+          udp_src: 2000
+          udp_dst: 24001
+
+  member_flap_continuous:
+    continuous_parallel: true
+    barrier_packets: 20
+    event_window_seconds: 10
+    flows:
+      - name: h3_to_h2_during_member_flap
+        tx_endpoint: h3
+        receive_groups: [[h2]]
+        duration_seconds: 180
+        packets_per_second: 100
+        minimum_packets: 500
+        minimum_duration_seconds: 5
+        max_loss_percent: 8
+        max_duplicate_percent: 8
+        sequence_field: raw
+        packet:
+          # Source case requests raw unknown-unicast, not known IPv4 unicast.
+          kind: ethernet
+          src: h3
+          dst_mac: "00:44:44:44:44:44"
+
+  ipv6_baseline:
+    flows:
+      - name: h1_to_h4_v6
+        tx_endpoint: h1
+        receive_groups: [[h4]]
+        packet:
+          kind: ipv6_udp
+          src: h1
+          dst: h4
+          routed: true
+          udp_src: 13000
+          udp_dst: 23000
+      - name: h4_to_h1_v6
+        tx_endpoint: h4
+        receive_groups: [[h1]]
+        packet:
+          kind: ipv6_udp
+          src: h4
+          dst: h1
+          routed: true
+          udp_src: 23000
+          udp_dst: 13000
+      - name: h2_to_h4_v6
+        tx_endpoint: h2
+        receive_groups: [[h4]]
+        packet:
+          kind: ipv6_udp
+          src: h2
+          dst: h4
+          routed: true
+          udp_src: 13001
+          udp_dst: 23001
+      - name: h4_to_h2_v6
+        tx_endpoint: h4
+        receive_groups: [[h2]]
+        packet:
+          kind: ipv6_udp
+          src: h4
+          dst: h2
+          routed: true
+          udp_src: 23001
+          udp_dst: 13001
+      - name: h3_to_h2_v6
+        tx_endpoint: h3
+        receive_groups: [[h2_leg0, h2_leg1]]
+        udp_src_count: 500
+        udp_dst_count: 500
+        udp_port_step: 1
+        min_port_share_percent: 10
+        packet_count: 500
+        packets_per_second: 100
+        packet:
+          kind: ipv6_udp
+          src: h3
+          dst: h2
+          udp_src: 13002
+          udp_dst: 23002
+      - name: h3_ipv6_broadcast
+        tx_endpoint: h3
+        receive_groups: [[sh1], [h1], [h2]]
+        packet:
+          kind: ipv6_udp
+          src: h3
+          dst: h2
+          # IPv6 has no network-layer broadcast.  This deliberately carries
+          # a real IPv6/UDP payload in an Ethernet broadcast frame.
+          dst_mac: "ff:ff:ff:ff:ff:ff"
+          udp_src: 13003
+          udp_dst: 23003
+      - name: h3_ipv6_unknown_unicast
+        tx_endpoint: h3
+        receive_groups: [[sh1], [h1], [h2]]
+        packet:
+          kind: ipv6_udp
+          src: h3
+          dst: h2
+          unknown_destination_prefix: mh_ipv6_prefix
+          dst_mac: "00:44:44:44:44:46"
+          udp_src: 13004
+          udp_dst: 23004
