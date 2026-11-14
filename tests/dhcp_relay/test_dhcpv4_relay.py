@@ -656,6 +656,7 @@ def test_dhcp_relay_with_non_default_vrf(
         duthost.shell("sudo config save -y")
 
 
+@pytest.mark.parametrize("retain_vss_control", [False, True], ids=["vss-control-removed", "vss-control-retained"])
 def test_dhcp_relay_with_different_non_default_vrf(
         ptfhost,
         dut_dhcp_relay_data,
@@ -665,6 +666,7 @@ def test_dhcp_relay_with_different_non_default_vrf(
         rand_unselected_dut,
         toggle_all_simulator_ports_to_rand_selected_tor_m,   # noqa: F811
         relay_agent,
+        retain_vss_control,
         frr_recovery_after_vrf_unbind
 ):
     """
@@ -691,6 +693,9 @@ def test_dhcp_relay_with_different_non_default_vrf(
             (including unbinding the Loopback from SERVER_VRF_NAME).
 
     Expected Results:
+        - Relay requests contain VSS Suboption 151 followed by zero-length VSS-Control Suboption 152.
+        - Replies with matching Suboption 151 are forwarded with Suboption 152 either removed or retained.
+        - Reply Option 82 is removed before client delivery in both cases.
         - DHCP Discover, Offer, Request, and ACK messages are relayed successfully across different VRFs.
         - Relay behavior matches the expected counters/logs (if enabled).
 
@@ -806,6 +811,7 @@ def test_dhcp_relay_with_different_non_default_vrf(
                                "client_vrf": CLIENT_VRF_NAME,
                                "link_selection_ip": str(dhcp_relay['downlink_vlan_iface']['link_selection_ip']),
                                "server_vrf": True,
+                               "retain_vss_control": retain_vss_control,
                                # Tell PTF to mock a real DHCP server that honors giaddr.
                                # Without these flags, create_dhcp_offer_packet() falls into
                                # the elif branch and unicasts the OFFER to relay_iface_ip
@@ -819,7 +825,9 @@ def test_dhcp_relay_with_different_non_default_vrf(
                                "link_selection": True,
                                "portchannels_ip_list": dhcp_relay['portchannels_ip_list'],
                                "downlink_vlan_iface_name": str(dhcp_relay['downlink_vlan_iface']['name'])},
-                       log_file="/tmp/test_dhcp_relay_with_different_non_default_vrf.DHCPTest.log", is_python3=True)
+                       log_file="/tmp/test_dhcp_relay_with_different_non_default_vrf.{}.DHCPTest.log".format(
+                           "vss-control-retained" if retain_vss_control else "vss-control-removed"),
+                       is_python3=True)
 
     except LogAnalyzerError as err:
         logger.error("Unable to find expected log in syslog")
