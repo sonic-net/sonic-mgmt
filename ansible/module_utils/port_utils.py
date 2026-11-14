@@ -437,6 +437,33 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % (i - 1)
             for i in range(49, 65):
                 port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 49) * 4 + 48)
+        elif hwsku == "db98cx8514_10cc":
+            for i in range(0, 48):
+                port_alias_to_name_map["twenty5GigE%d" % i] = "Ethernet%d" % i
+            for i in range(48, 56):
+                port_alias_to_name_map["one00GigE%d" % i] = "Ethernet%d" % i
+            for i in range(56, 58):
+                port_alias_to_name_map["tenGigE%d" % i] = "Ethernet%d" % i
+        elif hwsku == "db98cx8580_32cd":
+            for i in range(0, 32):
+                port_alias_to_name_map["one00GigE%d" % i] = "Ethernet%d" % i
+            port_alias_to_name_map["tenGigE32"] = "Ethernet32"
+        elif hwsku == "db98cx8540_16cd":
+            for i in range(0, 48):
+                port_alias_to_name_map["twenty5GigE%d" % i] = "Ethernet%d" % i
+            for i in range(48, 52):
+                port_alias_to_name_map["one00GigE%d" % i] = "Ethernet%d" % i
+            for i in range(52, 54):
+                port_alias_to_name_map["tenGigE%d" % i] = "Ethernet%d" % i
+        elif hwsku == "rd98DX45xx_cn9131":
+            for i in range(0, 32):
+                port_alias_to_name_map["oneGigE%d" % i] = "Ethernet%d" % i
+            for i in range(32, 48):
+                port_alias_to_name_map["fiveGigE%d" % i] = "Ethernet%d" % i
+            for i in range(48, 52):
+                port_alias_to_name_map["fiftyGigE%d" % i] = "Ethernet%d" % i
+            for i in range(52, 54):
+                port_alias_to_name_map["fourHundredGigE%d" % i] = "Ethernet%d" % i
         elif hwsku == "Accton-AS7712-32X":
             for i in range(1, 33):
                 port_alias_to_name_map["hundredGigE%d" % i] = "Ethernet%d" % ((i - 1) * 4)
