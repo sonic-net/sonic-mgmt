@@ -5,6 +5,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.console_helper import (
     assert_expect_text,
     configure_console_line,
+    console_cleanup,
     create_ssh_client,
     disconnect_console_client,
     ensure_console_session_up,
@@ -105,14 +106,15 @@ def test_console_loopback_echo(setup_c0, creds, conn_graph_facts, baud_rate, flo
     except Exception as e:
         pytest.fail("Not able to communicate DUT via reverse SSH: {}".format(e))
     finally:
-        disconnect_console_client(client)
-        wait_for_line_idle(
-            duthost, target_line,
-            error_msg="Target line {} is busy after exited reverse SSH session".format(target_line))
-        if not same_host:
-            console_fanout.unset_loopback(fanout_line)
-        # Restore pre-test CONFIG_DB state for this line.
-        configure_console_line(duthost, target_line, orig_baud, orig_flow_control)
+        # Callbacks run in reverse order, even when an earlier cleanup fails.
+        with console_cleanup() as cleanup:
+            cleanup(configure_console_line, duthost, target_line, orig_baud, orig_flow_control)
+            if not same_host:
+                cleanup(console_fanout.unset_loopback, fanout_line)
+            cleanup(
+                wait_for_line_idle, duthost, target_line,
+                error_msg="Target line {} is busy after exited reverse SSH session".format(target_line))
+            cleanup(disconnect_console_client, client)
 
 
 @pytest.mark.topology('c0')
@@ -170,15 +172,15 @@ def test_console_loopback_pingpong(setup_c0, creds, conn_graph_facts, baud_rate,
     except Exception:
         pytest.fail("Not able to communicate DUT via reverse SSH")
     finally:
-        disconnect_console_client(sender)
-        disconnect_console_client(receiver)
-        wait_for_line_idle(
-            duthost, src_line,
-            error_msg="Target line {} of dut is busy after exited reverse SSH session".format(src_line))
-        wait_for_line_idle(
-            duthost, dst_line,
-            error_msg="Target line {} of dut is busy after exited reverse SSH session".format(dst_line))
-        console_fanout.unbridge(fanout_src_line, fanout_dst_line)
-        # Restore pre-test CONFIG_DB state for both lines.
-        configure_console_line(duthost, src_line, orig_src_baud, orig_src_flow_control)
-        configure_console_line(duthost, dst_line, orig_dst_baud, orig_dst_flow_control)
+        with console_cleanup() as cleanup:
+            cleanup(configure_console_line, duthost, dst_line, orig_dst_baud, orig_dst_flow_control)
+            cleanup(configure_console_line, duthost, src_line, orig_src_baud, orig_src_flow_control)
+            cleanup(console_fanout.unbridge, fanout_src_line, fanout_dst_line)
+            cleanup(
+                wait_for_line_idle, duthost, dst_line,
+                error_msg="Target line {} of dut is busy after exited reverse SSH session".format(dst_line))
+            cleanup(
+                wait_for_line_idle, duthost, src_line,
+                error_msg="Target line {} of dut is busy after exited reverse SSH session".format(src_line))
+            cleanup(disconnect_console_client, receiver)
+            cleanup(disconnect_console_client, sender)
