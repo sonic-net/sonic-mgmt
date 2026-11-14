@@ -140,7 +140,11 @@ class VXLAN(BaseTest):
             2. Load the configs from the input files.
             3. Ready the mapping of destination->nexthops.
         '''
-        self.PACKETS_PER_ITERATION = 1000  # Number of packets to send before polling for responses
+        # Number of packets to send before polling for responses. Keep this well below the PTF
+        # dataplane's per-port receive queue size (see qlen in ptf_runner() callers) so that a
+        # burst of replies concentrated on a single port - or interleaved with unrelated traffic
+        # on that port - cannot fill the queue and silently evict responses before we drain them.
+        self.PACKETS_PER_ITERATION = 200
         self.check_underlay_ecmp = True
         self.dataplane = ptf.dataplane_instance
         self.test_params = test_params_get()
