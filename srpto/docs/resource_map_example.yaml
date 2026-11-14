@@ -1,0 +1,59 @@
+# SRPTO Resource Map Example
+# ===========================
+# Place this file at the root of your sonic-mgmt checkout and pass it via
+#   --resource-map resources.yaml
+#
+# Fields:
+#   dut_count         : number of DUTs this script requires (default: 1)
+#   dut_names         : explicit DUT names to request (empty = any DUT)
+#   ptf_required      : true if this script needs the PTF host
+#   topology_exclusive: true if this script does config reload / reboot
+#   shared_resources  : list of resource identifiers that can conflict
+#                       Format: "vlan:<id>", "portchannel:<name>", "bgp_session:<peer>"
+#   min_topology      : topology constraints in spytest DxDy:N notation
+
+# ── 2-DUT BGP test requiring 2 inter-DUT links ─────────────────────────────
+test_bgp_gr.py:
+  dut_count: 2
+  ptf_required: false
+  topology_exclusive: false
+  min_topology:
+    - "D1D2:2"
+
+# ── 2-DUT EVPN test ─────────────────────────────────────────────────────────
+test_evpn.py:
+  dut_count: 2
+  ptf_required: true      # needs PTF for traffic injection
+  topology_exclusive: false
+  min_topology:
+    - "D1D2:1"
+
+# ── Single-DUT ACL test modifying VLAN 100 ──────────────────────────────────
+test_acl.py:
+  dut_count: 1
+  shared_resources:
+    - "vlan:100"
+    - "portchannel:PortChannel1"
+
+# ── Single-DUT SNMP test — no conflicts ─────────────────────────────────────
+test_snmp.py:
+  dut_count: 1
+
+# ── Warm reboot — takes the whole topology exclusive ────────────────────────
+test_warm_reboot.py:
+  dut_count: 1
+  topology_exclusive: true   # prevents ALL other tests from running in parallel
+
+# ── Static route test on specific DUT ───────────────────────────────────────
+test_static_route.py:
+  dut_count: 1
+  dut_names:
+    - "sonic-dut-3"          # pinned to DUT3 (e.g. has the correct platform)
+
+# ── 3-DUT ECMP test ─────────────────────────────────────────────────────────
+test_ecmp.py:
+  dut_count: 3
+  ptf_required: true
+  min_topology:
+    - "D1D2:1"
+    - "D2D3:1"
