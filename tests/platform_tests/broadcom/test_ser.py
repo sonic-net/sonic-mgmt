@@ -42,8 +42,8 @@ def enable_ssh_timout(dut):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def test_setup_teardown(duthosts, rand_one_dut_hostname, localhost):
-    duthost = duthosts[rand_one_dut_hostname]
+def test_setup_teardown(duthosts, enum_rand_one_per_hwsku_hostname, localhost):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     disable_ssh_timout(duthost)
     # There must be a better way to do this.
     # Reboot the DUT so that we guaranteed to login without ssh timeout.
@@ -61,14 +61,17 @@ def test_setup_teardown(duthosts, rand_one_dut_hostname, localhost):
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.broadcom
-def test_ser(duthosts, rand_one_dut_hostname, enum_asic_index):
+def test_ser(duthosts, enum_rand_one_per_hwsku_hostname, enum_asic_index):
     '''
     @summary: Broadcom SER capability tests will test SER injections
-              into different memory tables
+              into different memory tables on each ASIC of the selected DUT.
 
     @param duthost: Ansible framework testbed DUT device
     '''
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    asic = duthost.asic_instance(enum_asic_index)
+    bcmcmd = f"bcmcmd -n {asic.asic_index}" if duthost.is_multi_asic else "bcmcmd"
+    syncd = asic.get_docker_name("syncd")
 
     def extract_failed_memory(output):
         failed_memory_list = []
@@ -88,12 +91,12 @@ def test_ser(duthosts, rand_one_dut_hostname, enum_asic_index):
         ser_passed = "total failed memory 0" in failed_memory_list[0]
         return ser_passed, failed_memory_list
 
-    logger.info('Running SER capability test')
+    logger.info('Running SER capability test on %s ASIC %s', duthost.hostname, asic.asic_index)
 
-    duthost.shell(f"bcmcmd 'SER CAPABILITY Indextype=single Errtype=single Filename={SER_RESULTS_DIR}'",
-                  module_ignore_errors=True, executable="/bin/bash")
-    output = duthost.shell(f"docker exec syncd cat {SER_RESULTS_DIR}",
-                           module_ignore_errors=True, executable="/bin/bash")['stdout_lines']
+    duthost.shell(f"{bcmcmd} 'SER CAPABILITY Indextype=single Errtype=single Filename={SER_RESULTS_DIR}'",
+                  executable="/bin/bash")
+    output = duthost.shell(f"docker exec {syncd} cat {SER_RESULTS_DIR}",
+                           executable="/bin/bash")['stdout_lines']
 
     logger.info('SER capability test results:')
     logger.info(output)
