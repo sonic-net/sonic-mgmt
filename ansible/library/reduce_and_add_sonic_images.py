@@ -16,6 +16,11 @@ description: remove excessive sonic images from the target device.
 Note that this version doesn't guarantee to remove older images. Images
 in the 'Available' list that are not 'Current' or 'Next' wil subject to
 removal.
+By default, image installation removes saved config_db.json and
+golden_config_db.json backups when minigraph.xml exists, except on SmartSwitch.
+Set preserve_config_db to keep both JSON backups instead. Configuration backup
+and migration by sonic_installer remain enabled; this module does not save
+unsaved running configuration.
 
 Options:
     - option-name: disk_used_pcent
@@ -26,6 +31,11 @@ Options:
       description: url pointing to the new image
       required: False
       Default: None
+    - option-name: preserve_config_db
+      description: keep saved config_db.json and golden_config_db.json backups even when minigraph.xml exists
+      required: False
+      type: bool
+      Default: False
 
 '''
 
@@ -248,7 +258,8 @@ def get_sonic_image_size(module):
                     break
 
 
-def install_new_sonic_image(module, new_image_url, save_as=None, required_space=1600, skip_platform_check=False):
+def install_new_sonic_image(module, new_image_url, save_as=None, required_space=1600, skip_platform_check=False,
+                            preserve_config_db=False):
     log("install new sonic image")
     if not save_as:
         log("Clean-up previous downloads first")
@@ -326,11 +337,9 @@ def install_new_sonic_image(module, new_image_url, save_as=None, required_space=
         if rc != 0:
             module.fail_json(msg="Image installation failed: rc=%d, out=%s, err=%s" % (rc, out, err))
 
-    # If sonic device is configured with minigraph, remove config_db.json
-    # to force next image to load minigraph.
-    # Skip this for SmartSwitch devices — they need config_db.json and
-    # golden_config_db.json for DPU configuration.
-    if path.exists("/host/old_config/minigraph.xml"):
+    # Preserve the legacy minigraph preference unless JSON preservation is requested.
+    # SmartSwitch devices always need their saved JSON for DPU configuration.
+    if not preserve_config_db and path.exists("/host/old_config/minigraph.xml"):
         is_smartswitch = False
         try:
             from sonic_py_common import device_info
@@ -484,6 +493,7 @@ def main():
             save_as=dict(required=False, type='str', default=None),
             required_space=dict(required=False, type='int', default=1600),
             skip_platform_check=dict(required=False, type='bool', default=False),
+            preserve_config_db=dict(required=False, type='bool', default=False),
         ),
         supports_check_mode=False)
 
@@ -492,6 +502,7 @@ def main():
     save_as = module.params['save_as']
     required_space = module.params['required_space']
     skip_platform_check = module.params['skip_platform_check']
+    preserve_config_db = module.params['preserve_config_db']
     try:
         if new_image_url or save_as:
             results["current_stage"] = "start"
@@ -507,7 +518,8 @@ def main():
             results["current_stage"] = "install"
 
             install_new_sonic_image(
-                module, new_image_url, save_as, required_space, skip_platform_check)
+                module, new_image_url, save_as, required_space, skip_platform_check,
+                preserve_config_db=preserve_config_db)
             results["current_stage"] = "complete"
         else:
             reduce_installed_sonic_images(module)
