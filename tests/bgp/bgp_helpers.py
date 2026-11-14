@@ -755,24 +755,21 @@ def get_ptf_recv_port(duthost, vm_name, tbinfo, multi_vrf_topo=False):
     """
     Get ptf receive port
     """
-    if multi_vrf_topo:
-        # When using multi-vrf topologies, the vm_name alone is not unique enough to be used as an
-        # index into the lldp table.  In this scenario, only the host container is listed by name,
-        # with multiple interfaces. So, in order to get the right dut interface, we need to figure
-        # out which host and interface are being used for the passed peer.  The POSIX string for
-        # whitespace is used to avoid python escaping backslashes in the pattern.
-        vrf_data = tbinfo["topo"]["properties"]["convergence_data"]
-        host_map = {vrf: host for host, vrfs in vrf_data["convergence_mapping"].items() for vrf in vrfs}
-        host = host_map[vm_name]
-        peer_config = vrf_data["converged_peers"][host]["vrf"][vm_name]
-        host_if = [k for k in peer_config.keys() if "Ethernet" in k][0]
-        pattern = "{}[[:space:]]*{}".format(host, host_if)
-    else:
-        pattern = vm_name
-
-    ports_output = duthost.shell("show lldp table | grep -w {} | awk '{{print $1}}'".format(pattern))['stdout']
-    ports = [line.strip() for line in ports_output.split('\n') if line.strip()]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    if multi_vrf_topo:
+        # A converged prime's LLDP system-name/interface pair is not a unique logical
+        # peer key, and cSONiC can advertise the SONiC port alias instead of the
+        # converged interface name. The parsed minigraph already retains each
+        # logical neighbor name and this DUT's normalized PTF indices.
+        ports = [
+            port for port, neighbor in mg_facts['minigraph_neighbors'].items()
+            if neighbor.get('name') == vm_name
+        ]
+        return [mg_facts['minigraph_ptf_indices'][port] for port in ports]
+
+    ports_output = duthost.shell(
+        "show lldp table | grep -w {} | awk '{{print $1}}'".format(vm_name))['stdout']
+    ports = [line.strip() for line in ports_output.split('\n') if line.strip()]
     return [mg_facts['minigraph_ptf_indices'][port] for port in ports]
 
 

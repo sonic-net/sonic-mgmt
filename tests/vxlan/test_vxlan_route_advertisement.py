@@ -10,12 +10,15 @@ import pytest
 from tests.common.devices.csonic import CsonicHost
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.helpers.bgp_routing import route_present_in_data
+from tests.common.utilities import wait_until
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils
 
 Logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
 WAIT_TIME = 2
 WAIT_TIME_EXTRA = 5
+ROUTE_CONVERGENCE_TIMEOUT = 30
+ROUTE_CONVERGENCE_INTERVAL = 2
 
 # This is the list of encapsulations that will be tested in this script.
 SUPPORTED_ENCAP_TYPES = ['v4_in_v4', 'v6_in_v4']
@@ -53,6 +56,18 @@ def _scale_route_command(host, prefix_type, community=""):
             # cSONiC command bare lets CsonicHost add the logical runtime VRF.
             command += "community " + community
     return command + grepdata
+
+
+def _neighbor_route_matches(host, route, expected_present, community=""):
+    """Return whether one neighbor has converged to the expected route state."""
+    result = host.get_route(route)
+    present = route_present_in_data(result, route)
+    if present != expected_present:
+        return False
+    if not community:
+        return True
+    community_present = community in str(result)
+    return community_present if expected_present else not community_present
 
 
 @pytest.fixture(
@@ -290,11 +305,12 @@ class Test_VxLAN_route_Advertisement():
             for prefix in routes[vnet]:
                 route = f'{prefix}/{prefix_mask}'
                 for t2device in self.vxlan_test_setup['t2']:
-                    result = t2device['host'].get_route(route)
-                    py_assert(route_present_in_data(result, route),
-                              "Route not propogated to the T2")
-                    if community != "":
-                        py_assert(community in str(result), "community not propogated.")
+                    py_assert(wait_until(
+                        ROUTE_CONVERGENCE_TIMEOUT, ROUTE_CONVERGENCE_INTERVAL, 0,
+                        _neighbor_route_matches, t2device['host'], route, True,
+                        community),
+                        "Route {} with community {} did not propagate to T2 {}"
+                        .format(route, community or '<any>', t2device['host']))
         return
 
     def verify_nighbor_doesnt_have_routes(self, routes, community=""):
@@ -306,11 +322,12 @@ class Test_VxLAN_route_Advertisement():
             for prefix in routes[vnet]:
                 route = f'{prefix}/{prefix_mask}'
                 for t2device in self.vxlan_test_setup['t2']:
-                    result = t2device['host'].get_route(route)
-                    py_assert(not route_present_in_data(result, route),
-                              "Route not propogated to the T2")
-                    if community != "":
-                        py_assert(community not in str(result), "community is still getting propogated.")
+                    py_assert(wait_until(
+                        ROUTE_CONVERGENCE_TIMEOUT, ROUTE_CONVERGENCE_INTERVAL, 0,
+                        _neighbor_route_matches, t2device['host'], route, False,
+                        community),
+                        "Route {} or community {} is still propagated to T2 {}"
+                        .format(route, community or '<any>', t2device['host']))
         return
 
     def verify_nighbor_has_routes_scale(self, routes, community=""):
