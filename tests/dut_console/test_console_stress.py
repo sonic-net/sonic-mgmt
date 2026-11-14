@@ -87,6 +87,15 @@ def test_console_stress_input(duthost_console):
     expected_hash = hashlib.md5(large_string.encode()).hexdigest()
     stress_timeout = 300
 
+    # Start from a clean shell: cancel anything left on the line
+    # (e.g. an unfinished command from a failed earlier retry)
+    duthost_console.write_channel('\x03')
+    duthost_console.read_until_pattern(pattern=PROMPT_PATTERN, read_timeout=10)
+    response = duthost_console.send_command(
+        "echo test_responsive", expect_string=PROMPT_PATTERN)
+    pytest_assert("test_responsive" in response,
+                  "Console not responsive before large input")
+
     # Netmiko's read_timeout does not apply while Paramiko is writing. A serial
     # console can drain 100 KB more slowly than Paramiko's default 20-second
     # channel timeout, so extend the write timeout for this operation.
@@ -96,10 +105,16 @@ def test_console_stress_input(duthost_console):
         duthost_console.remote_conn.settimeout(stress_timeout)
     try:
         output = duthost_console.send_command_timing(
-            f"echo -n '{large_string}' | md5sum",
+            f"x={large_string}; echo -n \"$x\" | md5sum",
             read_timeout=stress_timeout,
             last_read=2.0
         )
+        # send_command_timing returns after 2s of silence, which can happen mid-echo
+        # on a large input. Keep reading until the hash itself shows up
+        if expected_hash not in output:
+            output += duthost_console.read_until_pattern(
+                pattern=expected_hash, read_timeout=stress_timeout
+            )
     finally:
         if is_ssh_console:
             duthost_console.remote_conn.settimeout(original_write_timeout)

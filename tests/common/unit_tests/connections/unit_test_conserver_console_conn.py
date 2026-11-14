@@ -1,9 +1,13 @@
 """Unit tests for the conserver console connection."""
 
 from importlib import import_module, util
+import os
 from pathlib import Path
 import sys
+import time
 import types
+
+import pytest
 
 
 MODULE_PATH = (
@@ -36,6 +40,7 @@ class FakeConsoleCli:
         self.command = None
         self.used_sendline = None
         self.expect_args = None
+        self.closed = False
 
     def send(self, command):
         self.command = command
@@ -48,11 +53,19 @@ class FakeConsoleCli:
     def expect(self, pattern, timeout):
         self.expect_args = (pattern, timeout)
 
+    def isalive(self):
+        return not self.closed
+
+    def close(self, force=False):
+        self.closed = True
+
 
 def make_connection():
     """Create a connection without invoking its I/O-heavy constructor."""
     connection = ConserverConsoleConn.__new__(ConserverConsoleConn)
     connection.console_cli = FakeConsoleCli()
+    connection.logger = MODULE.logging.getLogger(__name__)
+    connection._console_cli_usable = True
     connection.default_timeout = 30
     connection.delay_factor = 1
     return connection
@@ -113,3 +126,66 @@ def test_read_until_pattern_supports_netmiko_timeout_argument():
     connection.read_until_pattern("GRUB menu", read_timeout=180)
 
     assert connection.console_cli.expect_args == ("GRUB menu", 180)
+
+
+def test_sendline_with_timeout_writes_complete_line():
+    """Write the complete command line when the pexpect child fd is writable."""
+    read_fd, write_fd = os.pipe()
+    connection = make_connection()
+    connection.console_cli.child_fd = write_fd
+    connection.console_cli.encoding = "utf-8"
+    try:
+        connection._sendline_with_timeout("show version", 1)
+        os.close(write_fd)
+        write_fd = None
+
+        assert os.read(read_fd, 1024) == b"show version\r\n"
+    finally:
+        os.close(read_fd)
+        if write_fd is not None:
+            os.close(write_fd)
+
+
+def test_sendline_with_timeout_restores_blocking_mode_on_timeout():
+    """Restore the pexpect fd blocking mode when a bounded write times out."""
+    read_fd, write_fd = os.pipe()
+    connection = make_connection()
+    connection.console_cli.child_fd = write_fd
+    try:
+        assert os.get_blocking(write_fd) is True
+
+        with pytest.raises(TimeoutError):
+            connection._sendline_with_timeout("show version", 0)
+
+        assert os.get_blocking(write_fd) is True
+    finally:
+        os.close(read_fd)
+        os.close(write_fd)
+
+
+def test_timeout_marks_connection_unusable_before_disconnect():
+    """Force-close after a timed-out write without another blocking write."""
+    read_fd, write_fd = os.pipe()
+    connection = make_connection()
+    connection.console_cli.child_fd = write_fd
+    connection.console_cli.encoding = "utf-8"
+    os.set_blocking(write_fd, False)
+    try:
+        while True:
+            try:
+                os.write(write_fd, b"x" * 4096)
+            except BlockingIOError:
+                break
+
+        start = time.monotonic()
+        with pytest.raises(TimeoutError):
+            connection._sendline_with_timeout("show version", 0.05)
+        assert time.monotonic() - start < 1
+        assert connection._console_cli_usable is False
+
+        connection.disconnect()
+        assert connection.console_cli.closed is True
+        assert connection.console_cli.command is None
+    finally:
+        os.close(read_fd)
+        os.close(write_fd)
