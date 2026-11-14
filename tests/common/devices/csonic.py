@@ -473,7 +473,7 @@ class CsonicHost(NeighborDevice):
         returns None when the member has no PortChannel or the bond does not exist.
         """
         result = self._docker_exec(
-            "sonic-db-cli CONFIG_DB keys 'PORTCHANNEL_MEMBER|*|{}'".format(interface_name),
+            "sonic-db-cli -s CONFIG_DB keys 'PORTCHANNEL_MEMBER|*|{}'".format(interface_name),
             module_ignore_errors=True)
         keys = result['stdout_lines'] if result['rc'] == 0 else []
         if not keys:

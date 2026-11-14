@@ -1562,8 +1562,8 @@ def recover_linkmgrd_probe_interval(duthosts, tbinfo, ipv6=False):
     default_probe_interval_ms = 100
     update_linkmgrd_probe_interval(duthosts, tbinfo, default_probe_interval_ms)
     if ipv6 and 'dualtor' in tbinfo['topo']['name']:
-        duthosts.shell('sonic-db-cli CONFIG_DB HSET "MUX_LINKMGR|LINK_PROBER" "interval_v6" "1000"')
-    duthosts.shell('sonic-db-cli CONFIG_DB DEL "MUX_LINKMGR|LINK_PROBER"')
+        duthosts.shell('sonic-db-cli -s --authenticate CONFIG_DB HSET "MUX_LINKMGR|LINK_PROBER" "interval_v6" "1000"')
+    duthosts.shell('sonic-db-cli -s --authenticate CONFIG_DB DEL "MUX_LINKMGR|LINK_PROBER"')
 
 
 def update_linkmgrd_probe_interval(duthosts, tbinfo, probe_interval_ms, ipv6=False):
@@ -1574,7 +1574,8 @@ def update_linkmgrd_probe_interval(duthosts, tbinfo, probe_interval_ms, ipv6=Fal
         return
 
     logger.info("Update linkmgrd probe interval on {} to {}ms".format(duthosts, probe_interval_ms))
-    command = 'sonic-db-cli CONFIG_DB HSET "MUX_LINKMGR|LINK_PROBER" "interval_v4" "{}"'.format(probe_interval_ms)
+    command = 'sonic-db-cli -s --authenticate CONFIG_DB HSET "MUX_LINKMGR|LINK_PROBER" "interval_v4" "{}"'.format(
+        probe_interval_ms)
     if ipv6:
         command += ' "interval_v6" "{}"'.format(probe_interval_ms)
     duthosts.shell(command)
@@ -1623,7 +1624,7 @@ def dualtor_ports(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     "
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    dualtor_ports_str = duthost.run_redis_cmd(argv=["sonic-db-cli", "CONFIG_DB", "eval",
+    dualtor_ports_str = duthost.run_redis_cmd(argv=["sonic-db-cli", "-s", '--authenticate', "CONFIG_DB", "eval",
                                                     fetch_dual_tor_ports_script, "0"])
     if dualtor_ports_str:
         dualtor_ports_set = set(dualtor_ports_str)
@@ -2133,5 +2134,7 @@ def disable_timed_oscillation_active_standby(duthosts, tbinfo):
         return
 
     for duthost in duthosts:
-        duthost.shell('sonic-db-cli CONFIG_DB HSET "MUX_LINKMGR|TIMED_OSCILLATION" "oscillation_enabled" "false"')
+        duthost.shell(
+            'sonic-db-cli -s --authenticate CONFIG_DB HSET '
+            '"MUX_LINKMGR|TIMED_OSCILLATION" "oscillation_enabled" "false"')
         duthost.shell("config save -y")

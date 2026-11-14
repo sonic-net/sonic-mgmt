@@ -51,9 +51,9 @@
   # never marks the ports ready and no port is programmed in the ASIC, so every
   # fanout link stays down. A fanout needs no buffer configuration.
   shell: |
-    if [ -z "$(sonic-db-cli CONFIG_DB KEYS 'BUFFER_PROFILE|*')" ]; then
+    if [ -z "$(sonic-db-cli -s CONFIG_DB KEYS 'BUFFER_PROFILE|*')" ]; then
       for table in BUFFER_PG BUFFER_QUEUE BUFFER_PORT_INGRESS_PROFILE_LIST BUFFER_PORT_EGRESS_PROFILE_LIST; do
-        sonic-db-cli CONFIG_DB KEYS "${table}|*" | xargs -r -n 100 sonic-db-cli CONFIG_DB DEL
+        sonic-db-cli -s CONFIG_DB KEYS "${table}|*" | xargs -r -n 100 sonic-db-cli -s --authenticate CONFIG_DB DEL
       done
     fi
   become: yes

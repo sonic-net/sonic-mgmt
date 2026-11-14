@@ -842,7 +842,7 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
             naming_rule['name'] = 'psu_{}_fan_1'
         else:
             led_color = 'green'
-        check_psu_fan_dir_cmd = 'sonic-db-cli STATE_DB HGET "FAN_INFO|psu1_fan1" direction'
+        check_psu_fan_dir_cmd = 'sonic-db-cli -s STATE_DB HGET "FAN_INFO|psu1_fan1" direction'
         support_psu_fan_dir = self.mock_helper.dut.shell(check_psu_fan_dir_cmd)['stdout'].strip() != 'N/A'
         for index in range(1, psu_count + 1):
             try:

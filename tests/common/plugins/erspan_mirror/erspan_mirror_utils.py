@@ -32,7 +32,7 @@ def get_monitor_ptf_intf(duthost, session_name, tbinfo):
     """Resolve the PTF eth interface attached to the DUT-side monitor port."""
     time.sleep(1)
     monitor_port = duthost.shell(
-        f"sonic-db-cli STATE_DB HGET 'MIRROR_SESSION_TABLE|{session_name}' 'monitor_port'"
+        f"sonic-db-cli -s STATE_DB HGET 'MIRROR_SESSION_TABLE|{session_name}' 'monitor_port'"
     )["stdout"].strip()
 
     monitor_ptf_intf = None

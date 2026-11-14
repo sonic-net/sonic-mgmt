@@ -132,7 +132,7 @@ class MacsecPlugin(object):
                 self._original_profile_per_port = {}
                 for dut_port in ctrl_links:
                     ns = getns_prefix(macsec_duthost, dut_port)
-                    cmd = "sonic-db-cli {} CONFIG_DB HGET 'PORT|{}' 'macsec'".format(
+                    cmd = "sonic-db-cli -s {} CONFIG_DB HGET 'PORT|{}' 'macsec'".format(
                         ns, dut_port)
                     output = macsec_duthost.command(cmd)['stdout'].strip()
                     self._original_profile_per_port[dut_port] = output if output else None

@@ -36,7 +36,7 @@ def _principal_mapping(duthost):
     # strings, delimiters and quotes without relying on CLI HGETALL formatting.
     script = "return cjson.encode(redis.call('HGETALL', KEYS[1]))"
     result = duthost.shell(
-        "sonic-db-cli CONFIG_DB EVAL {} 1 {}".format(shlex.quote(script), shlex.quote(ROLE_KEY)),
+        "sonic-db-cli -s CONFIG_DB EVAL {} 1 {}".format(shlex.quote(script), shlex.quote(ROLE_KEY)),
         module_ignore_errors=True,
     )
     if result.get("rc", 1) != 0:

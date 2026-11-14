@@ -68,7 +68,7 @@ class TestDockerExec:
         host = CsonicHost("csonic_test_VM0100", vm_host_ip="192.0.2.10",
                           vm_host_user="admin")
         command = (
-            "sonic-db-cli CONFIG_DB keys "
+            "sonic-db-cli -s CONFIG_DB keys "
             "'PORTCHANNEL_MEMBER|*|Ethernet1'"
         )
         completed = type("Completed", (), {
@@ -491,7 +491,7 @@ def lacp_docker_exec(lacp_time='fast', member_key="PORTCHANNEL_MEMBER|PortChanne
     def side(cmd, **kwargs):
         if calls is not None:
             calls.append(cmd)
-        if cmd.startswith("sonic-db-cli CONFIG_DB keys"):
+        if cmd.startswith("sonic-db-cli -s CONFIG_DB keys"):
             return {"rc": 0, "stdout": member_key, "stdout_lines": [member_key] if member_key else [],
                     "stderr": ""}
         if cmd.endswith(" name"):
@@ -568,7 +568,7 @@ def link_docker_exec(calls, member_key="PORTCHANNEL_MEMBER|PortChannel1|Ethernet
         calls.append(cmd)
         if cmd.startswith("config interface"):
             return docker_ok("")
-        if cmd.startswith("sonic-db-cli CONFIG_DB keys"):
+        if cmd.startswith("sonic-db-cli -s CONFIG_DB keys"):
             return {"rc": 0, "stdout": member_key,
                     "stdout_lines": [member_key] if member_key else [], "stderr": ""}
         if cmd.endswith(" name"):

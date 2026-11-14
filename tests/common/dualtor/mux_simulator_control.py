@@ -623,7 +623,7 @@ def toggle_all_simulator_ports_to_lower_tor(active_standby_ports, duthosts,
 
 def _probe_mux_ports(duthosts, ports):
     """Probe the mux from the duthost."""
-    probe_cmd = "sonic-db-cli APPL_DB hset MUX_CABLE_COMMAND_TABLE:%s command probe"
+    probe_cmd = "sonic-db-cli -s --authenticate APPL_DB hset MUX_CABLE_COMMAND_TABLE:%s command probe"
     cmds = [probe_cmd % port for port in ports]
     for duthost in duthosts:
         duthost.shell_cmds(cmds=cmds)

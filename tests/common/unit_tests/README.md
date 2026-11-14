@@ -102,6 +102,22 @@ unchanged propagation of `SystemExit`, `KeyboardInterrupt`, and `pytest.exit`.
 Mixed-group coverage also checks independent same-scope finalizers and errors
 raised before the group, so completing ancestor scopes alone is not sufficient.
 
+## Redis database access and dumps
+
+`unit_test_native_reader_endpoint.py` checks configured native reader arguments for host and ASIC contexts, including numeric database IDs and socket quoting. `unit_test_local_redis_dump.py` checks database names, namespaces, filters and output paths used by the common dump and snapshot helpers. These component checks do not qualify installed images or hardware.
+
+## Local socket and chassis transport regression
+
+`unit_test_local_cli_transport.py` exercises the actual host/ASIC command builders
+and local/chassis database helpers. It checks explicit socket selection, retained
+ASIC namespaces and the explicit TCP path used by chassis helpers. These are
+command checks without a DUT or chassis runtime.
+
+```bash
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/unit_test_local_cli_transport.py -q
+```
+
 ## gNMI AAA TLS reuse
 
 ```bash

@@ -18,7 +18,7 @@ def mock_transceiver_info_table(duthosts):
         'manufacturer': 'Credo',
         'model': 'CACXXX321P2PXXMS'
     }
-    sonic_db_cmd = 'sonic-db-cli STATE_DB hset "TRANSCEIVER_INFO|{}" "{}" "{}"'
+    sonic_db_cmd = 'sonic-db-cli -s --authenticate STATE_DB hset "TRANSCEIVER_INFO|{}" "{}" "{}"'
 
     for dut in duthosts:
         cmds = []
