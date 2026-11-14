@@ -733,6 +733,12 @@ bgp/test_bgpmon.py::test_bgpmon_v4:
       - "topo_type not in ['t0', 't1']"
 
 
+bgp/test_ping_bgp_neighbor.py:
+  skip:
+    reason: "Only supported on multi-ASIC devices. Tracking issue: https://github.com/sonic-net/sonic-mgmt/issues/26208"
+    conditions:
+      - "is_multi_asic==False"
+
 bgp/test_startup_tsa_tsb_service.py::test_tsa_tsb_service_with_supervisor_abnormal_reboot:
   skip:
     reason: "Not supported on T2 single node topology"
