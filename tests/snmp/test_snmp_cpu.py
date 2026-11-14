@@ -2,7 +2,7 @@ import pytest
 import time
 import logging
 
-from tests.common.helpers.snmp_helpers import get_snmp_facts
+from tests.common.helpers.snmp_helpers import DEF_WAIT_TIMEOUT, get_snmp_facts
 
 logger = logging.getLogger(__name__)
 
@@ -10,6 +10,22 @@ pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.device_type('vs')
 ]
+
+# Matches the post-load settle in the test body.
+LOAD_SETTLE_SEC = 40
+# Each vCPU iteration runs "nohup yes ... & sleep 1" over Ansible (often >1s wall time).
+SPAWN_PER_VCPU_SEC = 2
+# Slack after SNMP wait_until (DEF_WAIT_TIMEOUT) for top and Ansible; not SNMP poll time.
+POST_LOAD_MARGIN_SEC = 60
+DEFAULT_WATCHDOG_TIMEOUT_SEC = 300
+# Above this, spawning the load plus a slow SNMP wait can outlast the default watchdog.
+HIGH_SCALE_VCPU_THRESHOLD = 16
+
+
+def _yes_watchdog_timeout_sec(host_vcpus):
+    if host_vcpus <= HIGH_SCALE_VCPU_THRESHOLD:
+        return DEFAULT_WATCHDOG_TIMEOUT_SEC
+    return host_vcpus * SPAWN_PER_VCPU_SEC + LOAD_SETTLE_SEC + DEF_WAIT_TIMEOUT + POST_LOAD_MARGIN_SEC
 
 
 @pytest.mark.bsl
@@ -50,7 +66,9 @@ def test_snmp_cpu(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_a
         # Without this, 'yes' processes can leak on weak-per-core platforms (e.g. armhf)
         # where the test may be killed before reaching the finally block.
         # See: https://github.com/sonic-net/sonic-mgmt/issues/21517
-        watchdog_timeout = 300  # 5 minutes — well beyond the test's expected duration
+        # On high vCPU platforms, outlive vCPU spawn + SNMP wait_until + top; others keep 300s.
+        watchdog_timeout = _yes_watchdog_timeout_sec(host_vcpus)
+        logger.info("yes-process watchdog timeout set to %s seconds", watchdog_timeout)
         watchdog_cmd = "nohup sh -c 'sleep {}; pkill -x -9 yes' >/dev/null 2>&1 & echo $!".format(
             watchdog_timeout)
         watchdog_pid = duthost.shell(watchdog_cmd)['stdout'].strip()
@@ -59,7 +77,7 @@ def test_snmp_cpu(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_a
             duthost.shell("nohup yes > /dev/null 2>&1 & sleep 1")
 
         # Wait for load to reflect in SNMP
-        time.sleep(40)
+        time.sleep(LOAD_SETTLE_SEC)
 
         # Gather facts with SNMP version 2
         snmp_facts = get_snmp_facts(
@@ -85,10 +103,9 @@ def test_snmp_cpu(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_a
             pytest.fail("cpu diff large than 5%%, %d, %d" % (
                 int(snmp_facts['ansible_ChStackUnitCpuUtil5sec']), int(output['stdout'])))
 
-    except Exception:
-        raise
     finally:
-        duthost.shell("killall yes")
         # Cancel the watchdog so it doesn't fire during later tests
         if watchdog_pid:
-            duthost.shell("kill {} 2>/dev/null || true".format(watchdog_pid), module_ignore_errors=True)
+            duthost.shell("kill {} 2>/dev/null || true".format(watchdog_pid),
+                          module_ignore_errors=True)
+        duthost.shell("killall yes", module_ignore_errors=True)
