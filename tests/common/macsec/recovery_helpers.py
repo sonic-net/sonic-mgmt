@@ -32,23 +32,41 @@ MKA_CONVERGE_DELAY = 12
 
 
 # ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def macsec_containers(duthost):
+    return [container.name for container in duthost.containers().macsec()]
+
+
+def macsec_namespace_prefixes(duthost):
+    """Return sonic-db-cli namespace options for the configured ASICs."""
+    return ["-n {}".format(ns) if ns else ""
+            for ns in duthost.get_asic_namespace_list()]
+
+# ---------------------------------------------------------------------------
 # Disruption primitives
 # ---------------------------------------------------------------------------
+
 
 def graceful_restart_macsec(duthost):
     """`systemctl restart macsec` via the startlimit-aware helper."""
     logger.info("Graceful restart of macsec on %s", duthost.hostname)
-    restart_service_with_startlimit_guard(
-        duthost, "macsec",
-        backoff_seconds=35,
-        verify_timeout=CONTAINER_UP_TIMEOUT,
-    )
+    for container in duthost.containers().macsec():
+        restart_service_with_startlimit_guard(
+            duthost, "macsec",
+            is_namespaced=container.asic_index is not None,
+            backoff_seconds=35,
+            verify_timeout=CONTAINER_UP_TIMEOUT,
+            asic_num=container.asic_index,
+        )
 
 
 def dirty_kill_macsec_container(duthost):
     """`docker kill -s 9 macsec` — bypasses macsecmgrd's per-port disable loop."""
     logger.info("Sending SIGKILL to macsec container on %s", duthost.hostname)
-    duthost.shell("docker kill -s 9 macsec", module_ignore_errors=False)
+    for container_name in macsec_containers(duthost):
+        duthost.shell("docker kill -s 9 {}".format(container_name), module_ignore_errors=False)
 
 
 def dirty_kill_macsecmgrd(duthost, signal=9):
@@ -62,10 +80,11 @@ def dirty_kill_macsecmgrd(duthost, signal=9):
     """
     logger.info("Sending signal %d to macsecmgrd inside macsec container on %s",
                 signal, duthost.hostname)
-    duthost.shell(
-        "docker exec macsec pkill -{} -x macsecmgrd".format(signal),
-        module_ignore_errors=False,
-    )
+    for container_name in macsec_containers(duthost):
+        duthost.shell(
+            "docker exec {} pkill -{} -x macsecmgrd".format(container_name, signal),
+            module_ignore_errors=False,
+        )
 
 
 def dirty_kill_wpa_supplicant(duthost, port_name):
@@ -79,8 +98,10 @@ def dirty_kill_wpa_supplicant(duthost, port_name):
     """
     logger.info("SIGKILL wpa_supplicant for %s on %s",
                 port_name, duthost.hostname)
+    asic = duthost.get_port_asic_instance(port_name)
+    container_name = asic.get_docker_name("macsec")
     duthost.shell(
-        "docker exec macsec pkill -9 -f '/var/run/{}'".format(port_name),
+        "docker exec {} pkill -9 -f '/var/run/{}'".format(container_name, port_name),
         module_ignore_errors=False,
     )
 
@@ -106,24 +127,38 @@ def wait_for_macsec_container(duthost):
     stopped.
     """
     time.sleep(KILL_SETTLE_SECONDS)
+    container_names = macsec_containers(duthost)
+    are_containers_up = []
 
-    if wait_until(CONTAINER_UP_TIMEOUT, 2, 0,
-                  is_container_running, duthost, "macsec"):
-        logger.info("macsec container auto-respawned on %s", duthost.hostname)
+    def _wait_up(container_name):
+        return wait_until(CONTAINER_UP_TIMEOUT, 2, 0,
+                          is_container_running, duthost, container_name)
+    are_containers_up = [_wait_up(container_name)
+                         for container_name in container_names]
+    if all(are_containers_up):
+        logger.info("macsec containers auto-respawned on %s", duthost.hostname)
         return
 
-    logger.warning(
-        "macsec did not auto-respawn on %s (StartLimitHit=%s); "
-        "clearing failure counter and starting",
-        duthost.hostname, is_hitting_start_limit(duthost, "macsec"))
-    duthost.shell("sudo systemctl reset-failed macsec.service",
-                  module_ignore_errors=True)
-    duthost.shell("sudo systemctl start macsec.service",
-                  module_ignore_errors=True)
-    pytest_assert(
-        wait_until(CONTAINER_UP_TIMEOUT, 2, 0,
-                   is_container_running, duthost, "macsec"),
-        "macsec container did not come up after dirty kill + fallback start")
+    for container in duthost.containers().macsec():
+        service_name = (
+            "macsec@{}".format(container.asic_index)
+            if container.asic_index is not None
+            else "macsec"
+        )
+        logger.warning(
+            "%s did not auto-respawn on %s (StartLimitHit=%s); "
+            "clearing failure counter and starting",
+            container.name, duthost.hostname, is_hitting_start_limit(duthost, service_name))
+
+        duthost.shell("sudo systemctl reset-failed {}.service".format(service_name),
+                      module_ignore_errors=True)
+        duthost.shell("sudo systemctl start {}.service".format(service_name),
+                      module_ignore_errors=True)
+    for container_name in container_names:
+        pytest_assert(
+            wait_until(CONTAINER_UP_TIMEOUT, 2, 0,
+                       is_container_running, duthost, container_name),
+            "macsec container did not come up after dirty kill + fallback start")
     logger.info("macsec container started via fallback on %s", duthost.hostname)
 
 
@@ -292,11 +327,7 @@ def advance_egress_encoding_an(duthost, profile_name, ctrl_links,
 
     Returns the {(port, sci): encoding_an} map observed after the advance.
     """
-    duthost.shell(
-        "sonic-db-cli CONFIG_DB HSET 'MACSEC_PROFILE|{}' rekey_period {}".format(
-            profile_name, rekey_period),
-        module_ignore_errors=False,
-    )
+    set_rekey_period(duthost, profile_name, rekey_period)
     graceful_restart_macsec(duthost)
     pytest_assert(
         wait_for_mka_converged(duthost, ctrl_links, policy, cipher_suite, send_sci),
@@ -315,12 +346,13 @@ def advance_egress_encoding_an(duthost, profile_name, ctrl_links,
 
 
 def set_rekey_period(duthost, profile_name, rekey_period):
-    """Set rekey_period on the DUT MACSEC_PROFILE (does not restart macsec)."""
-    duthost.shell(
-        "sonic-db-cli CONFIG_DB HSET 'MACSEC_PROFILE|{}' rekey_period {}".format(
-            profile_name, rekey_period),
-        module_ignore_errors=False,
-    )
+    """Set rekey_period in every ASIC namespace (does not restart macsec)."""
+    for ns_prefix in macsec_namespace_prefixes(duthost):
+        duthost.shell(
+            "sonic-db-cli {} CONFIG_DB HSET 'MACSEC_PROFILE|{}' rekey_period {}".format(
+                ns_prefix, profile_name, rekey_period),
+            module_ignore_errors=False,
+        )
 
 
 def _asic_db_egress_sa_ans_by_sc(duthost, ctrl_links):
