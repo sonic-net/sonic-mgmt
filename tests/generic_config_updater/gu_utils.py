@@ -3,6 +3,8 @@ import logging
 import json
 from tests.common.gu_utils import apply_patch, generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
+from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
 
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -60,3 +62,47 @@ def load_and_apply_json_patch(duthost, file_name, setup, is_asic_specific=False,
             delete_tmpfile(dut, tmpfile)
 
     return outputs
+
+
+def get_dualtor_duts(duthost, rand_unselected_dut):
+    """Return list of DUTs to apply changes to (dualtor aware)."""
+    duts = [duthost]
+    if rand_unselected_dut:
+        duts.append(rand_unselected_dut)
+    return duts
+
+
+def apply_json_patch_to_duts(duthost, rand_unselected_dut, json_patch):
+    """Apply json patch to the selected DUTs and return list of (dut, output)."""
+    duts = get_dualtor_duts(duthost, rand_unselected_dut)
+    outputs = []
+
+    for dut in duts:
+        tmpfile = generate_tmpfile(dut)
+        logger.info("tmpfile {}".format(tmpfile))
+
+        try:
+            output = apply_patch(dut, json_data=json_patch, dest_file=tmpfile)
+            outputs.append((dut, output))
+        finally:
+            delete_tmpfile(dut, tmpfile)
+
+    return outputs
+
+
+def checkpoint_and_rollback(duthost, rand_unselected_dut):
+    """Context helper: create checkpoints on DUTs and rollback on exit."""
+    duts = get_dualtor_duts(duthost, rand_unselected_dut)
+    for dut in duts:
+        verify_orchagent_running_or_assert(dut)
+        create_checkpoint(dut)
+
+    try:
+        yield duts
+    finally:
+        for dut in duts:
+            try:
+                verify_orchagent_running_or_assert(dut)
+                rollback_or_reload(dut)
+            finally:
+                delete_checkpoint(dut)
