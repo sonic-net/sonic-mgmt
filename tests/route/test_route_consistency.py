@@ -1,10 +1,7 @@
 import pytest
 import logging
-import threading
-import queue
 import re
 import math
-import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import get_program_info
 from tests.common.config_reload import config_reload
@@ -71,33 +68,17 @@ class TestRouteConsistency():
         prefix_snapshot = {}
         max_prefix_cnt = 0
 
-        def retrieve_route_snapshot(asic, prefix_snapshot, dut_instance_name, signal_queue):
-            prefix_snapshot[dut_instance_name] = \
-                set(self.extract_dest_ips(asic.run_sonic_db_cli_cmd('ASIC_DB KEYS *ROUTE_ENTRY*')['stdout_lines']))
-            logger.debug("snapshot of route table from {}: {}".format(dut_instance_name,
-                                                                      len(prefix_snapshot[dut_instance_name])))
-            signal_queue.put(1)
-
-        thread_count = 0
-        signal_queue = queue.Queue()
         for idx, dut in enumerate(duthosts.frontend_nodes):
             for asic in dut.asics:
                 dut_instance_name = dut.hostname + '-' + str(asic.asic_index)
                 if dut.facts['switch_type'] in ["voq", "chassis-packet"] and idx == 0:
                     dut_instance_name = dut_instance_name + "UpstreamLc"
-                    threading.Thread(target=retrieve_route_snapshot, args=(asic, prefix_snapshot,
-                                                                           dut_instance_name, signal_queue)).start()
-                    thread_count += 1
-
-        ts1 = time.time()
-        while signal_queue.qsize() < thread_count:
-            ts2 = time.time()
-            if (ts2 - ts1) > 60:
-                raise TimeoutError("Get route prefix snapshot from asicdb Timeout!")
-            continue
-
-        for dut_instance_name in prefix_snapshot.keys():
-            max_prefix_cnt = max(max_prefix_cnt, len(prefix_snapshot[dut_instance_name]))
+                    # pytest-ansible dispatchers share mutable state and cannot be reused concurrently.
+                    prefix_snapshot[dut_instance_name] = set(self.extract_dest_ips(
+                        asic.run_sonic_db_cli_cmd('ASIC_DB KEYS *ROUTE_ENTRY*')['stdout_lines']))
+                    logger.debug("snapshot of route table from {}: {}".format(
+                        dut_instance_name, len(prefix_snapshot[dut_instance_name])))
+                    max_prefix_cnt = max(max_prefix_cnt, len(prefix_snapshot[dut_instance_name]))
         return prefix_snapshot, max_prefix_cnt
 
     @pytest.fixture(autouse=True)
