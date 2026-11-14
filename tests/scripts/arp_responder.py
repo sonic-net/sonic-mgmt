@@ -17,6 +17,8 @@ logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 # import that here because this script is distributed to and executed inside
 # the PTF container, where the sonic-mgmt test tree is not on sys.path.
 DEFAULT_CONFIG_PATH = '/tmp/from_t1.json'
+# Keep in sync with tests.common.utilities.ARP_RESPONDER_READY_FILE.
+ARP_RESPONDER_READY_FILE = '/tmp/arp_responder.ready'
 
 
 class ARPResponder(object):
@@ -168,6 +170,11 @@ def main():
 
     ARPResponder.ip_sets = ip_sets
     ARPResponder.sockets = sockets
+
+    # All pcap L2 sockets are open; create the readiness marker before
+    # entering the sniff loop so the test framework knows we are ready.
+    with open(ARP_RESPONDER_READY_FILE, 'w'):
+        pass
 
     scapy.sniff(prn=ARPResponder.action, opened_socket=inverse_sockets, store=False)
 
