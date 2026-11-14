@@ -334,17 +334,17 @@ def constants(is_quagga, setup_interfaces, has_suppress_feature, pytestconfig, t
 
 
 def bgp_update_packets(pcap_file, is_v6_topo):
-    """Get bgp update packets from pcap file."""
+    """Get packets containing BGP UPDATEs, including after other BGP messages."""
     ip_ver = IPv6 if is_v6_topo else IP
     packets = sniff(
         offline=pcap_file,
-        lfilter=lambda p: ip_ver in p and bgp.BGPHeader in p and p[bgp.BGPHeader].type == 2,
+        lfilter=lambda p: ip_ver in p and bgp.BGPUpdate in p,
     )
     return packets
 
 
 def match_bgp_update(packet, src_ip, dst_ip, action, route, is_v6_topo):
-    """Check if the bgp update packet matches."""
+    """Check every BGP UPDATE in a packet for the requested route and action."""
     ip_ver = IPv6 if is_v6_topo else IP
     if not (packet[ip_ver].src == src_ip and packet[ip_ver].dst == dst_ip):
         return False
@@ -358,7 +358,18 @@ def match_bgp_update(packet, src_ip, dst_ip, action, route, is_v6_topo):
         _route = bgp.BGPNLRI_IPv6(prefix=str(subnet))
     else:
         _route = (subnet.prefixlen, str(subnet.network_address))
-    bgp_fields = packet[bgp.BGPUpdate].fields
+
+    layer_index = 1
+    while packet.getlayer(bgp.BGPUpdate, nb=layer_index):
+        update = packet.getlayer(bgp.BGPUpdate, nb=layer_index)
+        if _match_bgp_update_fields(update.fields, action, _route, is_v6_topo):
+            return True
+        layer_index += 1
+    return False
+
+
+def _match_bgp_update_fields(bgp_fields, action, route, is_v6_topo):
+    """Check the route and action in one BGP UPDATE message."""
     if action == "announce":
         if is_v6_topo:
             path_attr_valid = False
@@ -367,7 +378,7 @@ def match_bgp_update(packet, src_ip, dst_ip, action, route, is_v6_topo):
             if path_attr_valid:
                 for attr in bgp_fields.get("path_attr", []):
                     if getattr(attr, 'type_code', None) == 14:  # MP_REACH_NLRI
-                        return _route in getattr(attr.attribute, 'nlri', [])
+                        return route in getattr(attr.attribute, 'nlri', [])
             return False
         else:
             # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
@@ -377,7 +388,7 @@ def match_bgp_update(packet, src_ip, dst_ip, action, route, is_v6_topo):
                 path_attr_valid = bgp_fields["tp_len"] > 0
             elif "path_attr_len" in bgp_fields:
                 path_attr_valid = bgp_fields["path_attr_len"] > 0
-            return path_attr_valid and _route in bgp_fields["nlri"]
+            return path_attr_valid and route in bgp_fields.get("nlri", [])
     elif action == "withdraw":
         if is_v6_topo:
             path_attr_valid = False
@@ -387,7 +398,7 @@ def match_bgp_update(packet, src_ip, dst_ip, action, route, is_v6_topo):
                 for attr in bgp_fields.get("path_attr", []):
                     if getattr(attr, 'type_code', None) == 15:  # MP_UNREACH_NLRI
                         afi_safi_specific = getattr(attr.attribute, 'afi_safi_specific', None)
-                        return _route in getattr(afi_safi_specific, 'withdrawn_routes', [])
+                        return route in getattr(afi_safi_specific, 'withdrawn_routes', [])
             return False
         else:
             # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
@@ -402,9 +413,9 @@ def match_bgp_update(packet, src_ip, dst_ip, action, route, is_v6_topo):
             # address the compatibility issue of scapy versions.
             withdrawn_route_valid = False
             if "withdrawn" in bgp_fields:
-                withdrawn_route_valid = _route in bgp_fields["withdrawn"]
+                withdrawn_route_valid = route in bgp_fields["withdrawn"]
             elif "withdrawn_routes" in bgp_fields:
-                withdrawn_route_valid = _route in bgp_fields["withdrawn_routes"]
+                withdrawn_route_valid = route in bgp_fields["withdrawn_routes"]
 
             return withdrawn_len_valid and withdrawn_route_valid
     else:
@@ -483,13 +494,10 @@ def test_bgp_update_timer_single_route(
             for bgp_update in bgp_updates:
                 if match_bgp_update(bgp_update, n0.ip, n0.peer_ip, "announce", route, is_v6_topo):
                     announce_from_n0_to_dut.append(bgp_update)
-                    continue
                 if match_bgp_update(bgp_update, n1.peer_ip, n1.ip, "announce", route, is_v6_topo):
                     announce_from_dut_to_n1.append(bgp_update)
-                    continue
                 if match_bgp_update(bgp_update, n0.ip, n0.peer_ip, "withdraw", route, is_v6_topo):
                     withdraw_from_n0_to_dut.append(bgp_update)
-                    continue
                 if match_bgp_update(bgp_update, n1.peer_ip, n1.ip, "withdraw", route, is_v6_topo):
                     withdraw_from_dut_to_n1.append(bgp_update)
 
