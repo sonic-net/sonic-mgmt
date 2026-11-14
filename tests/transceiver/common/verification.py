@@ -10,6 +10,10 @@ dict: ``{port: {'passed': bool, 'details': str}}``
 import logging
 import time
 
+import pytest
+
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 from tests.transceiver.attribute_parser.attribute_keys import (
     BASE_ATTRIBUTES_KEY, DOM_ATTRIBUTES_KEY, EEPROM_ATTRIBUTES_KEY,
     SYSTEM_ATTRIBUTES_KEY,
@@ -24,6 +28,11 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_STABILITY_WINDOW_SEC = 5
 _LLDP_POLL_INTERVAL_SEC = 3
+_PORT_NAMESPACE_RESOLVE_TIMEOUT_SEC = 30
+_PORT_NAMESPACE_RESOLVE_POLL_INTERVAL_SEC = 5
+# Mirrors the message format produced by wait_ports_oper_status()
+# (tests/common/platform/interface_utils.py), which returns failure strings
+# rather than port names.
 _CMIS_POLL_INTERVAL_SEC = 3
 
 
@@ -451,6 +460,49 @@ def check_cmis_state(
             ),
         }
     return {port: per_port[port] for port in ports}
+
+
+def _resolve_port_namespaces(duthost, ports):
+    """Resolve ``{port: namespace}`` for every port, tolerating ports that
+    haven't finished enumerating in ``show interface status`` yet.
+
+    See the comment above ``_PORT_NAMESPACE_RESOLVE_TIMEOUT_SEC``: without
+    invalidating ``SonicAsic.ports`` between attempts, retrying alone would
+    just keep hitting the same stale cached snapshot.
+    """
+    namespaces = {}
+    unresolved = set()
+
+    def _all_resolved():
+        nonlocal namespaces, unresolved
+        for asic in duthost.asics:
+            asic.ports = None
+        resolved = {}
+        still_missing = set()
+        for port in ports:
+            try:
+                resolved[port] = db_helpers.resolve_port_namespace(duthost, port)
+            except (Exception, pytest.fail.Exception):
+                still_missing.add(port)
+        namespaces = resolved
+        unresolved = still_missing
+        return not unresolved
+
+    wait_until(
+        _PORT_NAMESPACE_RESOLVE_TIMEOUT_SEC,
+        _PORT_NAMESPACE_RESOLVE_POLL_INTERVAL_SEC,
+        0,
+        _all_resolved,
+    )
+
+    if unresolved:
+        pytest_assert(
+            False,
+            "ASIC instance not found for port(s): {}".format(
+                ", ".join(sorted(unresolved))
+            )
+        )
+    return namespaces
 
 
 def standard_port_recovery_and_verification(
