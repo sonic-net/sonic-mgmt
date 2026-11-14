@@ -4,7 +4,7 @@ import time
 from passlib.hash import cisco_type7
 
 from tests.common.macsec.macsec_helper import get_mka_session, getns_prefix, wait_all_complete, \
-     submit_async_task
+     submit_async_task, forget_macsec_ports
 from tests.common.macsec.macsec_platform_helper import global_cmd, find_portchannel_from_member, get_portchannel
 from tests.common.config_reload import config_reload
 from tests.common.devices.eos import EosHost
@@ -258,6 +258,9 @@ def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
     devices = set()
     if duthost.facts["asic_type"] == "vs":
         devices.add(duthost)
+
+    # Their PTF keys are going away; a later refresh must not wait for them.
+    forget_macsec_ports(duthost, list(ctrl_links))
 
     logger.info("Cleanup macsec configuration step1: disable macsec port")
     for dut_port, nbr in list(ctrl_links.items()):

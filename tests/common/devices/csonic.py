@@ -165,12 +165,14 @@ class CsonicHost(NeighborDevice):
     """
 
     def __init__(self, container_name, vm_host_ip=None, vm_host_user=None,
-                 bgp_vrf=None, intf_map=None, bgp_prime_asn=None):
+                 bgp_vrf=None, intf_map=None, bgp_prime_asn=None, vm_host_password=None):
         """
         Args:
             container_name: Docker container name (e.g., 'csonic_vms6-1_VM0100')
             vm_host_ip: IP of the host running the container (default: localhost)
             vm_host_user: SSH user for the VM host (only needed if remote)
+            vm_host_password: SSH password for the VM host. A test server that
+                accepts password auth only cannot be reached without it.
             bgp_vrf: Logical peer VRF when this is a converged prime
             intf_map: Original-to-converged interface mapping for that peer
             bgp_prime_asn: Prime ASN metadata (kept for host API parity)
@@ -185,6 +187,7 @@ class CsonicHost(NeighborDevice):
                          if bgp_vrf else container_name)
         self.vm_host_ip = vm_host_ip
         self.vm_host_user = vm_host_user
+        self.vm_host_password = vm_host_password
         self.bgp_vrf = bgp_vrf
         self.intf_map = intf_map
         self.bgp_prime_asn = bgp_prime_asn
@@ -242,6 +245,11 @@ class CsonicHost(NeighborDevice):
         if not self.is_local:
             ssh_prefix = ['ssh', '-o', 'StrictHostKeyChecking=no',
                           '-o', 'UserKnownHostsFile=/dev/null']
+            if self.vm_host_password:
+                ssh_prefix = ['sshpass', '-p', self.vm_host_password] + ssh_prefix
+            else:
+                # BatchMode keeps a missing key from hanging on a password prompt.
+                ssh_prefix.extend(['-o', 'BatchMode=yes'])
             if self.vm_host_user:
                 ssh_prefix.extend(['-l', self.vm_host_user])
             ssh_prefix.append(self.vm_host_ip)

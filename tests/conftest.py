@@ -29,6 +29,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa: 
 from tests.common.fixtures.vlan_config_swap import parametrize_vlan_config_from_topo  # noqa: F401
 from tests.common.devices.local import Localhost
 from tests.common.devices.ptf import PTFHost
+from tests.common.macsec.macsec_helper import get_macsec_port_states
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
 from tests.common.devices.csonic import CsonicHost
@@ -330,6 +331,9 @@ def pytest_addoption(parser):
                      help="Enable macsec on tgen links of testbed")
     parser.addoption("--enable_macsec", action="store_true", default=False,
                      help="Enable macsec on some links of testbed")
+    parser.addoption("--macsec_ptf_native", action="store_true", default=False,
+                     help="Use the docker-ptf native MACsec codec instead of the "
+                          "ptftests/macsec.py monkeypatch (requires a codec-carrying PTF image)")
     parser.addoption("--macsec_profile", action="store", default="all",
                      type=str, help="profile name list in macsec/profile.json")
     parser.addoption("--per_interface_macsec", action="store_true", default=False,
@@ -976,12 +980,16 @@ def macsec_duthost(duthosts, tbinfo):
 
 @pytest.fixture(scope="session")
 def is_macsec_enabled_for_test(duthosts):
-    # If macsec is enabled, use the override option to get macsec profile from golden config
-    macsec_en = False
+    # True if MACsec is active for this run: either --enable_macsec was passed
+    # (intent), or STATE_DB has MACsec ports. MACSEC_PORT_TABLE only says the
+    # port is MACsec-capable in the ASIC, not that MKA or an SA is up.
     request = duthosts.request
-    if request:
-        macsec_en = request.config.getoption("--enable_macsec", default=False)
-    return macsec_en
+    if request and request.config.getoption("--enable_macsec", default=False):
+        return True
+    for duthost in duthosts:
+        if get_macsec_port_states(duthost):
+            return True
+    return False
 
 
 # Make sure in same test module, always use same random DUT
@@ -1119,7 +1127,7 @@ def ptfhost(ptfhosts):
 
 
 @pytest.fixture(scope="session")
-def ptfhosts(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
+def ptfhosts(enhance_inventory, ansible_adhoc, tbinfo, duthost, duthosts, request):
     _hosts = []
     if 'ptp' in tbinfo['topo']['name']:
         return None
@@ -1129,22 +1137,72 @@ def ptfhosts(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
             and ("docker-keysight-api-server" in tbinfo["ptf_image_name"]
                  or "docker-stc-api-server" in tbinfo["ptf_image_name"])):
         return None
+    _macsec_enabled = request.config.option.enable_macsec
+    if not _macsec_enabled:
+        # Probe every DUT: on multi-DUT/chassis testbeds the MACsec-enabled
+        # linecard is not necessarily duthosts[0] (e.g. the supervisor).
+        _macsec_enabled = any(bool(get_macsec_port_states(dut)) for dut in duthosts)
+    # Always-on MACsec topologies (topology yaml declares macsec_links) default to
+    # the docker-ptf native codec; min-topo runs, where tests/macsec enables MACsec
+    # itself, keep the ptftests/macsec.py monkeypatch. --macsec_ptf_native forces
+    # native mode on any topology. PTFHost.create_macsec_info falls back to the
+    # monkeypatch when the PTF image carries no codec.
+    _topo_macsec = bool(tbinfo["topo"].get("properties", {}).get("macsec_links"))
+    _macsec_native = (request.config.option.macsec_ptf_native or _topo_macsec) if _macsec_enabled else False
+    if _macsec_enabled:
+        logger.info("PTF MACsec mode: %s (%s)",
+                    "native codec" if _macsec_native else "monkeypatch",
+                    "--macsec_ptf_native" if request.config.option.macsec_ptf_native
+                    else ("topology declares macsec_links" if _topo_macsec else "default"))
     if "ptf" in tbinfo:
         _hosts.append(PTFHost(ansible_adhoc, tbinfo["ptf"], duthost, tbinfo,
-                              macsec_enabled=request.config.option.enable_macsec))
+                              macsec_enabled=_macsec_enabled, macsec_native=_macsec_native))
     elif "servers" in tbinfo:
         for server in tbinfo["servers"].values():
             if "ptf" in server and server["ptf"]:
                 _host = PTFHost(ansible_adhoc, server["ptf"], duthost, tbinfo,
-                                macsec_enabled=request.config.option.enable_macsec)
+                                macsec_enabled=_macsec_enabled, macsec_native=_macsec_native)
                 _hosts.append(_host)
     else:
         # when no ptf defined in testbed.csv
         # try to parse it from inventory
         ptf_host = duthost.host.options["inventory_manager"].get_host(duthost.hostname).get_vars()["ptf_host"]
         _hosts.append(PTFHost(ansible_adhoc, ptf_host, duthost, tbinfo,
-                              macsec_enabled=request.config.option.enable_macsec))
+                              macsec_enabled=_macsec_enabled, macsec_native=_macsec_native))
+    if not _macsec_enabled:
+        for _host in _hosts:
+            _host.clear_macsec_info()
     return _hosts
+
+
+@pytest.fixture(scope="session", autouse=True)
+def auto_populate_macsec_info(duthosts, tbinfo):
+    """Populate MACSEC_INFO for ports with active MACsec sessions.
+
+    Activates the macsec_helper monkeypatch transparently for all tests that
+    sniff DUT-to-neighbor ports, without requiring --enable_macsec.
+    Only state=ok MACSEC_PORT_TABLE ports are offered; that state means the
+    SAI port object exists, not that MKA or an SA is up, so prime_macsec_info
+    checks the SA, port and ASIC state itself and leaves unusable ports out.
+    """
+    from tests.common.macsec.macsec_helper import prime_macsec_info, forget_macsec_ports
+    _logger = logging.getLogger(__name__)
+    for duthost in duthosts:
+        # state=ok ports: MACsec-capable; the SA checks happen in prime.
+        live_ports = [p for p, s in get_macsec_port_states(duthost).items() if s == "ok"]
+        if not live_ports:
+            continue
+        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+        ptf_indices = mg_facts.get("minigraph_ptf_indices", {})
+        active_ports = prime_macsec_info(
+            duthost, {p: ptf_indices[p] for p in live_ports if p in ptf_indices})
+        if active_ports:
+            _logger.info(
+                "MACsec auto-detected: populated MACSEC_INFO for %d port(s) on %s",
+                active_ports, duthost.hostname)
+    yield
+    for duthost in duthosts:
+        forget_macsec_ports(duthost)
 
 
 @pytest.fixture(scope="module")
@@ -1178,6 +1236,31 @@ def k8smasters(enhance_inventory, ansible_adhoc, request, ansible_root):
 def k8scluster(k8smasters):
     k8s_master_cluster = K8sMasterCluster(k8smasters)
     return k8s_master_cluster
+
+
+def _get_csonic_vm_host(request, tbinfo):
+    """Address and SSH user of the test server hosting the cSONiC containers.
+
+    Returns (None, None, None) when the server cannot be resolved, which
+    leaves CsonicHost on its local `docker exec` path -- correct for a vtb,
+    where the containers are on this same host.
+    """
+    server = tbinfo.get("server")
+    if not server:
+        return None, None, None
+    inv_files = get_inventory_files(request)
+    host = get_test_server_host(inv_files, server)
+    if not host:
+        return None, None, None
+    host_vars = get_host_visible_vars(inv_files, host.name) or {}
+    # ansible_user/ansible_password first: those are the test server's own login,
+    # resolved for it as a member of the vm_host group. vm_host_user names the
+    # account on the *guests* a test server hosts ("admin", not "administrator"),
+    # so preferring it authenticates as the wrong user against the right host;
+    # it is kept only as a fallback for an inventory that sets nothing else.
+    user = host_vars.get("ansible_user") or host_vars.get("vm_host_user")
+    password = host_vars.get("ansible_password") or host_vars.get("vm_host_password")
+    return host_vars.get("ansible_host", host.name), user, password
 
 
 @pytest.fixture(scope="session")
@@ -1293,9 +1376,17 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                     }
                 )
             else:
+                # On a vtb the containers share a host with the sonic-mgmt container,
+                # so CsonicHost's default `docker exec` runs locally. On a physical
+                # testbed they live on the test server, and the sonic-mgmt container
+                # has no docker socket of its own -- pass the test server so
+                # CsonicHost ssh's there instead of failing on /var/run/docker.sock.
+                csonic_host_ip, csonic_host_user, csonic_host_pw = _get_csonic_vm_host(request, tbinfo)
                 device = NeighborDevice(
                     {
-                        'host': CsonicHost(container_name),
+                        'host': CsonicHost(container_name, vm_host_ip=csonic_host_ip,
+                                           vm_host_user=csonic_host_user,
+                                           vm_host_password=csonic_host_pw),
                         'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
                     }
                 )

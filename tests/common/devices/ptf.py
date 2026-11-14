@@ -3,7 +3,7 @@ import pickle
 import tempfile
 
 from tests.common.devices.base import AnsibleHostBase
-from tests.common.macsec.macsec_helper import load_macsec_info
+from tests.common.macsec.macsec_helper import MacsecStateInvalid, get_macsec_port_states, load_macsec_info
 
 logger = logging.getLogger(__name__)
 
@@ -20,10 +20,14 @@ class PTFHost(AnsibleHostBase):
     Instance of this class can run ansible modules on the PTF host.
     """
 
-    def __init__(self, ansible_adhoc, hostname, duthost, tbinfo, macsec_enabled=False):
+    def __init__(self, ansible_adhoc, hostname, duthost=None, tbinfo=None, macsec_enabled=False,
+                 macsec_native=False):
+        # duthost/tbinfo are only dereferenced on the MACsec path (create_macsec_info),
+        # so callers that never enable MACsec may omit them.
         self.duthost = duthost
         self.tbinfo = tbinfo
         self.macsec_enabled = macsec_enabled
+        self.macsec_native = macsec_native
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
 
     def change_mac_addresses(self):
@@ -36,21 +40,58 @@ class PTFHost(AnsibleHostBase):
         self.script(RESTART_INTERFACE_SCRIPT)
 
     def create_macsec_info(self):
+        # state=ok means the SAI port object exists; load_macsec_info checks the
+        # SA itself. A port the ASIC still checks replay on raises from there,
+        # so only tests that inject through PTF fail for it.
+        active_macsec_ports = {p for p, s in get_macsec_port_states(self.duthost).items() if s == "ok"}
+
         macsec_info = {}
-        for port_name, injected_port_id in \
-                list(self.duthost.get_extended_minigraph_facts(self.tbinfo)["minigraph_ptf_indices"].items()):
+        asic_cache = {}  # one DUT walk per namespace for all ports
+        ptf_indices = self.duthost.get_extended_minigraph_facts(self.tbinfo)["minigraph_ptf_indices"]
+        for port_name, injected_port_id in list(ptf_indices.items()):
+            if port_name not in active_macsec_ports:
+                continue
             try:
+                # 10 s: a port whose MKA is legitimately down must not stall the run.
                 macsec_info[injected_port_id] = load_macsec_info(
-                    self.duthost, port_name, force_reload=True)
-            except KeyError:
-                # If key error, It means the MACsec info isn't enabled in the specified port.
-                logging.info(
-                    "MACsec isn't enabled on the port {}".format(port_name))
+                    self.duthost, port_name, force_reload=True, timeout=10, asic_cache=asic_cache)
+            except (KeyError, MacsecStateInvalid) as err:
+                logging.info("MACsec on {} is not usable by PTF; skipping: {}".format(port_name, err))
                 continue
         tf = tempfile.NamedTemporaryFile(delete=True)
         pickle.dump(macsec_info, tf)
         tf.flush()
         self.copy(src=tf.name, dest="/root/" + MACSEC_INFO_FILE)
+        # Broadcom derives the ingress SCI from {outer_src_MAC, port} and needs
+        # the outer-src-MAC rewrite (the ptftests/macsec.py default); opt out on
+        # other ASICs where the rewrite can break SecTAG-based SA lookup.
+        if self.duthost.facts.get("asic_type") == "broadcom":
+            self.shell("rm -f /root/macsec_no_rewrite_outer_smac")
+        else:
+            self.shell("touch /root/macsec_no_rewrite_outer_smac")
+        # Native-codec marker: the docker-ptf codec activates iff it exists and
+        # the ptftests/macsec.py monkeypatch stands down when it does. Requested
+        # for always-on MACsec topologies or via --macsec_ptf_native; written
+        # only if the PTF image actually carries the codec, otherwise fall back
+        # to the monkeypatch so frames are never sent in plaintext.
+        if self.macsec_native:
+            probe = self.shell("/root/env-python3/bin/python -c 'import ptf_macsec'",
+                               module_ignore_errors=True)
+            if probe["rc"] != 0:
+                logger.warning("Native PTF MACsec codec requested but the PTF image has no "
+                               "ptf_macsec module; falling back to the ptftests/macsec.py monkeypatch")
+                self.macsec_native = False
+        if self.macsec_native:
+            self.shell("touch /root/macsec_native_codec")
+        else:
+            self.shell("rm -f /root/macsec_native_codec")
+
+    def clear_macsec_info(self):
+        """Remove MACsec state a previous session may have left on the PTF so
+        neither the native codec nor the ptftests/macsec.py monkeypatch
+        activates on a non-MACsec run."""
+        self.shell("rm -f /root/{} /root/macsec_no_rewrite_outer_smac /root/macsec_native_codec"
+                   .format(MACSEC_INFO_FILE), module_ignore_errors=True)
 
     def add_ip_to_dev(self, dev, ip):
         """
