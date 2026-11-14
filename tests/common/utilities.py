@@ -36,7 +36,6 @@ from tests.common.cache import cached
 from tests.common.cache import FactsCache
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, UPSTREAM_ALL_NEIGHBOR_MAP
 from tests.common.helpers.constants import DOWNSTREAM_NEIGHBOR_MAP, DOWNSTREAM_ALL_NEIGHBOR_MAP
-from tests.common.helpers.constants import ISOLATED_T2_TOPO_PREFIX
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.portstat_utilities import parse_column_positions
 from netaddr import valid_ipv6
@@ -1022,9 +1021,6 @@ def get_upstream_neigh_type(tbinfo, is_upper=True):
     topo_name = tbinfo["topo"]["name"]
     topo_type = tbinfo["topo"]["type"]
     topo_attrs = [topo_name, topo_type]
-    if topo_name.startswith(ISOLATED_T2_TOPO_PREFIX):
-        # All isolated T2 variants share the same PT1 upstream tier instead of the T2 default T3 tier.
-        topo_attrs.insert(1, ISOLATED_T2_TOPO_PREFIX)
 
     for topo_attr in topo_attrs:
         if topo_attr in UPSTREAM_NEIGHBOR_MAP:
@@ -1091,6 +1087,17 @@ def flush_permanent_neighbors(duthost):
         "ip neigh show nud permanent | awk '$2 == \"dev\" && $3 != \"lo\" {print $3}' | sort -u | "
         "xargs -r -t -I{} sudo ip neigh flush dev {} nud permanent"
     )
+
+
+def is_ptf_emulated_lacp_hosts_topology(tbinfo):
+    """
+    @summary: Check if the topology uses hosts emulated in the PTF container over LACP LAGs (L3 EVPN multihoming).
+              PTF ports there are LAG members with hosts in per-host netns, so the
+              dualtor/T0 PTF responders and MAC/IP rewrites must not run on them.
+    @param tbinfo: Testbed information dictionary
+    @return: bool
+    """
+    return bool(tbinfo and "topo" in tbinfo and "evpn-mh" in tbinfo["topo"].get("name", ""))
 
 
 def is_ipv6_only_topology(tbinfo):
