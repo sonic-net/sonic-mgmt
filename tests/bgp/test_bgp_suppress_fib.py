@@ -13,6 +13,7 @@ from scapy.config import conf
 import ptf.testutils as testutils
 import ptf.packet as scapy
 from copy import deepcopy
+from collections import deque
 from retry.api import retry_call
 from ptf.mask import Mask
 from natsort import natsorted
@@ -67,6 +68,11 @@ FUNCTION = "function"
 STRESS = "stress"
 TRAFFIC_WAIT_TIME = 0.1
 BULK_TRAFFIC_WAIT_TIME = 0.01
+PTF_RX_BASELINE_SECS = 6
+PTF_RX_WINDOW_SECS = 3
+PTF_RX_BASELINE_FACTOR = 2
+PTF_RX_MIN_QUIET_PPS = 10
+PTF_RX_QUIET_TIMEOUT = 120
 BGP_ROUTE_FLAP_TIMES = 5
 UPDATE_WITHDRAW_THRESHOLD = 5  # consider the switch with low power cpu and a lot of bgp neighbors
 
@@ -565,6 +571,48 @@ def generate_packet(src_ip, dst_ip, dst_mac):
     exp_pkt.set_do_not_care_packet(scapy.Ether, "src")
 
     return pkt, exp_pkt
+
+
+def get_ptf_rx_baseline_pps(ptfadapter, duration=PTF_RX_BASELINE_SECS):
+    """
+    Measure the average PTF rx rate (packets per second, all ports) over the given duration
+    """
+    dp = ptfadapter.dataplane
+    start = sum(dp.rx_counters.values())
+    prev = start
+    for _ in range(duration):
+        time.sleep(1)
+        curr = sum(dp.rx_counters.values())
+        logger.info("PTF rx rate {} pps".format(curr - prev))
+        prev = curr
+    baseline_pps = (prev - start) / float(duration)
+    logger.info("PTF rx baseline rate {:.1f} pps".format(baseline_pps))
+    return baseline_pps
+
+
+def wait_for_ptf_rx_quiescence(ptfadapter, baseline_pps, factor=PTF_RX_BASELINE_FACTOR, window=PTF_RX_WINDOW_SECS,
+                               timeout=PTF_RX_QUIET_TIMEOUT):
+    """
+    Wait until the average PTF rx rate (all ports) over the last window seconds drops to
+    factor * baseline_pps. The BGP update burst sent by the DUT is also received by PTF, and the
+    expected packet is queued behind it in the ptf_nn_agent stream until the burst is drained.
+    """
+    max_pps = max(baseline_pps * factor, PTF_RX_MIN_QUIET_PPS)
+    dp = ptfadapter.dataplane
+    rates = deque(maxlen=window)
+    prev = sum(dp.rx_counters.values())
+    end = time.time() + timeout
+    while time.time() < end:
+        time.sleep(1)
+        curr = sum(dp.rx_counters.values())
+        rates.append(curr - prev)
+        prev = curr
+        avg_pps = sum(rates) / float(len(rates))
+        logger.info("PTF rx rate {} pps, {}s average {:.1f} pps, threshold {:.1f} pps".format(
+            rates[-1], len(rates), avg_pps, max_pps))
+        if len(rates) == window and avg_pps <= max_pps:
+            return True
+    return False
 
 
 def send_and_verify_packet(ptfadapter, pkt_list, exp_pkt_list, tx_port, rx_ports, exp_action_list, ip_ver_list=None):
@@ -1420,6 +1468,9 @@ def test_bgp_route_with_suppress_negative_operation(duthosts, enum_downstream_du
             if multi_dut:
                 config_bgp_suppress_fib(duthost_up, loganalyzer=loganalyzer)
 
+        with allure.step("Measure PTF rx baseline rate"):
+            ptf_rx_baseline_pps = get_ptf_rx_baseline_pps(ptfadapter)
+
         for exabgp_port, exabgp_port_v6, recv_port in zip(exabgp_port_list, exabgp_port_list_v6, recv_port_list):
             try:
                 with allure.step("Suspend orchagent process to simulate a route install delay"):
@@ -1519,6 +1570,11 @@ def test_bgp_route_with_suppress_negative_operation(duthosts, enum_downstream_du
                 with allure.step("Validate BGP ipv4 and ipv6 routes are announced to Upstream VM peer"):
                     validate_route_propagate(duthost_up, nbrhosts, tbinfo, ipv4_route_list,
                                              ipv6_route_list)
+
+                with allure.step("Wait for BGP update burst to be drained on PTF"):
+                    pytest_assert(wait_for_ptf_rx_quiescence(ptfadapter, ptf_rx_baseline_pps),
+                                  "PTF rx rate did not drop to {}x baseline ({:.1f} pps) within {}s".format(
+                                      PTF_RX_BASELINE_FACTOR, ptf_rx_baseline_pps, PTF_RX_QUIET_TIMEOUT))
 
                 with allure.step("Validate traffic would be forwarded to Downstream VM"):
                     validate_traffic(ptfadapter, [traffic_data_ipv4_forward, traffic_data_ipv6_forward], router_mac,
