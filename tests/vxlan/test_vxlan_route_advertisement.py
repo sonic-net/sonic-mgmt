@@ -4,8 +4,10 @@
     provided with each test.
 '''
 
-import time
+from collections.abc import Mapping
 import logging
+import time
+
 import pytest
 from tests.common.devices.csonic import CsonicHost
 from tests.common.helpers.assertions import pytest_assert as py_assert
@@ -32,7 +34,7 @@ pytestmark = [
 
 def _command_stdout(result):
     """Return command stdout as text for EOS list and SONiC string shapes."""
-    stdout = result.get('stdout', '') if isinstance(result, dict) else ''
+    stdout = result.get('stdout', '') if isinstance(result, Mapping) else ''
     if isinstance(stdout, list):
         return stdout[0] if stdout else ''
     return stdout or ''

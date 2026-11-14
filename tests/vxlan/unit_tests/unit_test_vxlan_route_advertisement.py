@@ -1,5 +1,7 @@
 """Regressions for cSONiC VXLAN route-advertisement compatibility."""
 
+from collections import UserDict
+
 import pytest
 
 from tests.common.devices.csonic import CsonicHost
@@ -31,6 +33,9 @@ def test_route_presence_and_command_output_support_eos_and_direct_frr_shapes():
 
     assert _command_stdout({'stdout': ['EOS output']}) == 'EOS output'
     assert _command_stdout({'stdout': 'FRR output'}) == 'FRR output'
+    # pytest-ansible wraps EOS results in a UserDict-compatible mapping.
+    assert _command_stdout(UserDict({'stdout': ['wrapped EOS output']})) == (
+        'wrapped EOS output')
 
 
 def test_vxlan_scale_commands_preserve_eos_and_use_frr_for_csonic():
