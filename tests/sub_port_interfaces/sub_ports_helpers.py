@@ -200,23 +200,22 @@ def generate_and_verify_tcp_udp_traffic(duthost, ptfadapter, src_port, dst_port,
         pytest_assert(pkt_in_buffer is True, "Expected packet not available:\n{}".format(pkt_in_buffer))
 
 
-def generate_and_verify_icmp_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, pkt_action, tr_type,
-                                     ttl=64, untagged_icmp_request=False):
+def build_icmp_request_and_reply(duthost, ptfadapter, src_port, ip_src, ip_dst, tr_type, ttl=64,
+                                 untagged_icmp_request=False):
     """
-    Send ICMP request packet from PTF to DUT and
-    verify that DUT sends/doesn't send ICMP reply packet to PTF.
+    Build the ICMP request to send and the masked ICMP reply to expect for a single flow.
 
     Args:
         duthost: DUT host object
         ptfadapter: PTF adapter
         src_port: Port of PTF
-        dst_port: Port of DUT
         ip_src: Source IP address of PTF
         ip_dst: Destination IP address of DUT
-        pkt_action: Packet action (forwarded or drop)
-        tr_type: Type of traffic (TCP or UDP)
+        tr_type: Type of traffic
         ttl: Time to live
         untagged_icmp_request: send untagged ICMP request if True
+
+    Returns: tuple of (request packet, masked expected reply packet, PTF port number)
     """
     vlan_vid = None
     dl_vlan_enable = False
@@ -257,6 +256,30 @@ def generate_and_verify_icmp_traffic(duthost, ptfadapter, src_port, dst_port, ip
     masked_exp_pkt.set_do_not_care_scapy(packet.IP, "chksum")
     masked_exp_pkt.set_do_not_care_scapy(packet.ICMP, "chksum")
 
+    return pkt, masked_exp_pkt, src_port_number
+
+
+def generate_and_verify_icmp_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, pkt_action, tr_type,
+                                     ttl=64, untagged_icmp_request=False):
+    """
+    Send ICMP request packet from PTF to DUT and
+    verify that DUT sends/doesn't send ICMP reply packet to PTF.
+
+    Args:
+        duthost: DUT host object
+        ptfadapter: PTF adapter
+        src_port: Port of PTF
+        dst_port: Port of DUT
+        ip_src: Source IP address of PTF
+        ip_dst: Destination IP address of DUT
+        pkt_action: Packet action (forwarded or drop)
+        tr_type: Type of traffic (TCP or UDP)
+        ttl: Time to live
+        untagged_icmp_request: send untagged ICMP request if True
+    """
+    pkt, masked_exp_pkt, src_port_number = build_icmp_request_and_reply(duthost, ptfadapter, src_port, ip_src, ip_dst,
+                                                                        tr_type, ttl, untagged_icmp_request)
+
     ptfadapter.dataplane.flush()
     time.sleep(1)
 
@@ -268,6 +291,49 @@ def generate_and_verify_icmp_traffic(duthost, ptfadapter, src_port, dst_port, ip
         testutils.verify_packet_any_port(ptfadapter, masked_exp_pkt, dst_port_list)
     elif pkt_action == ACTION_DROP:
         testutils.verify_no_packet_any(ptfadapter, masked_exp_pkt, dst_port_list)
+
+
+def generate_and_verify_icmp_traffic_batch(duthost, ptfadapter, flows):
+    """
+    Send a group of ICMP requests from PTF to DUT and verify the replies.
+
+    The requests are addressed to the DUT itself, so they are punted to the control
+    plane and answered by the CPU. That path is policed and gives no delivery guarantee
+    under burst, so each request is still sent and verified on its own rather than
+    firing the whole group at once. What the group does save is the per-flow dataplane
+    settle delay, which only needs to be paid once after the preceding configuration
+    change.
+
+    Each flow uses a distinct IP pair, so a reply left in a receive queue cannot be
+    mistaken for another flow's reply and the queue does not need flushing in between.
+
+    All flows in a group are verified against the same DUT configuration, so only group
+    flows that are expected to behave consistently at the same point in the test.
+
+    Args:
+        duthost: DUT host object
+        ptfadapter: PTF adapter
+        flows: list of dicts describing the flows to verify. Each dict holds the keys
+               'src_port', 'ip_src', 'ip_dst' and 'pkt_action', and optionally 'ttl'
+               and 'untagged_icmp_request'.
+    """
+    built_flows = []
+    for flow in flows:
+        pkt, masked_exp_pkt, src_port_number = build_icmp_request_and_reply(
+            duthost, ptfadapter, flow['src_port'], flow['ip_src'], flow['ip_dst'], 'ICMP',
+            flow.get('ttl', 64), flow.get('untagged_icmp_request', False))
+        built_flows.append((pkt, masked_exp_pkt, src_port_number, flow['pkt_action']))
+
+    ptfadapter.dataplane.flush()
+    time.sleep(1)
+
+    for pkt, masked_exp_pkt, src_port_number, pkt_action in built_flows:
+        testutils.send_packet(ptfadapter, src_port_number, pkt)
+
+        if pkt_action == ACTION_FWD:
+            testutils.verify_packet_any_port(ptfadapter, masked_exp_pkt, [src_port_number])
+        elif pkt_action == ACTION_DROP:
+            testutils.verify_no_packet_any(ptfadapter, masked_exp_pkt, [src_port_number])
 
 
 def generate_and_verify_decap_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, tr_type,
