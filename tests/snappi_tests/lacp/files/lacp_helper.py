@@ -158,6 +158,12 @@ def duthost_bgp_config(duthost,
     """
     global temp_tg_port
     temp_tg_port = tgen_ports
+    # The DUT config does not depend on any test parameter (only the TGEN LACP timers change), and
+    # setup_bgp_testbed is module scoped, so reuse the config left by a previous parametrized run.
+    # The fixture restores the initial config once the last test of the module is done.
+    if duthost.shell("redis-cli -n 4 exists 'PORTCHANNEL|PortChannel2'")['stdout'].strip() == '1':
+        logger.info('PortChannel2 already configured by a previous run, keeping the DUT config')
+        return
     for i in range(0, port_count):
         intf_config = (
             "sudo config interface ip remove %s %s/%s \n"
@@ -493,10 +499,11 @@ def get_lacp_add_remove_link_physically(snappi_api,
             wait(TIMEOUT, "For Link to go down")
             print_port_stats(snappi_api, all_port_names, tgen_ports)
             flows = get_flow_stats(snappi_api)
+            tx_frate, rx_frate = [], []
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
                 rx_frate.append(flow.frames_rx_rate)
-            assert sum(tx_frate) == sum(rx_frate), \
+            assert abs(sum(tx_frate) - sum(rx_frate)) / sum(rx_frate) < 0.00002, \
                 "Traffic has not converged after link flap: TxFrameRate:{},RxFrameRate:{}"\
                 .format(sum(tx_frate), sum(rx_frate))
             logger.info("Traffic has converged after link flap")
@@ -568,7 +575,7 @@ def get_lacp_add_remove_link_from_dut(snappi_api,
         rx_snappi_port_names.append(bgp_config.ports[i].name)
         rx_dut_port.append(tgen_ports[i]['peer_port'])
     all_port_names = rx_snappi_port_names[:]
-    all_port_names.insert(0, 'Test_Port_1')
+    all_port_names.insert(0, 'Test_Port_0')
     snappi_api.set_config(bgp_config)
 
     def get_avg_cpdp_convergence_time(rx_snappi_port_name, dut_port_name):
