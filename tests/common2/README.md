@@ -52,6 +52,11 @@ The migration from `common` to `common2` will be performed step by step:
    - All pre-commit checks pass successfully.
 4. Update test cases to use the migrated code from `common2`.
 
+The Common2 CI job runs for changes under `tests/common2/` or
+`.azure-pipelines/common2/`. Pipeline changes select all Common2 files so
+pre-commit, Black, mypy, pylint, and unit-test/coverage checks run even when
+no Common2 Python file changed.
+
 ## Directory Structure
 
 The `common2` directory follows a domain-based organization structure designed for scalability and maintainability. For detailed guidelines and structure documentation, see [DIRECTORY_STRUCTURE.md](DIRECTORY_STRUCTURE.md).
