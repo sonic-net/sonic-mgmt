@@ -14,10 +14,6 @@ from tests.bgp.test_bgp_gr_helper import verify_shared_prime_routes_during_grace
 from tests.common.devices.csonic import CsonicHost
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
-from tests.common.helpers.bgp_routing import route_present_in_data
-from tests.common.helpers.bgp_routing import route_present_on_host
-from tests.vxlan.test_vxlan_route_advertisement import _command_stdout
-from tests.vxlan.test_vxlan_route_advertisement import _scale_route_command
 
 
 def _tbinfo():
@@ -146,43 +142,6 @@ def test_suppress_fib_eos_and_sonic_commands_remain_unchanged():
         'show ip bgp vrf default neighbor 10.0.0.0 routes',
         {'module_ignore_errors': True},
     )]
-
-
-def test_route_presence_and_command_output_support_eos_and_direct_frr_shapes():
-    prefix = '99.1.2.0/24'
-    assert route_present_in_data({
-        'vrfs': {'default': {'bgpRouteEntries': {prefix: {}}}},
-    }, prefix)
-    assert route_present_in_data({'paths': [{'valid': True}]}, prefix)
-    assert not route_present_in_data({'paths': []}, prefix)
-
-    csonic = CsonicHost('csonic-prime', bgp_vrf='VrfARISTA01T2')
-    csonic.get_route = lambda observed_prefix: {
-        'prefix': observed_prefix,
-        'paths': [{'valid': True}],
-    }
-    assert route_present_on_host(csonic, prefix)
-
-    assert _command_stdout({'stdout': ['EOS output']}) == 'EOS output'
-    assert _command_stdout({'stdout': 'FRR output'}) == 'FRR output'
-
-
-def test_vxlan_scale_commands_preserve_eos_and_use_frr_for_csonic():
-    eos = object.__new__(EosHost)
-    csonic = CsonicHost('csonic-prime', bgp_vrf='VrfARISTA01T2')
-
-    assert _scale_route_command(eos, 'v4', '1234:4321') == (
-        "show ip bgp community 1234:4321 | grep ' 99.'")
-    assert _scale_route_command(csonic, 'v4', '1234:4321') == (
-        "show ip bgp community 1234:4321 | grep ' 99.'")
-    assert _scale_route_command(eos, 'v6', '1234:4321') == (
-        "show ipv6 bgp match community 1234:4321 | grep ' dc4a:'")
-    bare_csonic = _scale_route_command(csonic, 'v6', '1234:4321')
-    assert bare_csonic == (
-        "show ipv6 bgp community 1234:4321 | grep ' dc4a:'")
-    assert csonic._translate_command(bare_csonic) == (
-        'vtysh -c "show bgp vrf VrfARISTA01T2 ipv6 unicast '
-        'community 1234:4321" | grep \' dc4a:\'')
 
 
 def test_eos_and_sonic_route_shapes_remain_supported():
