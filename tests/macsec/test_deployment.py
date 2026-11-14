@@ -22,7 +22,8 @@ class TestDeployment():
         duthost.shell("cp /etc/sonic/config_db*.json /tmp")
         # Save the current config file
         duthost.shell("config save -y")
-        config_reload(duthost)
+        # safe_reload gates check_intf_up_ports; without it config_reload only sleeps for `wait`.
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
         assert wait_until(300, 6, 12, check_appl_db, duthost, ctrl_links, policy, cipher_suite, send_sci)
         # Recover the original config file
         duthost.shell("sudo mv /tmp/config_db*.json /etc/sonic")
