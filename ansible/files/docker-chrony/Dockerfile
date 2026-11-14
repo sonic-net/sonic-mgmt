@@ -1,6 +1,6 @@
 # Chrony NTP Server for SONiC Virtual Testbed
 # This container provides NTP time synchronization for DUTs on the management network
-FROM alpine:3.19
+FROM alpine:3.20
 
 LABEL maintainer="SONiC Community"
 LABEL description="Chrony NTP server for SONiC virtual testbed management network"
