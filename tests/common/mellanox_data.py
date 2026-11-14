@@ -1464,17 +1464,21 @@ def get_hw_management_version(duthost):
 
 
 def is_issu_enabled(duthost):
+    """Return True if Mellanox ISSU (v1 or v2) is enabled on the DUT.
+
+    Uses ``show platform mlnx issu``, which reports one of:
+    - ``ISSU v1 is enabled``
+    - ``ISSU v2 is enabled``
+    - ``ISSU is disabled``
+    """
     logger.info("Check if ISSU is enabled on the device")
-    dut_platform = duthost.facts["platform"]
-    dut_hwsku = duthost.facts["hwsku"]
+    result = duthost.command("show platform mlnx issu", module_ignore_errors=True)
+    stdout = (result.get("stdout") or "").strip()
+    if result.get("rc", 1) != 0 or not stdout:
+        logger.warning(f"Failed to get ISSU status via 'show platform mlnx issu': {result}")
+        return False
 
-    sai_profile = f"/usr/share/sonic/device/{dut_platform}/{dut_hwsku}/sai.profile"
-    cmd_get_sai_xml_filename = f"basename $(cat {sai_profile} | grep SAI_INIT_CONFIG_FILE | cut -d'=' -f2)"
-    sai_xml_filename = duthost.shell(cmd_get_sai_xml_filename)["stdout"].strip()
-    sai_xml_path = f"/usr/share/sonic/device/{dut_platform}/{dut_hwsku}/{sai_xml_filename}"
-
-    pattern = r"<issu-enabled>*1*<\/issu-enabled>"
-    output = duthost.shell(f'egrep "{pattern}" {sai_xml_path} | wc -l')['stdout'].strip()
-    logger.info(f"ISSU is enabled: {output == '1'}")
-
-    return True if output == "1" else False
+    text = stdout.lower()
+    enabled = "enabled" in text and "disabled" not in text
+    logger.info(f"ISSU is enabled: {enabled} (output: {stdout})")
+    return enabled
