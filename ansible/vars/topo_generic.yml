@@ -1,0 +1,30 @@
+# Editable generic scenario input, not a deployable legacy topology.
+# Shared across testbeds: use topo: generic, with optional allocation-only --overrides.
+# Default IPv6 documentation pools are for isolated testing, not lab resource reservations.
+# One address family per scenario; use a fresh workspace after changing inputs.
+# Children without CSV VLAN endpoints are physical-only, with no forwarding or PTF transport.
+# Maximize supported coverage within this scope; missing combinations remain explicitly unqualified.
+# Select the fewest DUT cages needed for attainable coverage and forwarding; preserve unused cages.
+# Review/edit inputs before add-topo freezes mappings; deploy-mg renders device configs.
+# Low-speed cages participate when their physical wiring is eligible.
+# PTF endpoint addressing/ARP/NDP and live allocation conflicts still need verification.
+topology: {}
+
+generic_topology:
+  physical_links:
+    # Empty selects the first eight realized physical DUT ports in numeric order.
+    # Planning writes resolved roles into generated topology.yml, not this source.
+    uplinks: []
+    # Every other selected child defaults to downlink; no explicit list is needed.
+    downlinks: []
+  routed_interfaces:
+    address_pool: 2001:db8:1::/64
+    prefix_length: 127
+  access_vlan:
+    # Override when this VLAN/subnet conflicts with retained state on the selected DUT.
+    vlan_id: 3000
+    subnet: 2001:db8:2::/64
+  transport:
+    # Derive each selected DUT endpoint's existing isolated VLAN from its CSV row.
+    # Render still validates live leaf ownership and pre-provisioned tagged trunks.
+    vlan_ids: null
