@@ -13,6 +13,7 @@ from tests.common.snappi_tests.port import select_ports
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list                # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
+from tests.common.snappi_tests.variables import pfcQueueValueDict
 logger = logging.getLogger(__name__)
 SNAPPI_POLL_DELAY_SEC = 2
 
@@ -31,7 +32,8 @@ def __gen_all_to_all_traffic(testbed_config,
 
     line_rate = 100
     if duthosts[0].facts['asic_type'] == "cisco-8000":
-        line_rate = 50
+        line_rate = 99.5
+
     rate_percent = line_rate / (len(port_config_list) - 1)
 
     duration_sec = 2
@@ -68,11 +70,11 @@ def __gen_all_to_all_traffic(testbed_config,
             src_port = random.randint(5000, 6000)
             udp.src_port.increment.start = src_port
             udp.src_port.increment.step = 1
-            udp.src_port.increment.count = 1
+            udp.src_port.increment.count = 10
 
             eth.src.value = tx_mac
             eth.dst.value = rx_mac
-            eth.pfc_queue.value = priority
+            eth.pfc_queue.value = pfcQueueValueDict[priority]
 
             ipv4.src.value = tx_port_config.ip
             ipv4.dst.value = gen_data_flow_dest_ip(rx_port_config.ip)
@@ -215,3 +217,5 @@ def test_snappi(request,
         pytest_assert(deviation <= deviation_thresh,
                       'Expected / Actual # of pkts for flow {}: {} / {}'.
                       format(flow_name, exp_rx_frames, rx_frames))
+
+    cleanup_config(duthosts, get_snappi_ports)

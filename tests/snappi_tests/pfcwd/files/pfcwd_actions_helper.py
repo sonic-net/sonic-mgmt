@@ -2,12 +2,12 @@ import logging
 import time
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts,  \
     fanout_graph_facts  # noqa: F401
-from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,\
-    get_lossless_buffer_size, get_pg_dropped_packets,\
-    stop_pfcwd, disable_packet_aging, sec_to_nanosec,\
-    get_pfc_frame_count, packet_capture, config_capture_pkt,\
+from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,  \
+    get_lossless_buffer_size, get_pg_dropped_packets,  \
+    stop_pfcwd, disable_packet_aging, sec_to_nanosec,  \
+    get_pfc_frame_count, packet_capture, config_capture_pkt,  \
     start_pfcwd, enable_packet_aging, start_pfcwd_fwd, \
     traffic_flow_mode, calc_pfc_pause_flow_rate      # noqa: F401
 from tests.common.snappi_tests.port import select_ports, select_tx_port  # noqa: F401
@@ -290,8 +290,8 @@ def run_pfc_test(api,
 
     """ Run traffic """
     tgen_flow_stats, switch_flow_stats, test_stats = \
-        run_traffic_and_collect_stats(rx_duthost=ingress_duthost,
-                                      tx_duthost=egress_duthost,
+        run_traffic_and_collect_stats(rx_duthost=egress_duthost,
+                                      tx_duthost=ingress_duthost,
                                       api=api,
                                       config=testbed_config,
                                       data_flow_names=data_flow_names,

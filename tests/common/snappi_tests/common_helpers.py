@@ -163,6 +163,7 @@ def get_pg_dropped_packets(duthost, phys_intf, prio, asic_value=None):
     Returns:
         total number of dropped packets (int)
     """
+    asic_value = duthost.get_port_asic_instance(phys_intf).get_asic_namespace()
     if asic_value is None:
         oid_cmd = "sonic-db-cli COUNTERS_DB HGET COUNTERS_QUEUE_NAME_MAP " + phys_intf + ":" + str(prio)
     else:

@@ -1,6 +1,7 @@
 import pytest
 import random
 from tests.common.snappi_tests.common_helpers import enable_packet_aging, start_pfcwd
+from tests.common.snappi_tests.snappi_fixtures import gen_static_route_for_all_fp_ports  # noqa: F401
 from tests.conftest import generate_priority_lists
 
 
