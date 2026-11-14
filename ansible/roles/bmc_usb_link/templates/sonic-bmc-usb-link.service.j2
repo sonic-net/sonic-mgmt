@@ -1,0 +1,15 @@
+[Unit]
+Description=Configure Switch-Host USB link to BMC
+Requires=sys-subsystem-net-devices-{{ bmc_usb_link_interface }}.device config-setup.service
+After=sys-subsystem-net-devices-{{ bmc_usb_link_interface }}.device config-setup.service
+Before=pmon.service
+JobTimeoutSec=300s
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/sonic-bmc-usb-link {{ bmc_usb_link_interface }} {{ bmc_usb_link_address }}
+RemainAfterExit=yes
+TimeoutStartSec=30s
+
+[Install]
+WantedBy=multi-user.target
