@@ -4,6 +4,7 @@ import pytest
 
 from tests.common.devices.csonic import CsonicHost
 from tests.common.devices.eos import EosHost
+from tests.common.helpers.bgp_routing import check_route_on_neighbors
 from tests.common.helpers.bgp_routing import route_present_in_data
 from tests.common.helpers.bgp_routing import route_present_on_host
 from tests.vxlan.test_vxlan_route_advertisement import _command_stdout
@@ -77,3 +78,17 @@ def test_neighbor_route_match_waits_for_exact_route_and_community_state():
         'paths': [{'community': {'string': '9999:8888'}}],
     }
     assert _neighbor_route_matches(host, prefix, True, '9999:8888')
+
+
+def test_failed_neighbor_query_never_masquerades_as_route_withdrawal():
+    prefix = '99.1.2.0/24'
+    csonic = CsonicHost('csonic-prime', bgp_vrf='VrfARISTA01T2')
+
+    def fail_query(_prefix):
+        raise RuntimeError('FRR unavailable')
+
+    csonic.get_route = fail_query
+    assert route_present_on_host(csonic, prefix) is None
+    assert not check_route_on_neighbors(
+        {'ARISTA01T2': {'host': csonic}}, ['ARISTA01T2'], prefix, False)
+    assert not _neighbor_route_matches(csonic, prefix, False)

@@ -435,26 +435,35 @@ class CsonicHost(NeighborDevice):
         """Get BGP route info for a prefix from FRR.
 
         Stock cSONiC keeps its historical default-instance command. A converged
-        logical host scopes the same query to its runtime VRF.
+        logical host scopes the same query to its runtime VRF. Query failures
+        are raised so callers cannot confuse them with a valid absent route,
+        which FRR represents as an empty JSON object.
         """
         afi = 'ipv6' if ipaddress.ip_network(prefix, strict=False).version == 6 else 'ipv4'
         effective_vrf = vrf or self.bgp_vrf
         if not effective_vrf:
-            result = self._docker_exec(
-                'vtysh -c "show bgp {} unicast {} json"'.format(afi, prefix),
-                module_ignore_errors=True)
+            command = 'vtysh -c "show bgp {} unicast {} json"'.format(afi, prefix)
         else:
-            result = self._docker_exec(
-                'vtysh -c "show bgp vrf {} {} unicast {} json"'.format(
-                    effective_vrf, afi, prefix),
-                module_ignore_errors=True)
-        if result.get('rc') != 0 or not result.get('stdout'):
-            return {}
+            command = 'vtysh -c "show bgp vrf {} {} unicast {} json"'.format(
+                effective_vrf, afi, prefix)
+        result = self._docker_exec(command, module_ignore_errors=True)
+        if result.get('rc') != 0:
+            raise RuntimeError(
+                "cSONiC BGP route query failed for {} (rc={}): {}".format(
+                    prefix, result.get('rc'), result.get('stderr', '')))
+        if not result.get('stdout'):
+            raise RuntimeError(
+                "cSONiC BGP route query returned no output for {}".format(prefix))
         try:
             data = json.loads(result['stdout'])
-        except (json.JSONDecodeError, ValueError):
-            return {}
-        return data if isinstance(data, dict) else {}
+        except (json.JSONDecodeError, ValueError) as error:
+            raise ValueError(
+                "cSONiC BGP route query returned invalid JSON for {}".format(prefix)) from error
+        if not isinstance(data, dict):
+            raise ValueError(
+                "cSONiC BGP route query returned {} instead of an object for {}".format(
+                    type(data).__name__, prefix))
+        return data
 
     def get_port_channel_status(self, pc_name=None):
         """Get PortChannel status."""

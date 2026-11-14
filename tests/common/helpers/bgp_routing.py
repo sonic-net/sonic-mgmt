@@ -80,18 +80,18 @@ def route_present_in_data(route_data, prefix, vrf="default"):
 
 
 def route_present_on_host(host, prefix):
-    """Return True if the prefix is in the BGP table of the given neighbor host.
+    """Return route presence, or None when the neighbor query failed.
 
-    Supports EosHost and SonicHost. Exception-safe: returns False on any error
-    so that wait_until polling can continue retrying instead of aborting on
-    transient SSH / API failures.
+    Supports EosHost, SonicHost, and CsonicHost. Query failures stay distinct
+    from a valid absent route so withdrawal checks cannot pass on a broken
+    neighbor query; wait_until callers can still retry the unknown state.
 
     Args:
-        host: neighbor host object (EosHost or SonicHost)
+        host: neighbor host object (EosHost, SonicHost, or CsonicHost)
         prefix: route prefix string (e.g. "10.100.0.0/16")
 
     Returns:
-        bool: True if the prefix is present in the BGP table
+        bool or None: True/False for a valid query, None when the query failed
     """
     try:
         if isinstance(host, EosHost):
@@ -102,10 +102,10 @@ def route_present_on_host(host, prefix):
             return route_present_in_data(route_data, prefix)
         else:
             logger.warning("Unknown neighbor host type: %s", type(host))
-            return False
+            return None
     except Exception as e:
         logger.debug("Failed to check route %s on %s: %s", prefix, host, e)
-        return False
+        return None
 
 
 def check_route_on_neighbors(nbrhosts, neighbor_list, prefix, expected_present):
