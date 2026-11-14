@@ -153,8 +153,9 @@ def stop_route_checker_on_duthost(duthost, wait_for_status=False):
 def start_route_checker_on_duthost(duthost, wait_for_status=False):
     duthost.command("sudo monit start routeCheck", module_ignore_errors=True)
     if wait_for_status:
+        # Accept both old ("status ok") and new (bare "ok") monit status strings.
         pt_assert(
-            wait_until(900, 20, 0, _is_route_checker_in_status, duthost, ("status ok",)),
+            wait_until(900, 20, 0, _is_route_checker_in_status, duthost, ("status ok", "ok")),
             "routeCheck service did not start on {}".format(duthost.hostname),
         )
 
