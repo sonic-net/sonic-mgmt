@@ -60,7 +60,11 @@ def _scale_route_command(host, prefix_type, community=""):
 
 def _neighbor_route_matches(host, route, expected_present, community=""):
     """Return whether one neighbor has converged to the expected route state."""
-    result = host.get_route(route)
+    try:
+        result = host.get_route(route)
+    except Exception as error:
+        Logger.debug("Failed to query route %s on %s: %s", route, host, error)
+        return False
     present = route_present_in_data(result, route)
     if present != expected_present:
         return False

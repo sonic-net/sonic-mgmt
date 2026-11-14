@@ -14,7 +14,7 @@ container. They cover:
   * _bgp_summary_peers      - summary parsing + FRR address-family nesting
   * _bgp_neighbors_json     - neighbors parsing + malformed-output handling
   * get_route              - ``show bgp ipv4|ipv6 unicast <prefix> json``
-                             (SonicHost-compatible shape, {} on error)
+                             (SonicHost-compatible shape, loud query errors)
 
 Follows the repo unit-test convention (unit_test_*.py, unittest.mock).
 """
@@ -701,22 +701,31 @@ class TestGetRoute:
         with patch.object(host, "_docker_exec", return_value=docker_ok("{\n}")):
             assert host.get_route("10.255.0.0/24") == {}
 
-    def test_command_failure_is_empty(self):
+    def test_command_failure_is_not_route_absence(self):
         host = make_host()
         with patch.object(host, "_docker_exec",
                           return_value={"rc": 1, "stdout": "", "stderr": "no frr"}):
-            assert host.get_route("192.168.0.0/21") == {}
+            with pytest.raises(RuntimeError, match="route query failed"):
+                host.get_route("192.168.0.0/21")
 
-    def test_malformed_output_is_empty(self):
+    def test_empty_output_is_not_route_absence(self):
+        host = make_host()
+        with patch.object(host, "_docker_exec", return_value=docker_ok("")):
+            with pytest.raises(RuntimeError, match="returned no output"):
+                host.get_route("192.168.0.0/21")
+
+    def test_malformed_output_is_not_route_absence(self):
         host = make_host()
         with patch.object(host, "_docker_exec",
                           return_value=docker_ok("% Unknown command")):
-            assert host.get_route("fc02:1000::/64") == {}
+            with pytest.raises(ValueError, match="invalid JSON"):
+                host.get_route("fc02:1000::/64")
 
-    def test_nonobject_output_is_empty(self):
+    def test_nonobject_output_is_not_route_absence(self):
         host = make_host()
         with patch.object(host, "_docker_exec", return_value=docker_ok("[1,2,3]")):
-            assert host.get_route("192.168.0.0/21") == {}
+            with pytest.raises(ValueError, match="list instead of an object"):
+                host.get_route("192.168.0.0/21")
 
 
 if __name__ == "__main__":
