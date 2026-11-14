@@ -54,6 +54,13 @@ def _gather_passwords(ptfhost, duthost):
     return passwords
 
 
+def _get_checksum(host, file_name):
+    file_stat = host.stat(path="./{}".format(file_name), checksum_algorithm="sha256")["stat"]
+    checksum = file_stat.get("checksum")
+    pytest_assert(checksum, "Failed to calculate SHA-256 checksum for {}".format(file_name))
+    return checksum
+
+
 def test_scp_copy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_teardown, creds):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
@@ -83,9 +90,8 @@ def test_scp_copy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_tea
         "ls -ltr ./{}".format(TEST_FILE_NAME), module_ignore_errors=True)["rc"]
     pytest_assert(res == 0, "Test file was not created on the DUT")
 
-    # Generate MD5 checksum to compare with the sent file
-    output = ptfhost.command("md5sum ./{}".format(TEST_FILE_NAME))["stdout"]
-    orig_checksum = output.split()[0]
+    # Generate checksum to compare with the sent file
+    orig_checksum = _get_checksum(ptfhost, TEST_FILE_NAME)
 
     python_version = "python3"
     p3_pexp_exists = duthost.command(
@@ -104,9 +110,8 @@ def test_scp_copy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_tea
     pytest_assert(
         res == 0, "Test file was not found on DUT after attempted scp get")
 
-    # Get MD5 checksum of received file
-    output = duthost.command("md5sum ./{}".format(TEST_FILE_NAME))["stdout"]
-    new_checksum = output.split()[0]
+    # Get checksum of received file
+    new_checksum = _get_checksum(duthost, TEST_FILE_NAME)
 
     # Confirm that the received file is identical to the original file
     pytest_assert(orig_checksum == new_checksum,
@@ -124,9 +129,8 @@ def test_scp_copy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_tea
     pytest_assert(
         res == 0, "Test file was not found on PTF after attempted scp put")
 
-    # Get MD5 checksum of copied file
-    output = ptfhost.command("md5sum ./{}".format(TEST_FILE_2_NAME))["stdout"]
-    fin_checksum = output.split()[0]
+    # Get checksum of copied file
+    fin_checksum = _get_checksum(ptfhost, TEST_FILE_2_NAME)
 
     pytest_assert(new_checksum == fin_checksum,
                   "Checksum ({}) of new file({}) on PTF differs from checksum ({}) of file ({}) on DUT"
