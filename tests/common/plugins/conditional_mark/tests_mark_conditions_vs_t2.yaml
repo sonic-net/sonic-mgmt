@@ -68,16 +68,6 @@ bgp/test_bgp_update_timer.py:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
-bgp/test_bgpmon.py:
-  skip:
-    conditions:
-    - asic_type in ['vs'] and 't2' in topo_name
-    reason: This test case either cannot pass or should be skipped on virtual chassis
-bgp/test_bgpmon_v6.py:
-  skip:
-    conditions:
-    - asic_type in ['vs'] and 't2' in topo_name
-    reason: This test case either cannot pass or should be skipped on virtual chassis
 bgp/test_ipv6_nlri_over_ipv4.py:
   skip:
     conditions:
