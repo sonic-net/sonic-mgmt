@@ -461,7 +461,7 @@ def main():
         basic_facts = get_basic_facts()
 
         # Connect to ConfigDB and gather additional facts
-        config_db = ConfigDBConnector()
+        config_db = ConfigDBConnector(use_unix_socket_path=True)
         config_db.connect()
         gather_config_db_facts(config_db, basic_facts)
 

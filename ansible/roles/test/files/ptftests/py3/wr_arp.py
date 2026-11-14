@@ -533,7 +533,7 @@ class ArpTest(BaseTest):
 
     def get_warm_restart_state(self):
         output, _, _ = self.dut_connection.execCommand(
-            "sonic-db-cli STATE_DB hget 'WARM_RESTART_ENABLE_TABLE|system' enable")
+            "sonic-db-cli -s STATE_DB hget 'WARM_RESTART_ENABLE_TABLE|system' enable")
 
         if len(output) == 0:
             self.assertTrue(

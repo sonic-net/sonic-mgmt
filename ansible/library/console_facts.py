@@ -57,7 +57,7 @@ class ConsoleModule(object):
         Retrieve console feature information
         """
         rt, out, err = self.module.run_command(
-            'sonic-db-cli CONFIG_DB HGET CONSOLE_SWITCH|console_mgmt enabled')
+            'sonic-db-cli -s CONFIG_DB HGET CONSOLE_SWITCH|console_mgmt enabled')
         if rt != 0:
             self.module.fail_json(
                 "Failed to get console feature status, rt={}, out={}, err={}".format(rt, out, err))
