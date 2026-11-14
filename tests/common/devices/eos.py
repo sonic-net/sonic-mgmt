@@ -278,9 +278,20 @@ class EosHost(AnsibleHostBase):
         # ``{logical: converged}`` map so tests can keep using the per-logical
         # name reported by minigraph. Left as None on stock topologies.
         self.intf_map = None
+        self._ansible_adhoc = ansible_adhoc
+        self._localhost = None
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
-        self.localhost = ansible_adhoc(inventory='localhost', connection='local',
-                                       host_pattern="localhost")["localhost"]
+
+    @property
+    def localhost(self):
+        """Lazy-initialize the localhost ansible host to avoid the overhead of
+        creating an ansible host manager for every EosHost instance at init time.
+        Only ``exec_template`` uses this, so most tests never pay the cost."""
+        if self._localhost is None:
+            self._localhost = self._ansible_adhoc(
+                inventory='localhost', connection='local',
+                host_pattern="localhost")["localhost"]
+        return self._localhost
 
     def __getattr__(self, module_name):
         if module_name.startswith('eos_'):
