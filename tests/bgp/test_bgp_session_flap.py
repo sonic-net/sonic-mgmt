@@ -9,6 +9,7 @@ import traceback
 import pytest
 import textfsm
 
+from tests.common.devices.csonic import CsonicHost
 from tests.common.devices.sonic import SonicHost
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import InterruptableThread, wait_until
@@ -75,7 +76,16 @@ def all_bgp_sessions_established(duthost, asic_index, neighbor_ips):
 def get_unique_neighbor_hosts(neighbors):
     unique_neighbors = {}
     for neigh in neighbors:
-        unique_neighbors.setdefault(neigh.hostname, neigh)
+        # A converged cSONiC prime exposes one logical CsonicHost per VRF, but
+        # every handle targets the same physical container and shared bgpd.
+        # Start only one flap worker per container; ordinary neighbor hosts keep
+        # their historical hostname-based identity.
+        runtime_key = (
+            ('csonic', neigh.container_name)
+            if isinstance(neigh, CsonicHost)
+            else ('host', neigh.hostname)
+        )
+        unique_neighbors.setdefault(runtime_key, neigh)
     return list(unique_neighbors.values())
 
 
@@ -326,14 +336,25 @@ def setup(
             )
         )
     )
+    neighbor_host = nbrhosts[tor1]["host"]
     # If host it sonic use 'show runningconfig bgp'
-    if isinstance(nbrhosts[tor1]["host"], SonicHost):
+    if isinstance(neighbor_host, SonicHost):
         logger.info("Neighbor BGP Config: {}".format(
-           nbrhosts[tor1]["host"].command("show runningconfig bgp")))
+           neighbor_host.command("show runningconfig bgp")))
+    elif isinstance(neighbor_host, CsonicHost):
+        # cSONiC runs FRR rather than EOS. This is diagnostic output only; use
+        # the physical prime's complete BGP config while the logical handle's
+        # lifecycle methods continue to operate on its shared daemon.
+        logger.info("Neighbor BGP Config: {}".format(
+            neighbor_host.command(
+                "vtysh -c 'show running-config bgp'",
+                module_ignore_errors=True,
+            )
+        ))
     else:
         # Else use industry standard 'show run | sec bgp'
         logger.info("Neighbor BGP Config: {}".format(
-            nbrhosts[tor1]["host"].eos_command(
+            neighbor_host.eos_command(
                 commands=["show run | section bgp"]
             )
         ))
