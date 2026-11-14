@@ -105,8 +105,10 @@ def ensure_no_l2_and_l3_drops(duthost, packets_count):
     ensure_no_l3_drops(duthost, packets_count)
 
 
-def verify_drop_counters(duthosts, asic_index, dut_iface, get_cnt_cli_cmd, column_key, packets_count):
-    """ Verify drop counter incremented on specific interface """
+def verify_drop_counters(duthosts, asic_index, dut_iface, get_cnt_cli_cmd, column_key, packets_count, tolerance=0):
+    """ Verify drop counter incremented on specific interface, allowing up to 'tolerance' packets to be missing """
+    min_expected_drops = packets_count - tolerance
+
     def _get_drops_across_all_duthosts():
         drop_list = []
         for duthost in duthosts.frontend_nodes:
@@ -123,7 +125,8 @@ def verify_drop_counters(duthosts, asic_index, dut_iface, get_cnt_cli_cmd, colum
         return drop_list
 
     def _check_drops_on_dut():
-        return packets_count in _get_drops_across_all_duthosts()
+        actual_drops = _get_drops_across_all_duthosts()
+        return any(min_expected_drops <= drop <= packets_count for drop in actual_drops)
 
     if not wait_until(25, 1, 0, _check_drops_on_dut):
         # We were seeing a few more drop counters than expected, so we are allowing a small margin of error
@@ -140,11 +143,14 @@ def verify_drop_counters(duthosts, asic_index, dut_iface, get_cnt_cli_cmd, colum
         logger.info(f"The DROP_MARGIN is {DROP_MARGIN}")
         actual_drop = _get_drops_across_all_duthosts()
         for drop in actual_drop:
-            if drop >= packets_count and drop <= packets_count + DROP_MARGIN:
-                logger.warning("Actual drops {} exceeded expected drops {} on iface {}\n".format(
-                    actual_drop, packets_count, dut_iface))
+            if drop >= min_expected_drops and drop <= packets_count + DROP_MARGIN:
+                logger.warning(f"Actual drops {actual_drop} on iface {dut_iface} are within the accepted range "
+                               f"[{min_expected_drops}, {packets_count + DROP_MARGIN}] (sent {packets_count}, "
+                               f"tolerance {tolerance}, DROP_MARGIN {DROP_MARGIN})")
                 break
         else:
-            fail_msg = "'{}' drop counter was not incremented on iface {}. DUT {} == {}; Sent == {}".format(
-                column_key, dut_iface, column_key, actual_drop, packets_count)
+            fail_msg = (f"'{column_key}' drop counter was not incremented on iface {dut_iface}. "
+                        f"DUT {column_key} == {actual_drop}; Sent == {packets_count}; "
+                        f"accepted range == [{min_expected_drops}, {packets_count + DROP_MARGIN}] "
+                        f"(tolerance {tolerance}, DROP_MARGIN {DROP_MARGIN})")
             pytest.fail(fail_msg)
