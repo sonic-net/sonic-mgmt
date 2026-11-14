@@ -34,6 +34,17 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
+@pytest.fixture(autouse=True)
+def ignore_vs_sflow_e1000_reset(duthosts, rand_one_dut_hostname, loganalyzer):
+    """Ignore transient VS e1000 eth4 resets during sFlow tests."""
+    duthost = duthosts[rand_one_dut_hostname]
+    if loganalyzer and duthost.facts.get('asic_type') == 'vs':
+        loganalyzer[duthost.hostname].ignore_regex.append(
+            r".*ERR kernel:.* e1000 [0-9a-fA-F]{4}:[0-9a-fA-F]{2}:"
+            r"[0-9a-fA-F]{2}\.[0-7] eth4: Reset adapter\s*$"
+        )
+
+
 @pytest.fixture(scope='module', autouse=True)
 def setup(rand_selected_dut, ptfhost, tbinfo, config_sflow_feature):
     duthost = rand_selected_dut
