@@ -844,8 +844,7 @@ def check_buffer_profile_details(duthost, initial_profiles, profile_name, profil
                 pytest_assert(
                     int(profile_appldb['xon']) == head_room_data['xon']
                     and int(profile_appldb['xoff']) == head_room_data['xoff']
-                    and (int(profile_appldb['size']) == head_room_data['size']
-                         or DEFAULT_SHARED_HEADROOM_POOL_ENABLED),
+                    and int(profile_appldb['size']) == head_room_data['size'],
                     "Generated profile {} doesn't match the std profile {}".format(profile_appldb, head_room_data))
             else:
                 logging.info(
@@ -1556,16 +1555,61 @@ def check_buffer_profiles_for_shp(duthost, shp_enabled=True):
         20, 2, 0, _check_buffer_profiles_for_shp, duthost, shp_enabled))
 
 
+def _restore_shared_headroom_pool_config(
+        duthost, port, ratio, configured_size, cable_length, pool_size, shp_size, pool_oid=None):
+    commands = [
+        'config buffer shared-headroom-pool over-subscribe-ratio {}'.format(ratio or '0'),
+        'config buffer shared-headroom-pool size {}'.format(configured_size or '0'),
+        'config interface cable-length {} {}'.format(port, cable_length),
+    ]
+    fields = [
+        ('DEFAULT_LOSSLESS_BUFFER_PARAMETER|AZURE', 'over_subscribe_ratio', ratio),
+        ('BUFFER_POOL|ingress_lossless_pool', 'xoff', configured_size),
+        ('CABLE_LENGTH|AZURE', port, cable_length),
+    ]
+    for key, field, value in fields[:2]:
+        if not value:
+            commands.append('redis-cli -n 4 hdel "{}" {}'.format(key, field))
+
+    result = duthost.shell_cmds(cmds=commands, continue_on_fail=True, module_ignore_errors=True)
+    results = result['results']
+    pytest_assert(len(results) == len(commands) and all(item['rc'] == 0 for item in results),
+                  "SHP configuration restoration commands failed: {}".format(results))
+
+    def _restored():
+        for key, field, value in fields:
+            actual = duthost.shell('redis-cli -n 4 hget "{}" {}'.format(key, field))['stdout']
+            if actual != value:
+                return False
+        pool = _compose_dict_from_cli(duthost.shell(
+            'redis-cli hgetall "BUFFER_POOL_TABLE:ingress_lossless_pool"')['stdout'].split('\n'))
+        if pool.get('size') != pool_size or pool.get('xoff', '') != shp_size:
+            return False
+        if pool_oid:
+            asic_size, asic_xoff = get_pool_size_from_asic_db(duthost, pool_oid)
+            if asic_size != pool_size or (asic_xoff or '0') != (shp_size or '0'):
+                return False
+        return True
+
+    pytest_assert(wait_until(60, 2, 0, _restored),
+                  "SHP configuration or buffer pool sizes were not restored")
+    check_buffer_profiles_for_shp(duthost, shp_enabled=bool(int(ratio or '0') or int(configured_size or '0')))
+    logging.info("Restored SHP configuration: port=%s ratio=%r configured_size=%r cable_length=%s",
+                 port, ratio, configured_size, cable_length)
+
+
+@pytest.mark.parametrize("shp_enabled", [False, True], ids=["shp-disabled", "shp-enabled"])
 def test_shared_headroom_pool_configure(duthosts,
                                         rand_one_dut_hostname,
                                         conn_graph_facts, port_to_test, update_cable_len_for_all_ports,    # noqa F811
-                                        skip_traditional_model, skip_lossy_buffer_only):
+                                        skip_traditional_model, skip_lossy_buffer_only, shp_enabled):
     """Test case for shared headroom pool configuration
 
     Test case to verify the variant commands of shared headroom pool configuration and
     how they affect the other buffer configurations
 
     The flow of the test case:
+        0. Verify calculated profile values with SHP disabled and enabled (parameterized)
         1. If the over subscribe ratio isn't 2, configure it to 2
            If the size of shared headroom pool is configured: remove it
         2. Get shared headroom pool size, check it against the ASIC DB
@@ -1607,7 +1651,13 @@ def test_shared_headroom_pool_configure(duthosts,
     if not shp_size_to_test:
         pytest.skip('Shared headroom pool test skipped due to size not defined')
 
+    pool_oid = None
     try:
+        logging.info("Checking calculated headroom with SHP %s", "enabled" if shp_enabled else "disabled")
+        duthost.shell('config buffer shared-headroom-pool over-subscribe-ratio {}'.format(2 if shp_enabled else 0))
+        duthost.shell('config buffer shared-headroom-pool size 0')
+        check_buffer_profiles_for_shp(duthost, shp_enabled=shp_enabled)
+
         # First, we need to fetch the SAI OID of ingress lossless pool.
         # The only way to achieve that is to trigger a new buffer profile creation and then fetch the SAI OID from it
         initial_asic_db_profiles = fetch_initial_asic_db(duthost)
@@ -1629,9 +1679,8 @@ def test_shared_headroom_pool_configure(duthosts,
             'redis-cli hgetall "BUFFER_PROFILE_TABLE:{}"'.format(restored_profile))['stdout'] != ''),
             "Buffer profile {} not restored in time".format(restored_profile))
 
-        if original_over_subscribe_ratio != '2':
-            duthost.shell(
-                'config buffer shared-headroom-pool over-subscribe-ratio 2')
+        duthost.shell(
+            'config buffer shared-headroom-pool over-subscribe-ratio 2')
         if original_configured_shp_size and original_configured_shp_size != '0':
             duthost.shell('config buffer shared-headroom-pool size 0')
 
@@ -1736,15 +1785,9 @@ def test_shared_headroom_pool_configure(duthosts,
         duthost.shell('config buffer shared-headroom-pool size 0')
         check_buffer_profiles_for_shp(duthost, shp_enabled=False)
     finally:
-        # The CLI removes the field on 0, which is how an unset original value is restored
-        duthost.shell('config buffer shared-headroom-pool over-subscribe-ratio {}'.format(
-            original_over_subscribe_ratio or '0'), module_ignore_errors=True)
-        duthost.shell('config buffer shared-headroom-pool size {}'.format(
-            original_configured_shp_size or '0'), module_ignore_errors=True)
-        duthost.shell('config interface cable-length {} {}'.format(port_to_test,
-                      original_cable_len), module_ignore_errors=True)
-        ensure_pool_size(duthost, 60, pool_size_before_shp,
-                         shp_size_before_shp, None)
+        _restore_shared_headroom_pool_config(
+            duthost, port_to_test, original_over_subscribe_ratio, original_configured_shp_size,
+            original_cable_len, pool_size_before_shp, shp_size_before_shp, pool_oid)
 
 
 def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test, pg_to_test,      # noqa: F811
@@ -3392,7 +3435,7 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     # Get over_subscribe_ratio from config DB
     # Command: redis-cli -n 4 hget "DEFAULT_LOSSLESS_BUFFER_PARAMETER|AZURE" 'over_subscribe_ratio'
     default_lossless_param_keys = duthost.shell(
-        'redis-cli -n 4 keys DEFAULT_LOSSLESS_BUFFER_PARAMETER*')['stdout'][0]
+        'redis-cli -n 4 keys DEFAULT_LOSSLESS_BUFFER_PARAMETER*')['stdout'].splitlines()[0]
     over_subscribe_ratio_raw = duthost.shell(
         'redis-cli -n 4 hget "{}" "over_subscribe_ratio"'.format(default_lossless_param_keys))['stdout']
     if over_subscribe_ratio_raw:
@@ -3401,7 +3444,7 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
         over_subscribe_ratio = None
 
     shp_size_raw = duthost.shell(
-        'redis-cli -n 4 hget "BUFFER_POOL|ingress_lossless_pool", "xoff"')['stdout']
+        'redis-cli -n 4 hget "BUFFER_POOL|ingress_lossless_pool" "xoff"')['stdout']
     if shp_size_raw:
         shp_size = float(shp_size_raw)
     else:
