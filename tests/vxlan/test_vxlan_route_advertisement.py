@@ -172,12 +172,12 @@ def fixture_setUp(duthosts,
     # There will be same vnet in multiple encap types.
     # So remove vnets *after* removing the routes first.
     for vnet in list(data[encap_type]['vnet_vni_map'].keys()):
-        data['duthost'].shell("redis-cli -n 4 del \"VNET|{}\"".format(vnet))
+        data['duthost'].shell("sonic-db-cli -s --authenticate CONFIG_DB del \"VNET|{}\"".format(vnet))
 
     time.sleep(5)
     for tunnel in list(tunnel_names.values()):
         data['duthost'].shell(
-            "redis-cli -n 4 del \"VXLAN_TUNNEL|{}\"".format(tunnel))
+            "sonic-db-cli -s --authenticate CONFIG_DB del \"VXLAN_TUNNEL|{}\"".format(tunnel))
     time.sleep(1)
 
 
@@ -188,12 +188,12 @@ class Test_VxLAN_route_Advertisement():
     '''
     def create_bgp_profile(self, name, community):
         # sonic-db-cli APPL_DB HSET "BGP_PROFILE_TABLE:FROM_SDN_SLB_ROUTES" "community_id" "1234:1235"
-        self.duthost.shell("sonic-db-cli APPL_DB HSET 'BGP_PROFILE_TABLE:{}' 'community_id' '{}'"
+        self.duthost.shell("sonic-db-cli -s --authenticate APPL_DB HSET 'BGP_PROFILE_TABLE:{}' 'community_id' '{}'"
                            .format(name, community))
 
     def remove_bgp_profile(self, name):
         # sonic-db-cli APPL_DB DEL "BGP_PROFILE_TABLE:FROM_SDN_SLB_ROUTES"
-        self.duthost.shell("sonic-db-cli APPL_DB DEL 'BGP_PROFILE_TABLE:{}' "
+        self.duthost.shell("sonic-db-cli -s --authenticate APPL_DB DEL 'BGP_PROFILE_TABLE:{}' "
                            .format(name))
 
     def gnenrate_vnet_routes(self, encap_type, num_routes):

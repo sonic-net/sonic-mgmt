@@ -146,14 +146,14 @@ def restart_eventd(duthost):
 
 def reset_event_counters(duthost):
     for key in EVENT_COUNTER_KEYS:
-        cmd = "sonic-db-cli COUNTERS_DB HSET COUNTERS_EVENTS:{} value 0".format(key)
+        cmd = "sonic-db-cli -s --authenticate COUNTERS_DB HSET COUNTERS_EVENTS:{} value 0".format(key)
         duthost.shell(cmd, module_ignore_errors=True)
 
 
 def read_event_counters(duthost):
     stats = []
     for key in EVENT_COUNTER_KEYS:
-        cmd = "sonic-db-cli COUNTERS_DB HGET COUNTERS_EVENTS:{} value".format(key)
+        cmd = "sonic-db-cli -s COUNTERS_DB HGET COUNTERS_EVENTS:{} value".format(key)
         output = duthost.shell(cmd)["stdout"]
         stats.append(int(output))
     return stats

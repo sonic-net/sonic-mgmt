@@ -145,7 +145,7 @@ def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname,
             else:
                 # Get the fabric switch ID from config DB
                 referenceRemoteModule = supervisor.shell(
-                    'sonic-db-cli -n asic{} CONFIG_DB HGET "DEVICE_METADATA|localhost" "switch_id"'
+                    'sonic-db-cli -s -n asic{} CONFIG_DB HGET "DEVICE_METADATA|localhost" "switch_id"'
                     .format(remoteMod))["stdout"]
                 moduleIdCache[remoteMod] = referenceRemoteModule
 

@@ -73,8 +73,8 @@ def test_fabric_cli_isolate_linecards(duthosts, enum_frontend_dut_hostname):
             logger.info("localPort {}".format(localPort))
             # continue
             # Get the current isolation status of the port
-            cmd = "sonic-db-cli {} CONFIG_DB hget 'FABRIC_PORT|Fabric{}' isolateStatus".format(asicNamespaceOption,
-                                                                                               localPort)
+            cmd = "sonic-db-cli -s {} CONFIG_DB hget 'FABRIC_PORT|Fabric{}' isolateStatus".format(asicNamespaceOption,
+                                                                                                  localPort)
             cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
             tokens = cmd_output[0].split()
             originalIsolateStatus = tokens[0]
@@ -91,8 +91,9 @@ def test_fabric_cli_isolate_linecards(duthosts, enum_frontend_dut_hostname):
                         len(stderr_output) <= 0, "command: {} failed, error: {}".format(cmd, stderr_output))
 
                 # Check the isolateStatus in CONFIG_DB
-                cmd = "sonic-db-cli {} CONFIG_DB hget 'FABRIC_PORT|Fabric{}' isolateStatus".format(asicNamespaceOption,
-                                                                                                   localPort)
+                cmd = ("sonic-db-cli -s {} CONFIG_DB hget 'FABRIC_PORT|Fabric{}' "
+                       "isolateStatus").format(asicNamespaceOption,
+                                               localPort)
                 cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
                 tokens = cmd_output[0].split()
                 pytest_assert(
@@ -104,7 +105,7 @@ def test_fabric_cli_isolate_linecards(duthosts, enum_frontend_dut_hostname):
                     "Port {} CONFIG_DB initial isolateStatus is True, expected False".format(localPort))
 
                 # Check the isolateStatus in APPL_DB
-                cmd = "sonic-db-cli {} APPL_DB hget 'FABRIC_PORT_TABLE:Fabric{}' isolateStatus".format(
+                cmd = "sonic-db-cli -s {} APPL_DB hget 'FABRIC_PORT_TABLE:Fabric{}' isolateStatus".format(
                     asicNamespaceOption,
                     localPort)
                 cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
@@ -124,8 +125,9 @@ def test_fabric_cli_isolate_linecards(duthosts, enum_frontend_dut_hostname):
                     len(stderr_output) <= 0, "command: {} failed, error: {}".format(cmd, stderr_output))
 
                 # Check the isolateStatus in CONFIG_DB
-                cmd = "sonic-db-cli {} CONFIG_DB hget 'FABRIC_PORT|Fabric{}' isolateStatus".format(asicNamespaceOption,
-                                                                                                   localPort)
+                cmd = ("sonic-db-cli -s {} CONFIG_DB hget 'FABRIC_PORT|Fabric{}' "
+                       "isolateStatus").format(asicNamespaceOption,
+                                               localPort)
                 cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
                 tokens = cmd_output[0].split()
                 pytest_assert(
@@ -137,7 +139,7 @@ def test_fabric_cli_isolate_linecards(duthosts, enum_frontend_dut_hostname):
                     "Port {} CONFIG_DB initial isolateStatus is True, expected False".format(localPort))
 
                 # Check the isolateStatus in APPL_DB
-                cmd = "sonic-db-cli {} APPL_DB hget 'FABRIC_PORT_TABLE:Fabric{}' isolateStatus".format(
+                cmd = "sonic-db-cli -s {} APPL_DB hget 'FABRIC_PORT_TABLE:Fabric{}' isolateStatus".format(
                     asicNamespaceOption,
                     localPort)
                 cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
@@ -211,8 +213,8 @@ def test_fabric_cli_isolate_supervisor(duthosts, enum_supervisor_dut_hostname):
                 # continue
 
                 # Get the current isolation status of the port
-                cmd = "sonic-db-cli -n {} CONFIG_DB hget 'FABRIC_PORT|Fabric{}' isolateStatus".format(asicName,
-                                                                                                      localPort)
+                cmd = "sonic-db-cli -s -n {} CONFIG_DB hget 'FABRIC_PORT|Fabric{}' isolateStatus".format(asicName,
+                                                                                                         localPort)
                 cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
                 tokens = cmd_output[0].split()
                 originalIsolateStatus = tokens[0]
@@ -231,8 +233,8 @@ def test_fabric_cli_isolate_supervisor(duthosts, enum_supervisor_dut_hostname):
                             "command: {} failed, error: {}".format(cmd, stderr_output))
 
                     # Check the isolateStatus in CONFIG_DB
-                    cmd = "sonic-db-cli -n {} CONFIG_DB hget 'FABRIC_PORT|Fabric{}' isolateStatus".format(asicName,
-                                                                                                          localPort)
+                    cmd = "sonic-db-cli -s -n {} CONFIG_DB hget 'FABRIC_PORT|Fabric{}' isolateStatus".format(asicName,
+                                                                                                             localPort)
                     cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
                     tokens = cmd_output[0].split()
                     pytest_assert(
@@ -245,8 +247,9 @@ def test_fabric_cli_isolate_supervisor(duthosts, enum_supervisor_dut_hostname):
                                                                                                  isolateStatus))
 
                     # Check the isolateStatus in APPL_DB
-                    cmd = "sonic-db-cli -n {} APPL_DB hget 'FABRIC_PORT_TABLE:Fabric{}' isolateStatus".format(asicName,
-                                                                                                              localPort)
+                    cmd = ("sonic-db-cli -s -n {} APPL_DB hget 'FABRIC_PORT_TABLE:Fabric{}' "
+                           "isolateStatus").format(asicName,
+                                                   localPort)
                     cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
                     tokens = cmd_output[0].split()
                     pytest_assert(
@@ -268,8 +271,8 @@ def test_fabric_cli_isolate_supervisor(duthosts, enum_supervisor_dut_hostname):
                         "command: {} failed, error: {}".format(cmd, stderr_output))
 
                     # Check the isolateStatus in CONFIG_DB
-                    cmd = "sonic-db-cli -n {} CONFIG_DB hget 'FABRIC_PORT|Fabric{}' isolateStatus".format(asicName,
-                                                                                                          localPort)
+                    cmd = "sonic-db-cli -s -n {} CONFIG_DB hget 'FABRIC_PORT|Fabric{}' isolateStatus".format(asicName,
+                                                                                                             localPort)
                     cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
                     tokens = cmd_output[0].split()
                     pytest_assert(len(tokens) > 0,
@@ -282,8 +285,9 @@ def test_fabric_cli_isolate_supervisor(duthosts, enum_supervisor_dut_hostname):
                                                                                                 isolateStatus))
 
                     # Check the isolateStatus in APPL_DB
-                    cmd = "sonic-db-cli -n {} APPL_DB hget 'FABRIC_PORT_TABLE:Fabric{}' isolateStatus".format(asicName,
-                                                                                                              localPort)
+                    cmd = ("sonic-db-cli -s -n {} APPL_DB hget 'FABRIC_PORT_TABLE:Fabric{}' "
+                           "isolateStatus").format(asicName,
+                                                   localPort)
                     cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
                     tokens = cmd_output[0].split()
                     pytest_assert(

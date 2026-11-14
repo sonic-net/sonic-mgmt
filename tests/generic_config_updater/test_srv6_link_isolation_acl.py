@@ -150,13 +150,13 @@ def _acl_table_exists(duthost):
 
 def _acl_table_type_exists(duthost):
     keys = duthost.shell(
-        "sonic-db-cli CONFIG_DB keys 'ACL_TABLE_TYPE|{}'".format(ACL_TABLE_TYPE))["stdout"]
+        "sonic-db-cli -s CONFIG_DB keys 'ACL_TABLE_TYPE|{}'".format(ACL_TABLE_TYPE))["stdout"]
     return bool(keys.strip())
 
 
 def _configdb_keys(duthost, pattern):
     """Return the list of CONFIG_DB keys matching the given pattern."""
-    out = duthost.shell("sonic-db-cli CONFIG_DB keys '{}'".format(pattern))["stdout"]
+    out = duthost.shell("sonic-db-cli -s CONFIG_DB keys '{}'".format(pattern))["stdout"]
     return [line for line in out.splitlines() if line.strip()]
 
 

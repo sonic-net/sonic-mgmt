@@ -89,7 +89,7 @@ def wait_mka_establish(duthost, ctrl_links, port_profiles, policy,
         # per-interface profile in CONFIG_DB.
         from tests.common.macsec.macsec_helper import getns_prefix
         for dut_port, profile in port_profiles.items():
-            cmd = "sonic-db-cli {} CONFIG_DB HGET 'PORT|{}' 'macsec'".format(
+            cmd = "sonic-db-cli -s {} CONFIG_DB HGET 'PORT|{}' 'macsec'".format(
                 getns_prefix(duthost, dut_port), dut_port)
             bound_profile = duthost.command(cmd)['stdout'].strip()
             assert bound_profile == profile['name'], \

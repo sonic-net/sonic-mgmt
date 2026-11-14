@@ -59,7 +59,7 @@ def verify_portchannel_member(duthost, portchannel, port, member_exists):
         port: Name of the member port
         member_exists: Boolean indicating if member should exist
     """
-    cmds = f'sonic-db-cli -n asic0 CONFIG_DB keys "PORTCHANNEL_MEMBER|{portchannel}|{port}"'
+    cmds = f'sonic-db-cli -s -n asic0 CONFIG_DB keys "PORTCHANNEL_MEMBER|{portchannel}|{port}"'
     redis_value = duthost.shell(cmds, module_ignore_errors=False)['stdout'].strip()
     expected_value = f"PORTCHANNEL_MEMBER|{portchannel}|{port}" if member_exists else ""
     pytest_assert(redis_value == expected_value,

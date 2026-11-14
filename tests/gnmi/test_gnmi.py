@@ -295,7 +295,7 @@ def test_on_change_updates(rand_selected_dut, pygnmi_client: PygnmiClient):
                 others.append(notification)
     finally:
         # Without a consumer, a gNMI delete would leave the ProducerStateTable's key sets behind.
-        duthost.shell(f"sonic-db-cli APPL_DB DEL _{table}:{key} {table}_KEY_SET {table}_DEL_SET")
+        duthost.shell(f"sonic-db-cli -s --authenticate APPL_DB DEL _{table}:{key} {table}_KEY_SET {table}_DEL_SET")
 
     logger.info("ON_CHANGE notifications received before the expected one: %s", others)
     assert msg is not None, (

@@ -48,14 +48,14 @@ AggregateCfg = namedtuple("AggregateCfg", ["prefix", "bbr_required", "summary_on
 def dump_db(duthost, dbname, tablename):
     """Return current DB content as dict."""
     keys_out = duthost.shell(
-        f"sonic-db-cli {dbname} keys '{tablename}*'", module_ignore_errors=True
+        f"sonic-db-cli -s {dbname} keys '{tablename}*'", module_ignore_errors=True
     )["stdout"]
     logger.info(f"dump {dbname} db, table {tablename}, keys output: {keys_out}")
     keys = keys_out.strip().splitlines() if keys_out.strip() else []
     res = {}
     for k in keys:
         fields = duthost.shell(
-            f"sonic-db-cli {dbname} hgetall '{k}'", module_ignore_errors=True
+            f"sonic-db-cli -s {dbname} hgetall '{k}'", module_ignore_errors=True
         )["stdout"]
         logger.info(f"all fields:{fields} for key: {k}")
         prefix = k.removeprefix(f"{tablename}|")
@@ -159,7 +159,7 @@ def db_add_multiple_aggregates(duthost, cfgs):
         so = "true" if cfg.summary_only else "false"
         as_set = "true" if cfg.as_set else "false"
         cmds.append(
-            f"sonic-db-cli CONFIG_DB HSET '{key}' "
+            f"sonic-db-cli -s --authenticate CONFIG_DB HSET '{key}' "
             f"'bbr-required' '{bbr}' 'summary-only' '{so}' 'as-set' '{as_set}'"
         )
     # Execute in batches via a single SSH call per batch to minimize round-trips

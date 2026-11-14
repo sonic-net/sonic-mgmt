@@ -364,7 +364,7 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost, skip_
 def asic_db_checker(duthost):
     def _check_asic_db(tables):
         for table in tables:
-            output = duthost.shell("sonic-db-cli ASIC_DB keys 'ASIC_STATE:{}:*'".format(table))
+            output = duthost.shell("sonic-db-cli -s ASIC_DB keys 'ASIC_STATE:{}:*'".format(table))
             assert output["stdout"].strip() != "", "No entries found in ASIC_DB table {}".format(table)
     yield _check_asic_db
 

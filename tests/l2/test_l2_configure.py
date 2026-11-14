@@ -90,7 +90,7 @@ def is_table_empty(duthost, table):
     # grep returns 1 when there is no match, use || true to override that.
     count = int(
         duthost.shell(
-            'sonic-db-cli CONFIG_DB KEYS "{}|*" | grep -c {} || true'.format(
+            'sonic-db-cli -s CONFIG_DB KEYS "{}|*" | grep -c {} || true'.format(
                 table, table
             )
         )["stdout"]
@@ -106,7 +106,7 @@ def get_db_version(duthost):
         duthost: DUT host object.
     """
     try:
-        return duthost.shell('sonic-db-cli CONFIG_DB HGET "VERSIONS|DATABASE" VERSION')[
+        return duthost.shell('sonic-db-cli -s CONFIG_DB HGET "VERSIONS|DATABASE" VERSION')[
             "stdout"
         ]
     except Exception as e:

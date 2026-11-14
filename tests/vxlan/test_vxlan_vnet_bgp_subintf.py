@@ -68,7 +68,7 @@ def validate_encap_wl_to_t1(duthost, ptfadapter, wl_portchannel_info, subintfs_i
         inner_pkt = testutils.simple_tcp_packet(**pkt_opts)
 
         # Build expected packet
-        vxlan_router_mac = duthost.shell("sonic-db-cli APPL_DB HGET 'SWITCH_TABLE:switch' 'vxlan_router_mac'")
+        vxlan_router_mac = duthost.shell("sonic-db-cli -s APPL_DB HGET 'SWITCH_TABLE:switch' 'vxlan_router_mac'")
         pkt_opts["eth_src"] = INNER_SRC_MAC  # expected rewritten inner src mac
         pkt_opts["eth_dst"] = vxlan_router_mac['stdout'].strip()
         pkt_opts["ip_ttl"] = 63
@@ -401,14 +401,14 @@ def setup_acl_config(duthost, ptfhost, ports, vnet_vnis):
     # Check acl table and rules are set
     def _acl_table_and_rule_active(duthost):
         acl_table = duthost.shell(
-            f"sonic-db-cli STATE_DB HGET 'ACL_TABLE_TABLE|{ACL_TABLE_NAME}' 'status'",
+            f"sonic-db-cli -s STATE_DB HGET 'ACL_TABLE_TABLE|{ACL_TABLE_NAME}' 'status'",
             module_ignore_errors=True)
         if acl_table.get('stdout', '').strip().lower() != "active":
             return False
 
         for vni in vnet_vnis:
             acl_rule = duthost.shell(
-                f"sonic-db-cli STATE_DB HGET 'ACL_RULE_TABLE|{ACL_TABLE_NAME}|rule_{vni}' 'status'",
+                f"sonic-db-cli -s STATE_DB HGET 'ACL_RULE_TABLE|{ACL_TABLE_NAME}|rule_{vni}' 'status'",
                 module_ignore_errors=True)
             if acl_rule.get('stdout', '').strip().lower() != "active":
                 return False
@@ -428,7 +428,7 @@ def setup_vnet_routes(duthost, ptfhost, vnet_vnis):
     # Check vnet routes are set
     time.sleep(5)
     for vni in vnet_vnis:
-        route_tunnel = duthost.shell(f"sonic-db-cli STATE_DB HGET \
+        route_tunnel = duthost.shell(f"sonic-db-cli -s STATE_DB HGET \
                                      'VNET_ROUTE_TUNNEL_TABLE|Vnet{vni}|0.0.0.0/0' 'state'")
         pytest_assert(route_tunnel['stdout'].strip().lower() == "active",
                       f"VNET route tunnel for Vnet{vni} not active.")

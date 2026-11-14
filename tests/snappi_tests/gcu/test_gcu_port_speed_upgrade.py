@@ -154,7 +154,7 @@ def _get_port_lanes(duthost, cli_namespace_prefix, port):
     """
     Read port lanes from CONFIG_DB.
     """
-    cmd = "sonic-db-cli {} CONFIG_DB hget 'PORT|{}' lanes".format(
+    cmd = "sonic-db-cli -s {} CONFIG_DB hget 'PORT|{}' lanes".format(
         cli_namespace_prefix, port
     )
     output = duthost.shell(cmd, module_ignore_errors=True)
@@ -191,7 +191,7 @@ def _get_supported_port_fecs(duthost, cli_namespace_prefix, port):
     Read supported FEC values for a port from STATE_DB.
     """
     cmd = (
-        'sonic-db-cli {} STATE_DB HGET "PORT_TABLE|{}" '
+        'sonic-db-cli -s {} STATE_DB HGET "PORT_TABLE|{}" '
         '"supported_fecs"'
     ).format(cli_namespace_prefix, port)
     output = duthost.shell(cmd, module_ignore_errors=True)["stdout"]

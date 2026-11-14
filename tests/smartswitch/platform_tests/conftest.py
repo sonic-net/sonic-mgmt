@@ -60,7 +60,7 @@ def _get_dpu_admin_status(duthost, dpu_name):
     """Return the CONFIG_DB CHASSIS_MODULE admin_status for a DPU (lower-cased),
     or "" if the entry/field is absent (an unconfigured DPU)."""
     return duthost.shell(
-        f"sonic-db-cli CONFIG_DB hget 'CHASSIS_MODULE|{dpu_name}' admin_status",
+        f"sonic-db-cli -s CONFIG_DB hget 'CHASSIS_MODULE|{dpu_name}' admin_status",
         module_ignore_errors=True).get("stdout", "").strip().lower()
 
 

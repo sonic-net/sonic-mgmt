@@ -60,7 +60,7 @@ def ping_dut_refresh_fdb(ptfhost, interface):
 
 
 def clean_dhcp_server_config(duthost):
-    keys = duthost.shell("sonic-db-cli CONFIG_DB KEYS DHCP_SERVER_IPV4*")
+    keys = duthost.shell("sonic-db-cli -s CONFIG_DB KEYS DHCP_SERVER_IPV4*")
     clean_order = [
         "DHCP_SERVER_IPV4_CUSTOMIZED_OPTIONS",
         "DHCP_SERVER_IPV4_RANGE",
@@ -70,7 +70,7 @@ def clean_dhcp_server_config(duthost):
     for key in clean_order:
         for line in keys['stdout_lines']:
             if line.startswith(key + '|'):
-                duthost.shell("sonic-db-cli CONFIG_DB DEL '{}'".format(line))
+                duthost.shell("sonic-db-cli -s --authenticate CONFIG_DB DEL '{}'".format(line))
 
 
 def verify_lease(duthost, dhcp_interface, client_mac, exp_ip, exp_lease_time):
@@ -80,7 +80,7 @@ def verify_lease(duthost, dhcp_interface, client_mac, exp_ip, exp_lease_time):
             1,
             3,
             lambda _dh, _di, _cm: len(_dh.shell(
-                    "sonic-db-cli STATE_DB KEYS 'DHCP_SERVER_IPV4_LEASE|{}|{}'".format(_di, _cm)
+                    "sonic-db-cli -s STATE_DB KEYS 'DHCP_SERVER_IPV4_LEASE|{}|{}'".format(_di, _cm)
                 )['stdout']) > 0,
             duthost,
             dhcp_interface,
@@ -88,11 +88,11 @@ def verify_lease(duthost, dhcp_interface, client_mac, exp_ip, exp_lease_time):
         ),
         'state db doesnt have lease info for client {}'.format(client_mac)
     )
-    lease_start = duthost.shell("sonic-db-cli STATE_DB HGET 'DHCP_SERVER_IPV4_LEASE|{}|{}' '{}'"
+    lease_start = duthost.shell("sonic-db-cli -s STATE_DB HGET 'DHCP_SERVER_IPV4_LEASE|{}|{}' '{}'"
                                 .format(dhcp_interface, client_mac, STATE_DB_KEY_LEASE_START))['stdout']
-    lease_end = duthost.shell("sonic-db-cli STATE_DB HGET 'DHCP_SERVER_IPV4_LEASE|{}|{}' '{}'"
+    lease_end = duthost.shell("sonic-db-cli -s STATE_DB HGET 'DHCP_SERVER_IPV4_LEASE|{}|{}' '{}'"
                               .format(dhcp_interface, client_mac, STATE_DB_KEY_LEASE_END))['stdout']
-    lease_ip = duthost.shell("sonic-db-cli STATE_DB HGET 'DHCP_SERVER_IPV4_LEASE|{}|{}' '{}'"
+    lease_ip = duthost.shell("sonic-db-cli -s STATE_DB HGET 'DHCP_SERVER_IPV4_LEASE|{}|{}' '{}'"
                              .format(dhcp_interface, client_mac, STATE_DB_KEY_IP))['stdout']
     pytest_assert(lease_ip == exp_ip, "Expected ip=%s while got %s" % (exp_ip, lease_ip))
     lease_start_time = datetime.fromtimestamp(int(lease_start))

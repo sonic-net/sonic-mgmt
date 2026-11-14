@@ -238,7 +238,7 @@ def remove_bgp_neighbors(duthost, asic_index):
     # Convert the json formatted result of sonic-cfggen into bgp_neighbors dict
     bgp_neighbors = json.loads(duthost.command("sudo sonic-cfggen {} -d --var-json {}"
                                .format(namespace_prefix, "BGP_NEIGHBOR"))["stdout"])
-    cmd = 'sudo {db_cli} CONFIG_DB keys "BGP_NEI*" | xargs {db_cli} CONFIG_DB del'.format(db_cli=db_cli)
+    cmd = 'sudo {db_cli} CONFIG_DB keys "BGP_NEI*" | xargs {db_cli} --authenticate CONFIG_DB del'.format(db_cli=db_cli)
     duthost.shell(cmd)
 
     # Restart BGP instance on that asic
@@ -436,7 +436,7 @@ def remove_allow_list(duthost, namespace, allow_list_file_path):
         '{} CONFIG_DB keys "BGP_ALLOWED_PREFIXES*"'.format(db_cli)
     )['stdout_lines']
     for key in allow_list_keys:
-        duthost.shell('{} CONFIG_DB del "{}"'.format(db_cli, key))
+        duthost.shell('{} --authenticate CONFIG_DB del "{}"'.format(db_cli, key))
 
     duthost.shell('rm -rf {}'.format(allow_list_file_path))
 

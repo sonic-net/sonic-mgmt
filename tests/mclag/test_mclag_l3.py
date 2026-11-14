@@ -72,7 +72,7 @@ def setup_mclag(duthost1, duthost2, ptfhost, mg_facts, collect, get_routes, keep
     config_peer_link_and_keep_alive(duthost1, keep_and_peer_link_member, MCLAG_LOCAL_IP, MCLAG_PEER_LINK_IP_ACTIVE)
     config_peer_link_and_keep_alive(duthost2, keep_and_peer_link_member, MCLAG_PEER_IP, MCLAG_PEER_LINK_IP_STANDBY)
 
-    cmd = "sonic-db-cli CONFIG_DB hmset 'STATIC_ROUTE|{}' nexthop {}"
+    cmd = "sonic-db-cli -s --authenticate CONFIG_DB hmset 'STATIC_ROUTE|{}' nexthop {}"
     duthost2.shell(cmd.format(str(get_routes[duthost1.hostname][2]), MCLAG_PEER_LINK_IP_ACTIVE.ip))
     duthost1.shell(cmd.format(str(get_routes[duthost2.hostname][2]), MCLAG_PEER_LINK_IP_STANDBY.ip))
 

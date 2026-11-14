@@ -371,7 +371,7 @@ def check_ports_require_dpb(duthost, interfaces, namespace):
             continue
 
         # Get port configuration from CONFIG_DB
-        redis_cmd = f'sonic-db-cli {ns_arg} CONFIG_DB hgetall "PORT|{interface}"'
+        redis_cmd = f'sonic-db-cli -s {ns_arg} CONFIG_DB hgetall "PORT|{interface}"'
         result = duthost.shell(redis_cmd, module_ignore_errors=True)
 
         if result['rc'] != 0 or not result['stdout'].strip():
@@ -1371,7 +1371,7 @@ def test_addcluster_workflow(duthosts, enum_downstream_dut_hostname, loganalyzer
     if affected_ports:
         logger.info(f"Verifying admin_status=down for affected ports: {sorted(affected_ports)}")
         for port in affected_ports:
-            redis_cmd = f'sonic-db-cli {ns_arg} CONFIG_DB hget "PORT|{port}" admin_status'
+            redis_cmd = f'sonic-db-cli -s {ns_arg} CONFIG_DB hget "PORT|{port}" admin_status'
             result = duthost.shell(redis_cmd, module_ignore_errors=True)
             admin_status = result['stdout'].strip() if result['rc'] == 0 else "unknown"
             if admin_status != "down":
@@ -1608,7 +1608,7 @@ def test_addcluster_workflow(duthosts, enum_downstream_dut_hostname, loganalyzer
     for port in front_panel_ports:
         logger.info(f"Verifying configuration restoration for port {port}")
         # Check port exists in CONFIG_DB
-        redis_cmd = f'sonic-db-cli {ns_arg} CONFIG_DB hgetall "PORT|{port}"'
+        redis_cmd = f'sonic-db-cli -s {ns_arg} CONFIG_DB hgetall "PORT|{port}"'
         redis_output = duthost.shell(redis_cmd, module_ignore_errors=False)['stdout']
         pytest_assert(redis_output.strip(), f"Port {port} not found in CONFIG_DB after patch")
 
@@ -1642,7 +1642,7 @@ def test_addcluster_workflow(duthosts, enum_downstream_dut_hostname, loganalyzer
             logger.info(f"Verifying configuration restoration for PortChannel {portchannel}")
 
             # Verify PortChannel exists in CONFIG_DB
-            redis_cmd = f'sonic-db-cli {ns_arg} CONFIG_DB hgetall "PORTCHANNEL|{portchannel}"'
+            redis_cmd = f'sonic-db-cli -s {ns_arg} CONFIG_DB hgetall "PORTCHANNEL|{portchannel}"'
             redis_output = duthost.shell(redis_cmd, module_ignore_errors=False)['stdout']
             pytest_assert(redis_output.strip(),
                           f"PortChannel {portchannel} not found in CONFIG_DB after patch")
@@ -1660,7 +1660,7 @@ def test_addcluster_workflow(duthosts, enum_downstream_dut_hostname, loganalyzer
             logger.info(f"Verifying configuration restoration for BGP neighbor {neighbor}")
 
             # Verify BGP neighbor exists in CONFIG_DB
-            redis_cmd = f'sonic-db-cli {ns_arg} CONFIG_DB hgetall "BGP_NEIGHBOR|{neighbor}"'
+            redis_cmd = f'sonic-db-cli -s {ns_arg} CONFIG_DB hgetall "BGP_NEIGHBOR|{neighbor}"'
             redis_output = duthost.shell(redis_cmd, module_ignore_errors=False)['stdout']
             pytest_assert(redis_output.strip(),
                           f"BGP neighbor {neighbor} not found in CONFIG_DB after patch")
@@ -1676,14 +1676,14 @@ def test_addcluster_workflow(duthosts, enum_downstream_dut_hostname, loganalyzer
     for table, entries in config_entries_to_check.items():
         for entry in entries:
             if table == 'CABLE_LENGTH':
-                redis_cmd = f'sonic-db-cli {ns_arg} CONFIG_DB hgetall "CABLE_LENGTH|AZURE"'
+                redis_cmd = f'sonic-db-cli -s {ns_arg} CONFIG_DB hgetall "CABLE_LENGTH|AZURE"'
                 redis_output = duthost.shell(redis_cmd, module_ignore_errors=False)['stdout']
                 cable_lengths = json.loads(redis_output.replace("'", '"'))
 
                 if entry not in cable_lengths:
                     pytest.fail(f"Key {entry} missing in CONFIG_DB. Got: {cable_lengths}")
             else:
-                redis_key = f'sonic-db-cli {ns_arg} CONFIG_DB keys "{entry}"'
+                redis_key = f'sonic-db-cli -s {ns_arg} CONFIG_DB keys "{entry}"'
                 redis_value = duthost.shell(redis_key, module_ignore_errors=False)['stdout'].strip()
                 pytest_assert(redis_value == entry,
                               f"Key {entry} missing or incorrect in CONFIG_DB. Got: {redis_value}")

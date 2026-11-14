@@ -785,7 +785,7 @@ def create_custom_acl_table_type(duthost):
 
 
 def remove_custom_acl_table_type(duthost):
-    duthost.shell("sonic-db-cli CONFIG_DB del \'ACL_TABLE_TYPE|MULTI_BINDING_ACL\'")
+    duthost.shell("sonic-db-cli -s --authenticate CONFIG_DB del \'ACL_TABLE_TYPE|MULTI_BINDING_ACL\'")
 
 
 @pytest.fixture(scope="class", autouse=True)

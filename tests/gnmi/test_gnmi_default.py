@@ -16,5 +16,5 @@ def test_gnmi_enabled_by_default(duthosts, enum_rand_one_per_hwsku_hostname):
     not pass against FEATURE|telemetry or skip, when gnmi is disabled.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    state = duthost.shell('sonic-db-cli CONFIG_DB HGET "FEATURE|gnmi" state')["stdout"].strip()
+    state = duthost.shell('sonic-db-cli -s CONFIG_DB HGET "FEATURE|gnmi" state')["stdout"].strip()
     assert state in ("enabled", "always_enabled"), "gnmi feature is not enabled by default, state={}".format(state)

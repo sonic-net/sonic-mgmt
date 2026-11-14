@@ -66,7 +66,7 @@ def proxy_arp_enabled(rand_selected_dut):
     pytest_require(duthost.has_config_subcommand('config vlan proxy_arp'),
                    "Proxy ARP command does not exist on device")
 
-    proxy_arp_check_cmd = 'sonic-db-cli CONFIG_DB HGET "VLAN_INTERFACE|Vlan{}" proxy_arp'
+    proxy_arp_check_cmd = 'sonic-db-cli -s CONFIG_DB HGET "VLAN_INTERFACE|Vlan{}" proxy_arp'
     proxy_arp_config_cmd = 'config vlan proxy_arp {} {}'
     vlans = config_facts['VLAN']
     vlan_ids = [vlans[vlan]['vlanid'] for vlan in list(vlans.keys())]
@@ -82,7 +82,7 @@ def proxy_arp_enabled(rand_selected_dut):
 
     yield
 
-    proxy_arp_del_cmd = 'sonic-db-cli CONFIG_DB HDEL "VLAN_INTERFACE|Vlan{}" proxy_arp'
+    proxy_arp_del_cmd = 'sonic-db-cli -s --authenticate CONFIG_DB HDEL "VLAN_INTERFACE|Vlan{}" proxy_arp'
     for vid, proxy_arp_val in list(old_proxy_arp_vals.items()):
         if 'enabled' not in proxy_arp_val:
             # Disable proxy_arp explicitly
@@ -153,17 +153,23 @@ def setup_downstream_uN(rand_selected_dut, ptfhost, tbinfo):
     # add the VLAN IP address to PTF host
     ptfhost.command(f"ip addr add {server_neighbor_ip}/{vlan_ipv6_subnet.prefixlen} dev eth{ptf_dst_port}")
 
-    sonic_db_cli = "sonic-db-cli"
+    sonic_db_cli = "sonic-db-cli -s"
     # add a locator configuration entry
-    duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_LOCATORS\\|loc1 prefix fcbb:bbbb:1:: func_len 0")
+    duthost.command(
+        sonic_db_cli +
+        " --authenticate CONFIG_DB HSET SRV6_MY_LOCATORS\\|loc1 prefix fcbb:bbbb:1:: func_len 0")
     # add a uN sid configuration entry
     duthost.command(sonic_db_cli +
-                    " CONFIG_DB HSET SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48 action uN decap_dscp_mode pipe")
+                    " --authenticate CONFIG_DB HSET "
+                    "SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48 action uN decap_dscp_mode pipe")
 
     # add the static route for IPv6 forwarding towards PTF's destination port
-    duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48 nexthop {} ifname {}"
+    duthost.command(sonic_db_cli + " --authenticate CONFIG_DB HSET "
+                                   "STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48 nexthop {} ifname {}"
                     .format(server_neighbor_ip, vlan))
-    duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb::/32 blackhole true")
+    duthost.command(
+        sonic_db_cli +
+        " --authenticate CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb::/32 blackhole true")
     duthost.command("config save -y")
     time.sleep(5)
 
@@ -186,10 +192,10 @@ def setup_downstream_uN(rand_selected_dut, ptfhost, tbinfo):
     duthost.command(f"ip neigh del {server_neighbor_ip} dev {vlan}")
 
     # delete the SRv6 configuration
-    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_LOCATORS\\|loc1")
-    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48")
-    duthost.command(sonic_db_cli + " CONFIG_DB DEL STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48")
-    duthost.command(sonic_db_cli + " CONFIG_DB DEL STATIC_ROUTE\\|default\\|fcbb:bbbb::/32")
+    duthost.command(sonic_db_cli + " --authenticate CONFIG_DB DEL SRV6_MY_LOCATORS\\|loc1")
+    duthost.command(sonic_db_cli + " --authenticate CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48")
+    duthost.command(sonic_db_cli + " --authenticate CONFIG_DB DEL STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48")
+    duthost.command(sonic_db_cli + " --authenticate CONFIG_DB DEL STATIC_ROUTE\\|default\\|fcbb:bbbb::/32")
     duthost.command("config save -y")
 
 

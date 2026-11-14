@@ -71,7 +71,7 @@ def set_sai_nhg_loglevel(duthost, asichost, level):
     """
     prev = duthost.command('{} CONFIG_DB HGET "{}" LOGLEVEL'.format(
         asichost.sonic_db_cli, NHG_LOGGER), module_ignore_errors=True).get("stdout", "").strip()
-    duthost.command('{} CONFIG_DB HSET "{}" LOGLEVEL {}'.format(
+    duthost.command('{} --authenticate CONFIG_DB HSET "{}" LOGLEVEL {}'.format(
         asichost.sonic_db_cli, NHG_LOGGER, level))
     return prev or "SAI_LOG_LEVEL_NOTICE"
 

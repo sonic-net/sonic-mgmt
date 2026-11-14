@@ -77,13 +77,13 @@ def bgp_monitor_config_cleanup(duthost, cli_namespace_prefix, namespace=None):
     Clean up current monitor config if existed
     """
     cmds = []
-    cmds.append('sonic-db-cli {} CONFIG_DB del "ACL_TABLE|{}"'
+    cmds.append('sonic-db-cli -s --authenticate {} CONFIG_DB del "ACL_TABLE|{}"'
                 .format(cli_namespace_prefix, MONITOR_CONFIG_ACL_TABLE))
-    cmds.append('sonic-db-cli {} CONFIG_DB del "ACL_RULE|{}|{}"'
+    cmds.append('sonic-db-cli -s --authenticate {} CONFIG_DB del "ACL_RULE|{}|{}"'
                 .format(cli_namespace_prefix, MONITOR_CONFIG_ACL_TABLE, MONITOR_CONFIG_ACL_RULE))
-    cmds.append('sonic-db-cli {} CONFIG_DB del "MIRROR_SESSION|{}"'
+    cmds.append('sonic-db-cli -s --authenticate {} CONFIG_DB del "MIRROR_SESSION|{}"'
                 .format(cli_namespace_prefix, MONITOR_CONFIG_MIRROR_SESSION))
-    cmds.append('sonic-db-cli {} CONFIG_DB del "POLICER|{}"'
+    cmds.append('sonic-db-cli -s --authenticate {} CONFIG_DB del "POLICER|{}"'
                 .format(cli_namespace_prefix, MONITOR_CONFIG_POLICER))
 
     output = duthost.shell_cmds(cmds=cmds)['results']

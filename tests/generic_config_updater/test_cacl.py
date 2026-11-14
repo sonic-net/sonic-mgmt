@@ -869,7 +869,7 @@ def cacl_tc3_acl_table_and_acl_rule(duthost, ip_netns_namespace_prefix, namespac
 
 
 def _get_redfish_feature_state(duthost):
-    return duthost.shell('sonic-db-cli CONFIG_DB hget "FEATURE|redfish" state',
+    return duthost.shell('sonic-db-cli -s CONFIG_DB hget "FEATURE|redfish" state',
                          module_ignore_errors=True)['stdout'].strip()
 
 

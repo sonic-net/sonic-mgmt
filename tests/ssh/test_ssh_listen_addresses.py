@@ -55,7 +55,7 @@ def _get_listen_addresses_field(duthost):
     """ Return the current listen_addresses@ value (comma separated string,
         possibly empty) or None if the field isn't present. """
     result = duthost.shell(
-        'sonic-db-cli CONFIG_DB HGET "{}" listen_addresses@'.format(SSH_SERVER_POLICIES_KEY),
+        'sonic-db-cli -s CONFIG_DB HGET "{}" listen_addresses@'.format(SSH_SERVER_POLICIES_KEY),
         module_ignore_errors=True
     )
     value = result['stdout'].strip()
@@ -64,14 +64,14 @@ def _get_listen_addresses_field(duthost):
 
 def _set_listen_addresses(duthost, addresses):
     duthost.shell(
-        'sonic-db-cli CONFIG_DB HSET "{}" listen_addresses@ "{}"'.format(
+        'sonic-db-cli -s --authenticate CONFIG_DB HSET "{}" listen_addresses@ "{}"'.format(
             SSH_SERVER_POLICIES_KEY, ",".join(addresses))
     )
 
 
 def _delete_listen_addresses(duthost):
     duthost.shell(
-        'sonic-db-cli CONFIG_DB HDEL "{}" listen_addresses@'.format(SSH_SERVER_POLICIES_KEY),
+        'sonic-db-cli -s --authenticate CONFIG_DB HDEL "{}" listen_addresses@'.format(SSH_SERVER_POLICIES_KEY),
         module_ignore_errors=True
     )
 

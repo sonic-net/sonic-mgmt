@@ -167,7 +167,7 @@ def op_anchor_prefix(duthost, prefix, action, ignore_error=False):
 def anchor_prefix_in_config_db(duthost, prefix):
     """Return True if PREFIX_LIST|ANCHOR_PREFIX|<prefix> exists in CONFIG_DB."""
     key = 'PREFIX_LIST|{}|{}'.format(PREFIX_TYPE, prefix)
-    out = duthost.shell('sonic-db-cli CONFIG_DB keys "{}"'.format(key), module_ignore_errors=True)["stdout"]
+    out = duthost.shell('sonic-db-cli -s CONFIG_DB keys "{}"'.format(key), module_ignore_errors=True)["stdout"]
     return key in out
 
 
@@ -241,7 +241,7 @@ def setup_urh_anchor(duthosts, enum_dut_hostname):
     duthost = duthosts[enum_dut_hostname]
 
     device_type = duthost.shell(
-        "redis-cli -n 4 HGET 'DEVICE_METADATA|localhost' type",
+        "sonic-db-cli -s CONFIG_DB HGET 'DEVICE_METADATA|localhost' type",
         module_ignore_errors=True
     )["stdout"].strip()
     pytest_assert(

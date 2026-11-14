@@ -295,7 +295,7 @@ class BgpDualAsn:
         for ns in ns_list:
             ns_flag = namespace_cli_arg(ns)
             duthost.shell(
-                "sonic-db-cli {} CONFIG_DB del {}".format(ns_flag, del_keys),
+                "sonic-db-cli -s --authenticate {} CONFIG_DB del {}".format(ns_flag, del_keys),
                 module_ignore_errors=True
             )
 
@@ -313,7 +313,7 @@ class BgpDualAsn:
 
 def bgp_peer_range_config_cleanup(duthost):
     """Clean up bgp speaker config to avoid ip range conflict"""
-    cmds = 'sonic-db-cli CONFIG_DB keys "BGP_PEER_RANGE|*" | xargs -r sonic-db-cli CONFIG_DB del'
+    cmds = 'sonic-db-cli -s CONFIG_DB keys "BGP_PEER_RANGE|*" | xargs -r sonic-db-cli -s --authenticate CONFIG_DB del'
     output = duthost.shell(cmds)
     pytest_assert(not output["rc"], "bgp speaker config cleanup failed.")
 

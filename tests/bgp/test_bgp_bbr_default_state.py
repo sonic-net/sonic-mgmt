@@ -102,7 +102,7 @@ def disable_bbr(duthost, namespace):
 def get_bbr_status_from_config_db(duthost, namespace):
     namespace_prefix = namespace_cli_arg(namespace)
     return duthost.shell(
-        'sonic-db-cli {} CONFIG_DB HGET "BGP_BBR|all" "status"'.format(namespace_prefix)
+        'sonic-db-cli -s {} CONFIG_DB HGET "BGP_BBR|all" "status"'.format(namespace_prefix)
     )['stdout'].strip().strip('"')
 
 

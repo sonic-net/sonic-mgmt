@@ -31,7 +31,7 @@ def _srv6_namespace(duthost):
 
 
 def _sonic_db_cli(duthost):
-    return "sonic-db-cli" + (" -n asic0" if duthost.is_multi_asic else "")
+    return "sonic-db-cli -s" + (" -n asic0" if duthost.is_multi_asic else "")
 
 
 def _check_srv6_stats(duthost):
@@ -42,11 +42,13 @@ def _check_srv6_stats(duthost):
 def setup_my_sid(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     cli = _sonic_db_cli(duthost)
-    duthost.command(cli + " CONFIG_DB HSET SRV6_MY_LOCATORS\\|loc1 prefix fcbb:bbbb:1:: func_len 0")
-    duthost.command(cli + " CONFIG_DB HSET SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48 action uN decap_dscp_mode pipe")
+    duthost.command(cli + " --authenticate CONFIG_DB HSET SRV6_MY_LOCATORS\\|loc1 prefix fcbb:bbbb:1:: func_len 0")
+    duthost.command(
+        cli + " --authenticate CONFIG_DB HSET SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48 action uN decap_dscp_mode pipe"
+    )
     yield
-    duthost.command(cli + " CONFIG_DB DEL SRV6_MY_LOCATORS\\|loc1")
-    duthost.command(cli + " CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48")
+    duthost.command(cli + " --authenticate CONFIG_DB DEL SRV6_MY_LOCATORS\\|loc1")
+    duthost.command(cli + " --authenticate CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48")
 
 
 def test_poll_mode_srv6_sid_counters(duthosts, rand_one_dut_hostname, ptfhost, setup_my_sid):
@@ -121,10 +123,12 @@ def test_poll_mode_srv6_sid_counters_with_mock_data(duthosts, rand_one_dut_hostn
 
     cli = _sonic_db_cli(duthost)
     duthost.shell(
-        cli + ' COUNTERS_DB HSET "COUNTERS:oid:0x11110000001eb3" '
+        cli + ' --authenticate COUNTERS_DB HSET "COUNTERS:oid:0x11110000001eb3" '
         "SAI_COUNTER_STAT_PACKETS 10 SAI_COUNTER_STAT_BYTES 40960"
     )
-    duthost.shell(cli + ' COUNTERS_DB HSET "COUNTERS_SRV6_NAME_MAP" ' '"fcbb:bbbb:1::/48" "oid:0x11110000001eb3"')
+    duthost.shell(
+        cli + ' --authenticate COUNTERS_DB HSET "COUNTERS_SRV6_NAME_MAP" ' '"fcbb:bbbb:1::/48" "oid:0x11110000001eb3"'
+    )
 
     holder = {}
 
@@ -149,5 +153,5 @@ def test_poll_mode_srv6_sid_counters_with_mock_data(duthosts, rand_one_dut_hostn
         out = str(holder.get("result", {}).get("stdout", ""))
         assert re.findall("SAI_COUNTER_STAT_PACKETS", out), "Missing update responses: {}".format(out)
     finally:
-        duthost.shell(cli + ' COUNTERS_DB DEL "COUNTERS:oid:0x11110000001eb3"')
-        duthost.shell(cli + ' COUNTERS_DB HDEL "COUNTERS_SRV6_NAME_MAP" "fcbb:bbbb:1::/48"')
+        duthost.shell(cli + ' --authenticate COUNTERS_DB DEL "COUNTERS:oid:0x11110000001eb3"')
+        duthost.shell(cli + ' --authenticate COUNTERS_DB HDEL "COUNTERS_SRV6_NAME_MAP" "fcbb:bbbb:1::/48"')

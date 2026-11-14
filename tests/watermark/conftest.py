@@ -65,7 +65,7 @@ def get_namespace_option():
 @pytest.fixture(scope="module", autouse=True)
 def set_sonic_db_cli(set_namespace):
     global sonic_db_cli
-    sonic_db_cli = f"sonic-db-cli {get_namespace_option()}"
+    sonic_db_cli = f"sonic-db-cli -s {get_namespace_option()}"
 
 
 @pytest.fixture(scope="module")
@@ -89,8 +89,11 @@ def count_keys(duthost, db, pattern):
 def create_blocking_scheduler(duthost):
     old_scheduler_count = count_keys(duthost, "ASIC_DB", SCHEDULER_PATTERN)
     logger.info(f"Creating the blocking scheduler '{BLOCKING_SCHEDULER}' on the DUT.")
-    cmd = f"{sonic_db_cli} CONFIG_DB HSET 'SCHEDULER|{BLOCKING_SCHEDULER}' 'type' 'DWRR' 'weight' '15'" + \
-        " 'pir' '1' 'cir' '1'"
+    cmd = (
+        f"{sonic_db_cli} --authenticate CONFIG_DB HSET "
+        f"'SCHEDULER|{BLOCKING_SCHEDULER}' 'type' 'DWRR' 'weight' '15'"
+        + " 'pir' '1' 'cir' '1'"
+    )
     if duthost.facts["asic_type"] == "broadcom":
         cmd += " 'meter_type' 'packets'"
     duthost.shell(cmd)
@@ -308,7 +311,9 @@ def apply_blocking_scheduler(duthost, egress_ports, queues):
     for port in egress_ports:
         for queue in queues:
             logger.info(f"Setting the scheduler of {port}|{queue} to '{BLOCKING_SCHEDULER}'...")
-            duthost.shell(f"{sonic_db_cli} CONFIG_DB HSET 'QUEUE|{port}|{queue}' 'scheduler' '{BLOCKING_SCHEDULER}'")
+            duthost.shell(
+                f"{sonic_db_cli} --authenticate CONFIG_DB HSET "
+                f"'QUEUE|{port}|{queue}' 'scheduler' '{BLOCKING_SCHEDULER}'")
     logger.info(f"Waiting {ASIC_DB_SYNC_TIME} seconds for the configuration to take effect...")
     time.sleep(ASIC_DB_SYNC_TIME)  # Wait for the configuration to take effect
 

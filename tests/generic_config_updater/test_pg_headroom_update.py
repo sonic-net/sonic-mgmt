@@ -53,17 +53,17 @@ def ensure_application_of_updated_config(duthost, xoff, values, cli_namespace_pr
     """
     def _confirm_value_in_app_and_asic_db():
         for profile in xoff:
-            profile_data = duthost.shell('sonic-db-cli {} APPL_DB hgetall "BUFFER_PROFILE_TABLE:{}"'
+            profile_data = duthost.shell('sonic-db-cli -s {} APPL_DB hgetall "BUFFER_PROFILE_TABLE:{}"'
                                          .format(cli_namespace_prefix, profile))["stdout"]
             profile_data = ast.literal_eval(profile_data)
             if profile_data["xoff"] != xoff[profile]:
                 return False
 
         count = 0
-        table_name = duthost.shell('sonic-db-cli {} ASIC_DB keys *BUFFER_PROFILE*'
+        table_name = duthost.shell('sonic-db-cli -s {} ASIC_DB keys *BUFFER_PROFILE*'
                                    .format(cli_namespace_prefix))["stdout_lines"]
         for table in table_name:
-            profile_data = duthost.shell('sonic-db-cli {} ASIC_DB hgetall "{}"'
+            profile_data = duthost.shell('sonic-db-cli -s {} ASIC_DB hgetall "{}"'
                                          .format(cli_namespace_prefix, table))["stdout"]
             profile_data = ast.literal_eval(profile_data)
             if "SAI_BUFFER_PROFILE_ATTR_XOFF_TH" in profile_data:
@@ -89,7 +89,7 @@ def test_pg_headroom_update(duthost, ensure_dut_readiness, operation, skip_when_
     json_patch = list()
     values = list()
     xoff = dict()
-    lossless_profiles = duthost.shell('sonic-db-cli {} CONFIG_DB keys *BUFFER_PROFILE\\|pg_lossless*'
+    lossless_profiles = duthost.shell('sonic-db-cli -s {} CONFIG_DB keys *BUFFER_PROFILE\\|pg_lossless*'
                                       .format(cli_namespace_prefix))['stdout_lines']
     if not lossless_profiles:
         if tbinfo['topo']['type'] in ('uma', 'lma'):
@@ -98,7 +98,7 @@ def test_pg_headroom_update(duthost, ensure_dut_readiness, operation, skip_when_
     tmpfile = generate_tmpfile(duthost)
     for profile in lossless_profiles:
         profile_name = profile.split('|')[-1]
-        value = duthost.shell('sonic-db-cli {} CONFIG_DB hget "{}" "xoff"'
+        value = duthost.shell('sonic-db-cli -s {} CONFIG_DB hget "{}" "xoff"'
                               .format(cli_namespace_prefix, profile))['stdout']
         value = int(value)
         value -= 1000
