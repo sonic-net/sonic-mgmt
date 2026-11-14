@@ -210,3 +210,15 @@ def ignore_port_phy_attr_errors_on_vs(duthosts, loganalyzer):
                         r"does not support.*attribute.*"
                     ]
                 )
+
+
+@pytest.fixture(autouse=True)
+def ignore_e1000_mgmt_reset_on_vs(duthosts, loganalyzer):
+    """Ignore transient e1000 management-NIC resets on VS."""
+    if loganalyzer:
+        for duthost in duthosts:
+            if duthost.facts.get("asic_type") == "vs":
+                loganalyzer[duthost.hostname].ignore_regex.append(
+                    r".*ERR kernel:.* e1000 [0-9a-fA-F]{4}:[0-9a-fA-F]{2}:"
+                    r"[0-9a-fA-F]{2}\.[0-7] eth0: Reset adapter\s*$"
+                )
