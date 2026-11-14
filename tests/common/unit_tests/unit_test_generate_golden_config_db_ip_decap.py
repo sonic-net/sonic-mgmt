@@ -1,4 +1,4 @@
-"""Unit tests for update_ip_decap_config in generate_golden_config_db.py."""
+"""Unit tests for golden CONFIG_DB generation without DUT-only dependencies."""
 
 import importlib.util
 import json
@@ -66,6 +66,127 @@ def _load_golden_module():
 
 
 golden_module = _load_golden_module()
+
+
+@pytest.fixture
+def o32v192_generator(tmp_path, monkeypatch):
+    """Model native ports, stale admin states, and a partially cabled device."""
+    inst = make_module(hwsku="Arista-7060X6-64PE-B-O32V192")
+    inst.topo_name = "dualtor-aa-o32v192"
+    inst.prober_type = None
+    inst.neighbor_mode = "prefix-route"
+    ports = {
+        "Ethernet{}".format(i): {"admin_status": "up"}
+        for i in range(0, 512, 2) if i % 32 not in (2, 6)
+    }
+    inst.device_conn = {name: {} for name in ports if int(name[8:]) < 448}
+    original = {
+        "DEVICE_METADATA": {"localhost": {"hwsku": inst.hwsku}},
+        "PORT": ports,
+        "MUX_CABLE": {"Ethernet8": {"state": "auto", "cable_type": "active-active"}},
+    }
+    inst.module.run_command = lambda command: (0, json.dumps(original), "")
+    interfaces = {
+        "Ethernet{}".format(i): {"default_brkout_mode": "2x400G" if i % 32 == 0 else "4x200G"}
+        for i in range(0, 512, 8)
+    }
+    (tmp_path / "hwsku.json").write_text(json.dumps({"interfaces": interfaces}))
+    monkeypatch.setattr(golden_module.device_info, "get_path_to_port_config_file",
+                        lambda: str(tmp_path.parent / "platform.json"), raising=False)
+    monkeypatch.setattr(golden_module.device_info, "get_path_to_hwsku_dir",
+                        lambda: str(tmp_path), raising=False)
+    config_main = types.ModuleType("config.main")
+
+    def get_child_ports(parent, mode, platform_path):
+        assert mode == interfaces[parent]["default_brkout_mode"]
+        assert platform_path == str(tmp_path.parent / "platform.json")
+        base = int(parent[8:])
+        step = 4 if mode == "2x400G" else 2
+        return {
+            "Ethernet{}".format(base + offset): {"subport": str(index)}
+            for index, offset in enumerate(range(0, 8, step), 1)
+        }
+
+    config_main.get_child_ports = get_child_ports
+    monkeypatch.setitem(sys.modules, "config.main", config_main)
+    return inst, interfaces
+
+
+def test_o32v192_persists_cabling_breakout_and_mux_settings(o32v192_generator):
+    """A redeploy must override stale port states and retain native breakout."""
+    inst, interfaces = o32v192_generator
+    result = json.loads(inst.generate_dualtor_golden_config_db())
+    assert {p for p, fields in result["PORT"].items() if fields["admin_status"] == "up"} == set(inst.device_conn)
+    assert sum(fields["admin_status"] == "down" for fields in result["PORT"].values()) == 28
+    assert result["BREAKOUT_CFG"] == {
+        p: {"brkout_mode": fields["default_brkout_mode"]} for p, fields in interfaces.items()
+    }
+    assert result["MUX_LINKMGR"] == {
+        "LINK_PROBER": {"interval_v4": "3000"},
+        "TIMED_OSCILLATION": {"oscillation_enabled": "false"},
+    }
+    assert result["MUX_CABLE"]["Ethernet8"]["neighbor_mode"] == "prefix-route"
+    assert [result["PORT"][p]["subport"] for p in ("Ethernet0", "Ethernet4")] == ["1", "2"]
+    assert [result["PORT"]["Ethernet{}".format(i)]["subport"] for i in (8, 10, 12, 14)] == [
+        "1", "2", "3", "4"
+    ]
+    assert all("subport" in fields for fields in result["PORT"].values())
+
+
+def test_o32v192_rejects_mismatched_native_children(o32v192_generator, monkeypatch):
+    """Do not publish partial subport metadata when native breakout children differ."""
+    inst, _ = o32v192_generator
+    monkeypatch.setattr(sys.modules["config.main"], "get_child_ports", lambda *args: {})
+    with pytest.raises(AssertionError, match="breakout children"):
+        inst.generate_dualtor_golden_config_db()
+
+
+@pytest.mark.parametrize("invalid", ["hwsku", "empty_graph", "unknown_port", "missing_hwsku_file"])
+def test_o32v192_rejects_incomplete_deployment_inputs(o32v192_generator, tmp_path, invalid):
+    """Do not silently generate an incomplete or non-native O32V192 config."""
+    inst, _ = o32v192_generator
+    if invalid == "hwsku":
+        inst.hwsku = "Arista-7060X6-64PE-B-C512S2"
+    elif invalid == "empty_graph":
+        inst.device_conn = {}
+    elif invalid == "unknown_port":
+        inst.device_conn["Ethernet999"] = {}
+    else:
+        (tmp_path / "hwsku.json").unlink()
+    with pytest.raises(AssertionError):
+        inst.generate_dualtor_golden_config_db()
+
+
+def test_other_dualtor_topologies_keep_existing_behavior(o32v192_generator):
+    """The native breakout/admin-state override must not affect other topologies."""
+    inst, _ = o32v192_generator
+    inst.topo_name = "dualtor-aa"
+    result = json.loads(inst.generate_dualtor_golden_config_db())
+    assert all(fields["admin_status"] == "up" for fields in result["PORT"].values())
+    assert "BREAKOUT_CFG" not in result
+    assert "MUX_LINKMGR" not in result
+    assert all("subport" not in fields for fields in result["PORT"].values())
+
+
+def test_o32v192_controller_aliases(monkeypatch):
+    """Resolve all native aliases and the topology's uplink indices without SONiC."""
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+    path = os.path.join(repo_root, "ansible", "module_utils", "port_utils.py")
+    spec = importlib.util.spec_from_file_location("port_utils", path)
+    port_utils = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(port_utils)
+    monkeypatch.setitem(sys.modules, "sonic_py_common", None)
+    aliases, _, _ = port_utils.get_port_alias_to_name_map("Arista-7060X6-64PE-B-O32V192")
+    assert len(aliases) == len(set(aliases.values())) == 224
+    ordered = sorted(aliases.values(), key=lambda port: int(port[8:]))
+    assert [ordered[index] for index in (0, 14, 28, 42)] == [
+        "Ethernet0", "Ethernet32", "Ethernet64", "Ethernet96",
+    ]
+    assert [aliases["etp{}{}".format(cage, suffix)] for cage in (2, 6) for suffix in "abcd"] == [
+        "Ethernet8", "Ethernet10", "Ethernet12", "Ethernet14",
+        "Ethernet40", "Ethernet42", "Ethernet44", "Ethernet46",
+    ]
+    assert not any(alias.startswith(("etp65", "etp66")) for alias in aliases)
 
 
 def make_module(metadata=None, hwsku=None, platform=None, is_multi_asic=False,
