@@ -52,7 +52,12 @@
   when: "'marvell-teralynx' in fanout_sonic_version.asic_type"
 
 - name: Disable software control module function
-  shell: cmis_host_mgmt.py --disable
+  block:
+    - name: Set the target hwsku in running CONFIG_DB so cmis_host_mgmt.py edits the right SKU dir
+      shell: sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" hwsku "{{ fanout_hwsku }}"
+
+    - name: Disable software control module function
+      shell: cmis_host_mgmt.py --disable
   become: yes
   when: "'mellanox' in fanout_sonic_version.asic_type"
 
