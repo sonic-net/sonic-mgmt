@@ -202,6 +202,7 @@ EXAMPLES = '''
 
 DEFAULT_MTU = 0
 NUM_FP_VLANS_PER_FP = 4
+CSONIC_MAX_FP_LINKS = 31  # SONiC-VM has 32 injected ports; reserve one for backplane
 VM_SET_NAME_MAX_LEN = 8
 CMD_DEBUG_FNAME = "/tmp/csonic_network.cmds.%s.txt"
 
@@ -239,6 +240,14 @@ class CsonicNetwork(object):
         # vlans for the VM). Multi-link (LAG) neighbors on T1-LAG/T2 need one
         # front-panel interface per link.
         self.num_fp_links = max(1, int(num_fp_links))
+        if self.num_fp_links > CSONIC_MAX_FP_LINKS:
+            raise ValueError(
+                "cSONiC network needs {} front-panel links; maximum is {}"
+                .format(self.num_fp_links, CSONIC_MAX_FP_LINKS))
+        if self.num_fp_links > self.max_fp_num:
+            raise ValueError(
+                "cSONiC network needs {} front-panel links but max_fp_num is {}"
+                .format(self.num_fp_links, self.max_fp_num))
 
         self.pid = CsonicNetwork.get_pid(self.ctn_name)
         if self.pid is None:

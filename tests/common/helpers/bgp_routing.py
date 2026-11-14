@@ -12,6 +12,7 @@ import time
 
 import requests
 
+from tests.common.devices.csonic import CsonicHost
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
 from tests.common.helpers.assertions import pytest_assert
@@ -67,34 +68,44 @@ def inject_routes(setup, ptfhost, prefixes, action, announce_wait=DEFAULT_BGP_AN
 
 # ---- Neighbor route verification helpers ----
 
-def route_present_on_host(host, prefix):
-    """Return True if the prefix is in the BGP table of the given neighbor host.
+def route_present_in_data(route_data, prefix, vrf="default"):
+    """Normalize EOS-wrapped and direct FRR route JSON to route presence."""
+    if not isinstance(route_data, dict):
+        return False
+    entries = route_data.get("vrfs", {}).get(vrf, {}).get(
+        "bgpRouteEntries", {})
+    if prefix in entries:
+        return True
+    return bool(route_data.get("paths"))
 
-    Supports EosHost and SonicHost. Exception-safe: returns False on any error
-    so that wait_until polling can continue retrying instead of aborting on
-    transient SSH / API failures.
+
+def route_present_on_host(host, prefix):
+    """Return route presence, or None when the neighbor query failed.
+
+    Supports EosHost, SonicHost, and CsonicHost. Query failures stay distinct
+    from a valid absent route so withdrawal checks cannot pass on a broken
+    neighbor query; wait_until callers can still retry the unknown state.
 
     Args:
-        host: neighbor host object (EosHost or SonicHost)
+        host: neighbor host object (EosHost, SonicHost, or CsonicHost)
         prefix: route prefix string (e.g. "10.100.0.0/16")
 
     Returns:
-        bool: True if the prefix is present in the BGP table
+        bool or None: True/False for a valid query, None when the query failed
     """
     try:
         if isinstance(host, EosHost):
             route_data = host.get_route(prefix)
-            entries = route_data.get("vrfs", {}).get("default", {}).get("bgpRouteEntries", {})
-            return prefix in entries
-        elif isinstance(host, SonicHost):
+            return route_present_in_data(route_data, prefix)
+        elif isinstance(host, (SonicHost, CsonicHost)):
             route_data = host.get_route(prefix)
-            return bool(route_data and "paths" in route_data)
+            return route_present_in_data(route_data, prefix)
         else:
             logger.warning("Unknown neighbor host type: %s", type(host))
-            return False
+            return None
     except Exception as e:
         logger.debug("Failed to check route %s on %s: %s", prefix, host, e)
-        return False
+        return None
 
 
 def check_route_on_neighbors(nbrhosts, neighbor_list, prefix, expected_present):

@@ -31,6 +31,7 @@ from tests.bgp.traffic_checker import get_traffic_shift_state
 from tests.bgp.constants import TS_NORMAL
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
+from tests.common.devices.csonic import CsonicHost
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 DUT_TMP_DIR = os.path.join('tmp', os.path.basename(BASE_DIR))
@@ -80,6 +81,87 @@ TCPDUMP_WAIT_TIMEOUT = 20
 LOCAL_PCAP_FILE_TEMPLATE = "%s_dump.pcap"
 
 
+def get_neighbor_exabgp_nexthops(tbinfo, neighbor=None):
+    """Return the ExaBGP next hops paired with a selected logical neighbor.
+
+    Ordinary and converged-cEOS plans retain the topology-wide next hops. A
+    converged cSONiC logical VRF can reach only its own PTF backplane endpoint,
+    so its original ExaBGP port must be paired with that endpoint's addresses.
+    """
+    common = tbinfo['topo']['properties']['configuration_properties']['common']
+    nhipv4 = common.get('nhipv4')
+    nhipv6 = common.get('nhipv6')
+    if (neighbor and isinstance(neighbor.get('host'), CsonicHost)
+            and neighbor.get('is_multi_vrf_peer')):
+        backplane = neighbor['multi_vrf_data']['ptf_bp_config']
+        nhipv4 = backplane.get('ipv4', nhipv4)
+        nhipv6 = backplane.get('ipv6', nhipv6)
+        nhipv4 = nhipv4.split('/')[0] if nhipv4 else None
+        nhipv6 = nhipv6.split('/')[0] if nhipv6 else None
+    return nhipv4, nhipv6
+
+
+def _frr_route_communities(paths):
+    """Normalize communities from direct FRR/SonicHost route JSON."""
+    communities = set()
+    for path in paths:
+        value = path.get('community', path.get('communities', []))
+        if isinstance(value, dict):
+            value = value.get('list', value.get('string', []))
+        if isinstance(value, str):
+            value = value.split()
+        if isinstance(value, list):
+            communities.update(str(item) for item in value)
+    return communities
+
+
+def get_neighbor_route_details(neighbor, prefix):
+    """Return normalized route presence, AS path and communities.
+
+    EOS returns ``vrfs.*.bgpRouteEntries`` while SONiC/cSONiC return FRR's
+    direct ``paths`` shape. Runtime VRF metadata is authoritative for a
+    converged logical peer.
+    """
+    host = neighbor['host']
+    if isinstance(host, EosHost):
+        if neighbor.get('is_multi_vrf_peer'):
+            vrf = neighbor['multi_vrf_data']['vrf']
+            route = host.get_route(prefix, vrf=vrf)
+        else:
+            vrf = 'default'
+            # Preserve the ordinary EOS call exactly; an explicit
+            # ``vrf default`` changes the generated EOS command.
+            route = host.get_route(prefix)
+        entries = route.get('vrfs', {}).get(vrf, {}).get(
+            'bgpRouteEntries', {})
+        entry = entries.get(prefix)
+        if not entry:
+            return {'present': False, 'aspath': None, 'communities': set()}
+        paths = entry.get('bgpRoutePaths', [])
+        path = paths[0] if paths else {}
+        return {
+            'present': True,
+            'aspath': path.get('asPathEntry', {}).get('asPath'),
+            'communities': set(path.get('routeDetail', {}).get(
+                'communityList', [])),
+        }
+
+    if isinstance(host, (SonicHost, CsonicHost)):
+        vrf = None
+        if isinstance(host, CsonicHost) and neighbor.get('is_multi_vrf_peer'):
+            vrf = neighbor['multi_vrf_data']['vrf']
+        route = host.get_route(prefix, vrf=vrf) if vrf else host.get_route(prefix)
+        paths = route.get('paths', []) if isinstance(route, dict) else []
+        path = paths[0] if paths else {}
+        return {
+            'present': bool(paths),
+            'aspath': path.get('aspath', {}).get('string'),
+            'communities': _frr_route_communities(paths),
+        }
+
+    raise TypeError("Unsupported neighbor host type: {}".format(type(host)))
+
+
 def apply_bgp_config(duthost, template_name):
     """
     Apply bgp configuration on the bgp docker of DUT
@@ -119,27 +201,31 @@ def get_no_export_output(vm_host, ipv6=False):
         ipv6: Boolean flag to check IPv6 routes
     """
     if ipv6:
-        ipv6_pattern = r'[0-9a-fA-F:]+\/\d+\s+[0-9a-fA-F:]+.*'
-        if isinstance(vm_host, EosHost):
-            out = vm_host.eos_command(commands=['show ipv6 bgp match community no-export'])["stdout"]
-            return re.findall(ipv6_pattern, out[0])
-        elif isinstance(vm_host, SonicHost):
-            out = vm_host.command("vtysh -c 'show ipv6 bgp community no-export'")["stdout"]
-            # For SonicHost, output is already a string, no need to index
-            return re.findall(ipv6_pattern, out)
-        else:
-            raise TypeError(f"Unsupported host type: {type(vm_host)}. Expected EosHost or SonicHost.")
+        route_pattern = r'[0-9a-fA-F:]+\/\d+\s+[0-9a-fA-F:]+.*'
+        eos_command = 'show ipv6 bgp match community no-export'
+        sonic_command = "vtysh -c 'show ipv6 bgp community no-export'"
     else:
-        ipv4_pattern = r'\d+\.\d+.\d+.\d+\/\d+\s+\d+\.\d+.\d+.\d+.*'
-        if isinstance(vm_host, EosHost):
-            out = vm_host.eos_command(commands=['show ip bgp community no-export'])["stdout"]
-            return re.findall(ipv4_pattern, out[0])
-        elif isinstance(vm_host, SonicHost):
-            out = vm_host.command("vtysh -c 'show ip bgp community no-export'")["stdout"]
-            # For SonicHost, output is already a string, no need to index
-            return re.findall(ipv4_pattern, out)
-        else:
-            raise TypeError(f"Unsupported host type: {type(vm_host)}. Expected EosHost or SonicHost.")
+        route_pattern = r'\d+\.\d+.\d+.\d+\/\d+\s+\d+\.\d+.\d+.\d+.*'
+        eos_command = 'show ip bgp community no-export'
+        sonic_command = "vtysh -c 'show ip bgp community no-export'"
+
+    if isinstance(vm_host, EosHost):
+        out = vm_host.eos_command(commands=[eos_command])["stdout"]
+        return re.findall(route_pattern, out[0])
+
+    if isinstance(vm_host, (SonicHost, CsonicHost)):
+        if isinstance(vm_host, CsonicHost) and vm_host.bgp_vrf:
+            # CsonicHost scopes legacy ``show * bgp`` reads to the logical
+            # runtime VRF. Keep the high-level command here so that host owns
+            # the exact FRR grammar and ordinary SONiC/cSONiC stay unchanged.
+            sonic_command = 'show {} bgp community no-export'.format(
+                'ipv6' if ipv6 else 'ip')
+        out = vm_host.command(sonic_command)["stdout"]
+        return re.findall(route_pattern, out)
+
+    raise TypeError(
+        f"Unsupported host type: {type(vm_host)}. "
+        "Expected EosHost, SonicHost, or CsonicHost.")
 
 
 def apply_default_bgp_config(duthost, copy=False):
@@ -366,9 +452,8 @@ def update_routes(action, ptfip, port, route):
     assert r.status_code == 200
 
 
-def build_routes(tbinfo, prefix_list, expected_community):
-    nhipv4 = tbinfo['topo']['properties']['configuration_properties']['common'].get('nhipv4')
-    nhipv6 = tbinfo['topo']['properties']['configuration_properties']['common'].get('nhipv6')
+def build_routes(tbinfo, prefix_list, expected_community, neighbor=None):
+    nhipv4, nhipv6 = get_neighbor_exabgp_nexthops(tbinfo, neighbor)
     routes = []
     for list_name, prefixes in list(prefix_list.items()):
         logging.info('list_name: {}, prefixes: {}'.format(list_name, str(prefixes)))
@@ -391,19 +476,26 @@ def build_routes(tbinfo, prefix_list, expected_community):
 
 @pytest.fixture(scope='module', autouse=True)
 def prepare_eos_routes(bgp_allow_list_setup, ptfhost, nbrhosts, tbinfo):
-    routes = build_routes(tbinfo, PREFIX_LISTS, TEST_COMMUNITY)
     downstream = bgp_allow_list_setup['downstream']
+    routes = build_routes(
+        tbinfo, PREFIX_LISTS, TEST_COMMUNITY, nbrhosts[downstream])
     downstream_exabgp_port = bgp_allow_list_setup['downstream_exabgp_port']
     downstream_exabgp_port_v6 = bgp_allow_list_setup['downstream_exabgp_port_v6']
     downstream_asn = tbinfo['topo']['properties']['configuration'][downstream]['bgp']['asn']
     downstream_peers = tbinfo['topo']['properties']['configuration'][downstream]['bgp']['peers']
 
-    # By default, EOS does not send community, this is to config EOS to send community
+    # EOS does not export standard communities by default. FRR, used by
+    # SONiC/cSONiC, does; applying and then unconditionally negating this EOS
+    # compatibility command would leave FRR in a different state after teardown.
     cmds = []
-    for peer_ips in list(downstream_peers.values()):
-        for peer_ip in peer_ips:
-            cmds.append('neighbor {} send-community'.format(peer_ip))
-    nbrhosts[downstream]['host'].config(lines=cmds, parents='router bgp {}'.format(downstream_asn))
+    downstream_host = nbrhosts[downstream]['host']
+    if isinstance(downstream_host, EosHost):
+        for peer_ips in list(downstream_peers.values()):
+            for peer_ip in peer_ips:
+                cmds.append('neighbor {} send-community'.format(peer_ip))
+        downstream_host.config(
+            lines=cmds,
+            parents='router bgp {}'.format(downstream_asn))
 
     for route in routes:
         if ipaddress.IPNetwork(route['prefix']).version == 4:
@@ -419,9 +511,13 @@ def prepare_eos_routes(bgp_allow_list_setup, ptfhost, nbrhosts, tbinfo):
             update_routes('withdraw', ptfhost.mgmt_ip, downstream_exabgp_port, route)
         else:
             update_routes('withdraw', ptfhost.mgmt_ip, downstream_exabgp_port_v6, route)
-    # Restore EOS config
-    no_cmds = ['no {}'.format(cmd) for cmd in cmds]
-    nbrhosts[downstream]['host'].config(lines=no_cmds, parents='router bgp {}'.format(downstream_asn))
+    # Restore only the EOS state changed above. SONiC/cSONiC FRR was never
+    # mutated, so its standard-community export setting remains untouched.
+    if cmds:
+        no_cmds = ['no {}'.format(cmd) for cmd in cmds]
+        downstream_host.config(
+            lines=no_cmds,
+            parents='router bgp {}'.format(downstream_asn))
 
 
 def apply_allow_list(duthost, namespace, allow_list, allow_list_file_path):
@@ -450,10 +546,10 @@ def check_routes_on_from_neighbor(setup_info, nbrhosts):
         if setup_info['is_v6_topo'] and "v6" not in list_name.lower():
             continue
         for prefix in prefixes:
-            vrf = downstream if nbrhosts[downstream].get('is_multi_vrf_peer', False) else 'default'
-            downstream_route = nbrhosts[downstream]['host'].get_route(prefix, vrf=vrf)
-            route_entries = downstream_route['vrfs'][vrf]['bgpRouteEntries']
-            pytest_assert(prefix in route_entries, 'Announced route {} not found on {}'.format(prefix, downstream))
+            details = get_neighbor_route_details(nbrhosts[downstream], prefix)
+            pytest_assert(details['present'],
+                          'Announced route {} not found on {}'.format(
+                              prefix, downstream))
 
 
 def check_results(results):
@@ -492,19 +588,17 @@ def check_routes_on_neighbors_empty_allow_list(nbrhosts, setup, permit=True):
                 continue
             for prefix in prefixes:
                 prefix_result = {'failed': False, 'prefix': prefix, 'reasons': []}
-                vrf = node if nbrhosts[node].get('is_multi_vrf_peer', False) else 'default'
-                neigh_route = nbrhosts[node]['host'].get_route(prefix, vrf=vrf)['vrfs'][vrf]['bgpRouteEntries']
+                details = get_neighbor_route_details(nbrhosts[node], prefix)
+                communities = details['communities']
 
                 if permit:
                     # All routes should be forwarded
-                    if prefix not in neigh_route:
+                    if not details['present']:
                         prefix_result['failed'] = True
                         prefix_result['reasons'].append('Route {} not found on {}'.format(prefix, node))
                     else:
-                        communityList = neigh_route[prefix]['bgpRoutePaths'][0]['routeDetail']['communityList']
-
                         # Should add drop_community to all routes
-                        if DROP_COMMUNITY not in communityList:
+                        if DROP_COMMUNITY not in communities:
                             prefix_result['failed'] = True
                             prefix_result['reasons'].append('When default_action="permit" and allow list is empty, '
                                                             'should add drop_community to all routes. route={}, node={}'
@@ -512,7 +606,7 @@ def check_routes_on_neighbors_empty_allow_list(nbrhosts, setup, permit=True):
 
                         # Should keep original route community
                         if 'COMMUNITY' in list_name:
-                            if TEST_COMMUNITY not in communityList:
+                            if TEST_COMMUNITY not in communities:
                                 prefix_result['failed'] = True
                                 prefix_result['reasons']\
                                     .append('When default_action="permit" and allow list is empty, should keep the '
@@ -521,7 +615,7 @@ def check_routes_on_neighbors_empty_allow_list(nbrhosts, setup, permit=True):
 
                 else:
                     # All routes should be dropped
-                    if prefix in neigh_route:
+                    if details['present']:
                         prefix_result['failed'] = True
                         prefix_result['reasons'].append('When default_action="deny" and allow list is empty, all routes'
                                                         ' should be dropped. route={}, node={}'.format(prefix, node))
@@ -548,27 +642,25 @@ def check_routes_on_neighbors(nbrhosts, setup, permit=True):
                 continue
             for prefix in prefixes:
                 prefix_result = {'failed': False, 'prefix': prefix, 'reasons': []}
-                vrf = node if nbrhosts[node].get('is_multi_vrf_peer', False) else 'default'
-                neigh_route = nbrhosts[node]['host'].get_route(prefix, vrf=vrf)['vrfs'][vrf]['bgpRouteEntries']
+                details = get_neighbor_route_details(nbrhosts[node], prefix)
+                communities = details['communities']
 
                 if permit:
                     # All routes should be forwarded
-                    if prefix not in neigh_route:
+                    if not details['present']:
                         prefix_result['failed'] = True
                         prefix_result['reasons'].append('Route {} not found on {}'.format(prefix, node))
                     else:
-                        communityList = neigh_route[prefix]['bgpRoutePaths'][0]['routeDetail']['communityList']
-
                         if 'DISALLOWED' in list_name:
                             # Should add drop_community to routes not on allow list
-                            if DROP_COMMUNITY not in communityList:
+                            if DROP_COMMUNITY not in communities:
                                 prefix_result['failed'] = True
                                 prefix_result['reasons']\
                                     .append('When default_action="permit", should add drop_community to routes not on '
                                             'allow list. route={}, node={}'.format(prefix, node))
                         else:
                             # Should not add drop_community to routes on allow list
-                            if DROP_COMMUNITY in communityList:
+                            if DROP_COMMUNITY in communities:
                                 prefix_result['failed'] = True
                                 prefix_result['reasons']\
                                     .append('When default_action="permit", should not add drop_community to routes on '
@@ -577,7 +669,7 @@ def check_routes_on_neighbors(nbrhosts, setup, permit=True):
 
                             # Should keep original route community
                             if 'COMMUNITY' in list_name:
-                                if TEST_COMMUNITY not in communityList:
+                                if TEST_COMMUNITY not in communities:
                                     prefix_result['failed'] = True
                                     prefix_result['reasons']\
                                         .append('When default_action="permit", route on allow list with community '
@@ -586,20 +678,19 @@ def check_routes_on_neighbors(nbrhosts, setup, permit=True):
                 else:
                     if 'DISALLOWED' in list_name:
                         # Routes not on allow list should not be forwarded
-                        if prefix in neigh_route:
+                        if details['present']:
                             prefix_result['failed'] = True
                             prefix_result['reasons'].append('When default_action="deny", route NOT on allow list should'
                                                             ' not be forwarded. route={}, node={}'.format(prefix, node))
                     else:
                         # Routes on allow list should be forwarded
-                        if prefix not in neigh_route:
+                        if not details['present']:
                             prefix_result['failed'] = True
                             prefix_result['reasons'].append('When default_action="deny", route on allow list should be '
                                                             'forwarded. route={}, node={}'.format(prefix, node))
                         else:
-                            communityList = neigh_route[prefix]['bgpRoutePaths'][0]['routeDetail']['communityList']
                             # Forwarded route should not have DROP_COMMUNITY
-                            if DROP_COMMUNITY in communityList:
+                            if DROP_COMMUNITY in communities:
                                 prefix_result['failed'] = True
                                 prefix_result['reasons']\
                                     .append('When default_action="deny", route on allow list with community should not '
@@ -607,7 +698,7 @@ def check_routes_on_neighbors(nbrhosts, setup, permit=True):
 
                             # Should keep original route community
                             if 'COMMUNITY' in list_name:
-                                if TEST_COMMUNITY not in communityList:
+                                if TEST_COMMUNITY not in communities:
                                     prefix_result['failed'] = True
                                     prefix_result['reasons'].\
                                         append('When default_action="deny", route on allow list with community should '
@@ -664,24 +755,21 @@ def get_ptf_recv_port(duthost, vm_name, tbinfo, multi_vrf_topo=False):
     """
     Get ptf receive port
     """
-    if multi_vrf_topo:
-        # When using multi-vrf topologies, the vm_name alone is not unique enough to be used as an
-        # index into the lldp table.  In this scenario, only the host container is listed by name,
-        # with multiple interfaces. So, in order to get the right dut interface, we need to figure
-        # out which host and interface are being used for the passed peer.  The POSIX string for
-        # whitespace is used to avoid python escaping backslashes in the pattern.
-        vrf_data = tbinfo["topo"]["properties"]["convergence_data"]
-        host_map = {vrf: host for host, vrfs in vrf_data["convergence_mapping"].items() for vrf in vrfs}
-        host = host_map[vm_name]
-        peer_config = vrf_data["converged_peers"][host]["vrf"][vm_name]
-        host_if = [k for k in peer_config.keys() if "Ethernet" in k][0]
-        pattern = "{}[[:space:]]*{}".format(host, host_if)
-    else:
-        pattern = vm_name
-
-    ports_output = duthost.shell("show lldp table | grep -w {} | awk '{{print $1}}'".format(pattern))['stdout']
-    ports = [line.strip() for line in ports_output.split('\n') if line.strip()]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    if multi_vrf_topo:
+        # A converged prime's LLDP system-name/interface pair is not a unique logical
+        # peer key, and cSONiC can advertise the SONiC port alias instead of the
+        # converged interface name. The parsed minigraph already retains each
+        # logical neighbor name and this DUT's normalized PTF indices.
+        ports = [
+            port for port, neighbor in mg_facts['minigraph_neighbors'].items()
+            if neighbor.get('name') == vm_name
+        ]
+        return [mg_facts['minigraph_ptf_indices'][port] for port in ports]
+
+    ports_output = duthost.shell(
+        "show lldp table | grep -w {} | awk '{{print $1}}'".format(vm_name))['stdout']
+    ports = [line.strip() for line in ports_output.split('\n') if line.strip()]
     return [mg_facts['minigraph_ptf_indices'][port] for port in ports]
 
 
@@ -868,6 +956,13 @@ def check_propagate_route(vmhost, route_list, bgp_neighbor, ip_ver=IP_VER, actio
         if isinstance(vmhost['host'], EosHost):
             out = vmhost['host'].eos_command(
                 commands=['show ip bgp neighbors {} routes vrf {}'.format(bgp_neighbor, vrf)])['stdout'][0]
+        elif isinstance(vmhost['host'], CsonicHost):
+            # Keep the command bare so CsonicHost can scope it to the logical
+            # peer's runtime VRF. Explicit vtysh wrapping would bypass that
+            # translator and query the shared prime's wrong/default instance.
+            out = vmhost['host'].shell(
+                'show ip bgp neighbors {} routes'.format(bgp_neighbor),
+                module_ignore_errors=True)['stdout']
         elif isinstance(vmhost['host'], SonicHost):
             out = vmhost['host'].shell('show ip bgp vrf {} neighbor {} routes'.format(vrf, bgp_neighbor),
                                        module_ignore_errors=True)['stdout']
@@ -876,6 +971,10 @@ def check_propagate_route(vmhost, route_list, bgp_neighbor, ip_ver=IP_VER, actio
         if isinstance(vmhost['host'], EosHost):
             out = vmhost['host'].eos_command(
                 commands=['show ipv6 bgp peers {} routes vrf {}'.format(bgp_neighbor, vrf)])['stdout'][0]
+        elif isinstance(vmhost['host'], CsonicHost):
+            out = vmhost['host'].shell(
+                'show ipv6 bgp neighbors {} routes'.format(bgp_neighbor),
+                module_ignore_errors=True)['stdout']
         elif isinstance(vmhost['host'], SonicHost):
             out = vmhost['host'].shell('show ipv6 bgp vrf {} neighbor {} routes'.format(vrf, bgp_neighbor),
                                        module_ignore_errors=True)['stdout']

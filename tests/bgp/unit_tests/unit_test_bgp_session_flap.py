@@ -103,6 +103,12 @@ class FakeNeighbor:
         return self.start_result
 
 
+class FakeCsonicNeighbor(FakeNeighbor):
+    def __init__(self, container_name, vrf):
+        super().__init__(hostname="{}:{}".format(container_name, vrf))
+        self.container_name = container_name
+
+
 @pytest.fixture
 def flap_helpers():
     tree = ast.parse(MODULE_PATH.read_text())
@@ -113,6 +119,7 @@ def flap_helpers():
     namespace = {
         "BGP_POLL_INTERVAL": 10,
         "BGP_SESSION_TIMEOUT": 300,
+        "CsonicHost": FakeCsonicNeighbor,
         "FLAP_THREAD_STOP_TIMEOUT": 2,
         "InterruptableThread": CapturingThread,
         "cpuSpike": 10,
@@ -176,6 +183,20 @@ def test_neighbor_hosts_are_deduplicated_by_hostname(flap_helpers):
     ])
 
     assert neighbors == [first_vm, second_vm]
+
+
+def test_converged_csonic_hosts_are_deduplicated_by_physical_container(
+    flap_helpers,
+):
+    first_prime_vrf1 = FakeCsonicNeighbor("csonic-VM0104", "VrfARISTA01T2")
+    first_prime_vrf2 = FakeCsonicNeighbor("csonic-VM0104", "VrfARISTA03T2")
+    second_prime = FakeCsonicNeighbor("csonic-VM0105", "VrfARISTA01T0")
+
+    neighbors = flap_helpers["get_unique_neighbor_hosts"]([
+        first_prime_vrf1, first_prime_vrf2, second_prime
+    ])
+
+    assert neighbors == [first_prime_vrf1, second_prime]
 
 
 def test_setup_selects_unique_physical_neighbor_hosts():
