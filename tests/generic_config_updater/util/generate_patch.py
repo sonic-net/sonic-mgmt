@@ -21,6 +21,7 @@ Key Design Considerations:
    'ports' field updated to include the new ports. These patches must come last.
 """
 
+import copy
 import json
 import jsonpatch
 import logging
@@ -463,9 +464,8 @@ def find_acl_table_bindings_for_ports(full_config, no_leaf_config, namespace, po
             continue
 
         patches.extend(
-            build_acl_ports_append_patches(
-                namespace, acl_name, ports_to_add, is_multi_asic,
-                create_member=bool(no_leaf_acl_entry) and "ports" not in no_leaf_acl_entry)
+            build_existing_acl_binding_patches(
+                namespace, acl_name, no_leaf_acl_entry, full_acl_entry, ports_to_add, is_multi_asic)
         )
 
     return patches
@@ -509,13 +509,50 @@ def build_acl_ports_append_patches(namespace, acl_name, ports_to_add, is_multi_a
     return [{"op": "add", "path": base_path + "/-", "value": port} for port in ports_to_add]
 
 
+def build_existing_acl_binding_patches(
+        namespace, acl_name, existing_entry, full_entry, ports_to_add, is_multi_asic):
+    """Restore unbound ACLs without changing ordinary append-only updates."""
+    bindings = build_acl_ports_append_patches(
+        namespace, acl_name, ports_to_add, is_multi_asic,
+        create_member=bool(existing_entry) and "ports" not in existing_entry)
+    existing_ports = existing_entry.get("ports", [])
+    if any(existing_ports) or not any(ports_to_add):
+        return bindings
+
+    empty_indices = [index for index, port in enumerate(existing_ports) if port == ""]
+    # Minigraph treats a DataPlane ACL with no remaining interfaces as CTRLPLANE.
+    restore_dataplane = (
+        existing_entry.get("type") == "CTRLPLANE"
+        and existing_entry.get("services") == ["DataPlane"]
+        and full_entry.get("type") in ("L3", "L3V6")
+        and "services" not in full_entry
+    )
+    if not empty_indices and not restore_dataplane:
+        return bindings
+
+    path = "/ACL_TABLE/{}".format(escape_json_pointer(acl_name))
+    if is_multi_asic and namespace:
+        path = "/{}".format(namespace) + path
+    # Fail on a stale unbound snapshot rather than overwriting newly added bindings.
+    patches = [{"op": "test", "path": path, "value": copy.deepcopy(existing_entry)}]
+    for index in reversed(empty_indices):
+        patches.append({"op": "remove", "path": "{}/ports/{}".format(path, index)})
+    if restore_dataplane:
+        patches.extend([
+            {"op": "replace", "path": path + "/type", "value": full_entry["type"]},
+            {"op": "remove", "path": path + "/services"},
+        ])
+    return patches + bindings
+
+
 def split_existing_acl_table_patches(acl_patches, no_leaf_config, is_multi_asic):
     """Split coalesced ACL_TABLE patches into whole-entry adds and port appends.
 
     A coalesced whole-entry "add" is necessary when the ACL_TABLE entry is new,
     because YANG requires the 'type' field to be present. When the entry already
-    exists on the device only the new port bindings should be sent, so those
-    patches are rewritten into "/ports/-" appends.
+    exists on the device only the new port bindings should normally be sent.
+    Fully unbound entries also receive guarded empty-binding cleanup and, when
+    needed, reversal of minigraph's DataPlane-to-CTRLPLANE fallback.
 
     Args:
         acl_patches: Coalesced entry-level ACL_TABLE patches
@@ -550,9 +587,8 @@ def split_existing_acl_table_patches(acl_patches, no_leaf_config, is_multi_asic)
             continue
 
         append_patches.extend(
-            build_acl_ports_append_patches(
-                namespace, acl_name, ports_to_add, is_multi_asic,
-                create_member="ports" not in existing_entry)
+            build_existing_acl_binding_patches(
+                namespace, acl_name, existing_entry, patch.get('value') or {}, ports_to_add, is_multi_asic)
         )
 
     return whole_entry_patches, append_patches
