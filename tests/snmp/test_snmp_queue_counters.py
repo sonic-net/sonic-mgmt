@@ -16,6 +16,7 @@ from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.snmp_helpers import format_snmp_cli_target, resolve_snmp_host
 from tests.common.utilities import wait_until
+from tests.common.helpers.sonic_db import redis_cli_argv
 
 logger = logging.getLogger(__name__)
 
@@ -63,9 +64,9 @@ def get_redis_queue_count_with_types(duthost, interface, asic=None):
         asic = duthost.asic_instance()
 
     name_map_result = asic.run_redis_cmd(
-        argv=["redis-cli", "-n", 2, "HGETALL", "COUNTERS_QUEUE_NAME_MAP"])
+        argv=redis_cli_argv(asic, 'COUNTERS_DB') + ["HGETALL", "COUNTERS_QUEUE_NAME_MAP"])
     type_map_result = asic.run_redis_cmd(
-        argv=["redis-cli", "-n", 2, "HGETALL", "COUNTERS_QUEUE_TYPE_MAP"])
+        argv=redis_cli_argv(asic, 'COUNTERS_DB') + ["HGETALL", "COUNTERS_QUEUE_TYPE_MAP"])
 
     # Build type map dictionary (SAI OID -> type string)
     type_map = {}

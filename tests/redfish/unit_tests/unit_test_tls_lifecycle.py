@@ -85,6 +85,8 @@ class Device:
         words = shlex.split(command)
         output = ""
         if words[0] == "sonic-db-cli":
+            if words[1] == "-s":
+                words.pop(1)
             _, db, action, key, *args = words
             assert db == "CONFIG_DB"
             table, row = key.split("|")
@@ -545,7 +547,7 @@ def test_all_redfish_fixture_dependents_have_compatible_scopes():
 def test_config_read_failure_does_not_become_missing_state():
     ns = utility_namespace()
     device = Device()
-    device.fail_command = 'sonic-db-cli CONFIG_DB hexists "REDFISH|certs" server_crt'
+    device.fail_command = 'sonic-db-cli -s CONFIG_DB hexists "REDFISH|certs" server_crt'
     with pytest.raises(RuntimeError, match="injected failure"):
         ns["snapshot_redfish_config"](device)
 

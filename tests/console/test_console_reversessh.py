@@ -45,7 +45,7 @@ def custom_default_escape_char(duthost, request):
     # ``clear`` instead of setting a value back.
     try:
         res = duthost.command(
-            "sonic-db-cli CONFIG_DB hget 'CONSOLE_SWITCH|console_mgmt' default_escape_char",
+            "sonic-db-cli -s CONFIG_DB hget 'CONSOLE_SWITCH|console_mgmt' default_escape_char",
             module_ignore_errors=True)
         orig_escape_char = (res.get('stdout') or '').strip()
     except Exception:

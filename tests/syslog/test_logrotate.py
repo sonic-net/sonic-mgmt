@@ -348,7 +348,7 @@ def test_logrotate_small_size(rand_selected_dut, simulate_small_var_log_partitio
 
 
 def get_pending_entries(duthost, ignore_list=None):
-    pending_entries = set(duthost.shell('sonic-db-cli APPL_DB keys "_*"')['stdout'].split())
+    pending_entries = set(duthost.shell('sonic-db-cli -s APPL_DB keys "_*"')['stdout'].split())
 
     if ignore_list:
         for entry in ignore_list:
@@ -368,15 +368,15 @@ def clear_pending_entries(duthost):
     if pending_entries:
         # Publishing to any table channel should publish all pending entries in all tables
         logger.info('Clearing pending entries in APPL_DB: {}'.format(pending_entries))
-        duthost.shell('sonic-db-cli APPL_DB publish "NEIGH_TABLE_CHANNEL" ""')
+        duthost.shell('sonic-db-cli -s --authenticate APPL_DB publish "NEIGH_TABLE_CHANNEL" ""')
 
 
 def neigh_entry_processed(duthost, target_port, namespace=''):
     key = "_NEIGH_TABLE:{}:{}".format(target_port, FAKE_IP)
     if namespace:
-        cmd = 'sonic-db-cli -n asic{} APPL_DB EXISTS "{}"'.format(namespace, key)
+        cmd = 'sonic-db-cli -s -n asic{} APPL_DB EXISTS "{}"'.format(namespace, key)
     else:
-        cmd = 'sonic-db-cli APPL_DB EXISTS "{}"'.format(key)
+        cmd = 'sonic-db-cli -s APPL_DB EXISTS "{}"'.format(key)
     result = duthost.shell(cmd)
     return int(result['stdout'].strip()) == 0
 

@@ -35,7 +35,7 @@ cmd_intf_startup = "startup"
 cmd_intf_shutdown = "shutdown"
 cmd_dom_disable = "disable"
 cmd_dom_enable = "enable"
-db_cmd_dom_polling = "sonic-db-cli {} CONFIG_DB {} 'PORT|{}' 'dom_polling' {}"
+db_cmd_dom_polling = "sonic-db-cli -s {} CONFIG_DB {} 'PORT|{}' 'dom_polling' {}"
 DOM_DISABLED = "disabled"
 DOM_ENABLED = "enabled"
 DOM_POLLING_CONFIG_VALUES = [DOM_DISABLED, DOM_ENABLED]
@@ -193,7 +193,7 @@ class DisablePhysicalInterface:
 
 def get_transceiver_info(duthost, enum_frontend_asic_index, logical_intf):
     namespace_cmd_opt = get_namespace_cmd_option(duthost, enum_frontend_asic_index)
-    cmd = "sonic-db-cli {} STATE_DB HGETALL 'TRANSCEIVER_INFO|{}'".format(namespace_cmd_opt, logical_intf)
+    cmd = "sonic-db-cli -s {} STATE_DB HGETALL 'TRANSCEIVER_INFO|{}'".format(namespace_cmd_opt, logical_intf)
     xcvr_info_output = duthost.command(cmd)["stdout"]
     return xcvr_info_output
 
@@ -378,13 +378,13 @@ def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_h
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     # cleanup TRANSCEIVER_STATUS Table for backplane ports
-    state_db_ports = duthost.shell('sonic-db-cli STATE_DB KEYS "TRANSCEIVER_STATUS|*"')
+    state_db_ports = duthost.shell('sonic-db-cli -s STATE_DB KEYS "TRANSCEIVER_STATUS|*"')
     state_db_ports_list = state_db_ports.get('stdout', None).splitlines()
     for port in state_db_ports_list:
         _, backplane_port = port.split('TRANSCEIVER_STATUS|', 1)
-        role = duthost.shell('sonic-db-cli CONFIG_DB HGET "PORT|{}" "role"'.format(backplane_port))
+        role = duthost.shell('sonic-db-cli -s CONFIG_DB HGET "PORT|{}" "role"'.format(backplane_port))
         if role["stdout"] == "Dpc":
-            duthost.shell('sonic-db-cli STATE_DB DEL "{}"'.format(port))
+            duthost.shell('sonic-db-cli -s --authenticate STATE_DB DEL "{}"'.format(port))
     skip_release(duthost, ["201811", "201911", "202012"])
     portmap, dev_conn = get_dev_conn(duthost, conn_graph_facts, enum_frontend_asic_index)
 
@@ -618,7 +618,7 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
                     "skip tested SFPs {} to avoid repeating operating physical interface {}".format(intf, phy_intf))
                 continue
 
-            sfp_type_cmd = 'redis-cli -n 6 hget "TRANSCEIVER_INFO|{}" type'.format(intf)
+            sfp_type_cmd = 'sonic-db-cli -s STATE_DB hget "TRANSCEIVER_INFO|{}" type'.format(intf)
             sfp_type_docker_cmd = asichost.get_docker_cmd(sfp_type_cmd, "database")
             sfp_type = duthost.command(sfp_type_docker_cmd)["stdout"]
 

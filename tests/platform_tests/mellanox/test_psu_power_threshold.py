@@ -113,7 +113,7 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
     def _check_psu_info_in_db(psu_index, power, power_warning_suppress_threshold, power_critical_threshold,
                               power_overload):
         psuname = 'PSU {}'.format(psu_index)
-        command_check_psu_db = 'sonic-db-cli STATE_DB hmget "PSU_INFO|{}" power ' \
+        command_check_psu_db = 'sonic-db-cli -s STATE_DB hmget "PSU_INFO|{}" power ' \
             'power_warning_suppress_threshold power_critical_threshold power_overload'.format(
                 psuname)
         output = duthost.shell(command_check_psu_db)['stdout'].split()
@@ -129,7 +129,7 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
         if abs(float(output[0])*1000000 - power/MAX_PSUS) > 100:
             return False
 
-        command_check_system_health_db = 'sonic-db-cli STATE_DB hget SYSTEM_HEALTH_INFO "{}"'
+        command_check_system_health_db = 'sonic-db-cli -s STATE_DB hget SYSTEM_HEALTH_INFO "{}"'
         summary = duthost.shell(command_check_system_health_db.format('summary'))[
             'stdout'].strip()
         if power_overload:

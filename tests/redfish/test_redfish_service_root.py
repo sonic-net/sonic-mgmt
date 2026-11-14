@@ -61,7 +61,7 @@ class TestRedfishServiceRoot:
         assert_field_contains(body, "@odata.type", "ServiceRoot")
         assert_field_nonempty(body, "RedfishVersion")
         assert_field_nonempty(body, "UUID")
-        stdout, _, _ = bmc_exec("sonic-db-cli CONFIG_DB hget 'DEVICE_METADATA|localhost' mac")
+        stdout, _, _ = bmc_exec("sonic-db-cli -s CONFIG_DB hget 'DEVICE_METADATA|localhost' mac")
         mac = stdout.strip().lower()
         expected = "SONiCBMC-{}".format(mac) if mac else "SONiCBMC"
         assert_field_equals(body, "Product", expected)

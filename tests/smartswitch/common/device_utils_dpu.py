@@ -153,8 +153,7 @@ def is_dark_mode_enabled(duthost, platform_api_conn, num_dpu_modules):   # noqa 
     for index in range(num_dpu_modules):
         dpu = module.get_name(platform_api_conn, index)
         output_config_db = duthost.command(
-                           'redis-cli -p 6379 -h 127.0.0.1 \
-                            -n 4 hgetall "CHASSIS_MODULE|{}"'.format(dpu))
+                           'sonic-db-cli -s CONFIG_DB hgetall "CHASSIS_MODULE|{}"'.format(dpu))
         if output_config_db['stdout'] is None:
             logging.warning("redis cli output for chassis module state is empty")
             break
@@ -250,7 +249,7 @@ def check_dpu_module_status(duthost, power_status, dpu_name):
         Returns True or False based on status of given DPU module
     """
     # checking state_transition still  in progress for DPU, before checking DPU state
-    cmd = f'sonic-db-cli STATE_DB HGET \"CHASSIS_MODULE_TABLE|{dpu_name}\" transition_in_progress'
+    cmd = f'sonic-db-cli -s STATE_DB HGET \"CHASSIS_MODULE_TABLE|{dpu_name}\" transition_in_progress'
     output_dpu_state = duthost.shell(cmd, module_ignore_errors=True)
     logging.info("Chassis state for %s: %s", dpu_name, output_dpu_state['stdout'])
 
@@ -952,7 +951,7 @@ def check_dpus_reboot_cause(duthost, dpu_list, num_dpu_modules, reason):
 def get_dpu_auto_recovery(duthost):
     """Return DPU auto-recovery from CONFIG_DB DEVICE_METADATA|localhost ('' if unset)."""
     result = duthost.shell(
-        f"sonic-db-cli CONFIG_DB hget '{DPU_AUTO_RECOVERY_TABLE}|{DPU_AUTO_RECOVERY_KEY}' "
+        f"sonic-db-cli -s CONFIG_DB hget '{DPU_AUTO_RECOVERY_TABLE}|{DPU_AUTO_RECOVERY_KEY}' "
         f"'{DPU_AUTO_RECOVERY_FIELD}'",
         module_ignore_errors=True)
     return result.get("stdout", "").strip()
@@ -961,7 +960,7 @@ def get_dpu_auto_recovery(duthost):
 def set_dpu_auto_recovery(duthost, state):
     """Set DPU auto-recovery in CONFIG_DB DEVICE_METADATA|localhost (runtime only)."""
     duthost.shell(
-        f"sonic-db-cli CONFIG_DB hset '{DPU_AUTO_RECOVERY_TABLE}|{DPU_AUTO_RECOVERY_KEY}' "
+        f"sonic-db-cli -s --authenticate CONFIG_DB hset '{DPU_AUTO_RECOVERY_TABLE}|{DPU_AUTO_RECOVERY_KEY}' "
         f"'{DPU_AUTO_RECOVERY_FIELD}' '{state}'")
     logging.info("Set %s|%s %s to '%s'",
                  DPU_AUTO_RECOVERY_TABLE, DPU_AUTO_RECOVERY_KEY,
@@ -971,7 +970,7 @@ def set_dpu_auto_recovery(duthost, state):
 def unset_dpu_auto_recovery(duthost):
     """Delete the auto-recovery field from CONFIG_DB DEVICE_METADATA|localhost."""
     duthost.shell(
-        f"sonic-db-cli CONFIG_DB hdel '{DPU_AUTO_RECOVERY_TABLE}|{DPU_AUTO_RECOVERY_KEY}' "
+        f"sonic-db-cli -s --authenticate CONFIG_DB hdel '{DPU_AUTO_RECOVERY_TABLE}|{DPU_AUTO_RECOVERY_KEY}' "
         f"'{DPU_AUTO_RECOVERY_FIELD}'", module_ignore_errors=True)
     logging.info("Deleted %s|%s %s",
                  DPU_AUTO_RECOVERY_TABLE, DPU_AUTO_RECOVERY_KEY,
@@ -979,10 +978,10 @@ def unset_dpu_auto_recovery(duthost):
 
 
 def sonic_db_hgetall(duthost, db_name, key):
-    """Run `sonic-db-cli <db_name> hgetall '<key>'` and parse into a dict ({} if absent/failed);
+    """Run `sonic-db-cli -s <db_name> hgetall '<key>'` and parse into a dict ({} if absent/failed);
     handles both the dict-repr and line-by-line output formats."""
     result = duthost.shell(
-        f"sonic-db-cli {db_name} hgetall '{key}'", module_ignore_errors=True)
+        f"sonic-db-cli -s {db_name} hgetall '{key}'", module_ignore_errors=True)
     stdout = result.get("stdout", "").strip()
     if not stdout or result.get("rc", 1) != 0:
         return {}

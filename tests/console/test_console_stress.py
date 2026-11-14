@@ -146,7 +146,7 @@ def test_console_load(setup_c0, creds, conn_graph_facts, baud_rate, flow_control
     def _read_field(field, default):
         try:
             res = duthost.command(
-                "sonic-db-cli CONFIG_DB hget 'CONSOLE_PORT|{}' {}".format(target_line, field),
+                "sonic-db-cli -s CONFIG_DB hget 'CONSOLE_PORT|{}' {}".format(target_line, field),
                 module_ignore_errors=True)
             val = (res.get('stdout') or '').strip()
             return val if val else default

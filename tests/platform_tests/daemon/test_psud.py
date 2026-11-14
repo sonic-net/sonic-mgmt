@@ -82,21 +82,21 @@ def check_pmon_daemon_id(duthost, daemon_name, expected_id):
 
 def collect_data(duthost):
     keys = duthost.shell(
-        'sonic-db-cli STATE_DB KEYS "PSU_INFO|*"')['stdout_lines']
+        'sonic-db-cli -s STATE_DB KEYS "PSU_INFO|*"')['stdout_lines']
 
     dev_data = {}
     for k in keys:
         data = duthost.shell(
-            f'sonic-db-cli STATE_DB HGETALL "{k}"')['stdout']
+            f'sonic-db-cli -s STATE_DB HGETALL "{k}"')['stdout']
         data = compose_dict_from_cli(data)
         dev_data[k] = data
 
     temp_keys = duthost.shell(
-        'sonic-db-cli STATE_DB KEYS "TEMPERATURE_INFO|PDB*"')['stdout_lines']
+        'sonic-db-cli -s STATE_DB KEYS "TEMPERATURE_INFO|PDB*"')['stdout_lines']
     temp_data = {}
     for k in temp_keys:
         data = duthost.shell(
-            f'sonic-db-cli STATE_DB HGETALL "{k}"')['stdout']
+            f'sonic-db-cli -s STATE_DB HGETALL "{k}"')['stdout']
         data = compose_dict_from_cli(data)
         temp_data[k] = data
 
