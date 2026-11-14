@@ -1106,7 +1106,13 @@ def tgen_ports(duthost, get_snappi_ports, conn_graph_facts, fanout_graph_facts, 
             port['link_training'] = link_training_value in ['on', 'true', 'yes', '1']
             port['speed'] = speed_type.get(str(port_speed), port['speed'])
             peer_port = port['peer_port']
-            entry = bool(config_facts.get('INTERFACE', {}).get(peer_port))
+
+            asic = duthost.get_port_asic_instance(peer_port)
+            asic_config_facts = asic.config_facts(
+                host=duthost.hostname, source="running"
+            )['ansible_facts']
+            entry = bool(asic_config_facts.get('INTERFACE', {}).get(peer_port))
+
             for ipver, addr_type in (("ipv4", "IPv4"), ("ipv6", "IPv6")):
                 if ipver == "ipv4":
                     dut_list, tgen_list, mask = dutIps, tgenIps, prefix_length
@@ -1124,16 +1130,14 @@ def tgen_ports(duthost, get_snappi_ports, conn_graph_facts, fanout_graph_facts, 
                             f"Pre-configuring {addr_type}: {duthost.hostname} "
                             f"port {peer_port} -> {dut_list[port_id]}/{mask}"
                         )
-                        duthost.command(
-                            f"sudo config interface ip add {peer_port} {dut_list[port_id]}/{mask}"
-                        )
+                        asic.config_ip_intf(peer_port, f"{dut_list[port_id]}/{mask}", 'add')
                     except Exception as e:
                         pytest.fail(
                             f"Unable to configure {addr_type} on {peer_port}: {e}",
                             pytrace=False,
                         )
                 else:
-                    int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
+                    int_addrs = list(asic_config_facts['INTERFACE'][peer_port].keys())
                     entry = next((a for a in int_addrs if (":" in a) == (ipver == "ipv6")), None)
                     port[peer_ip_key], port[prefix_key] = entry.split("/")
                     port[ip_key] = get_addrs_in_subnet(entry, 1, exclude_ips=[entry.split("/")[0]])[0]
