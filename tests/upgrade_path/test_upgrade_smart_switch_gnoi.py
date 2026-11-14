@@ -15,6 +15,9 @@ from tests.common.helpers.upgrade_helpers import (
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.device_utils import resolve_upgrade_dpu_indices
+from tests.common.fixtures.gnoi_download_policy import (  # noqa: F401
+    gnoi_download_policy, gnoi_dpu_download_policy,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +97,7 @@ def smartswitch_upgrade_params(request, duthost):
 def test_upgrade_one_dpu_via_gnoi(
     localhost, duthosts, ptfhost, enum_rand_one_per_hwsku_hostname,
     tbinfo, request,
-    smartswitch_upgrade_params, ptf_gnoi  # noqa: F811
+    smartswitch_upgrade_params, ptf_gnoi, gnoi_dpu_download_policy  # noqa: F811
 ):
     """
     SmartSwitch: upgrade ONE DPU via gNOI (plaintext + DPU routing headers).
@@ -123,21 +126,17 @@ def test_upgrade_one_dpu_via_gnoi(
         # No explicit target: upgrade the first admin-up DPU instead of a hardcoded index.
         dpu_index = dpu_indices[0]
 
-    assert to_image, "target_image_list must be set (used as TransferToRemote remote_download.path)"
+    assert to_image, "target_image_list must be set (SetPackage remote_download URL)"
     if not to_version:
         logger.info("target_version not provided; version will be extracted from the transferred image on the DUT")
 
     logger.info("SmartSwitch DPU gNOI upgrade: from=%s to=%s version=%s dpu_index=%s",
                 from_image, to_image, to_version, dpu_index)
 
-    # Best-effort cleanup (may run on NPU; harmless)
-    duthost.shell(f"rm -f {dut_image_path}", module_ignore_errors=True)
-
     cfg = GnoiUpgradeConfig(
         to_image=to_image,
         dut_image_path=dut_image_path,
         upgrade_type=upgrade_type,
-        protocol="HTTP",
         allow_fail=False,
         to_version=to_version,
         ss_target_index=dpu_index,
@@ -153,6 +152,7 @@ def test_upgrade_one_dpu_via_gnoi(
         cfg=cfg,
         localhost=localhost,
         duthosts=duthosts,
+        download_policy=gnoi_dpu_download_policy(duthost, [dpu_index]),
     )
 
 
@@ -160,7 +160,7 @@ def test_upgrade_one_dpu_via_gnoi(
 def test_upgrade_multiple_dpus_via_gnoi_parallel(
     localhost, duthosts, ptfhost, enum_rand_one_per_hwsku_hostname,
     tbinfo, request,
-    smartswitch_upgrade_params, ptf_gnoi  # noqa: F811
+    smartswitch_upgrade_params, ptf_gnoi, gnoi_dpu_download_policy  # noqa: F811
 ):
     """
     SmartSwitch: upgrade MULTIPLE DPUs via gNOI in parallel.
@@ -198,7 +198,6 @@ def test_upgrade_multiple_dpus_via_gnoi_parallel(
             to_image=to_image,
             dut_image_path=dut_image_path,
             upgrade_type=upgrade_type,
-            protocol="HTTP",
             allow_fail=False,
             to_version=to_version,
             ss_target_index=idx,
@@ -215,6 +214,7 @@ def test_upgrade_multiple_dpus_via_gnoi_parallel(
         max_workers=workers,
         localhost=localhost,
         duthosts=duthosts,
+        download_policy=gnoi_dpu_download_policy(duthost, dpu_indices),
     )
 
 
@@ -222,16 +222,16 @@ def test_upgrade_multiple_dpus_via_gnoi_parallel(
 def test_upgrade_smartswitch_all_dpus_then_npu(
     localhost, duthosts, ptfhost, enum_rand_one_per_hwsku_hostname,
     tbinfo, conn_graph_facts, xcvr_skip_list, request,
-    smartswitch_upgrade_params, gnmi_tls  # noqa: F811
+    smartswitch_upgrade_params, gnmi_tls, gnoi_download_policy, gnoi_dpu_download_policy  # noqa: F811
 ):
     """
     Full SmartSwitch upgrade: stage all DPUs first, then upgrade the NPU.
 
     Phase 1 - Stage image on all DPUs in parallel (no reboot):
-              Each DPU gets TransferToRemote + SetPackage with skip_reboot=True.
+              Each DPU gets remote SetPackage with skip_reboot=True.
 
     Phase 2 - Upgrade the NPU:
-              TransferToRemote + SetPackage + Reboot on the NPU.
+              Remote SetPackage + Reboot on the NPU.
               The NPU reboot also reboots all DPUs automatically.
 
     Phase 3 - Wait for all DPUs to come back up.
@@ -266,7 +266,7 @@ def test_upgrade_smartswitch_all_dpus_then_npu(
 
     # ------------------------------------------------------------------
     # Phase 1: Stage image on all DPUs in parallel (no reboot yet).
-    # skip_reboot=True means only TransferToRemote + SetPackage run.
+    # skip_reboot=True means only remote SetPackage runs.
     # The DPUs will reboot in Phase 2 when the NPU reboots.
     # ------------------------------------------------------------------
     logger.info("Phase 1: Staging image on all %d DPUs (no reboot)", len(dpu_indices))
@@ -289,6 +289,7 @@ def test_upgrade_smartswitch_all_dpus_then_npu(
         ptf_gnoi=gnmi_tls.gnoi,
         cfgs=dpu_cfgs,
         max_workers=len(dpu_indices),
+        download_policy=gnoi_dpu_download_policy(duthost, dpu_indices),
     )
     logger.info("Phase 1 complete: image staged on all DPUs")
 
@@ -315,6 +316,7 @@ def test_upgrade_smartswitch_all_dpus_then_npu(
         conn_graph_facts=conn_graph_facts,
         xcvr_skip_list=xcvr_skip_list,
         duthosts=duthosts,
+        download_policy=gnoi_download_policy,
     )
     logger.info("Phase 2 complete: NPU is back up")
 

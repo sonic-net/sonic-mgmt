@@ -261,6 +261,8 @@ class PtfGnoi:
         version: Optional[str] = None,
         activate: bool = True,
         metadata=None,
+        remote_url: Optional[str] = None,
+        protocol: Optional[str] = None,
     ) -> Dict:
         """
         Set the upgrade package on the DUT using gNOI System.SetPackage (client-streaming RPC).
@@ -268,14 +270,16 @@ class PtfGnoi:
         Sends a single stream message containing package metadata:
         {"package": {<package_field>: <local_path>, "version": ..., "activate": ...}}
 
-        Note: Some server implementations may also require a separate hash message (MD5/SHA).
-        This version intentionally omits hash support.
+        With remote_url, the receiving host downloads under its administrator
+        policy before installing. Without it, local-file behavior is unchanged.
+        The server does not reboot or implement contents/hash upload here.
 
         Args:
-            local_path: Path to the package/image on DUT (typically produced by TransferToRemote)
-            package_field: Field name used by server inside 'package' ("filename" or "path")
+            local_path: Absolute package filename (remote mode uses private staging).
             version: Optional version string
             activate: Whether to activate/switch to the package (commonly required to update "Next")
+            remote_url: Optional HTTP(S) image URL.
+            protocol: Optional protocol override, required to match the URL scheme.
 
         Returns:
             Dictionary response from gNOI server.
@@ -296,6 +300,15 @@ class PtfGnoi:
         }
         if version:
             pkg["version"] = version
+
+        if remote_url:
+            scheme = urlparse(remote_url).scheme.lower()
+            if scheme not in ("http", "https"):
+                raise ValueError("remote_url must use HTTP or HTTPS")
+            expected = scheme.upper()
+            if protocol is not None and str(protocol).upper() != expected:
+                raise ValueError("protocol does not match remote_url")
+            pkg["remote_download"] = {"path": remote_url, "protocol": expected}
 
         response = self.grpc_client.call_client_streaming(
             "gnoi.system.System",
