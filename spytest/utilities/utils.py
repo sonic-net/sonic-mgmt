@@ -1191,6 +1191,15 @@ def get_random_string(N=4):
                                  + string.digits, k=N))
 
 
+def get_random_space_string(max_spaces=3):
+    """
+    Function to generate a random string with zero or more spaces
+    :param max_spaces: maximum number of spaces to return
+    :return: a string containing between 0 and max_spaces spaces
+    """
+    return ' ' * random.randint(0, max_spaces)
+
+
 def get_traffic_loss_duration(tx_count, rx_count, tx_rate):
     '''
 
