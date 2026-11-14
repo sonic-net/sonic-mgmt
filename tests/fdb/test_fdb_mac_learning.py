@@ -9,6 +9,9 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa
 from tests.ptf_runner import ptf_runner
 from .utils import fdb_table_has_dummy_mac_for_interface
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa: F401
+from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby  # noqa: F401
+from tests.common.dualtor.dual_tor_utils import check_active_active_port_status, show_muxcable_status
+from tests.common.dualtor.dual_tor_common import active_active_ports  # noqa: F401
 
 
 pytestmark = [
@@ -51,6 +54,25 @@ class TestFdbMacLearning:
     PTF_HOST_NETMASK = "24"
     DUT_INTF_IP = "20.0.0.1"
     DUT_INTF_NETMASK = "24"
+
+    @staticmethod
+    def _wait_mux_port_forwarding_ready(duthost, port, timeout=90, interval=5):
+        def _check():
+            mux_status = show_muxcable_status(duthost).get(port, {})
+            return (mux_status.get('status') == 'active' and
+                    mux_status.get('hwstatus', '').lower() == 'consistent')
+        return wait_until(timeout, interval, 0, _check)
+
+    def _setup_dualtor_aa_test_port(self, duthosts, duthost, peer_dut, dut_interface,
+                                    active_active_ports_list, config_active_active_dualtor_active_standby):
+        if not active_active_ports_list or dut_interface not in active_active_ports_list:
+            return
+        for tor in duthosts:
+            tor.shell("config muxcable mode manual {}".format(dut_interface))
+        config_active_active_dualtor_active_standby(duthost, peer_dut, [dut_interface])
+        pytest_assert(self._wait_mux_port_forwarding_ready(duthost, dut_interface),
+                      "Mux port {} not active/consistent on {} before L3 test".format(
+                          dut_interface, duthost.hostname))
 
     def configureInterfaceIp(self, duthost, dut_intf, action=None):
         """
@@ -290,7 +312,9 @@ class TestFdbMacLearning:
                               "mac entry present when interface {} is down even after sonic-clear fdb all"
                               .format(target_ports_to_ptf_mapping[i][0]))
 
-    def testARPCompleted(self, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request, prepare_test):
+    @pytest.mark.dualtor_active_active_setup_standby_on_random_unselected_tor
+    def testARPCompleted(self, ptfadapter, duthosts, rand_one_dut_hostname, rand_unselected_dut, ptfhost,
+                         tbinfo, request, prepare_test, active_active_ports, config_active_active_dualtor_active_standby):
         """
             Select a DUT interface and corresponding PTF interface
             If DUT interface is in VLAN, remove it from the vlan
@@ -302,6 +326,9 @@ class TestFdbMacLearning:
         duthost = duthosts[rand_one_dut_hostname]
         dut_interface, ptf_port_index = target_ports_to_ptf_mapping[0]
         duthost.shell("sudo config interface startup {}".format(dut_interface))
+        self._setup_dualtor_aa_test_port(
+            duthosts, duthost, rand_unselected_dut, dut_interface,
+            active_active_ports, config_active_active_dualtor_active_standby)
         for vlan in conf_facts['VLAN_MEMBER']:
             for member_interface in conf_facts['VLAN_MEMBER'][vlan]:
                 if (member_interface == dut_interface):
@@ -309,7 +336,11 @@ class TestFdbMacLearning:
         try:
             self.configureInterfaceIp(duthost, dut_interface, action="add")
             self.configureNeighborIp(ptfhost, ptf_ports_available_in_topo[ptf_port_index], action="add")
-            time.sleep(2)
+            if active_active_ports and dut_interface in active_active_ports:
+                pytest_assert(self._wait_mux_port_forwarding_ready(duthost, dut_interface),
+                              "Mux port {} lost active/consistent hw state after L3 config on {}".format(
+                                  dut_interface, duthost.hostname))
+            time.sleep(5)
             ptfhost.shell("ping {} -c 3 -I {}".format(self.DUT_INTF_IP, self.PTF_HOST_IP), module_ignore_errors=True)
             int_ip_found = any((dut_interface in line and self.DUT_INTF_IP in line)
                                for line in duthost.command("show ip interface")["stdout_lines"])
