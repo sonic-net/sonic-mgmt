@@ -1,0 +1,14 @@
+name: "non_zmq_optimized"
+description: "Optimizations without ZMQ"
+
+config:
+  DEVICE_METADATA:
+    localhost:
+      orch_northbond_route_zmq_enabled: "false"
+      synchronous_mode: "enable"
+      suppress-fib-pending: "disabled"
+      nexthop_group: "enabled"
+
+containers_to_restart:
+  - swss
+  - bgp
