@@ -150,6 +150,11 @@ def dscp_config_pipe(rand_selected_dut, loganalyzer):
         pytest.skip(f"{asic_type} pipe mode DSCP-only check not needed:"
                     " covered by test_dscp_to_queue_mapping[pipe]")
 
+    ip_decap_status = duthost.shell("sonic-cfggen -d -v 'SYSTEM_DEFAULTS.ip_decap.status'",
+                                    module_ignore_errors=True)["stdout"].strip()
+    if ip_decap_status == 'disabled':
+        pytest.skip("ip_decap is not enabled in SYSTEM_DEFAULTS")
+
     apply_dscp_cfg_setup(duthost, "pipe", loganalyzer)
     yield
     apply_dscp_cfg_teardown(duthost, loganalyzer)
