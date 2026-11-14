@@ -7,6 +7,7 @@ from tests.common.devices.eos import EosHost
 from tests.common.helpers.bgp_routing import route_present_in_data
 from tests.common.helpers.bgp_routing import route_present_on_host
 from tests.vxlan.test_vxlan_route_advertisement import _command_stdout
+from tests.vxlan.test_vxlan_route_advertisement import _neighbor_route_matches
 from tests.vxlan.test_vxlan_route_advertisement import _scale_route_command
 
 pytestmark = [pytest.mark.topology("any")]
@@ -47,3 +48,32 @@ def test_vxlan_scale_commands_preserve_eos_and_use_frr_for_csonic():
     assert csonic._translate_command(bare_csonic) == (
         'vtysh -c "show bgp vrf VrfARISTA01T2 ipv6 unicast '
         'community 1234:4321" | grep \' dc4a:\'')
+
+
+def test_neighbor_route_match_waits_for_exact_route_and_community_state():
+    prefix = '99.1.2.0/24'
+
+    class Host:
+        route_data = {}
+
+        def get_route(self, route):
+            assert route == prefix
+            return self.route_data
+
+    host = Host()
+    assert not _neighbor_route_matches(host, prefix, True)
+    assert _neighbor_route_matches(host, prefix, False)
+
+    host.route_data = {
+        'prefix': prefix,
+        'paths': [{'community': {'string': '1234:4321'}}],
+    }
+    assert _neighbor_route_matches(host, prefix, True, '1234:4321')
+    assert not _neighbor_route_matches(host, prefix, True, '9999:8888')
+    assert not _neighbor_route_matches(host, prefix, False, '1234:4321')
+
+    host.route_data = {
+        'prefix': prefix,
+        'paths': [{'community': {'string': '9999:8888'}}],
+    }
+    assert _neighbor_route_matches(host, prefix, True, '9999:8888')

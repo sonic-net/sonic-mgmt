@@ -113,6 +113,51 @@ def test_csonic_suppress_fib_route_propagation_uses_runtime_vrf(
     assert commands == [expected_command]
 
 
+def test_converged_ptf_receive_ports_use_logical_minigraph_neighbors():
+    class DutHost:
+        def shell(self, command):
+            raise AssertionError("LLDP lookup must not run for converged peers")
+
+        def get_extended_minigraph_facts(self, tbinfo):
+            return {
+                'minigraph_neighbors': {
+                    'Ethernet56': {'name': 'ARISTA15T2'},
+                    'Ethernet60': {'name': 'ARISTA15T2'},
+                    'Ethernet116': {'name': 'ARISTA14T0'},
+                },
+                'minigraph_ptf_indices': {
+                    'Ethernet56': 14,
+                    'Ethernet60': 15,
+                    'Ethernet116': 29,
+                },
+            }
+
+    assert bgp_helpers.get_ptf_recv_port(
+        DutHost(), 'ARISTA14T0', {}, multi_vrf_topo=True) == [29]
+    assert bgp_helpers.get_ptf_recv_port(
+        DutHost(), 'ARISTA15T2', {}, multi_vrf_topo=True) == [14, 15]
+
+
+def test_ordinary_ptf_receive_ports_keep_lldp_lookup():
+    class DutHost:
+        def __init__(self):
+            self.commands = []
+
+        def shell(self, command):
+            self.commands.append(command)
+            return {'stdout': 'Ethernet116\n'}
+
+        def get_extended_minigraph_facts(self, tbinfo):
+            return {'minigraph_ptf_indices': {'Ethernet116': 29}}
+
+    duthost = DutHost()
+    assert bgp_helpers.get_ptf_recv_port(
+        duthost, 'ARISTA14T0', {}, multi_vrf_topo=False) == [29]
+    assert duthost.commands == [
+        "show lldp table | grep -w ARISTA14T0 | awk '{print $1}'",
+    ]
+
+
 def test_suppress_fib_eos_and_sonic_commands_remain_unchanged():
     eos = object.__new__(EosHost)
     eos_commands = []
