@@ -9,6 +9,7 @@ from tests.common.vs_data import is_vs_device
 from tests.vxlan.test_vxlan_ecmp import Test_VxLAN, fixture_encap_type, _ignore_route_sync_errlogs  # noqa: F401
 from tests.vxlan.test_vxlan_ecmp import fixture_setUp, _reset_test_routes, ecmp_utils               # noqa: F401
 from tests.vxlan.test_vxlan_ecmp import default_routes, routes_for_cleanup                          # noqa: F401
+from tests.vxlan.test_vxlan_ecmp import get_all_endpoints, get_egress_interfaces
 
 
 Logger = logging.getLogger(__name__)
@@ -35,6 +36,14 @@ def _ignore_vpp_hostif_link_churn(duthosts, rand_one_dut_hostname, loganalyzer):
         loganalyzer[rand_one_dut_hostname].ignore_regex.append(
             r".*syncOnLinkMsg: skipping newlink for Ethernet[0-9]+, name not found in map.*"
         )
+
+
+def is_egress_interface_of_all_endpoints(duthost, interface, endpoints, outer_layer_version):
+    """
+    Return True if "interface" is an active egress interface of the underlay route to every endpoint.
+    """
+    return all(interface in get_egress_interfaces(duthost, endpoint, outer_layer_version)
+               for endpoint in endpoints)
 
 
 class Test_VxLAN_underlay_ecmp(Test_VxLAN):
@@ -512,6 +521,22 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
                 self.vxlan_test_setup[encap_type]['t2_ports'],
                 list(self.vxlan_test_setup['list_of_bfd_monitors']))
             time.sleep(10)
+            # dump_self_info_and_run_ptf() records the egress interfaces of each endpoint before it sends
+            # traffic, and the PTF test fails if traffic leaves through an interface that is not recorded.
+            # The member links can take longer than 10 seconds to come back up (for example, links that go
+            # through an optical switch), so wait until the PortChannel is an active next hop again.
+            pytest_assert(
+                wait_until(
+                    300,
+                    5,
+                    0,
+                    is_egress_interface_of_all_endpoints,
+                    self.vxlan_test_setup['duthost'],
+                    selected_portchannel,
+                    get_all_endpoints(self.vxlan_test_setup[encap_type]['dest_to_nh_map']),
+                    ecmp_utils.get_outer_layer_version(encap_type)),
+                "{} is not an active next hop to every VNET endpoint after its members "
+                "were brought up.".format(selected_portchannel))
             self.dump_self_info_and_run_ptf("tc12", encap_type, True, check_underlay_ecmp=True)
         except BaseException:
             for intf in all_t2_portchannel_members[selected_portchannel]:
