@@ -12,6 +12,7 @@ import time
 
 import requests
 
+from tests.common.devices.csonic import CsonicHost
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
 from tests.common.helpers.assertions import pytest_assert
@@ -67,6 +68,17 @@ def inject_routes(setup, ptfhost, prefixes, action, announce_wait=DEFAULT_BGP_AN
 
 # ---- Neighbor route verification helpers ----
 
+def route_present_in_data(route_data, prefix, vrf="default"):
+    """Normalize EOS-wrapped and direct FRR route JSON to route presence."""
+    if not isinstance(route_data, dict):
+        return False
+    entries = route_data.get("vrfs", {}).get(vrf, {}).get(
+        "bgpRouteEntries", {})
+    if prefix in entries:
+        return True
+    return bool(route_data.get("paths"))
+
+
 def route_present_on_host(host, prefix):
     """Return True if the prefix is in the BGP table of the given neighbor host.
 
@@ -84,11 +96,10 @@ def route_present_on_host(host, prefix):
     try:
         if isinstance(host, EosHost):
             route_data = host.get_route(prefix)
-            entries = route_data.get("vrfs", {}).get("default", {}).get("bgpRouteEntries", {})
-            return prefix in entries
-        elif isinstance(host, SonicHost):
+            return route_present_in_data(route_data, prefix)
+        elif isinstance(host, (SonicHost, CsonicHost)):
             route_data = host.get_route(prefix)
-            return bool(route_data and "paths" in route_data)
+            return route_present_in_data(route_data, prefix)
         else:
             logger.warning("Unknown neighbor host type: %s", type(host))
             return False
