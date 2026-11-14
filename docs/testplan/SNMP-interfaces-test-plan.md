@@ -16,7 +16,13 @@ The test is targeting a running SONIC system with fully functioning configuratio
 The test will run on any testbeds.
 
 ## Setup configuration
-This test requires no specific setup.
+This test requires no specific network configuration. The module runs pre-test
+sanity checks before collecting SNMP facts, including the existing Monit readiness
+check. Monit's `mgmtOperStatus` program populates `STATE_DB` management-port state
+after its startup delay; immediately after a reboot or configuration reload, that
+state may not yet exist even though the management interface and SNMP are reachable.
+The readiness check must complete before the module-scoped SNMP walk so that the
+management-interface comparison uses initialized state.
 
 ## Test
 Retrieve facts for a device using SNMP, and compare it to system values received from DUT.
