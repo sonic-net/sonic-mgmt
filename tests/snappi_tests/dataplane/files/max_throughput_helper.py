@@ -92,7 +92,7 @@ def _get_front_panel_ports(duthost):
 def _get_portchannel_members(duthost):
     """Return Ethernet ports that are members of PortChannels."""
     result = duthost.shell(
-        "sonic-db-cli CONFIG_DB keys 'PORTCHANNEL_MEMBER|*'",
+        "sonic-db-cli -s CONFIG_DB keys 'PORTCHANNEL_MEMBER|*'",
         module_ignore_errors=True,
     )
     members = set()
@@ -109,7 +109,7 @@ def _get_portchannel_members(duthost):
 def _get_portchannels(duthost):
     """Return configured PortChannel interface names."""
     result = duthost.shell(
-        "sonic-db-cli CONFIG_DB keys 'PORTCHANNEL|*'",
+        "sonic-db-cli -s CONFIG_DB keys 'PORTCHANNEL|*'",
         module_ignore_errors=True,
     )
     portchannels = []
@@ -358,7 +358,7 @@ IPINIP_DECAP_CONF_TEMPLATE = """[
 def _get_loopback_ip(duthost):
     """Return the first Loopback0 IPv4 address."""
     result = duthost.shell(
-        "sonic-db-cli CONFIG_DB keys 'LOOPBACK_INTERFACE|Loopback0|*'"
+        "sonic-db-cli -s CONFIG_DB keys 'LOOPBACK_INTERFACE|Loopback0|*'"
     )["stdout"].strip()
     for line in result.splitlines():
         parts = line.split("|")
@@ -391,7 +391,7 @@ def enable_ipinip_decap(duthost):
 def _verify_ipinip_decap_removed(duthost):
     """Verify that all IPINIP decap tunnel entries are removed from APP_DB."""
     result = duthost.shell(
-        'sonic-db-cli APPL_DB KEYS "TUNNEL_DECAP_TABLE:IPINIP_TUNNEL*"',
+        'sonic-db-cli -s APPL_DB KEYS "TUNNEL_DECAP_TABLE:IPINIP_TUNNEL*"',
         module_ignore_errors=True,
     )["stdout"].strip()
     if result:
@@ -399,7 +399,7 @@ def _verify_ipinip_decap_removed(duthost):
         return False
 
     term_result = duthost.shell(
-        'sonic-db-cli APPL_DB KEYS "TUNNEL_DECAP_TERM_TABLE:IPINIP_TUNNEL*"',
+        'sonic-db-cli -s APPL_DB KEYS "TUNNEL_DECAP_TERM_TABLE:IPINIP_TUNNEL*"',
         module_ignore_errors=True,
     )["stdout"].strip()
     if term_result:
