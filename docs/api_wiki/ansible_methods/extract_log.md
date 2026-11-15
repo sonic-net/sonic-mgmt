@@ -8,6 +8,9 @@
 ## Overview
 Unrotate logs and extract information starting from a row with predefined string.
 
+Date-conversion warnings retain the unparseable line for diagnosis and are tagged
+`extract_log` so their quoted marker text is not treated as a new start marker.
+
 ## Examples
 ```
 def test_fun(duthosts, rand_one_dut_hostname):
