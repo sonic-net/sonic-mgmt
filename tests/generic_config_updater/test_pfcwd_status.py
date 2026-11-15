@@ -59,24 +59,18 @@ def set_default_pfcwd_config(duthost):
     meta_data = json.loads(res["stdout"])
     pfc_status = meta_data["DEVICE_METADATA|localhost"]["value"].get("default_pfcwd_status", "")
     if pfc_status == 'disable':
-        cmd = 'sonic-db-cli -s --authenticate CONFIG_DB hset \"DEVICE_METADATA|localhost\" default_pfcwd_status enable'
+        cmd = 'CONFIG_DB hset \"DEVICE_METADATA|localhost\" default_pfcwd_status enable'
         for asic_id in duthost.get_asic_ids():
-            if asic_id:
-                duthost.asic_instance(asic_id).command(cmd)
-            else:
-                duthost.shell(cmd)
+            duthost.asic_instance(asic_id).run_sonic_db_cli_cmd(cmd, authenticate=True)
 
     yield
 
     # Restore default config
     duthost.shell('config pfcwd stop')
     if pfc_status == 'disable':
-        cmd = 'sonic-db-cli -s --authenticate CONFIG_DB hset \"DEVICE_METADATA|localhost\" default_pfcwd_status disable'
+        cmd = 'CONFIG_DB hset \"DEVICE_METADATA|localhost\" default_pfcwd_status disable'
         for asic_id in duthost.get_asic_ids():
-            if asic_id:
-                duthost.asic_instance(asic_id).command(cmd)
-            else:
-                duthost.shell(cmd)
+            duthost.asic_instance(asic_id).run_sonic_db_cli_cmd(cmd, authenticate=True)
     else:
         start_pfcwd = duthost.shell('config pfcwd start_default')
         pytest_assert(not start_pfcwd['rc'], "Failed to start default pfcwd config")
