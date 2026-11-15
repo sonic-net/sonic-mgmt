@@ -16,7 +16,6 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 
 
-
 def load(relative, name, namespace, owner=None):
     path = ROOT / relative
     tree = ast.parse(path.read_text())
