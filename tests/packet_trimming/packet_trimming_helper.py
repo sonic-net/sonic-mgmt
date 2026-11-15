@@ -1845,7 +1845,7 @@ def create_trim_queue_test_buffer_profile(duthost):
     Create the dedicated buffer profile used by the trim queue during packet trimming tests.
     """
     fields = " ".join(f"{k} {v}" for k, v in TRIM_QUEUE_PROFILE_CONFIG.items())
-    cmd = f"sonic-db-cli -s --authenticate CONFIG_DB hset 'BUFFER_PROFILE|{TRIM_QUEUE_PROFILE}' {fields}"
+    cmd = f"sonic-db-cli -s --authenticate -- CONFIG_DB hset 'BUFFER_PROFILE|{TRIM_QUEUE_PROFILE}' {fields}"
     duthost.shell(cmd)
     logger.info(f"Created trim queue test buffer profile '{TRIM_QUEUE_PROFILE}': {TRIM_QUEUE_PROFILE_CONFIG}")
 

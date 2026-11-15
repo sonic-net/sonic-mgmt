@@ -35,19 +35,20 @@ def pfc():
 
 @pytest.mark.parametrize('database', ['APPL_DB', 'CONFIG_DB'])
 @pytest.mark.parametrize('static', [False, True])
-def test_buffer_updates_keep_database_and_threshold(pfc, database, static):
+@pytest.mark.parametrize('alpha', ['-7', '-2', '0', '3'])
+def test_buffer_updates_keep_database_and_threshold(pfc, database, static, alpha):
     asic = Mock()
     asic.run_redis_cmd.return_value = ['4096'] if static else ['']
     dut = Mock()
     dut.get_port_asic_instance.return_value = asic
     pfc['PfcCmd'].isBufferInApplDb = staticmethod(lambda _: database == 'APPL_DB')
-    pfc['PfcCmd'].update_alpha(dut, 'Ethernet0', 'profile', '3', '4096')
+    pfc['PfcCmd'].update_alpha(dut, 'Ethernet0', 'profile', alpha, '4096')
     template = pfc['BF_PROFILE_TABLE'] if database == 'APPL_DB' else pfc['BF_PROFILE']
     assert asic.run_redis_cmd.call_args_list[0].kwargs['argv'] == [
         'sonic-db-cli', '-s', database, 'HGET', template.format('profile'), 'static_th']
     assert asic.run_redis_cmd.call_args.kwargs['argv'] == [
-        'sonic-db-cli', '-s', database, 'HSET', template.format('profile'),
-        'static_th' if static else 'dynamic_th', '4096' if static else '3']
+        'sonic-db-cli', '-s', '--authenticate', '--', database, 'HSET', template.format('profile'),
+        'static_th' if static else 'dynamic_th', '4096' if static else alpha]
 
 
 @pytest.mark.parametrize('database', ['APPL_DB', 'CONFIG_DB'])
@@ -110,3 +111,16 @@ def test_local_config_commands_do_not_request_cluster_mode(path):
     assert "redis-cli -n 4 -c " not in text
     assert ("sonic-db-cli -s CONFIG_DB " in text or
             "sonic-db-cli -s --authenticate CONFIG_DB " in text)
+
+
+def test_trim_profile_keeps_negative_threshold_as_redis_data():
+    namespace = load_definitions('tests/packet_trimming/packet_trimming_helper.py',
+                                 {'create_trim_queue_test_buffer_profile'},
+                                 {'logger': Mock(), 'TRIM_QUEUE_PROFILE': 'trim_queue_test_profile',
+                                  'TRIM_QUEUE_PROFILE_CONFIG': {'pool': 'egress_lossy_pool',
+                                                               'dynamic_th': -7, 'size': 0}})
+    dut = Mock()
+    namespace['create_trim_queue_test_buffer_profile'](dut)
+    dut.shell.assert_called_once_with(
+        "sonic-db-cli -s --authenticate -- CONFIG_DB hset "
+        "'BUFFER_PROFILE|trim_queue_test_profile' pool egress_lossy_pool dynamic_th -7 size 0")

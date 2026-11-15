@@ -185,13 +185,13 @@ class PfcCmd(object):
         if is_static_profile(asic, profile):
             asic.run_redis_cmd(
                 argv=[
-                    "sonic-db-cli", '-s', db, "HSET", table_template.format(profile), "static_th", static_th
+                    "sonic-db-cli", '-s', '--authenticate', '--', db, "HSET", table_template.format(profile), "static_th", static_th
                 ]
             )
         else:
             asic.run_redis_cmd(
                 argv=[
-                    "sonic-db-cli", '-s', db, "HSET", table_template.format(profile), "dynamic_th", value
+                    "sonic-db-cli", '-s', '--authenticate', '--', db, "HSET", table_template.format(profile), "dynamic_th", value
                 ]
             )
 
