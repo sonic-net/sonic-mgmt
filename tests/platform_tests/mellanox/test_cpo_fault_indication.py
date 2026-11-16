@@ -22,8 +22,8 @@ by this feature.
   * TC-4  An ELS-scoped fault is written to ALL logical ports of the
           affected vModule.
 
-Fault injection goes through the PMFT access register via ``mlxreg``, on
-SIMX and physical ASICs alike; see
+Fault injection goes through the PMFT access register via ``mlxreg``.
+The suite is currently validated on SimX only; see
 ``tests/platform_tests/mellanox/cpo_fault_injection.py``. PMFT exposes only
 ``set_laser_source_fault``, so every injectable fault is ELS/laser scoped --
 module-level thermal faults cannot be injected on this platform.
@@ -266,9 +266,9 @@ def fault_injector(duthost, target_vmodule):
 
     Teardown runs all three steps ``clear_faults`` needs to undo an
     injection -- disarm the PMFT fault selector, reset the vModule (which
-    both clears the pg1A latch and brings the faulted laser's port back
-    oper-up), and delete the append-only STATE_DB token. The whole vModule
-    group is passed so the token is dropped from every port the fault was
+    clears the pg1A latch), re-provision previously admin-up ports, and
+    clear the append-only STATE_DB token to an empty string. The whole
+    vModule group is passed so cleanup covers every port the fault was
     fanned out to, not just the injected one.
     """
     idx, ports, target_port = target_vmodule
@@ -563,8 +563,8 @@ def test_tc4_vmodule_fault_all_logical_ports(
     affected vModule, not just the injected one.
 
     Page 0x1A belongs to the ELS that all banks of a vModule share, so the
-    feature fans the token out to every logical port of the vModule -- on
-    SN6810_LD that is four banks x two breakout splits = eight ports.
+    feature fans the token out to every logical port of the vModule.
+    The logical-port count depends on the configured breakout.
     """
     idx, ports, target_port = target_vmodule
 

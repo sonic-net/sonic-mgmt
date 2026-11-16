@@ -1,7 +1,7 @@
 """CPO fault injection via the PMFT access register.
 
-Fault injection goes through ``mlxreg --reg_name PMFT``, which works the
-same on SIMX and on physical ASICs, so it is the single mechanism used here.
+Fault injection goes through ``mlxreg --reg_name PMFT``. The test suite
+is currently validated on SimX only; physical-ASIC coverage is not claimed.
 
 PMFT's register layout (verified with ``mlxreg --show_reg PMFT``) carries
 exactly one writable fault selector::
@@ -18,12 +18,10 @@ There is therefore **no way to inject a module-level (thermal) fault**:
 ``cpo_module_faults_cap`` is read-only capability advertisement, not a
 trigger. Every catalogued fault below is consequently ELS/laser scoped.
 
-vModule topology (SN6810_LD):
+Supported vModule layout (logical-port counts depend on breakout):
 
     1 vModule = 4 banks (sub_modules) = 8 ELS lasers = 32 lanes
               = 8 logical ports (1x2 breakout, 4 lanes each)
-
-    16 vModules x 32 lanes = 512 lanes = 128 CPO ports.
 
 Each ELS laser serves **4 lanes**. Read off the
 ``oe_laneN_to_els_logical_laser`` map in
@@ -241,21 +239,18 @@ class CpoFaultInjector(object):
            i.e. ``no_fault_to_trigger``) for each lane mask that was
            injected. Without this the injection intent stays armed in the
            register.
-        2. ``sfputil reset`` the vModule. This zeroes the pg1A:212-219
-           hardware latch AND brings the port back up -- a laser fault
-           such as ``laser_high_power_fault`` does not merely set an
-           EEPROM flag, it takes the laser out, so the logical port on
-           that laser goes oper-down until the module is reset. Skipping
-           this leaves the port down, and ``target_vmodule`` then filters
-           that vModule out of later tests for not being oper-up.
-        3. Delete the STATE_DB ``xcvr_fault`` field. The feature is
-           append-only -- no delete path -- so the token survives both of
-           the steps above and stays for the life of the pmon container.
+        2. Reset the vModule through ``cpoutil config interface reset``
+           to clear hardware fault latches. Re-provision its previously
+           admin-up ports with an admin toggle, as required by cpoutil.
+           Originally admin-down ports must remain down.
+        3. Clear the STATE_DB ``xcvr_fault`` field to an empty string.
+           The feature is append-only, so the token survives the hardware
+           reset. Keep the field present for gNMI subscriptions.
 
         Args:
-            ports: logical ports whose xcvr_fault to delete. Defaults to
-                just ``self.logical_port``; pass the whole vModule group
-                when the fault was fanned out to all of its ports.
+            ports: all logical ports of the affected vModule, for
+                re-provisioning and STATE_DB cleanup. Defaults to just
+                ``self.logical_port``.
         """
         if not self._injected:
             return
@@ -289,14 +284,28 @@ class CpoFaultInjector(object):
                     "Clear PMFT fault selector (laser {})".format(laser),
                 )
 
-        # Step 2 - reset the vModule: clears the HW latch and recovers the port.
+        # Step 2 - reset through the CPO controller, then re-provision only
+        # ports that were administratively up. Injection changes oper state,
+        # not admin state, so capture admin state before the reset.
+        affected_ports = ports or [self.logical_port]
+        interface_status = self.duthost.show_and_parse("show interface status")
+        admin_up_ports = [
+            entry["interface"] for entry in interface_status
+            if entry.get("interface") in affected_ports
+            and entry.get("admin", "").lower() == "up"
+        ]
         _attempt(
-            "sudo sfputil reset {}".format(self.logical_port),
+            "sudo cpoutil config interface reset {}".format(self.logical_port),
             "Reset CPO vModule after fault injection",
         )
+        for port in admin_up_ports:
+            _attempt("sudo config interface shutdown {}".format(port),
+                     "Shut down {} for CPO re-provisioning".format(port))
+            _attempt("sudo config interface startup {}".format(port),
+                     "Restore {} after CPO reset".format(port))
 
         # Step 3 - reset the append-only STATE_DB token.
-        clear_xcvr_fault(self.duthost, ports or [self.logical_port])
+        clear_xcvr_fault(self.duthost, affected_ports)
 
         self._injected = []
         pytest_assert(not failures, "CPO fault cleanup incomplete: " + "; ".join(failures))

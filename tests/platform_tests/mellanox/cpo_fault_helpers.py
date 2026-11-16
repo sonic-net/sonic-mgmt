@@ -30,12 +30,10 @@ XCVRD_ERROR_FIELD = "error"
 FAULT_NONE = "N/A"
 FAULT_SEP = "|"
 
-# CPO vModule topology on SN6810_LD:
+# Supported CPO vModule layout (port counts depend on breakout):
 #
 #     1 vModule = 4 banks (sub_modules) = 8 ELS lasers = 32 lanes
 #               = 8 logical ports (1x2 breakout, 4 lanes each)
-#
-#     16 vModules x 32 lanes = 512 lanes = 128 CPO ports.
 #
 # Each ELS laser serves 4 lanes; the lane -> laser assignment is in
 # /sys/module/sx_core/asic0/module<N>/module_cpo_info.
@@ -80,7 +78,7 @@ def get_bank_port_groups(duthost, cpo_logical_ports):
     All logical ports that are breakout splits of the same physical port
     share one CONFIG_DB ``PORT|<port>.index``. That index identifies a
     **bank** (one SDK module / one ``CpoPort`` object), NOT a vModule --
-    on SN6810_LD a vModule spans four banks. CPO port indices are
+    in the supported layout a vModule spans four banks. CPO port indices are
     one-based; SDK module indices are zero-based.
 
     Returns:
@@ -114,8 +112,7 @@ def get_vmodule_port_groups(duthost, cpo_logical_ports):
       * ELS index (this function)      -> one vModule = ``BANKS_PER_VMODULE``
                                           consecutive banks.
 
-    On SN6810_LD, 64 ``CpoPort`` objects with
-    ``sdk_index`` 0..63 map onto ELS 0..15, i.e. four banks per vModule.
+    The supported layout uses four banks per vModule.
     Each vModule carries ``LASERS_PER_VMODULE`` ELS lasers serving
     ``LANES_PER_LASER`` lanes each -- 32 lanes, surfacing as eight
     logical ports under 1x2 breakout (e.g. ELS 0 owns lanes 0..31 =
@@ -204,7 +201,8 @@ def clear_xcvr_fault(duthost, ports):
     ``Table.set()`` / ``Table.get()`` on TRANSCEIVER_STATUS_SW and has no
     delete path, so a token written by one test -- or by a manual
     injection -- stays in STATE_DB for the lifetime of the pmon container.
-    ``sfputil reset`` clears the hardware latch but not the DB row.
+    ``cpoutil config interface reset`` clears the hardware latch but not
+    the DB row.
 
     Without an explicit clear the suite is therefore not idempotent: the
     second run sees the first run's tokens and fails its baseline check.

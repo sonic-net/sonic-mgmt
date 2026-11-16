@@ -1,17 +1,17 @@
 # Test Plan — CPO Fault Indication
 
-> **Related HLD**: [CPO Fault Indication](https://github.com/noaOrMlnx/SONiC/blob/noaor-cpo-fault-indication/doc/cpo-mellanox/cpo_fault_indication.md).
-
 ## 1. Scope and Preconditions
 
-Verify that CPO faults produce WARNING syslog entries, update `STATE_DB.TRANSCEIVER_STATUS_SW|<port>.xcvr_fault`, and reach gNMI on_change subscribers on Chameleon 6s.
+Verify that CPO faults produce WARNING syslog entries, update `STATE_DB.TRANSCEIVER_STATUS_SW|<port>.xcvr_fault`, and reach gNMI on_change subscribers on supported NVIDIA Mellanox CPO platforms.
+
+This vendor-specific plan uses PMFT register access through `mlxreg`. Current validation is limited to SimX; physical-hardware coverage is not claimed. SimX describes the current validation environment, not a dependency of the CPO fault indication feature.
 
 - Require a CPO platform (`hwsku.json` declares `port_type: CPO`) with software control (`SAI_INDEPENDENT_MODULE_MODE=1`).
-- The suite is restricted to SimX through `conditional_mark`, although PMFT injection is available on both SimX and physical ASICs.
-- Require an inserted vModule with an operationally up target port and `mlxreg` available.
+- Run on a single-ASIC SimX DUT for the current validation scope. The suite checks CPO and software-control support but does not automatically enforce the SimX restriction.
+- Require an inserted vModule with an operationally up target port, `mlxreg` for PMFT fault injection, and `cpoutil` for CPO module reset.
 - TC-1 additionally requires a gNMI server configured with mTLS.
 - Allocate a fresh, unused vModule per test; affected SimX builds only raise an interrupt for the first injection into each vModule.
-- Clear `xcvr_fault` on the ports being checked and verify it is absent before injection. The field is append-only and does not clear automatically.
+- Clear `xcvr_fault` on the ports being checked and verify it is absent or empty before injection. The field is append-only and does not clear automatically.
 - Allow up to **120 seconds** for fault processing.
 
 ## 2. Fault Injection
@@ -51,7 +51,7 @@ mlxreg -d <mst_device> --reg_name PMFT \
 3. Verify `xcvr_fault` contains both `xcvr_cpo_els_warning_code_lane1` and `xcvr_cpo_els_warning_code_lane2`, separated by `|`, without duplicates.
 4. Verify a WARNING syslog entry for each token.
 
-**Status**: Conditionally skipped on affected SimX builds because the second injection raises no interrupt. The source plan identifies the fix in SimX **26.7-1148**; run this case only with the fix available.
+**Known limitation**: Affected SimX builds do not raise an interrupt for the second injection. Run this case only on a build that supports repeated injection; it is not automatically skipped by the suite.
 
 ### TC-3: Preserve the xcvrd-Owned `error` Field
 
@@ -62,19 +62,19 @@ mlxreg -d <mst_device> --reg_name PMFT \
 
 ### TC-4: Fault Fan-Out to All vModule Ports
 
-1. Discover all logical ports sharing the target ELS. On SN6810_LD, derive `els_index = (PORT.index - 1) // 4` from the one-based CONFIG_DB index.
+1. Discover all logical ports sharing the target ELS. The current helper supports a four-bank-per-vModule layout and derives `els_index = (PORT.index - 1) // BANKS_PER_VMODULE` from the one-based CONFIG_DB index, with `BANKS_PER_VMODULE = 4`.
 2. Clear `xcvr_fault` on every port in the group.
 3. Inject a laser high-power alarm on laser 0.
 4. Wait for `xcvr_cpo_els_high_power_alarm_lane1` on the first port, then check the remaining ports without separate waits. Every port must contain the token.
 
-For the described SN6810_LD split configuration, one vModule spans four banks and eight logical ports. Group by ELS, not by a single bank index.
+Group by ELS, not by a single bank index. Discover the logical ports from the configured breakout rather than assuming a fixed port count. Platforms with a different bank-to-ELS mapping require a corresponding discovery-helper update.
 
 ## 4. Teardown and Coverage Limits
 
 After each test:
 
 1. Clear the PMFT selector (`set_laser_source_fault=0`) for every injected laser mask.
-2. Run `sfputil reset <port>` for the affected vModule to clear hardware fault latches and restore link operation.
-3. Delete `xcvr_fault` from all affected STATE_DB port records. Restore any gNMI configuration changed by the test.
+2. Run `sudo cpoutil config interface reset <port>` through the affected vModule's CPO controller to clear hardware fault latches. Re-provision previously admin-up ports in the group with `sudo config interface shutdown <port>` followed by `sudo config interface startup <port>`, as required after a CPO reset. Leave originally admin-down ports down.
+3. Clear non-empty `xcvr_fault` values to an empty string on all affected STATE_DB port records; do not delete the field, so existing gNMI field subscriptions can still resolve it. Restore any gNMI configuration changed by TC-1.
 
 PMFT on this platform injects ELS laser faults, not module-level thermal faults. DOM/platform cross-path agreement is therefore outside this plan. Fault injection can disrupt links; clearing STATE_DB alone does not recover the hardware.
