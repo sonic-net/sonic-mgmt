@@ -81,19 +81,6 @@ python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
   tests/common/unit_tests/helpers/unit_test_ptf_tacacs_provisioning.py -q
 ```
 
-## Legacy PTF removal regression
-
-`helpers/unit_test_remove_topo_ptf.py` requires `ansible-core`, `PyYAML`, and
-`pytest`. It executes the production remove-topo and portchannel task includes
-with mocked host operations. Cases cover legacy/modern Python, teamd/bond,
-empty/nonempty portchannels, failed runtime probes, cleanup failure propagation,
-and BMC/vendor boundaries. It does not contact Docker or a live testbed.
-
-```bash
-python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
-  tests/common/unit_tests/helpers/unit_test_remove_topo_ptf.py -q
-```
-
 ## Host-failure lifecycle regressions
 
 Run the classifier unit tests and the real pytest lifecycle regressions together:
