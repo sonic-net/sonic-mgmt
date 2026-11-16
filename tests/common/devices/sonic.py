@@ -1817,6 +1817,11 @@ Totals               6450                 6449
             output = output[start_line_index:end_line_index]
         return self._parse_show(output, header_len)
 
+    def get_cpo_ports(self):
+        """Return interfaces whose status Type is CPO."""
+        return {row["interface"] for row in self.show_and_parse("show interface status")
+                if row.get("type") == "CPO"}
+
     @cached(name='mg_facts')
     def get_extended_minigraph_facts(self, tbinfo, namespace=DEFAULT_NAMESPACE):
         mg_facts = self.minigraph_facts(host=self.hostname, namespace=namespace)['ansible_facts']

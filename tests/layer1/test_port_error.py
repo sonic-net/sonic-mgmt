@@ -4,15 +4,28 @@ import random
 import time
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import skip_release
+from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos
+from tests.common.utilities import skip_release, wait_until
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
     pytest.mark.topology('any')
 ]
 
-SUPPORTED_PLATFORMS = ["arista_7060x6", "nvidia_sn5640", "nvidia_sn5600"]
+SUPPORTED_PLATFORMS = ["arista_7060x6", "nvidia_sn5640", "nvidia_sn5600", "nvidia_sn6810_ld"]
 cmd_sfp_presence = "sudo sfpshow presence"
+
+
+def is_supported_cpo_optic(eeprom_info):
+    """Check optical media and CMIS revision in parsed sfpshow EEPROM."""
+    media = eeprom_info.get("Media Interface Technology", "").upper()
+    if "COPPER" in media or "N/A" in media:
+        return False
+    version = eeprom_info.get("CMIS Rev", eeprom_info.get("CMIS Revision", "0"))
+    try:
+        return float(version) >= 5.0
+    except (TypeError, ValueError):
+        return False
 
 
 class TestMACFault(object):
@@ -44,6 +57,14 @@ class TestMACFault(object):
     def get_interface_status(dut, interface):
         return dut.show_and_parse("show interfaces status {}".format(interface))[0].get("oper", "unknown")
 
+    @staticmethod
+    def get_tx_output_cmds(interface, is_cpo):
+        if is_cpo:
+            return ("sudo cpoutil config interface tx-disable -p {} true".format(interface),
+                    "sudo cpoutil config interface tx-disable -p {} false".format(interface))
+        return ("sudo sfputil debug tx-output {} disable".format(interface),
+                "sudo sfputil debug tx-output {} enable".format(interface))
+
     @pytest.fixture
     def select_random_interfaces(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         dut = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -52,10 +73,31 @@ class TestMACFault(object):
         sfp_presence = dut.command(cmd_sfp_presence)
         parsed_presence = {line.split()[0]: line.split()[1] for line in sfp_presence["stdout_lines"][2:]}
 
-        available_interfaces = [
-            intf["interface"] for intf in interfaces
-            if parsed_presence.get(intf["interface"]) == "Present"
-        ]
+        cpo_ports = dut.get_cpo_ports()
+        if cpo_ports:
+            # sfputil does not expose CPO EEPROMs. Retry sfpshow after reboot
+            # until the Present ports have populated the table.
+            present_ports = {port for port, presence in parsed_presence.items() if presence == "Present"}
+            eeprom_infos = {}
+
+            def eeprom_ready():
+                nonlocal eeprom_infos
+                eeprom_infos = parse_sfp_eeprom_infos(dut.shell("sudo sfpshow eeprom -d")["stdout"])
+                return present_ports <= set(eeprom_infos)
+
+            wait_until(120, 10, 0, eeprom_ready)
+            available_interfaces = [
+                intf["interface"] for intf in interfaces
+                if parsed_presence.get(intf["interface"]) == "Present"
+                and (intf["interface"] not in cpo_ports or (
+                    "SFP EEPROM detected" in eeprom_infos.get(intf["interface"], {}).get(intf["interface"], "")
+                    and is_supported_cpo_optic(eeprom_infos[intf["interface"]])))
+            ]
+        else:
+            available_interfaces = [
+                intf["interface"] for intf in interfaces
+                if parsed_presence.get(intf["interface"]) == "Present"
+            ]
 
         pytest_assert(available_interfaces, "No interfaces with SFP detected. Cannot proceed with tests.")
 
@@ -93,6 +135,7 @@ class TestMACFault(object):
 
     def test_mac_remote_fault_increment(self, select_random_interfaces):
         dut, interfaces = select_random_interfaces
+        cpo_ports = dut.get_cpo_ports()
 
         for interface in interfaces:
             pytest_assert(self.get_interface_status(dut, interface) == "up",
@@ -101,16 +144,17 @@ class TestMACFault(object):
             remote_fault_before = self.get_mac_fault_count(dut, interface, "mac remote fault")
             logging.info("Initial MAC remote fault count on {}: {}".format(interface, remote_fault_before))
 
-            dut.shell("sudo sfputil debug tx-output {} disable".format(interface))
+            disable_cmd, enable_cmd = self.get_tx_output_cmds(interface, interface in cpo_ports)
+            dut.shell(disable_cmd)
             time.sleep(5)
             pytest_assert(self.get_interface_status(dut, interface) == "down",
-                          "Interface {} did not go down after disabling rx-output using sfputil".format(interface))
+                          "Interface {} did not go down after '{}'".format(interface, disable_cmd))
 
-            dut.shell("sudo sfputil debug tx-output {} enable".format(interface))
+            dut.shell(enable_cmd)
             time.sleep(20)
 
             pytest_assert(self.get_interface_status(dut, interface) == "up",
-                          "Interface {} did not come up after disabling tx-output using sfputil".format(interface))
+                          "Interface {} did not come up after '{}'".format(interface, enable_cmd))
 
             remote_fault_after = self.get_mac_fault_count(dut, interface, "mac remote fault")
             logging.info("MAC remote fault count after disabling/enabling rx-output using sfputil {}: {}".format(

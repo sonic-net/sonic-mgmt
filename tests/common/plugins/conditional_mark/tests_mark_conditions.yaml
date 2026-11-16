@@ -3819,6 +3819,12 @@ layer1/test_fec_error.py::test_verify_fec_stats_counters:
     conditions:
       - "'Arista-7060CX-32S-D48C8'in hwsku"
 
+layer1/test_port_error.py::TestMACFault::test_mac_local_fault_increment:
+  skip:
+    reason: "sn6810_ld does not support RX disable"
+    conditions:
+      - "'sn6810_ld' in platform"
+
 #######################################
 #####           lldp              #####
 #######################################
