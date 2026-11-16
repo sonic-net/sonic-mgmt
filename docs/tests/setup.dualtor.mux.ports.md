@@ -87,6 +87,14 @@ def test_YYY(rand_selected_dut)
 ## Example
 Please refer to the API unit test `tests/dualtor_mgmt/test_dualtor_setup_mux_ports.py` that gives a comprehensive demonstration on each marker behavior.
 
+## Run DUT-enumerated test cases on one ToR
+Test cases parametrized with the enum DUT fixtures, like `enum_dut_hostname`, `enum_frontend_dut_hostname` or `enum_dut_lossless_prio`, run once per ToR on a Dual-ToR testbed. Pass `--dualtor_enum_one_tor` to pytest to run the tests listed in `tests/common/plugins/dualtor_enum_one_tor/dualtor_enum_one_tor.yaml` on one ToR only:
+- The test cases run on the randomly selected ToR, the same ToR as `rand_selected_dut`, so the `*_enum_tor` markers above apply to that ToR.
+- A test case enumerated on another ToR is deselected only if the same test case is enumerated on the selected ToR.
+- Test cases explicitly selected with parameters, like `bgp/test_bgp_fact.py::test_bgp_facts[<DUT>-None]`, still run.
+
+Only add a test to the file if running it on one ToR covers the same as running it on every ToR. Tests that set up or check every DUT, like `test_pretest.py` and `test_posttest.py`, must not be added.
+
 ## Q & A
 
 ### Q: Will the existing mux port toggle/setup fixtures be removed in the future?

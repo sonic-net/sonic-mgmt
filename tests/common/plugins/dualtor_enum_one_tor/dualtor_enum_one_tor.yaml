@@ -1,0 +1,26 @@
+# Tests whose DUT-enumerated test cases run on one ToR, instead of on every ToR, on dualtor testbeds when
+# --dualtor_enum_one_tor is passed to pytest.
+#
+# Test cases parametrized with the enum DUT fixtures, like enum_dut_hostname, enum_frontend_dut_hostname or
+# enum_dut_lossless_prio, run once per ToR on dualtor testbeds. With --dualtor_enum_one_tor, for the tests listed
+# below, a test case enumerated on another ToR is deselected if the same test case is enumerated on the randomly
+# selected ToR, which is the same ToR as rand_selected_dut.
+#
+# Each entry is a test module path relative to tests/, or <test module path>::<test class or function>.
+# Only add a test if running it on one ToR covers the same as running it on every ToR.
+- bgp/test_bgp_fact.py
+- bgp/test_bgp_queue.py
+- bgp/test_bgp_route_neigh_learning.py
+- bgp/test_bgp_router_id.py
+- bgp/test_bgp_session.py
+- bgp/test_bgp_stress_link_flap.py
+- bgp/test_ping_bgp_neighbor.py
+- bmp/test_frr_bmp_sanity.py
+- pc/test_lag_2.py
+- platform_tests/test_tmpfiles.py
+- qos/test_pfc_pause.py
+- test_features.py
+- test_interfaces.py
+- test_nbr_health.py
+- test_pktgen.py
+- vlan/test_autostate_disabled.py
