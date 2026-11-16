@@ -38,7 +38,7 @@ SWITCH_MODELS = {
         "chip_type": "spectrum4",
         "reboot": {
             "cold_reboot": True,
-            "fast_reboot": True,
+            "fast_reboot": False,
             "warm_reboot": True
         },
         "fans": {
@@ -103,7 +103,7 @@ SWITCH_MODELS = {
         "chip_type": "spectrum5",
         "reboot": {
             "cold_reboot": True,
-            "fast_reboot": True,
+            "fast_reboot": False,
             "warm_reboot": True
         },
         "fans": {
@@ -165,7 +165,7 @@ SWITCH_MODELS = {
         "chip_type": "spectrum6",
         "reboot": {
             "cold_reboot": True,
-            "fast_reboot": True,
+            "fast_reboot": False,
             "warm_reboot": True
         },
         "fans": {
@@ -230,7 +230,7 @@ SWITCH_MODELS = {
         "chip_type": "spectrum6",
         "reboot": {
             "cold_reboot": True,
-            "fast_reboot": True,
+            "fast_reboot": False,
             "warm_reboot": True
         },
         "fans": {
