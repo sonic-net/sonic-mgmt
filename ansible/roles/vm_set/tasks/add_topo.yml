@@ -193,8 +193,8 @@
       capabilities:
         - net_admin
       privileged: yes
-      memory: 32G
-      memory_swap: 64G
+      memory: "{{ '64G' if (configuration | default({}) | length) > 200 else '32G' }}"
+      memory_swap: "{{ '128G' if (configuration | default({}) | length) > 200 else '64G' }}"
     become: yes
 
   - name: Update ptf password
