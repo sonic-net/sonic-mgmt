@@ -34,10 +34,16 @@ class FakeConsoleCli:
 
     def __init__(self):
         self.command = None
+        self.used_sendline = None
         self.expect_args = None
+
+    def send(self, command):
+        self.command = command
+        self.used_sendline = False
 
     def sendline(self, command):
         self.command = command
+        self.used_sendline = True
 
     def expect(self, pattern, timeout):
         self.expect_args = (pattern, timeout)
@@ -78,3 +84,32 @@ def test_send_command_keeps_max_loops_compatibility():
         "admin@[a-zA-Z0-9]{1,10}:~\\$",
         60,
     )
+
+
+def test_write_channel_preserves_existing_newline_behavior():
+    """Append a newline by default for compatibility with existing callers."""
+    connection = make_connection()
+
+    connection.write_channel("\x1b[B")
+
+    assert connection.console_cli.command == "\x1b[B"
+    assert connection.console_cli.used_sendline is True
+
+
+def test_write_channel_can_send_raw_data_without_appending_newline():
+    """Allow bootloader helpers to send key sequences without a newline."""
+    connection = make_connection()
+
+    connection.write_channel("\x1b[B", add_newline=False)
+
+    assert connection.console_cli.command == "\x1b[B"
+    assert connection.console_cli.used_sendline is False
+
+
+def test_read_until_pattern_supports_netmiko_timeout_argument():
+    """Honor the timeout supplied by console helper callers."""
+    connection = make_connection()
+
+    connection.read_until_pattern("GRUB menu", read_timeout=180)
+
+    assert connection.console_cli.expect_args == ("GRUB menu", 180)

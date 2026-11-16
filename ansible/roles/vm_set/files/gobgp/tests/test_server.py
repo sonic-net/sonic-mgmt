@@ -6,6 +6,7 @@ parser and translator tests already own: the body cap under both framings
 fail-fast binding.
 """
 import json
+import io
 import socket
 import threading
 
@@ -23,6 +24,13 @@ from gobgp.shim.translator import NeighborClient  # noqa: E402
 from gobgp.tests.fakes import FakeStub  # noqa: E402
 
 ANNOUNCE = b"command=announce route 100.0.0.0/24 next-hop 10.0.0.57"
+
+
+class ShortReadStream(io.BytesIO):
+    """Return a bounded fragment from every readinto call."""
+
+    def readinto(self, buffer):
+        return super().readinto(memoryview(buffer)[:7])
 
 
 @pytest.fixture
@@ -108,6 +116,20 @@ def test_body_within_cap_applies(serve):
     assert stub.total_paths == 1
 
 
+def test_body_reader_collects_short_reads():
+    stub = FakeStub()
+    client = NeighborClient("127.0.0.1:50052", "v4", "ARISTA01T1", stub=stub)
+    app = make_app(client)
+    environ = {
+        "wsgi.input": ShortReadStream(ANNOUNCE),
+        "CONTENT_LENGTH": str(len(ANNOUNCE)),
+        "CONTENT_TYPE": "application/x-www-form-urlencoded",
+    }
+
+    with app.test_request_context("/", method="POST", environ_overrides=environ):
+        assert shim_server._read_body().encode() == ANNOUNCE
+
+
 def test_chunked_body_applies(serve):
     """A body framed by ``Transfer-Encoding`` must apply, not silently no-op."""
     stub = FakeStub()
@@ -153,6 +175,19 @@ def test_unexpected_error_stays_plain_text(serve, monkeypatch):
     body = resp.split("\r\n\r\n", 1)[1]
     assert body == "error: RuntimeError\n"
     assert "boom" not in body
+
+
+def test_server_bind_skips_fqdn(monkeypatch):
+    """Binding the wildcard address must not resolve the container hostname."""
+    monkeypatch.setattr(socket, "getfqdn",
+                        lambda _host: pytest.fail("unexpected FQDN lookup"))
+    srv = shim_server.make_server(
+        0, {"grpc": "127.0.0.1:50052", "family": "v4", "name": "N1"})
+    try:
+        assert srv.server_name == "0.0.0.0"
+        assert srv.server_port == srv.server_address[1]
+    finally:
+        srv.server_close()
 
 
 def test_bind_clash_fails_the_shard(tmp_path):

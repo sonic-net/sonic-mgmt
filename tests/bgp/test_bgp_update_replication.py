@@ -11,6 +11,8 @@ from tabulate import tabulate
 from tests.common.helpers.bgp import BGPNeighbor
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.bgp.bgp_helpers import is_neighbor_sessions_established
+from tests.common.dualtor.mux_simulator_control import \
+    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m  # noqa: F401
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until, is_ipv6_only_topology
@@ -166,8 +168,13 @@ def setup_bgp_peers(
     ptfhost,
     setup_interfaces,
     is_dualtor,
-    is_quagga
+    is_quagga,
+    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m  # noqa: F811
 ):
+    # On active-standby dual-ToR the toggle fixture keeps every mux port active on the DUT, in manual
+    # mode, so linkmgrd cannot move the peers' sessions between the direct path and the IPinIP tunnel
+    # mid-test. Requesting it here sets the muxes up before the sessions start and restores them (with
+    # a config save) only after the peers are removed. It is a no-op on other topologies.
     ASN_BASE = 61000
     PORT_BASE = 11000
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -262,7 +269,10 @@ def setup_bgp_peers(
 
 def _get_injector_pfx_count(duthost, is_ipv6, injector_ip):
     """Return the accepted-prefix count (pfxRcd) for *injector_ip* from the BGP summary."""
-    cmd = "vtysh -c 'show {} bgp summary json'".format('ipv6' if is_ipv6 else 'ip')
+    if is_ipv6:
+        cmd = "vtysh -c 'show bgp ipv6 summary json'"
+    else:
+        cmd = "vtysh -c 'show ip bgp summary json'"
     output = duthost.shell(cmd, module_ignore_errors=True)['stdout']
     try:
         data = json.loads(output)

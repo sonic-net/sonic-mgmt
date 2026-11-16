@@ -6,11 +6,10 @@ import pytest
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa: F401
 from tests.common.helpers.pfc_storm import PFCMultiStorm
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from tests.common.helpers.pfcwd_helper import start_wd_on_ports, update_pfc_poll_interval, \
-    start_background_traffic  # noqa: F401
+from tests.common.helpers.pfcwd_helper import start_wd_on_ports, update_pfc_poll_interval  # noqa: F401
 from tests.common.helpers.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE, \
     fetch_vendor_specific_diagnosis_re, verify_all_ports_pfc_storm_in_expected_state, \
-    get_pfc_storm_baseline_counters
+    get_pfc_storm_baseline_counters, is_pfcwd_hw_recovery_enabled, get_pfcwd_hw_timers
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m # noqa F401, E501
 from tests.common.helpers.pfcwd_helper import send_background_traffic
 from tests.common import config_reload
@@ -26,12 +25,6 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__name__)
-
-
-@pytest.fixture(scope="class")
-def pfc_queue_idx():
-    # Needed for start_background_traffic
-    yield 3   # Hardcoded in the testcase as well.
 
 
 @pytest.fixture(scope='module')
@@ -120,10 +113,16 @@ def storm_test_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts, 
     pfc_queue_index = 3
     pfc_frames_number = 10000000
     pfc_wd_detect_time = 200
+    # No poll interval in HW mode
+    is_hw_recovery = is_pfcwd_hw_recovery_enabled(duthost, port_list[0])
     pfc_wd_restore_time = 200
+    if is_hw_recovery:
+        pfc_wd_detect_time, pfc_wd_restore_time = get_pfcwd_hw_timers(
+            duthost, pfc_wd_detect_time, 1000, port_list[0])
     peer_params = populate_peer_info(asic_type, port_list, neighbors, pfc_queue_index, pfc_frames_number)
     storm_hndle = set_storm_params(duthost, enum_fanout_graph_facts, fanouthosts, peer_params)
-    update_pfc_poll_interval(duthost, 200)
+    if not is_hw_recovery:
+        update_pfc_poll_interval(duthost, 200)
     start_wd_on_ports(duthost, ports, pfc_wd_restore_time, pfc_wd_detect_time)
 
     yield storm_hndle
@@ -281,7 +280,7 @@ def cleanup_ptf_ips(ptfhost, test_ports_info, vlan, ip_version):
         ptfhost.command("sysctl -w net.ipv4.conf.all.arp_announce=0", module_ignore_errors=True)
 
 
-@pytest.mark.usefixtures('degrade_pfcwd_detection', 'stop_pfcwd', 'storm_test_setup_restore', 'start_background_traffic')  # noqa: E501
+@pytest.mark.usefixtures('degrade_pfcwd_detection', 'stop_pfcwd', 'storm_test_setup_restore')  # noqa: E501
 class TestPfcwdAllPortStorm(object):
     """ PFC storm test class """
     # Threshold percentage for port storm verification (75% of ports must reach expected state)
@@ -359,20 +358,28 @@ class TestPfcwdAllPortStorm(object):
         # Track which ports actually enter storm state
         stormed_ports_list = []
 
-        # get all the tested ports
+        # get all the tested ports.  The DUT may be connected to more than one fanout
+        # (e.g. a t1-lag testbed has a T2 facing and a T0 facing fanout), so the
+        # fanout -> DUT port mapping has to be accumulated for every peer.  Keeping the
+        # port selection inside the per peer loop mirrors
+        # pfcwd_helper._get_storm_test_ports(), which is what
+        # verify_all_ports_pfc_storm_in_expected_state() uses to build its port list.
         queues = []
+        selected_test_ports = []
         for peer in storm_hndle.peer_params.keys():
             fanout_intfs = storm_hndle.peer_params[peer]['intfs'].split(',')
             device_conn = storm_hndle.fanout_graph[peer]['device_conn']
             queues.append(storm_hndle.storm_handle[peer].pfc_queue_idx)
-        queues = list(set(queues))
-        selected_test_ports = []
 
-        if duthost.facts['asic_type'] != 'vs':
+            if duthost.facts['asic_type'] == 'vs':
+                continue
             for intf in fanout_intfs:
                 test_port = device_conn[intf]['peerport']
-                if test_port in setup_pfc_test['test_ports']:
+                if test_port in setup_pfc_test['test_ports'] and \
+                        test_port not in selected_test_ports:
                     selected_test_ports.append(test_port)
+        queues = list(set(queues))
+
         resolve_arp(duthost, ptfhost, setup_pfc_test['test_ports'],
                     setup_pfc_test["vlan"], setup_pfc_test["ip_version"])
         try:

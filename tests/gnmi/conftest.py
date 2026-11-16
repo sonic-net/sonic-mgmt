@@ -1,9 +1,11 @@
 import logging
 import os
 import sys
+from collections.abc import Iterator
 
 import pytest
 
+from tests.common.devices.duthosts import DutHosts
 from tests.common.gu_utils import create_checkpoint, rollback
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.helpers.assertions import pytest_require as pyrequire
@@ -19,13 +21,15 @@ from tests.common.helpers.gnmi_utils import (
     prepare_root_cert,
     prepare_server_cert,
 )
-from tests.common.helpers.ntp_helper import setup_ntp_context
+from tests.common.helpers.ntp_helper import check_ntp_sync_status, setup_ntp_context
+from tests.common.pygnmi_client import PygnmiClient
 from tests.common.utilities import wait_until
 from tests.gnmi.helper import (
     GNMI_SERVER_START_WAIT_TIME,
     apply_cert_config,
-    check_ntp_sync_status,
+    build_pygnmi_client,
     recover_cert_config,
+    wait_for_gnmi_server,
 )
 
 logger = logging.getLogger(__name__)
@@ -150,7 +154,7 @@ def rotate_gnmi_certs(duthost, localhost, ptfhost):
 
 
 @pytest.fixture(scope="module")
-def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
+def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhost, setup_gnmi_server):
     """
     Create GNMI client certificates
     """
@@ -162,6 +166,20 @@ def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhos
         "Test was not supported on devices which do not support GNMI!",
     )
     rotate_gnmi_certs(duthost, localhost, ptfhost)
+    wait_for_gnmi_server(duthost)
+
+
+@pytest.fixture(scope="module")  # type: ignore[misc]
+def pygnmi_client(
+    duthosts: DutHosts, rand_one_dut_hostname: str, setup_gnmi_server: None, setup_gnmi_rotated_server: None
+) -> Iterator[PygnmiClient]:
+    """
+    PygnmiClient for the gNMI server configured by setup_gnmi_server, using the certs from
+    setup_gnmi_rotated_server.
+    """
+    client = build_pygnmi_client(duthosts[rand_one_dut_hostname])
+    yield client
+    client.close()
 
 
 @pytest.fixture(scope="module")
@@ -203,9 +221,8 @@ def do_init(duthost):
 @pytest.fixture(scope="module")
 def test_eventd_healthy(duthosts, tbinfo, rand_one_dut_hostname, ptfhost, ptfadapter, gnxi_path):
     """
-    @summary: Verify eventd heartbeat before running the events testcases. Ported
-    from tests/telemetry; runs against the gnmi container (via the gnmi setup
-    fixtures) instead of the deprecated telemetry container.
+    @summary: Verify eventd heartbeat before running the events testcases against
+    the gnmi container (via the gnmi setup fixtures).
     """
     duthost = duthosts[rand_one_dut_hostname]
 

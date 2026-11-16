@@ -264,6 +264,7 @@ class BgpModule(object):
                             neighbor['message statistics'] = message_stats
 
                     if neighbor_ip:
+                        neighbor.setdefault('peer group', '')
                         neighbors[neighbor_ip] = neighbor
 
         except Exception as e:

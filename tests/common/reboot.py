@@ -25,6 +25,8 @@ power_on_event = threading.Event()
 # SSH defines
 SONIC_SSH_PORT = 22
 SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
+SSH_WAIT_RETRY_DELAY = 5
+ANSIBLE_READY_INTERVAL = 10
 
 REBOOT_TYPE_WARM = "warm"
 REBOOT_TYPE_SAI_WARM = "sai-warm"
@@ -225,7 +227,8 @@ def wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res=None):
         raise Exception('DUT {} did not shutdown'.format(hostname))
 
 
-def wait_for_startup(duthost, localhost, delay, timeout, port=SONIC_SSH_PORT):
+def wait_for_startup(duthost, localhost, delay, timeout, port=SONIC_SSH_PORT,
+                     wait_for_ansible=True):
     # TODO: add serial output during reboot for better debuggability
     #       This feature requires serial information to be present in
     #       testbed information
@@ -247,6 +250,25 @@ def wait_for_startup(duthost, localhost, delay, timeout, port=SONIC_SSH_PORT):
             raise Exception(f'DUT {hostname} did not startup at first try. res: {res}')
 
     logger.info('ssh has started up on {}'.format(hostname))
+
+    # The DUT may use a different Python interpreter after reboot.
+    # Clear cached Ansible facts before any subsequent module execution.
+    duthost.meta("clear_facts")
+
+    if not wait_for_ansible:
+        return
+
+    logger.info('waiting for Ansible commands to become ready on {}'.format(hostname))
+
+    def is_ansible_ready():
+        result = duthost.command("true", module_ignore_errors=True)
+        return result.is_successful
+
+    if not wait_until(timeout, ANSIBLE_READY_INTERVAL, 0, is_ansible_ready):
+        raise Exception(
+            "DUT {} did not become ready for Ansible commands after SSH startup".format(hostname)
+        )
+    logger.info('Ansible commands are ready on {}'.format(hostname))
 
 
 def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwargs=None, reboot_type='cold',
@@ -463,20 +485,14 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         return
 
     try:
-        wait_for_startup(duthost, localhost, delay, timeout)
+        wait_for_startup(
+            duthost, localhost, delay, timeout, wait_for_ansible=not return_after_reconnect)
     except Exception as err:
         if console_obj:
             console_obj.disconnect()
             logger.info('end: collect console log')
         pool.terminate()
         raise Exception(f"dut not start: {err}")
-
-    # NOTE: That once our device is back up it may be running a different version of SONiC/Debian
-    # than before which may include a different version of python. Therefore, to prevent python
-    # interpreter not found issues in subsequent Ansible modules as a result of using the
-    # pre-reboot cached interpreter value, we need to clear the cached facts so that they are
-    # re-gathered on next use.
-    duthost.meta("clear_facts")
 
     if return_after_reconnect:
         return
@@ -608,6 +624,12 @@ def get_reboot_cause(dut):
         else:
             if re.search(ctrl['cause'], cause):
                 return type
+
+    # On Arista-7260CX3 platforms, power-loss detection hardware occasionally
+    # reports "CPU (cpu-s3, description: gpi 2 detailed fault - CPU state S3" instead of "Power Loss".
+    # This is a confirmed hardware limitation. See https://github.com/sonic-net/sonic-mgmt/issues/24475
+    if "7260CX3" in dut.facts.get("platform", "") and re.search(r"CPU.*cpu-s3.*gpi 2 detailed fault", cause):
+        return REBOOT_TYPE_POWEROFF
 
     return REBOOT_TYPE_UNKNOWN
 
@@ -827,15 +849,31 @@ def collect_console_log(duthost, localhost, cancel_event=None):
 
 
 def check_ssh_connection(localhost, host_ip, port, delay, timeout, search_regex):
-    res = localhost.wait_for(host=host_ip,
-                             port=port,
-                             state='started',
-                             search_regex=search_regex,
-                             delay=delay,
-                             timeout=timeout,
-                             module_ignore_errors=True)
-    is_connected = not (res.is_failed or ('msg' in res and 'Timeout' in res['msg']))
-    return is_connected, res
+    # wait_for ignores only the errors of the TCP connect. A socket error after the port accepts
+    # the connection (for example "[Errno 113] No route to host" while the DUT is still booting)
+    # fails the module long before its timeout, so keep waiting until the timeout in that case.
+    deadline = time.monotonic() + timeout
+    while True:
+        res = localhost.wait_for(host=host_ip,
+                                 port=port,
+                                 state='started',
+                                 search_regex=search_regex,
+                                 delay=delay,
+                                 timeout=timeout,
+                                 module_ignore_errors=True)
+        msg = str(res['msg']) if 'msg' in res else ''
+        is_connected = not (res.is_failed or 'Timeout' in msg)
+        if is_connected or 'Timeout when waiting' in msg:
+            return is_connected, res
+        # Pause between tries, but leave at least one second for the last one.
+        pause = min(SSH_WAIT_RETRY_DELAY, deadline - time.monotonic() - 1)
+        if pause <= 0:
+            return is_connected, res
+        logger.warning("Waiting for {}:{} failed before the timeout: {}. Waiting {}s more".format(
+            host_ip, port, msg or res, int(deadline - time.monotonic())))
+        time.sleep(pause)
+        delay = 0
+        timeout = max(int(deadline - time.monotonic()), 1)
 
 
 def ssh_connection_with_retry(localhost, host_ip, port, delay, timeout):

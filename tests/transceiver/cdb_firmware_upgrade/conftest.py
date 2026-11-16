@@ -1,6 +1,4 @@
 import logging
-import time
-from contextlib import contextmanager
 
 import pytest
 
@@ -17,8 +15,6 @@ from tests.transceiver.cdb_firmware_upgrade.utils.firmware_utils import (
     stage_prestaged_firmware_binaries,
     cleanup_firmware_files,
 )
-from tests.transceiver.common import cli_helpers
-from tests.transceiver.common.db_helpers import get_db_hash_field, resolve_port_namespace
 from tests.transceiver.common.eeprom_decode import is_cmis_active_optical
 from tests.transceiver.common.port_selectors import (
     resolve_ports_under_test,
@@ -115,76 +111,51 @@ def cdb_firmware_qualifying_ports(
 ):
     """CMIS active-optical first-subport ports the CDB firmware tests run on.
 
-    Selection is the CDB attribute category gated by the EEPROM ``cmis_active_optical``
-    flag and restricted to any configured ``ports_under_test``.
+    Selection requires both the EEPROM ``cmis_active_optical`` flag and a
+    non-empty CDB ``firmware_versions`` value, and is restricted to any
+    configured ``ports_under_test``.
     """
     explicit_ports = resolve_ports_under_test(
         get_lport_to_pport_mapping, port_attributes_dict, CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY
     )
+    if explicit_ports is None:
+        pytest.skip(
+            "CDB firmware test suite skipped because "
+            "'ports_under_test' is not defined or is empty"
+        )
+
     qualifying_ports = select_attribute_ports(
         port_attributes_dict,
         CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY,
         lport_to_first_subport_mapping=lport_to_first_subport_mapping,
         explicit_ports=explicit_ports,
-        predicate=lambda port, attrs: is_cmis_active_optical(attrs.get(EEPROM_ATTRIBUTES_KEY, {})),
+        predicate=lambda port, attrs: (
+            is_cmis_active_optical(attrs.get(EEPROM_ATTRIBUTES_KEY, {}))
+            and bool(attrs.get(CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY, {}).get("firmware_versions"))
+        ),
     ).primary_ports
     if not qualifying_ports:
-        if explicit_ports is not None:
-            pytest.fail(
-                "ports_under_test configured but resolved to no qualifying "
-                "CMIS active-optical ports"
-            )
-        pytest.skip("No CMIS active-optical first-subport ports found for CDB firmware tests")
+        pytest.fail(
+            "ports_under_test configured but resolved to no CMIS active-optical "
+            "first-subport ports with firmware_versions inventory"
+        )
     return qualifying_ports
 
 
-@contextmanager
-def dom_polling_disabled_on_ports(duthost, port_attributes_dict, ports):
-    """Disable DOM polling on ``ports`` for the duration of the block.
-
-    Ports already disabled are left untouched so their prior state survives.
-    """
-    sleep_sec = 0
-    disabled_ports = []
-    try:
-        for port in ports:
-            cdb_attrs = port_attributes_dict[port].get(CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY, {})
-            sleep_sec = max(sleep_sec, cdb_attrs["sleep_after_dom_disable_sec"])
-            namespace = resolve_port_namespace(duthost, port)
-            dom_polling, err = get_db_hash_field(
-                duthost, "CONFIG_DB", "PORT", port, "dom_polling", namespace=namespace
-            )
-            if err:
-                pytest.fail(f"Failed to read dom_polling for {port}: {err}")
-            if dom_polling == "disabled":
-                logger.debug("Port %s: DOM polling already disabled", port)
-                continue
-            err = cli_helpers.set_dom_polling(duthost, port, enable=False, namespace=namespace)
-            if err:
-                pytest.fail(f"Failed to disable DOM polling: {err}")
-            disabled_ports.append((port, namespace))
-        if disabled_ports:
-            logger.info("Disabled DOM polling on %d port(s); waiting %ds", len(disabled_ports), sleep_sec)
-            time.sleep(sleep_sec)
-        yield
-    finally:
-        for port, namespace in disabled_ports:
-            err = cli_helpers.set_dom_polling(duthost, port, enable=True, namespace=namespace)
-            if err:
-                logger.warning("Failed to re-enable DOM polling on %s: %s", port, err)
-        if disabled_ports:
-            logger.info("Re-enabled DOM polling on %d port(s)", len(disabled_ports))
-
-
-@pytest.fixture
-def dom_polling_disabled(duthost, port_attributes_dict, cdb_firmware_qualifying_ports):
-    """Disable DOM polling on the ports under test, restoring it on teardown.
-
-    Firmware operation tests re-validate DOM values after each test, which
-    requires DOM to be re-enabled between tests.
-    """
-    with dom_polling_disabled_on_ports(duthost, port_attributes_dict, cdb_firmware_qualifying_ports):
-        yield
+@pytest.fixture(scope="session")
+def cdb_firmware_abort_supported_ports(
+    port_attributes_dict, cdb_firmware_qualifying_ports,
+):
+    """Qualifying ports whose modules support aborting a firmware download."""
+    ports = [
+        port for port in cdb_firmware_qualifying_ports
+        if port_attributes_dict[port][CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY].get(
+            "firmware_download_cdb_abort_support", True
+        )
+    ]
+    if not ports:
+        pytest.skip("No qualifying ports support CDB firmware download abort")
+    return ports
 
 
 @pytest.fixture(scope="package", autouse=True)
@@ -198,12 +169,11 @@ def restore_original_firmware_baseline(
     post-package restore runs before the staged binaries are removed.
     """
     def _restore(phase):
-        with dom_polling_disabled_on_ports(duthost, port_attributes_dict, cdb_firmware_qualifying_ports):
-            failures, ports = execute_on_ports(
-                duthost, port_attributes_dict, cdb_firmware_qualifying_ports,
-                get_lport_to_pport_mapping, required_firmware_metadata_for_all_transceivers,
-                restore_module_to_original,
-            )
+        failures, ports = execute_on_ports(
+            duthost, port_attributes_dict, cdb_firmware_qualifying_ports,
+            get_lport_to_pport_mapping, required_firmware_metadata_for_all_transceivers,
+            restore_module_to_original,
+        )
         logger.info("%s original firmware baseline on %d port(s)", phase, ports)
         if failures:
             pytest.fail(f"{phase} firmware restore failures:\n" + "\n".join(failures))

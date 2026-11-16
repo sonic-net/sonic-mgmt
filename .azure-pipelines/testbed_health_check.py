@@ -106,6 +106,7 @@ class TestbedHealthChecker:
         self.output_file = output_file
         self.is_snappi_testbed = 'rdma' in testbed_name or 'ixia' in testbed_name
         self.is_bmc_testbed = 'bmc' in testbed_name.lower()
+        self.is_ocs_testbed = 'ocs' in testbed_name.lower()
 
         # DPU-related state
         self.dpu_hosts = []
@@ -481,6 +482,10 @@ class TestbedHealthChecker:
             logger.info("======================= skip check_bgp_session_state for bmc =======================")
             return
 
+        if self.is_ocs_testbed:
+            logger.info("======================= skip check_bgp_session_state for ocs =======================")
+            return
+
         def find_unexpected_bgp_neighbors(neigh_bgp_facts, expected_state, unexpected_neighbors):
             for k, v in list(neigh_bgp_facts['bgp_neighbors'].items()):
                 if v['state'] != expected_state:
@@ -574,6 +579,10 @@ class TestbedHealthChecker:
 
         if self.is_bmc_testbed:
             logger.info("=================== skip check_interface_status_of_up_ports for bmc ===================")
+            return
+
+        if self.is_ocs_testbed:
+            logger.info("=================== skip check_interface_status_of_up_ports for ocs ===================")
             return
 
         failed = False

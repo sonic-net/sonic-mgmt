@@ -15,6 +15,7 @@ from tests.transceiver.attribute_parser.attribute_keys import (
 )
 from tests.common.platform.interface_utils import is_first_subport
 from tests.transceiver.common import cli_helpers
+from tests.transceiver.common.cli_parser_helper import FW_ACTIVE, FW_INACTIVE
 from tests.transceiver.common.eeprom_decode import ModuleFamily, classify
 from tests.transceiver.common.scenario_ops import poll_ports_recovered
 from tests.transceiver.eeprom import datapath
@@ -51,10 +52,12 @@ SFPUTIL_CLI_KEY_TO_INV_KEY = {
 # content (published to TRANSCEIVER_FIRMWARE_INFO by xcvrd's DOM thread, not
 # TRANSCEIVER_INFO), so the scenario-recovery path scores them separately with
 # their own budget (verify_firmware_info_recovered); the plain content test
-# keeps them inline.
+# keeps them inline.  The CLI labels come from the shared ``cli_parser_helper``
+# constants so the ``expected_active`` / ``expected_inactive`` overrides in
+# ``verify_firmware_info_recovered`` cannot drift from the keys used here.
 _FIRMWARE_CLI_KEY_TO_INV_KEY = {
-    "Active Firmware":   "gold_firmware_version",
-    "Inactive Firmware": "inactive_firmware_version",
+    FW_ACTIVE:   "gold_firmware_version",
+    FW_INACTIVE: "inactive_firmware_version",
 }
 _STATIC_SHOW_CLI_KEY_TO_INV_KEY = {
     **_COMMON_CLI_KEY_TO_INV_KEY,
@@ -114,13 +117,20 @@ def _resolve_expected(base_attrs, eeprom_attrs, cdb_fw_attrs, attr_key):
     return _MISSING
 
 
-def _compare_eeprom_fields(port_attrs, port_fields, source_label, key_mapping):
+def _compare_eeprom_fields(
+    port_attrs, port_fields, source_label, key_mapping, expected_overrides=None,
+):
     """Compare a port's parsed CLI fields against inventory; return failures.
 
     Shared by the per-port timed path (:func:`_validate_port_eeprom_dump`, the
     sfputil variant) and the bulk path (:func:`run_bulk_eeprom_check`, the
     show-CLI variant).  ``port_fields`` is the ``{cli_field: value}`` map already
     parsed for this port (an empty dict means the port had no parsed output).
+
+    ``expected_overrides`` is an optional ``{cli_field: expected_value}`` map that
+    takes precedence over the inventory lookup.  It exists for scenarios whose
+    expectation is not the inventory default — notably a firmware upgrade/downgrade
+    test, where the active/inactive versions change as the test progresses.
 
     Returns a list of failure strings: a "not detected" entry when
     ``port_fields`` is empty, plus one entry per ``key_mapping`` field whose
@@ -136,7 +146,10 @@ def _compare_eeprom_fields(port_attrs, port_fields, source_label, key_mapping):
 
     failures = []
     for cli_key, attr_key in key_mapping.items():
-        expected_value = _resolve_expected(base_attrs, eeprom_attrs, cdb_fw_attrs, attr_key)
+        if expected_overrides is not None and cli_key in expected_overrides:
+            expected_value = expected_overrides[cli_key]
+        else:
+            expected_value = _resolve_expected(base_attrs, eeprom_attrs, cdb_fw_attrs, attr_key)
         if expected_value is _MISSING:
             continue
         actual_value = port_fields.get(cli_key)
@@ -290,6 +303,7 @@ def _validate_datapath_fields(port, port_attrs, cli_fields):
 
 def run_bulk_eeprom_check(
     duthost, port_attributes_dict, source_label, key_mapping, include_datapath=True,
+    expected_overrides=None,
 ):
     """Bulk (all-sub-ports) check, used by the show-CLI variant.
 
@@ -328,6 +342,7 @@ def run_bulk_eeprom_check(
         cli_fields = parsed_by_port.get(port, {})
         port_failures = _compare_eeprom_fields(
             port_attrs, cli_fields, source_label, key_mapping,
+            expected_overrides=expected_overrides,
         )
         if include_datapath:
             # Generic TC#4 step 4: dynamic DataPath fields (by module class).
@@ -348,7 +363,10 @@ def _select_target_attributes(port_attributes_dict, ports):
     }
 
 
-def _poll_bulk_recovery(duthost, target_attributes, key_mapping, wait_sec, label="content"):
+def _poll_bulk_recovery(
+    duthost, target_attributes, key_mapping, wait_sec, label="content",
+    expected_overrides=None,
+):
     """Poll the bulk show-CLI check until every target port's ``key_mapping``
     fields match inventory or ``wait_sec`` elapses (``<= 0`` = single snapshot);
     logs the still-failing count when it changes. Returns per-port failures.
@@ -360,6 +378,7 @@ def _poll_bulk_recovery(duthost, target_attributes, key_mapping, wait_sec, label
             source_label="show interfaces transceiver info",
             key_mapping=key_mapping,
             include_datapath=False,
+            expected_overrides=expected_overrides,
         )
 
     return poll_ports_recovered(
@@ -428,6 +447,8 @@ def verify_firmware_info_recovered(
     port_attributes_dict,
     wait_sec,
     ports=None,
+    expected_active=None,
+    expected_inactive=None,
 ):
     """Verify firmware versions recovered after a disruptive scenario.
 
@@ -438,11 +459,23 @@ def verify_firmware_info_recovered(
     Args:
         wait_sec: max poll time; ``<= 0`` does a single snapshot check.
         ports: optional subset of ``port_attributes_dict`` to verify.
+        expected_active: optional expected ``Active Firmware`` version, overriding
+            the inventory ``gold_firmware_version``. Firmware upgrade/downgrade
+            tests move the module off the inventory default, so they supply the
+            version the scenario just installed.
+        expected_inactive: optional expected ``Inactive Firmware`` version,
+            overriding the inventory ``inactive_firmware_version``.
 
     Returns:
         list[str]: aggregated per-port failures, or ``[]`` once all recover.
     """
     target_attributes = _select_target_attributes(port_attributes_dict, ports)
+    expected_overrides = {}
+    if expected_active is not None:
+        expected_overrides[FW_ACTIVE] = expected_active
+    if expected_inactive is not None:
+        expected_overrides[FW_INACTIVE] = expected_inactive
     return _poll_bulk_recovery(
         duthost, target_attributes, _FIRMWARE_CLI_KEY_TO_INV_KEY, wait_sec, label="firmware",
+        expected_overrides=expected_overrides or None,
     )

@@ -800,6 +800,10 @@ class TestShowQueue():
 
             configDbCli = SonicDbCli(asic, "CONFIG_DB")
             buffer_queue_keys = configDbCli.get_keys("BUFFER_QUEUE|*", raise_error_when_not_found=False)
+            if not buffer_queue_keys:
+                if tbinfo["topo"]["type"] in ("uma", "lma"):
+                    pytest.skip("Buffer queues are not configured on DMA topologies")
+                pytest.fail("No BUFFER_QUEUE entries found in CONFIG_DB")
             interfaces = set()
 
             for key in buffer_queue_keys:
@@ -820,13 +824,11 @@ class TestShowQueue():
                     # so fields[-3] is the namespace. Filter by it to match per-ASIC query scope.
                     # On non-T2 multi-ASIC, SonicDbCli(asic) already queries per-ASIC CONFIG_DB,
                     # keys are just BUFFER_QUEUE|Ethernet0|0-2, so fields[-3] is "BUFFER_QUEUE"
-                    # and must NOT be filtered.
-                    if len(fields) == 5:
-                        if fields[-3] == asic.namespace:
-                            interfaces.add(fields[-2])
-                    else:
-                        # The output simply looks like: BUFFER_QUEUE|<interface>|<queue>
-                        interfaces.add(fields[-2])
+                    # and must NOT be filtered. Single-ASIC VOQ keys also carry an ASIC field
+                    # (e.g. 'Asic0') while asic.namespace is None, so match on asic_index instead.
+                    if len(fields) == 5 and fields[-3].lower() != "asic{}".format(asic.asic_index):
+                        continue
+                    interfaces.add(fields[-2])
                 except IndexError:
                     pass
 

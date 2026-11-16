@@ -68,13 +68,13 @@ def get_neighbor_portchannel_intf(neigh_host, neigh_ipv4):
 
 
 @pytest.fixture(scope='module')
-def setup_info(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
+def setup_info(request, duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
     """Gather setup information for the link-local BGP test."""
     # This test uses eos_command/eos_config on the neighbor host, so it
     # requires EOS/cEOS neighbors.  Skip gracefully for other neighbor types.
+    neighbor_type = request.config.getoption("neighbor_type")
     common_props = tbinfo.get('topo', {}).get('properties', {}).get(
         'configuration_properties', {}).get('common', {})
-    neighbor_type = common_props.get('neighbor_type', 'eos')
     if neighbor_type.lower() not in ('eos', 'ceos'):
         pytest.skip("BGP link-local test requires EOS neighbors; "
                     "current neighbor_type is '{}'".format(neighbor_type))
