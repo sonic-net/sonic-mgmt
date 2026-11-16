@@ -252,7 +252,7 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None
         raise Exception("py_gnmicli failed rc={}\nSTDOUT:\n{}\nSTDERR:\n{}".format(rc, stdout, stderr))
 
 
-def gnmi_get(duthost, ptfhost, path_list, target=None, origin="sonic-db"):
+def gnmi_get(duthost, ptfhost, path_list, ip=None, target=None, origin="sonic-db"):
     """
     Send GNMI get request with GNMI client
 
@@ -267,7 +267,7 @@ def gnmi_get(duthost, ptfhost, path_list, target=None, origin="sonic-db"):
         msg_list: list for get result
     """
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    ip = duthost.mgmt_ip
+    ip = ip or duthost.mgmt_ip
     port = env.gnmi_port
     cmd = '/root/env-python3/bin/python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
     cmd += '--timeout 30 '
