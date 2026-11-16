@@ -21,9 +21,11 @@ logger = logging.getLogger(__name__)
 
 # constants based on existing PFCWD storm tests
 PFC_QUEUE = 4
-HISTORY_UPDATE_TIMEOUT = 30
+# pfc_gen_brcm_xgs.py waits up to 30 s for the fanout to enable PFC transmit before it
+# sends anything, so history gets that long plus time to record the pause
+HISTORY_UPDATE_TIMEOUT = 45
 HISTORY_UPDATE_INTERVAL = 2
-# a storm must outlast the history wait, the accuracy sample and the CLI reads, about 40 s;
+# a storm must outlast the history wait, the accuracy sample and the CLI reads, about 55 s;
 # 1,000,000 frames from a CPU sender at ~145k fps lasted 7 s. Every test and fixture stops
 # its storm, so the count only bounds a storm that nothing stops
 PFC_FRAMES_COUNT = 100000000
@@ -132,6 +134,70 @@ def _storm_detect_count(duthost, port, queue):
     """storms the watchdog has detected on the queue; the CLI omits all-zero rows"""
     stats = parser_show_pfcwd_stat(duthost, port, queue)
     return int(stats[0]["storm_detect_count"]) if stats else 0
+
+
+def _fanout_pfc_tx_frames(storm):
+    """
+    PFC frames the fanout port has sent on the storm priority, or None where
+    that count is not known to include the storm's frames
+    """
+    # pfc_gen_brcm_xgs.py makes the fanout's MAC send PFC, which this counter
+    # counts. Other generators send PFC frames from the CPU.
+    if storm.peer_device.os != "sonic" or storm.pfc_gen_file != "pfc_gen_brcm_xgs.py":
+        return None
+    out = storm.peer_device.shell(
+        "redis-cli -n 4 hget 'FLEX_COUNTER_TABLE|PORT' FLEX_COUNTER_STATUS; "
+        "redis-cli -n 2 hget COUNTERS:$(redis-cli -n 2 hget COUNTERS_PORT_NAME_MAP {}) "
+        "SAI_PORT_STAT_PFC_{}_TX_PKTS".format(
+            storm.peer_info["pfc_fanout_interface"], storm.pfc_queue_idx
+        ),
+        module_ignore_errors=True,
+    ).get("stdout", "").split("\n")
+    # without port counter polling the value is stale, and an unchanged count proves nothing
+    if len(out) != 2 or out[0].strip() != "enable":
+        return None
+    count = out[1].strip()
+    return int(count) if count.isdigit() else None
+
+
+def _assert_storm_recorded(duthost, port, storm, before, fanout_tx_before, message):
+    """
+    wait for history to record the running storm. If it does not, fail with
+    whether the fanout sent any PFC, so a storm that never left the fanout is
+    not reported as a DUT failure
+    """
+    if wait_until(
+        HISTORY_UPDATE_TIMEOUT,
+        HISTORY_UPDATE_INTERVAL,
+        0,  # The storm is already running, so begin polling immediately.
+        _history_was_recorded,
+        duthost,
+        port,
+        PFC_QUEUE,
+        before,
+    ):
+        return
+
+    fanout_tx_after = _fanout_pfc_tx_frames(storm)
+    # unknown, or the counters were cleared during the storm
+    if fanout_tx_before is None or fanout_tx_after is None or fanout_tx_after < fanout_tx_before:
+        pytest.fail(message)
+
+    fanout = storm.peer_info["peerdevice"]
+    fanout_port = storm.peer_info["pfc_fanout_interface"]
+    sent = fanout_tx_after - fanout_tx_before
+    pytest_assert(
+        sent > 0,
+        "Fanout {} sent no PFC{} frames on {} during the storm, so {} had no pause "
+        "to record. Check the fanout's PFC generator and orchagent".format(
+            fanout, PFC_QUEUE, fanout_port, port
+        ),
+    )
+    pytest.fail(
+        "{}, though fanout {} sent {} PFC{} frames on {}".format(
+            message, fanout, sent, PFC_QUEUE, fanout_port
+        )
+    )
 
 
 @pytest.fixture(scope="module")
@@ -243,19 +309,15 @@ def test_pfcwd_stat_history(stat_history_test_setup):
     )
 
     # start the storm and wait to see history update
+    fanout_tx_before = _fanout_pfc_tx_frames(storm)
     try:
         storm.start_storm()
-        pytest_assert(
-            wait_until(
-                HISTORY_UPDATE_TIMEOUT,
-                HISTORY_UPDATE_INTERVAL,
-                0,  # The storm is already running, so begin polling immediately.
-                _history_was_recorded,
-                duthost,
-                port,
-                PFC_QUEUE,
-                before,
-            ),
+        _assert_storm_recorded(
+            duthost,
+            port,
+            storm,
+            before,
+            fanout_tx_before,
             "PFC pause history did not update for {} PFC{}".format(port, PFC_QUEUE),
         )
     finally:
@@ -296,20 +358,16 @@ def test_pfcwd_stat_history_accuracy(stat_history_test_setup):
     detected_before = _storm_detect_count(duthost, port, PFC_QUEUE)
 
     # start the storm and wait to see history begin updating
+    fanout_tx_before = _fanout_pfc_tx_frames(storm)
     try:
         storm_start = time.monotonic()
         storm.start_storm()
-        pytest_assert(
-            wait_until(
-                HISTORY_UPDATE_TIMEOUT,
-                HISTORY_UPDATE_INTERVAL,
-                0,
-                _history_was_recorded,
-                duthost,
-                port,
-                PFC_QUEUE,
-                before,
-            ),
+        _assert_storm_recorded(
+            duthost,
+            port,
+            storm,
+            before,
+            fanout_tx_before,
             "PFC pause history did not start for {} PFC{}".format(
                 port, PFC_QUEUE
             ),
@@ -434,19 +492,15 @@ def test_pfcwd_stat_history_is_cumulative(stat_history_test_setup):
 
     # subsequent storms should increase history counters cumulatively
     for cycle in range(0, CUMULATIVE_STORM_COUNT):
+        fanout_tx_before = _fanout_pfc_tx_frames(storm)
         try:
             storm.start_storm()
-            pytest_assert(
-                wait_until(
-                    HISTORY_UPDATE_TIMEOUT,
-                    HISTORY_UPDATE_INTERVAL,
-                    0,
-                    _history_was_recorded,
-                    duthost,
-                    port,
-                    PFC_QUEUE,
-                    previous,
-                ),
+            _assert_storm_recorded(
+                duthost,
+                port,
+                storm,
+                previous,
+                fanout_tx_before,
                 "PFC history did not record storm {} on {} PFC{}".format(
                     cycle, port, PFC_QUEUE
                 ),
