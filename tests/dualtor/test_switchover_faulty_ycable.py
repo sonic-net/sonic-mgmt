@@ -44,9 +44,36 @@ def simulated_good_side(rand_selected_dut):
 
 @contextlib.contextmanager
 def setup_faulted_y_cable_driver(
-    duthost, wait_for_recovery, simulate_probe_unknown=False, simulate_peer_link_down=False
+    duthost, mux_port, duthosts, ports, simulate_probe_unknown=False, simulate_peer_link_down=False
 ):
     """Setup the faulted Y cable driver on the active ToR."""
+
+    def _remove_pmon_container(duthost):
+        logging.info("Stopping pmon container.")
+        duthost.shell("systemctl stop pmon.service")
+        logging.info("pmon container is stopped.")
+
+        logging.info("Removing pmon container.")
+        duthost.shell("docker rm pmon")
+        logging.info("pmon container is removed.")
+
+    def _restart_pmon_container(duthost):
+        logging.info("Resetting pmon status.")
+        logging.info("systemctl reset-failed pmon.service")
+        logging.info("Restarting pmon container ...")
+        duthost.shell("systemctl restart pmon.service")
+
+        logging.info("Waiting for PMON to start ...")
+        restarted = wait_until(
+            60, 5, 0, check_container_state, duthost, "pmon", True)
+        pytest_assert(restarted, "Failed to start PMON on {}".format(duthost.hostname))
+        ycabled_started = wait_until(
+            60, 5, 0, lambda: duthost.get_pmon_daemon_status("ycabled")[0] == "RUNNING")
+        pytest_assert(ycabled_started, "Failed to start ycabled on {}".format(duthost.hostname))
+        logging.info("PMON and ycabled are running.")
+        pytest_assert(_wait_for_recovery(duthost, mux_port, duthosts, ports),
+                      "Failed to recover Y-cable state or mux health after PMON recovery")
+
     y_cable_simulated_path = None
     try:
         extra_vars = {
@@ -78,15 +105,20 @@ def setup_faulted_y_cable_driver(
         time.sleep(10)
         yield
     finally:
-        if y_cable_simulated_path:
-            duthost.shell(
-                "docker exec pmon mv {path}/y_cable_simulated.py.orig {path}/y_cable_simulated.py".format(
-                    path=y_cable_simulated_path
+        try:
+            if y_cable_simulated_path:
+                duthost.shell(
+                    "docker exec pmon mv {path}/y_cable_simulated.py.orig {path}/y_cable_simulated.py".format(
+                        path=y_cable_simulated_path
+                    )
                 )
-            )
-        duthost.shell(
-            "docker exec pmon supervisorctl restart ycabled")
-        wait_for_recovery()
+            duthost.shell(
+                "docker exec pmon supervisorctl restart ycabled")
+        finally:
+            if not _wait_for_recovery(duthost, mux_port, duthosts, ports):
+                logging.warning("Y-cable or mux health did not recover; recreating PMON on %s", duthost.hostname)
+                _remove_pmon_container(duthost)
+                _restart_pmon_container(duthost)
 
 
 def get_tor_mux_status(duthost, mux_port):
@@ -115,46 +147,15 @@ def select_mux_port(active_standby_ports):  # noqa: F811
     return random.choice(active_standby_ports)
 
 
-@pytest.fixture
-def restore_pmon(simulated_faulty_side, select_mux_port, duthosts, active_standby_ports,  # noqa: F811
-                 run_icmp_responder):  # noqa: F811
-    """Yield a recovery check and recreate PMON if primary recovery fails."""
-    mux_port = select_mux_port
-    recovery_succeeded = None
-
-    def _remove_pmon_container(duthost):
-        logging.info("Stopping pmon container.")
-        duthost.shell("systemctl stop pmon.service")
-        logging.info("pmon container is stopped.")
-
-        logging.info("Removing pmon container.")
-        duthost.shell("docker rm pmon")
-        logging.info("pmon container is removed.")
-
-    def _restart_pmon_container(duthost):
-        logging.info("Resetting pmon status.")
-        logging.info("systemctl reset-failed pmon.service")
-        logging.info("Restarting pmon container ...")
-        duthost.shell("systemctl restart pmon.service")
-
-        logging.info("Waiting for PMON to start ...")
-        restarted = wait_until(
-            60, 5, 0, check_container_state, duthost, "pmon", True)
-        pytest_assert(restarted, "Failed to start PMON on {}".format(duthost.hostname))
-        ycabled_started = wait_until(
-            60, 5, 0, lambda: duthost.get_pmon_daemon_status("ycabled")[0] == "RUNNING")
-        pytest_assert(ycabled_started, "Failed to start ycabled on {}".format(duthost.hostname))
-        logging.info("PMON and ycabled are running.")
-        pytest_assert(_wait_for_recovery(), "Failed to recover Y-cable state or mux health after PMON recovery")
-
+def _wait_for_recovery(duthost, mux_port, duthosts, ports):
     def _check_fault_cleared():
-        return (get_tor_mux_probe_state(simulated_faulty_side, mux_port) in ("active", "standby") and
-                get_tor_mux_cable_info(simulated_faulty_side, mux_port).get("link_status_peer") == "up")
+        return (get_tor_mux_probe_state(duthost, mux_port) in ("active", "standby") and
+                get_tor_mux_cable_info(duthost, mux_port).get("link_status_peer") == "up")
 
     def _check_mux_ports_healthy():
         for duthost in duthosts:
             mux_status = show_muxcable_status(duthost)
-            for port in active_standby_ports:
+            for port in ports:
                 if port not in mux_status:
                     logging.debug("MUX status is missing on %s %s", duthost.hostname, port)
                     return False
@@ -163,34 +164,24 @@ def restore_pmon(simulated_faulty_side, select_mux_port, duthosts, active_standb
                     return False
         return True
 
-    def _wait_for_recovery():
-        nonlocal recovery_succeeded
-        recovery_succeeded = (wait_until(90, 10, 0, _check_fault_cleared) and
-                              wait_until(120, 10, 0, _check_mux_ports_healthy))
-        return recovery_succeeded
-
-    yield _wait_for_recovery
-
-    # The driver context may have failed before it could check recovery.
-    if recovery_succeeded is None:
-        _wait_for_recovery()
-    if not recovery_succeeded:
-        logging.warning("Y-cable or mux health did not recover; recreating PMON on %s",
-                        simulated_faulty_side.hostname)
-        _remove_pmon_container(simulated_faulty_side)
-        _restart_pmon_container(simulated_faulty_side)
+    return (wait_until(90, 10, 0, _check_fault_cleared) and
+            wait_until(120, 10, 0, _check_mux_ports_healthy))
 
 
 def test_switchover_probe_unknown(
     simulated_good_side,
     simulated_faulty_side,
-    restore_pmon,                                           # noqa: F811
+    duthosts,
+    active_standby_ports,                                  # noqa: F811
+    run_icmp_responder,                                    # noqa: F811
     select_mux_port,
     toggle_all_simulator_ports_to_rand_unselected_tor       # noqa: F811
 ):
     mux_port = select_mux_port
     logging.info("Use mux port %s to test", mux_port)
-    with setup_faulted_y_cable_driver(simulated_faulty_side, restore_pmon, simulate_probe_unknown=True):
+    with setup_faulted_y_cable_driver(
+        simulated_faulty_side, mux_port, duthosts, active_standby_ports, simulate_probe_unknown=True
+    ):
         # ensure that no switchover after the ycabled restart
         pytest_assert(get_tor_mux_status(
             simulated_faulty_side, mux_port) == "active")
@@ -213,13 +204,17 @@ def test_switchover_probe_unknown(
 def test_switchover_peer_link_down(
     simulated_good_side,
     simulated_faulty_side,
-    restore_pmon,                                           # noqa: F811
+    duthosts,
+    active_standby_ports,                                  # noqa: F811
+    run_icmp_responder,                                    # noqa: F811
     select_mux_port,
     toggle_all_simulator_ports_to_rand_unselected_tor       # noqa: F811
 ):
     mux_port = select_mux_port
     logging.info("Use mux port %s to test", mux_port)
-    with setup_faulted_y_cable_driver(simulated_faulty_side, restore_pmon, simulate_peer_link_down=True):
+    with setup_faulted_y_cable_driver(
+        simulated_faulty_side, mux_port, duthosts, active_standby_ports, simulate_peer_link_down=True
+    ):
         # ensure that no switchover after the ycabled restart
         pytest_assert(get_tor_mux_status(
             simulated_faulty_side, mux_port) == "active")
