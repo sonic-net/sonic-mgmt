@@ -30,3 +30,5 @@ Using of pytest does not mean that ansible will no long be used. Ansible is stil
 * [Spytest](/spytest)
   * [Introduction](/spytest/Doc/intro.md)
   * [Install](/spytest/Doc/install.md)
+
+<!-- AI worker GitHub MCP validation marker; intentionally non-functional. -->
