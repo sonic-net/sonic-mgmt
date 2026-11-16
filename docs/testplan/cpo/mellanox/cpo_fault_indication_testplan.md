@@ -10,7 +10,7 @@ This vendor-specific plan uses PMFT register access through `mlxreg`. Current va
 - Run on a single-ASIC SimX DUT for the current validation scope. The suite checks CPO and software-control support but does not automatically enforce the SimX restriction.
 - Require an inserted vModule with an operationally up target port, `mlxreg` for PMFT fault injection, and `cpoutil` for CPO module reset.
 - TC-1 additionally requires a gNMI server configured with mTLS.
-- Allocate a fresh, unused vModule per test; affected SimX builds only raise an interrupt for the first injection into each vModule.
+- Allocate a fresh, unused vModule per test to keep test targets independent.
 - Clear `xcvr_fault` on the ports being checked and verify it is absent or empty before injection. The field is append-only and does not clear automatically.
 - Allow up to **120 seconds** for fault processing.
 
@@ -50,8 +50,6 @@ mlxreg -d <mst_device> --reg_name PMFT \
 2. Inject an APC warning on laser 0 (`lane_mask=1`), wait for processing, then inject it on laser 1 (`lane_mask=2`) of the same ELS.
 3. Verify `xcvr_fault` contains both `xcvr_cpo_els_warning_code_lane1` and `xcvr_cpo_els_warning_code_lane2`, separated by `|`, without duplicates.
 4. Verify a WARNING syslog entry for each token.
-
-**Known limitation**: Affected SimX builds do not raise an interrupt for the second injection. Run this case only on a build that supports repeated injection; it is not automatically skipped by the suite.
 
 ### TC-3: Preserve the xcvrd-Owned `error` Field
 
