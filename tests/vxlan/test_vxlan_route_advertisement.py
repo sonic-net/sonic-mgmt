@@ -33,8 +33,13 @@ pytestmark = [
 
 
 def _command_stdout(result):
-    """Return command stdout as text for EOS list and SONiC string shapes."""
-    stdout = result.get('stdout', '') if isinstance(result, Mapping) else ''
+    """Return command stdout, or None when an explicit command failure occurred."""
+    if not isinstance(result, Mapping):
+        return ''
+    rc = result.get('rc')
+    if result.get('failed') or (rc is not None and rc != 0):
+        return None
+    stdout = result.get('stdout', '')
     if isinstance(stdout, list):
         return stdout[0] if stdout else ''
     return stdout or ''
@@ -57,7 +62,10 @@ def _scale_route_command(host, prefix_type, community=""):
             # FRR uses ``community`` for both address families. Keeping this
             # cSONiC command bare lets CsonicHost add the logical runtime VRF.
             command += "community " + community
-    return command + grepdata
+    # With a cSONiC shell pipeline, grep's status would hide whether the FRR
+    # table query itself failed or returned a valid empty table. Read the full
+    # table and validate the command result before checking route membership.
+    return command if isinstance(host, CsonicHost) else command + grepdata
 
 
 def _neighbor_route_matches(host, route, expected_present, community=""):
@@ -338,26 +346,32 @@ class Test_VxLAN_route_Advertisement():
 
     def verify_nighbor_has_routes_scale(self, routes, community=""):
         prefix_mask = 24 if self.prefix_type == 'v4' else 64
+        expected_routes = [
+            f'{prefix}/{prefix_mask}'
+            for vnet in routes
+            for prefix in routes[vnet]
+        ]
 
         for t2device in self.vxlan_test_setup['t2']:
-            retry_count = 4
             cmd = _scale_route_command(
                 t2device['host'], self.prefix_type, community)
-            result = t2device['host'].run_command(cmd)
-            output = _command_stdout(result)
-            while not output and retry_count > 0:
-                time.sleep(10)
-                result = t2device['host'].run_command(cmd)
-                output = _command_stdout(result)
-                retry_count = retry_count - 1
-            if not output:
-                py_assert(False, "Routes not propogated to the T2.")
-
-            for vnet in routes:
-                for prefix in routes[vnet]:
-                    route = f'{prefix}/{prefix_mask}'
-                    if route not in output:
-                        py_assert(False, "Route not propogated to the T2.{route} with community{community} not found.")
+            last_error = None
+            for attempt in range(5):
+                output = _command_stdout(t2device['host'].run_command(cmd))
+                if output is None:
+                    last_error = "Neighbor route-table query failed"
+                else:
+                    missing_routes = [
+                        route for route in expected_routes if route not in output]
+                    if not missing_routes:
+                        break
+                    last_error = (
+                        "Routes {} with community {} did not propagate to T2"
+                        .format(missing_routes, community or '<any>'))
+                if attempt < 4:
+                    time.sleep(10)
+            else:
+                py_assert(False, last_error)
         return
 
     def verify_nighbor_doesnt_have_routes_scale(self, routes, community=""):
@@ -365,8 +379,8 @@ class Test_VxLAN_route_Advertisement():
         for t2device in self.vxlan_test_setup['t2']:
             cmd = _scale_route_command(
                 t2device['host'], self.prefix_type, community)
-            result = t2device['host'].run_command(cmd)
-            output = _command_stdout(result)
+            output = _command_stdout(t2device['host'].run_command(cmd))
+            py_assert(output is not None, "Neighbor route-table query failed")
             for vnet in routes:
                 for prefix in routes[vnet]:
                     route = f'{prefix}/{prefix_mask}'

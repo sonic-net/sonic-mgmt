@@ -113,6 +113,51 @@ def test_csonic_suppress_fib_route_propagation_uses_runtime_vrf(
     assert commands == [expected_command]
 
 
+@pytest.mark.parametrize("ip_ver, peer", [
+    (4, '10.0.0.32'),
+    (6, 'fc00::41'),
+])
+@pytest.mark.parametrize("action", [
+    bgp_helpers.ACTION_IN,
+    bgp_helpers.ACTION_NOT_IN,
+])
+def test_csonic_failed_route_query_never_matches_propagation_state(
+        monkeypatch, ip_ver, peer, action):
+    host = CsonicHost('csonic-prime', bgp_vrf='VrfARISTA01T0')
+
+    def docker_exec(command, **kwargs):
+        return {
+            'rc': 1,
+            'stdout': '',
+            'stderr': 'FRR unavailable',
+            'failed': False,
+        }
+
+    host._docker_exec = docker_exec
+    monkeypatch.setattr(bgp_helpers.logging, 'warning', lambda *args: None)
+    assert not bgp_helpers.check_propagate_route(
+        _logical_neighbor(host), ['91.0.1.0/24'], peer,
+        ip_ver=ip_ver, action=action)
+
+
+@pytest.mark.parametrize("ip_ver, peer", [
+    (4, '10.0.0.32'),
+    (6, 'fc00::41'),
+])
+def test_csonic_successful_empty_route_query_reports_absence(ip_ver, peer):
+    host = CsonicHost('csonic-prime', bgp_vrf='VrfARISTA01T0')
+    host._docker_exec = lambda command, **kwargs: {
+        'rc': 0,
+        'stdout': '',
+        'stderr': '',
+        'failed': False,
+    }
+
+    assert bgp_helpers.check_propagate_route(
+        _logical_neighbor(host), ['91.0.1.0/24'], peer,
+        ip_ver=ip_ver, action=bgp_helpers.ACTION_NOT_IN)
+
+
 def test_converged_ptf_receive_ports_use_logical_minigraph_neighbors():
     class DutHost:
         def shell(self, command):

@@ -961,9 +961,15 @@ def check_propagate_route(vmhost, route_list, bgp_neighbor, ip_ver=IP_VER, actio
             # Keep the command bare so CsonicHost can scope it to the logical
             # peer's runtime VRF. Explicit vtysh wrapping would bypass that
             # translator and query the shared prime's wrong/default instance.
-            out = vmhost['host'].shell(
+            result = vmhost['host'].shell(
                 'show ip bgp neighbors {} routes'.format(bgp_neighbor),
-                module_ignore_errors=True)['stdout']
+                module_ignore_errors=True)
+            if result.get('rc') != 0:
+                logging.warning(
+                    "Failed to query IPv4 routes from cSONiC neighbor %s: %s",
+                    bgp_neighbor, result.get('stderr', ''))
+                return False
+            out = result.get('stdout', '')
         elif isinstance(vmhost['host'], SonicHost):
             out = vmhost['host'].shell('show ip bgp vrf {} neighbor {} routes'.format(vrf, bgp_neighbor),
                                        module_ignore_errors=True)['stdout']
@@ -973,9 +979,15 @@ def check_propagate_route(vmhost, route_list, bgp_neighbor, ip_ver=IP_VER, actio
             out = vmhost['host'].eos_command(
                 commands=['show ipv6 bgp peers {} routes vrf {}'.format(bgp_neighbor, vrf)])['stdout'][0]
         elif isinstance(vmhost['host'], CsonicHost):
-            out = vmhost['host'].shell(
+            result = vmhost['host'].shell(
                 'show ipv6 bgp neighbors {} routes'.format(bgp_neighbor),
-                module_ignore_errors=True)['stdout']
+                module_ignore_errors=True)
+            if result.get('rc') != 0:
+                logging.warning(
+                    "Failed to query IPv6 routes from cSONiC neighbor %s: %s",
+                    bgp_neighbor, result.get('stderr', ''))
+                return False
+            out = result.get('stdout', '')
         elif isinstance(vmhost['host'], SonicHost):
             out = vmhost['host'].shell('show ipv6 bgp vrf {} neighbor {} routes'.format(vrf, bgp_neighbor),
                                        module_ignore_errors=True)['stdout']
