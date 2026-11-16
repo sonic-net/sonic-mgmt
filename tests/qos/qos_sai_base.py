@@ -3215,6 +3215,10 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope="function", autouse=False)
     def disable_lldp_transmit_on_src_vm(self, duthosts, get_src_dst_asic_and_duts, tbinfo, nbrhosts, dutConfig,
                                         dutTestParams, request):
+        if request.config.getoption("--neighbor_type") == "sonic":
+            yield
+            return
+
         src_dut = get_src_dst_asic_and_duts['src_dut']
         src_mgfacts = src_dut.get_extended_minigraph_facts(tbinfo)
         src_intf = dutConfig['dutInterfaces'][dutConfig['testPorts']['src_port_id']]
