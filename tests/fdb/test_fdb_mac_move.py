@@ -44,7 +44,9 @@ STORM_VLAN_TAG = 100
 
 # MAC_MOVE_GUARD configuration applied during the tests
 MAC_MOVE_GUARD_THRESHOLD = 100
-MAC_MOVE_GUARD_DETECT_INTERVAL = 10
+# Keep the threshold attainable on dataplanes that publish FDB moves through
+# a rate-limited notification path rather than directly from packet learning.
+MAC_MOVE_GUARD_DETECT_INTERVAL = 20
 MAC_MOVE_GUARD_ACTION_INTERVAL = 60
 # Rate limit applied to the storm sender. The guard trips when a single MAC
 # moves MAC_MOVE_GUARD_THRESHOLD times inside MAC_MOVE_GUARD_DETECT_INTERVAL,
@@ -389,7 +391,7 @@ def test_fdb_mac_move_guard_disable_port(duthosts, fanouthosts, rand_one_dut_hos
     Validate the MAC_MOVE_GUARD feature end-to-end:
 
       1. Configure MAC_MOVE_GUARD (GLOBAL) with action=DISABLE_PORT,
-         threshold=100, detect_interval=10s, action_interval=60s.
+         threshold=100, detect_interval=20s, action_interval=60s.
       2. Drive a MAC-move storm from PTF on two VLAN-member ports so the
          per-MAC move count crosses the configured threshold.
       3. Verify that one of the two DUT ports is disabled by the guard.
