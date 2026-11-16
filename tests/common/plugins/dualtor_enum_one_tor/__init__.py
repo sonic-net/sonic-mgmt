@@ -1,6 +1,6 @@
 """
-Run the DUT-enumerated test cases of the tests listed in dualtor_enum_one_tor.yaml on one ToR of dualtor testbeds,
-if --dualtor_enum_one_tor is passed to pytest.
+Run the DUT-enumerated test cases of the tests listed in dualtor_enum_one_tor.yaml on one ToR of active-active
+dualtor testbeds, like dualtor-aa and dualtor-aa-56, if --dualtor_enum_one_tor is passed to pytest.
 
 Test cases parametrized with the enum DUT fixtures, like enum_dut_hostname, enum_frontend_dut_hostname or
 enum_dut_lossless_prio, run once per ToR on dualtor testbeds. For the listed tests, a test case enumerated on
@@ -21,7 +21,7 @@ ENABLED_TESTS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "d
 
 def pytest_addoption(parser):
     parser.addoption("--dualtor_enum_one_tor", action="store_true", default=False,
-                     help="On dualtor testbeds, run the DUT-enumerated test cases of the tests listed in "
+                     help="On active-active dualtor testbeds, run the DUT-enumerated test cases of the tests listed in "
                           "tests/common/plugins/dualtor_enum_one_tor/dualtor_enum_one_tor.yaml on one ToR only")
 
 
@@ -100,7 +100,7 @@ def pytest_collection_modifyitems(session, config, items):
 
     _, tbinfo = get_tbinfo(session)
     duts = tbinfo.get("duts", [])
-    if "dualtor" not in tbinfo.get("topo", {}).get("name", "") or len(duts) < 2:
+    if "dualtor-aa" not in tbinfo.get("topo", {}).get("name", "") or len(duts) < 2:
         return
 
     selected_tor = set_rand_one_dut_hostname(session)

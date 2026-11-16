@@ -1,5 +1,5 @@
-# Tests whose DUT-enumerated test cases run on one ToR, instead of on every ToR, on dualtor testbeds when
-# --dualtor_enum_one_tor is passed to pytest.
+# Tests whose DUT-enumerated test cases run on one ToR, instead of on every ToR, on active-active dualtor testbeds,
+# like dualtor-aa and dualtor-aa-56, when --dualtor_enum_one_tor is passed to pytest.
 #
 # Test cases parametrized with the enum DUT fixtures, like enum_dut_hostname, enum_frontend_dut_hostname or
 # enum_dut_lossless_prio, run once per ToR on dualtor testbeds. With --dualtor_enum_one_tor, for the tests listed
