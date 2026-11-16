@@ -296,7 +296,6 @@ def client_auth(dut, **kwargs):
     """
     st.log("Configuring gNMI authentication.")
     docker_name = "gnmi"
-    command = redis.build(dut, redis.CONFIG_DB, 'hmset "GNMI|gnmi" client_auth')
     if 'auth_type' in kwargs:
         if kwargs.get('auth_type'):
             command = redis.build(dut, redis.CONFIG_DB, 'hmset "GNMI|gnmi" client_auth "{}"'.format(kwargs.get('auth_type')))
