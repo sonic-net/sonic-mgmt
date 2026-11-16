@@ -629,6 +629,7 @@ Each test module carries its own in-file `pytest.mark.topology("any")` marker (t
 2. Validate both URIs report `DetectorState` `Unavailable`, `Status.State` `UnavailableOffline` and `Status.Health` `Warning`
 3. Write the row back to `leaking=No`, `leak_sensor_status=Good`
 4. Validate both URIs report `DetectorState` `OK` with `Status` `Enabled` / `OK`
+5. Repeat with the fault written as `leaking=No` and `leak_sensor_status=Fault`
 
 ### Test Case \#36 — Leak sensor fault and recovery raise ResourceStatusChanged events
 
@@ -642,10 +643,10 @@ Each test module carries its own in-file `pytest.mark.topology("any")` marker (t
 **Steps:**
 
 1. Create an unfiltered subscription and one with `ResourceTypes` `["LeakDetector"]`
-2. Fault the sensor as in Test Case \#35
-3. Validate each subscriber receives only `ResourceEvent.1.3.0.ResourceStatusChangedWarning`, `MessageArgs` `[<sensor>, "Warning"]`, `OriginOfCondition` the leak detector
+2. Fault the sensor in each of the two forms of Test Case \#35
+3. Validate each subscriber receives only `ResourceEvent.1.3.ResourceStatusChangedWarning`, `MessageArgs` `[<sensor>, "Warning"]`, `OriginOfCondition` the leak detector
 4. Recover the sensor
-5. Validate each subscriber receives `ResourceEvent.1.3.0.ResourceStatusChangedOK` and `Environmental.1.1.0.LeakDetectedNormal`
+5. Validate each subscriber receives `ResourceEvent.1.3.ResourceStatusChangedOK` and `Environmental.1.1.LeakDetectedNormal`
 
 ### Test Case \#37 — Leak sensor published after the bridge started
 
@@ -662,6 +663,39 @@ Each test module carries its own in-file `pytest.mark.topology("any")` marker (t
 2. Validate both LeakDetectors collections list the new detector without a bridge or container restart, with `DetectorState` `OK`
 3. Validate the canonical collection lists exactly one detector per `LIQUID_COOLING_INFO|*` key in STATE_DB
 
+### Test Case \#42 — Leak sensor recovering from a fault into a leak is not reported healthy
+
+
+| Field        | Value                                                  |
+| :------------- | :------------------------------------------------------- |
+| **Test ID**  | `test_leak_detector_fault_recovery_into_leak`          |
+| **Priority** | P0                                                     |
+| **Endpoint** | `POST /redfish/v1/EventService/Subscriptions`          |
+
+**Steps:**
+
+1. Create an unfiltered subscription and fault the sensor as in Test Case \#35
+2. Write the row back to `leak_sensor_status=Good` with `leaking=Yes`, `leak_severity=CRITICAL`
+3. Validate the subscriber receives `ResourceEvent.1.3.ResourceStatusChangedCritical` and `Environmental.1.1.LeakDetectedCritical` and no `ResourceStatusChangedOK`
+4. Validate both LeakDetector URIs report `DetectorState` `Critical` with `Status` `Enabled` / `Critical`
+5. Repeat with `leak_severity=MINOR` and validate the only event after the fault is `Environmental.1.1.LeakDetectedWarning`
+
+### Test Case \#43 — Leak sensor published after the bridge started announces its first state once
+
+
+| Field        | Value                                                  |
+| :------------- | :------------------------------------------------------- |
+| **Test ID**  | `test_late_leak_detector_first_state_announced_once`   |
+| **Priority** | P0                                                     |
+| **Endpoint** | `POST /redfish/v1/EventService/Subscriptions`          |
+
+**Steps:**
+
+1. Create an unfiltered subscription
+2. With `sonic-dbus-bridge` running, write a new `LIQUID_COOLING_INFO|<sensor>` row with `leaking=Yes`, `leak_severity=CRITICAL`
+3. Validate the subscriber receives exactly one `Environmental.1.1.LeakDetectedCritical` for the new sensor
+4. Repeat with the new row written as `leaking=No` and validate no event is delivered for the sensor
+
 ### Test Case \#38 — Switch-Host power state is unknown until bmcctld publishes it
 
 
@@ -677,7 +711,8 @@ Each test module carries its own in-file `pytest.mark.topology("any")` marker (t
 2. Validate `Systems/system` and `Chassis/chassis` omit `PowerState` and report `Status.State` `UnavailableOffline`
 3. Send `ResetType` `On` and validate one `RACK_MANAGER_COMMAND` row with `command=POWER_ON` is created
 4. Validate no power event is delivered
-5. Start `bmcctld` and validate both resources report `PowerState` `On` and the subscriber receives `ResourceEvent.1.3.0.ResourcePoweredOn`
+5. Start `bmcctld` and validate both resources report `PowerState` `On` and the subscriber receives `ResourceEvent.1.3.ResourcePoweredOn`
+6. Repeat with `HOST_STATE|switch-host` present but carrying unrecognised `device_power_state` and `device_status` values
 
 
 ---
@@ -903,12 +938,12 @@ Certificate-based tests use a `bmc_tls_certs` pytest fixture that handles the fu
 | Computer System Reset                | 7        | P0/P1    | NA     |
 | Rack Manager Alert                   | 2        | P0/P1    | NA     |
 | Rack Manager Telemetry               | 3        | P0/P1    | NA     |
-| Rack Manager Event Subscription      | 7        | P0/P1    | NA     |
+| Rack Manager Event Subscription      | 9        | P0/P1    | NA     |
 | D-Bus Infrastructure Health          | 3        | P0       | NA     |
 | Graceful Degradation                 | 2        | P1       | NA     |
 | Error Handling                       | 2        | P1       | NA     |
 | Certificate-Based Authentication     | 5        | P0/P1    | NA     |
-| **Total**                            | **41**   |          |        |
+| **Total**                            | **43**   |          |        |
 
 # Open Items
 
