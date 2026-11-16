@@ -4,10 +4,19 @@ Helpers for interacting with the VPP dataplane on sonic-vpp DUTs.
 
 import logging
 
+from tests.common.config_reload import config_reload
+
 logger = logging.getLogger(__name__)
 
 # Printed by 'show bridge-domain' when the dataplane has no bridge domain configured at all
 NO_BRIDGE_DOMAINS_MSG = "no bridge-domains in use"
+
+# Environment file sourced by the syncd container when VPP is started
+VPP_SYNCD_ENV_PATH = "/etc/sonic/vpp/syncd_vpp_env"
+
+# Startup config for the VPP ip-validate plugin, link-local drop is enabled by default
+IP_VALIDATE_CONFIG_VAR = "IP_VALIDATE_CONFIG"
+IP_VALIDATE_LINK_LOCAL_DROP_OFF = "{}=link-local-drop=off".format(IP_VALIDATE_CONFIG_VAR)
 
 
 def vpp_bd_uu_flood_states(duthost):
@@ -97,3 +106,24 @@ def set_vpp_bd_uu_flood(duthost, bd_id, enable):
         logger.warning("Bridge domain %s unknown unicast flood is '%s', expected it to be %s",
                        bd_id, state, "enabled" if enable else "disabled")
     return is_enabled == enable
+
+
+def set_vpp_link_local_drop(duthost, enable):
+    """
+    Enable or disable dropping of link-local sourced/destined packets by the VPP ip-validate plugin
+
+    The setting is a startup config of the plugin, so it only takes effect after VPP is restarted
+    by a config reload. Dropping is enabled by default, which is why disabling it is expressed as
+    an explicit IP_VALIDATE_CONFIG entry and restoring the default is done by removing that entry.
+
+    Args:
+        duthost(AnsibleHost) : dut instance
+        enable(bool) : True to restore the default link-local drop, False to disable it
+    """
+    duthost.shell("sed -i '/^{}=/d' {}".format(IP_VALIDATE_CONFIG_VAR, VPP_SYNCD_ENV_PATH))
+    if not enable:
+        duthost.shell("echo '{}' >> {}".format(IP_VALIDATE_LINK_LOCAL_DROP_OFF, VPP_SYNCD_ENV_PATH))
+
+    logger.info("%s VPP link-local drop, reloading config to restart VPP",
+                "Enabled" if enable else "Disabled")
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
