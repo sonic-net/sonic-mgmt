@@ -10,7 +10,6 @@ import pytest
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.helpers.backend_acl import bind_acl_table
-from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
 from tests.common.ptf_agent_updater import PtfAgentUpdater
 from tests.common.mellanox_data import is_mellanox_device, get_chip_type
@@ -95,7 +94,83 @@ def modify_acl_table(duthost, tbinfo, port_type, acl_rule_cleanup):
 
 
 @pytest.fixture(scope='class')
-def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter, port_type, tbinfo):
+def dut_config_snapshot(duthost):
+    """
+    Snapshot the ConfigDB entries that the sub-ports fixtures remove in place, and replay
+    the missing ones on teardown.
+
+    The fixtures take parent ports out of Vlan1000 and strip their IP addresses - directly
+    in apply_config_on_the_dut and apply_route_config_for_port, and indirectly through
+    create_lag_port - but nothing ever puts them back. That restoration used to be done by
+    reloading the whole of /etc/sonic/config_db.json followed by wait_critical_processes,
+    which costs minutes of teardown per test class. Replaying only the handful of entries
+    that actually went missing is equivalent and takes seconds.
+
+    The one change that cannot be replayed cheaply is an ACL table removed by
+    remove_acl_table, because its rules are not recoverable from the ACL_TABLE entry alone.
+    If a table is missing at teardown, or if anything is still missing after the replay,
+    this falls back to a full config reload so the next test class starts from a known
+    state.
+
+    Args:
+        duthost: DUT host object
+    """
+    def _get_cfg_facts():
+        return duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+
+    cfg_facts = _get_cfg_facts()
+
+    vlan_members = {}
+    for vlan_name, members in list(cfg_facts.get('VLAN_MEMBER', {}).items()):
+        for member, member_info in list(members.items()):
+            vlan_members[(vlan_name, member)] = member_info.get('tagging_mode', 'untagged')
+
+    port_ips = {port: list(ips) for port, ips in list(cfg_facts.get('INTERFACE', {}).items()) if ips}
+    acl_tables = set(cfg_facts.get('ACL_TABLE', {}).keys())
+
+    def _restore_cmds(cfg_facts):
+        """Commands that would put back the snapshotted entries missing from cfg_facts."""
+        cmds = []
+
+        current_vlan_members = cfg_facts.get('VLAN_MEMBER', {})
+        for (vlan_name, member), tagging_mode in list(vlan_members.items()):
+            if member not in current_vlan_members.get(vlan_name, {}):
+                cmds.append('config vlan member add {}{} {}'.format('-u ' if tagging_mode == 'untagged' else '',
+                                                                    vlan_name.replace('Vlan', ''), member))
+
+        current_port_ips = cfg_facts.get('INTERFACE', {})
+        for port, ips in list(port_ips.items()):
+            for ip in ips:
+                if ip not in current_port_ips.get(port, {}):
+                    cmds.append('config interface ip add {} {}'.format(port, ip))
+
+        return cmds
+
+    yield
+
+    cfg_facts = _get_cfg_facts()
+    missing_acl_tables = acl_tables - set(cfg_facts.get('ACL_TABLE', {}).keys())
+    cmds = _restore_cmds(cfg_facts)
+
+    if cmds and not missing_acl_tables:
+        logger.info("Restoring configuration removed by the sub-ports fixtures: {}".format(cmds))
+        try:
+            duthost.shell_cmds(cmds=cmds)
+            # Re-read the running configuration so a command that reported success without
+            # taking effect is caught here rather than in the next test class.
+            cmds = _restore_cmds(_get_cfg_facts())
+        except Exception as err:
+            # cmds stays non-empty, so this drops through to the config reload below.
+            logger.warning("Restore command failed: {}".format(err))
+
+    if missing_acl_tables or cmds:
+        logger.warning("Targeted restore is not enough, falling back to a config reload. "
+                       "Missing ACL tables: {}. Still missing: {}".format(sorted(missing_acl_tables), cmds))
+        config_reload(duthost)
+
+
+@pytest.fixture(scope='class')
+def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter, port_type, tbinfo, dut_config_snapshot):
     """
     Define configuration of sub-ports for TC run
 
@@ -588,8 +663,8 @@ def reload_dut_config(request, duthost, define_sub_ports_configuration, port_typ
         for lag_port in list(dut_ports.values()):
             remove_lag_port(duthost, cfg_facts, lag_port)
 
-    duthost.shell('sudo config load -y /etc/sonic/config_db.json')
-    wait_critical_processes(duthost)
+    # The Vlan1000 membership and the port IP addresses that the fixtures removed are put
+    # back by dut_config_snapshot, which tears down after this fixture.
 
 
 @pytest.fixture(scope='class')
