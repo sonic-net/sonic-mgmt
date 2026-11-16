@@ -327,6 +327,47 @@ def test_converged_csonic_route_families_are_read_without_runtime_mutation():
     ]
 
 
+@pytest.mark.parametrize(
+    'bgp_vrf, output, expected_error',
+    [
+        ('VrfARISTA01T0', '', 'route query returned empty output'),
+        (
+            'VrfARISTA01T0',
+            json.dumps({}),
+            "did not return a valid 'routes' map",
+        ),
+        (
+            None,
+            json.dumps({'receivedRoutes': []}),
+            "did not return a valid 'receivedRoutes' map",
+        ),
+    ],
+)
+def test_csonic_route_snapshot_rejects_empty_or_invalid_route_maps(
+    bgp_vrf, output, expected_error,
+):
+    host = CsonicHost('csonic-prime', bgp_vrf=bgp_vrf)
+    host._docker_exec = lambda command, **kwargs: {
+        'rc': 0,
+        'stdout': output,
+    }
+
+    with pytest.raises(pytest.fail.Exception, match=expected_error):
+        route_checker._parse_routes_on_csonic_host(
+            host, 64001, '10.0.0.32', 4)
+
+
+def test_converged_csonic_route_snapshot_accepts_valid_empty_route_map():
+    host = CsonicHost('csonic-prime', bgp_vrf='VrfARISTA01T0')
+    host._docker_exec = lambda command, **kwargs: {
+        'rc': 0,
+        'stdout': json.dumps({'routes': {}}),
+    }
+
+    assert route_checker._parse_routes_on_csonic_host(
+        host, 64001, '10.0.0.32', 4) == {}
+
+
 def test_ordinary_csonic_received_routes_keep_historical_commands():
     host = CsonicHost('csonic-neighbor')
     commands = []

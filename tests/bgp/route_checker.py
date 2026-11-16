@@ -286,7 +286,16 @@ def _parse_routes_on_csonic_host(host, asn, peer_ip, ip_ver):
     pytest_assert(result.get('rc', 0) == 0,
                   'Failed to retrieve routes from cSONiC VRF: {}'.format(
                       result.get('stderr', '')))
-    received = json.loads(result.get('stdout') or '{}').get(route_key, {})
+    output = result.get('stdout')
+    pytest_assert(
+        isinstance(output, str) and output.strip(),
+        'cSONiC route query returned empty output')
+    route_data = json.loads(output)
+    pytest_assert(
+        isinstance(route_data.get(route_key), dict),
+        "cSONiC route query did not return a valid '{}' map".format(
+            route_key))
+    received = route_data[route_key]
     return {prefix: '' for prefix in received}
 
 
