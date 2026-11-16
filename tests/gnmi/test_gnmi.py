@@ -1,8 +1,10 @@
 import pytest
 import logging
+import re
+import time
 
 from tests.common.helpers.gnmi_utils import gnmi_capabilities
-from .helper import gnmi_set, dump_gnmi_log, gnmi_subscribe_streaming_sample
+from .helper import gnmi_set, gnmi_get, dump_gnmi_log, gnmi_subscribe_streaming_sample
 from tests.common.utilities import wait_until
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 
@@ -179,3 +181,29 @@ def test_gnmi_authorize_failed_with_revoked_cert(duthosts,
         "'desc = Peer certificate revoked' message not found in GNMI log. "
         "- Actual GNMI log: '{}'"
     ).format(gnmi_log)
+
+
+def _get_sysuptime_total(duthost, ptfhost):
+    """GET OTHERS/proc/uptime and return the 'total' field as a float."""
+    msg_list = gnmi_get(duthost, ptfhost, ["proc/uptime"], target="OTHERS", origin=None)
+    result = "\n".join(msg_list)
+    match = re.search(r'"total":\s*([0-9.]+)', result)
+    assert match is not None, (
+        "system uptime 'total' field not found in gnmi output: {}".format(result))
+    return float(match.group(1))
+
+
+def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost):
+    '''
+    Verify GNMI GET of the OTHERS/proc/uptime non-DB path returns a float that
+    increases over time.
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+
+    uptime_first = _get_sysuptime_total(duthost, ptfhost)
+    time.sleep(10)
+    uptime_second = _get_sysuptime_total(duthost, ptfhost)
+
+    assert uptime_second - uptime_first >= 10, (
+        "system uptime did not advance by at least 10s: {} -> {}".format(
+            uptime_first, uptime_second))
