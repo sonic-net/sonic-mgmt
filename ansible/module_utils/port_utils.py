@@ -78,6 +78,13 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                 port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
             for i in range(25, 33):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % ((i - 1) * 4)
+        elif hwsku in ["Arista-7050SX3-48YC8", "Arista-7050SX3-48YC8C",
+                       "Arista-7050SX3-48YC8-S48Q8", "Arista-7050SX3-48YC8C-S48Q8"]:
+            for i in range(1, 49):
+                port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % (i - 1)
+            qsfp_ports = [49, 50, 51, 52, 53, 54, 55, 56]
+            for idx, port_num in enumerate(qsfp_ports):
+                port_alias_to_name_map["Ethernet%d/1" % port_num] = "Ethernet%d" % (48 + idx * 4)
         elif hwsku == "Arista-7050-QX-32S" or hwsku == "Arista-7050QX-32S-S4Q31":
             for i in range(0, 4):
                 port_alias_to_name_map["Ethernet%d" % (i + 1)] = "Ethernet%d" % i
@@ -113,7 +120,8 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                 port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 8)
         elif hwsku in ["Arista-7060X6-64DE", "Arista-7060X6-64DE-64x400G",
                        "Arista-7060X6-64PE", "Arista-7060X6-64PE-64x400G",
-                       "Arista-7060X6-64PE-P64", "Arista-7060X6-64PE-B-P64"]:
+                       "Arista-7060X6-64PE-P64", "Arista-7060X6-64PE-B-P64",
+                       "Arista-7060XE7-64PS-M64", "Arista-7060XE7-64PS-P64"]:
             for i in range(1, 65):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1) * 8)
             port_alias_to_name_map["etp65"] = "Ethernet512"
@@ -135,15 +143,22 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             for j, split_alias in enumerate(["a", "b", "c", "d"]):
                 port_alias_to_name_map["etp65%s" % split_alias] = "Ethernet%d" % (512 + j)
         elif hwsku in ["Arista-7060X6-64DE-O128S2", "Arista-7060X6-64PE-O128S2", "Arista-7060X6-64PE-B-O128",
-                       "Arista-7060X6-64PE-B-O128S2", "Arista-7060X6-64PE-O128"]:
+                       "Arista-7060X6-64PE-B-O128S2", "Arista-7060X6-64PE-O128", "Arista-7060XE7-64PS-P128"]:
             split_alias_list = ["a", "b"]
             for i in range(1, 65):
                 for j, split_alias in enumerate(split_alias_list):
                     alias = "etp{}{}".format(i, split_alias)
                     port_alias_to_name_map[alias] = "Ethernet%d" % ((i - 1) * 8 + j * 4)
-            if hwsku not in ["Arista-7060X6-64PE-B-O128", "Arista-7060X6-64PE-O128"]:
+            if hwsku not in ["Arista-7060X6-64PE-B-O128", "Arista-7060X6-64PE-O128", "Arista-7060XE7-64PS-P128"]:
                 port_alias_to_name_map["etp65"] = "Ethernet512"
                 port_alias_to_name_map["etp66"] = "Ethernet513"
+        elif hwsku == "Arista-7060XE7-64PS-O256":
+            split_alias_list = ["a", "b", "c", "d"]
+            for i in range(1, 65):
+                for idx, split_alias in enumerate(split_alias_list):
+                    alias = "etp{}{}".format(i, split_alias)
+                    eth_name = "Ethernet{}".format((i - 1) * 8 + idx * 2)
+                    port_alias_to_name_map[alias] = eth_name
         elif hwsku in ["Arista-7060X6-64PE-B-P32O64", "Arista-7060X6-64PE-P32O64"]:
             for i in range(1, 33):
                 port_alias_to_name_map["etp%d" % (i)] = "Ethernet%d" % ((i - 1) * 8)
