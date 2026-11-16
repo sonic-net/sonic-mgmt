@@ -34,7 +34,7 @@ def _catalog(duthost):
         "('aggregates','SELECT component,status,unhealthy_count "
         "FROM aggregates ORDER BY component'),"
         "('metadata',\"SELECT * FROM metadata WHERE name!='healthz_checkpoint' "
-        "ORDER BY name\"),"
+        'ORDER BY name"),'
         "('sqlite_sequence','SELECT * FROM sqlite_sequence ORDER BY name')]; "
         "snapshot={{t:list(db.execute(q)) for t,q in queries}}; "
         "has_history=db.execute(\"SELECT 1 FROM sqlite_master WHERE type='table' "
