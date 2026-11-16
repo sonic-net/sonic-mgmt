@@ -11,6 +11,7 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.sonic_db import CONFIG_DB, STATE_DB, redis_hget, redis_hgetall, redis_hset
+from tests.common.reboot import wait_for_shutdown, wait_for_startup
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -63,6 +64,57 @@ def pause_pmon_daemon(duthost, daemon_name):
     finally:
         logger.info("Restarting pmon daemon '%s'", daemon_name)
         duthost.start_pmon_daemon(daemon_name)
+
+
+def power_cycle_via_bmc(bmc, localhost, startup_timeout):
+    """Cycle the full system through the BMC and wait for both devices to return.
+
+    Args:
+        bmc: BMC DUT exposing get_bmc_host(), backed by testbed bmc_host metadata.
+        localhost: Ansible localhost handle used for SSH availability checks.
+        startup_timeout: Timeout in seconds for each device's startup wait.
+
+    Requires a SWITCH-HOST platform module implementing do_system_power_cycle().
+    The operation restarts both the BMC and switch CPU. Capability and inventory
+    resolution failures propagate before cycling; recovery failures also propagate.
+    """
+    switch_host = bmc.get_bmc_host()
+    probe = (
+        'from sonic_platform.chassis import Chassis; '
+        'host = next(module for module in Chassis().get_all_modules() '
+        'if module.get_name() == "SWITCH-HOST"); '
+        'assert callable(getattr(host, "do_system_power_cycle", None)), '
+        '"BMC does not support system power cycle"; '
+    )
+    bmc.shell("sudo -n python3 -c {}".format(shlex.quote(probe)))
+    boot_id = bmc.shell("cat /proc/sys/kernel/random/boot_id")['stdout'].strip()
+    pytest_assert(boot_id, "Could not read boot ID from {}".format(bmc.hostname))
+    logger.warning("System power cycling %s via BMC API; both BMC and switch host will restart",
+                   bmc.hostname)
+    # On this Arista platform, do_system_power_cycle() performs:
+    # regs = self._sku.hostSwitch.cpld.driver.regs
+    # regs.systemPwrCycle(0xDE)
+    # Writing 0xDE to register 0x70 triggers a full-system power cycle,
+    # restarting both the BMC and switch CPU.
+    try:
+        bmc.shell("sudo -n python3 -u -c {}".format(
+            shlex.quote(probe + 'assert host.do_system_power_cycle() is True')))
+    except Exception as error:
+        logger.info("BMC power-cycle command interrupted; verifying restart: %s", error)
+
+    wait_for_shutdown(bmc, localhost, delay=0, timeout=180)
+    wait_for_startup(bmc, localhost, delay=10, timeout=startup_timeout)
+
+    def bmc_restarted():
+        try:
+            current = bmc.shell("cat /proc/sys/kernel/random/boot_id")['stdout'].strip()
+            return bool(current) and current != boot_id
+        except Exception:
+            return False
+
+    pytest_assert(wait_until(120, 5, 0, bmc_restarted),
+                  "BMC {} boot ID did not change after system power cycle".format(bmc.hostname))
+    wait_for_startup(switch_host, localhost, delay=10, timeout=startup_timeout)
 
 
 def get_switch_host_or_skip_test(duthost):
