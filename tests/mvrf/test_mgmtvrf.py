@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 
 SONIC_SSH_REGEX = "OpenSSH"
 SONIC_SSH_PORT = 22
+# Readiness timeouts are expressed in seconds.
 MGMT_VRF_READY_TIMEOUT = 120
 SNMP_READY_TIMEOUT = 180
 SNMP_CHECK_INTERVAL = 10
