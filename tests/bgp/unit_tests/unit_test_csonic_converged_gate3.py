@@ -439,6 +439,31 @@ def test_csonic_no_export_query_uses_logical_vrf(
     assert commands == [expected_command]
 
 
+@pytest.mark.parametrize('ipv6', [False, True])
+def test_csonic_no_export_query_rejects_failed_command(ipv6):
+    host = CsonicHost('csonic-prime', bgp_vrf='VrfARISTA01T0')
+    host._docker_exec = lambda command, **kwargs: {
+        'rc': 1,
+        'stdout': '',
+        'stderr': 'FRR unavailable',
+    }
+
+    with pytest.raises(RuntimeError, match='Failed to query .* no-export routes'):
+        bgp_helpers.get_no_export_output(host, ipv6=ipv6)
+
+
+@pytest.mark.parametrize('ipv6', [False, True])
+def test_csonic_no_export_query_accepts_successful_empty_output(ipv6):
+    host = CsonicHost('csonic-prime', bgp_vrf='VrfARISTA01T0')
+    host._docker_exec = lambda command, **kwargs: {
+        'rc': 0,
+        'stdout': '',
+        'stderr': '',
+    }
+
+    assert bgp_helpers.get_no_export_output(host, ipv6=ipv6) == []
+
+
 def test_gr_helper_reports_every_logical_peer_on_shared_csonic_prime():
     peer1 = CsonicHost('csonic-prime', bgp_vrf='VrfARISTA01T2')
     peer2 = CsonicHost('csonic-prime', bgp_vrf='VrfARISTA03T2')

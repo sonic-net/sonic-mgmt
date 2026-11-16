@@ -220,8 +220,16 @@ def get_no_export_output(vm_host, ipv6=False):
             # the exact FRR grammar and ordinary SONiC/cSONiC stay unchanged.
             sonic_command = 'show {} bgp community no-export'.format(
                 'ipv6' if ipv6 else 'ip')
-        out = vm_host.command(sonic_command)["stdout"]
-        return re.findall(route_pattern, out)
+        result = vm_host.command(sonic_command)
+        if isinstance(vm_host, CsonicHost) and result.get('rc') != 0:
+            raise RuntimeError(
+                "Failed to query {} no-export routes from cSONiC neighbor "
+                "{} (rc={}): {}".format(
+                    'IPv6' if ipv6 else 'IPv4',
+                    vm_host.hostname,
+                    result.get('rc'),
+                    result.get('stderr', '')))
+        return re.findall(route_pattern, result.get('stdout', ''))
 
     raise TypeError(
         f"Unsupported host type: {type(vm_host)}. "
