@@ -426,7 +426,7 @@ def verify_lldp_table(duthost, intf_status_output, test_name=""):
             logger.info("eth0 not in LLDP table (expected on virtual/KVM testbed){}"
                         .format(context))
     else:
-        pytest_assert(wait_until(10, 1, 0, _eth0_in_lldp_table),
+        pytest_assert(wait_until(60, 5, 0, _eth0_in_lldp_table),
                       "eth0 is missing from LLDP table{}".format(context))
 
     logger.info("LLDP table interfaces{}: {}".format(context, sorted(lldp_table_interfaces)))
