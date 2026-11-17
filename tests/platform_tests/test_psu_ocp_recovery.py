@@ -51,6 +51,7 @@ STATUS_WORD_FAULT_MASK = pmbus.STATUS_WORD_OFF | pmbus.STATUS_WORD_POWER_GOOD_N 
 
 FAULT_TIMEOUT_SEC = 15
 RECOVERY_TIMEOUT_SEC = 30
+RESTORE_ATTEMPTS = 3
 PSUD_REFRESH_TIMEOUT_SEC = 90
 LOAD_HEADROOM = 1.25
 
@@ -69,11 +70,15 @@ def _read_pddf_device_json(duthost):
         raise AssertionError("Failed to parse {}: {}".format(PDDF_DEVICE_JSON_PATH, e)) from e
 
 
-def _pddfparse_subtree(duthost, action, node):
+def _pddfparse_subtree(duthost, action, node, ignore_errors=False):
     """Create or delete a pddf-device.json node and its descendants in the I2C topology."""
     cmd = "timeout {}s sudo pddfparse.py --{}-subtree {}".format(PDDFPARSE_TIMEOUT_SEC, action, node)
     res = duthost.shell(cmd, module_ignore_errors=True)
-    pytest_assert(res['rc'] == 0, "'{}' failed (rc={}): {}\n{}".format(cmd, res['rc'], res['stdout'], res['stderr']))
+    if res['rc'] != 0:
+        msg = "'{}' failed (rc={}): {}\n{}".format(cmd, res['rc'], res['stdout'], res['stderr'])
+        if not ignore_errors:
+            pytest.fail(msg)
+        logger.warning("Ignoring: %s", msg)
 
 
 def _get_psu_status(duthost):
@@ -83,6 +88,18 @@ def _get_psu_status(duthost):
         return {psu['name']: psu for psu in json.loads(output)}
     except (ValueError, KeyError, TypeError) as e:
         raise AssertionError("Failed to parse 'show platform psu --json': {}\n{}".format(e, output)) from e
+
+
+def _skip_unless_tooling_present(duthost):
+    """Skip on images without the commands the test drives, before anything is changed on the DUT."""
+    checks = [
+        ("pddfparse.py subtree commands", "sudo pddfparse.py --help | grep -q -- --delete-subtree"),
+        ("i2ctransfer", "which i2ctransfer"),
+        ("show platform psu --json", "show platform psu --json"),
+    ]
+    for what, cmd in checks:
+        if duthost.shell(cmd, module_ignore_errors=True)['rc'] != 0:
+            pytest.skip("{} is not available on the DUT".format(what))
 
 
 def _get_pddf_psu_pmbus_topology(pddf_device_data):
@@ -205,6 +222,30 @@ def _write_oc_limits(psu, warn_limit, fault_limit):
                   .format(psu.name, warn_readback, fault_readback, warn_limit, fault_limit))
 
 
+def _restore_oc_limits(psu, warn_limit, fault_limit):
+    """Put the saved limits back, retrying transient PMBus errors, and fail if the PSU
+    does not read them back. Raising the fault limit first keeps warn <= fault."""
+    restored = False
+    for attempt in range(1, RESTORE_ATTEMPTS + 1):
+        try:
+            psu.write_word(pmbus.PMBUS_IOUT_OC_FAULT_LIMIT, fault_limit)
+            psu.write_word(pmbus.PMBUS_IOUT_OC_WARN_LIMIT, warn_limit)
+            warn_readback = psu.read_word(pmbus.PMBUS_IOUT_OC_WARN_LIMIT)
+            fault_readback = psu.read_word(pmbus.PMBUS_IOUT_OC_FAULT_LIMIT)
+        except pmbus.PmbusError as e:
+            logger.warning("%s: restoring IOUT OC limits failed on attempt %d: %s", psu.name, attempt, e)
+            continue
+        restored = pmbus.linear11_equal(warn_readback, warn_limit) and pmbus.linear11_equal(fault_readback, fault_limit)
+        if restored:
+            break
+        logger.warning("%s: IOUT OC limits read back as warn=0x%04x fault=0x%04x on attempt %d, expected "
+                       "warn=0x%04x fault=0x%04x",
+                       psu.name, warn_readback, fault_readback, attempt, warn_limit, fault_limit)
+    pytest_assert(restored, "{}: IOUT OC limits not restored to warn=0x{:04x} fault=0x{:04x} after {} attempts; "
+                  "the PSU is left with the test limits and its output was not cycled".format(
+                      psu.name, warn_limit, fault_limit, RESTORE_ATTEMPTS))
+
+
 def _recover_with_operation_cycle(psu):
     logger.info("%s: OPERATION before recovery: 0x%02x", psu.name, psu.read_byte(pmbus.PMBUS_OPERATION))
     psu.write_byte(pmbus.PMBUS_OPERATION, pmbus.PMBUS_OPERATION_OFF)
@@ -231,6 +272,7 @@ def _trip_and_recover(psu):
                 pmbus.linear11_decode(orig_fault), orig_fault, pmbus.linear11_decode(low_limit), low_limit)
 
     recovered = None
+    output_down = False
     try:
         _write_oc_limits(psu, low_limit, low_limit)
         tripped = wait_until(FAULT_TIMEOUT_SEC, 1, 0,
@@ -242,16 +284,16 @@ def _trip_and_recover(psu):
         pytest_assert(tripped, "{}: no OCP shutdown within {}s (STATUS_WORD=0x{:04x} STATUS_IOUT=0x{:02x})".format(
             psu.name, FAULT_TIMEOUT_SEC, status_word, status_iout))
     finally:
-        try:
-            _write_oc_limits(psu, orig_warn, orig_fault)
-        finally:
-            if psu.oc_fault_latched() or not psu.output_is_up():
-                logger.info("%s: fault still present after restoring limits STATUS_WORD=0x%04x STATUS_IOUT=0x%02x",
-                            psu.name, psu.read_word(pmbus.PMBUS_STATUS_WORD), psu.read_byte(pmbus.PMBUS_STATUS_IOUT))
-                recovered = _recover_with_operation_cycle(psu)
+        # Only cycle the output once the original limits are confirmed back in place.
+        _restore_oc_limits(psu, orig_warn, orig_fault)
+        output_down = not psu.output_is_up()
+        if output_down or psu.oc_fault_latched():
+            logger.info("%s: fault still present after restoring limits STATUS_WORD=0x%04x STATUS_IOUT=0x%02x",
+                        psu.name, psu.read_word(pmbus.PMBUS_STATUS_WORD), psu.read_byte(pmbus.PMBUS_STATUS_IOUT))
+            recovered = _recover_with_operation_cycle(psu)
 
-    pytest_assert(recovered is not None,
-                  "{}: fault cleared on its own once limits were restored; OPERATION recovery was not exercised"
+    pytest_assert(output_down,
+                  "{}: output came back on its own once limits were restored; OPERATION recovery was not exercised"
                   .format(psu.name))
     status_word = psu.read_word(pmbus.PMBUS_STATUS_WORD)
     pytest_assert(recovered, "{}: output not back up within {}s of the OPERATION cycle (STATUS_WORD=0x{:04x})".format(
@@ -295,6 +337,7 @@ def test_psu_ocp_recovery_over_pmbus(duthosts, enum_rand_one_per_hwsku_hostname)
     topology = _get_pddf_psu_pmbus_topology(_read_pddf_device_json(duthost))
     if not topology:
         pytest.skip("No PSU with a PMBus interface declared in pddf-device.json")
+    _skip_unless_tooling_present(duthost)
 
     psu_status = _get_psu_status(duthost)
     selected = _select_psus(duthost, psu_status, topology)
@@ -308,28 +351,30 @@ def test_psu_ocp_recovery_over_pmbus(duthosts, enum_rand_one_per_hwsku_hostname)
         # Re-read: tripping the previous PSU shifted load onto the others.
         live_status = _get_psu_status(duthost)
         logger.info("PSU status/power(W)/current(A) before %s: %s", name, _summarize_psu_status(live_status))
+        dead = [psu for psu in tested if live_status.get(psu, {}).get('status') != 'OK']
+        pytest_assert(not dead, "{} no longer OK after being tripped and recovered earlier in this run: {}".format(
+            dead, {psu: live_status.get(psu) for psu in dead}))
         try:
             _check_remaining_psus_can_carry_load(live_status, name)
         except PsuNotTestable as e:
-            # The same PSUs and load are in play for every iteration, so once one PSU
-            # has been tripped and recovered this check cannot start failing on its own.
-            pytest_assert(not tested, "{}: {} (the check passed for {} earlier in this run)".format(name, e, tested))
             logger.warning("Not testing %s: %s", name, e)
             not_testable[name] = str(e)
             continue
 
+        detached = False
         try:
             logger.info("Testing OCP recovery on %s (model %s, i2c bus %d addr 0x%02x)",
                         name, live_status[name]['model'], bus, addr)
             _pddfparse_subtree(duthost, "delete", name)
-            try:
-                _trip_and_recover(pmbus.PmbusPsu(duthost, name, bus, addr))
-            finally:
-                _pddfparse_subtree(duthost, "create", name)
+            detached = True
+            _trip_and_recover(pmbus.PmbusPsu(duthost, name, bus, addr))
         except PsuNotTestable as e:
             logger.warning("Not testing %s: %s", name, e)
             not_testable[name] = str(e)
             continue
+        finally:
+            # A failed delete may have removed part of the subtree; put it back best effort.
+            _pddfparse_subtree(duthost, "create", name, ignore_errors=not detached)
 
         pytest_assert(wait_until(PSUD_REFRESH_TIMEOUT_SEC, 5, 0, _psu_reports_ok, duthost, name),
                       "{} did not return to OK in 'show platform psu' within {}s: {}".format(
