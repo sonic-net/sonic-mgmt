@@ -5,6 +5,7 @@ import time
 from contextlib import contextmanager
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.errors import RunAnsibleModuleFail
 
 
 class NtpDaemon(Enum):
@@ -234,6 +235,9 @@ def run_ntp(duthost, ntp_daemon_in_use):
         duthost.service(name='ntp', state='stopped')
         try:
             duthost.command("timeout 20 ntpd -gq -u ntpsec:ntpsec")
+        except RunAnsibleModuleFail:
+            logger.exception("NTPsec synchronization command failed on %s", duthost)
+            raise
         finally:
             duthost.service(name='ntp', state='restarted')
     elif ntp_daemon_in_use == NtpDaemon.NTP:
@@ -241,12 +245,18 @@ def run_ntp(duthost, ntp_daemon_in_use):
         try:
             ntp_uid = ":".join(duthost.command("getent passwd ntp")['stdout'].split(':')[2:4])
             duthost.command("timeout 20 ntpd -gq -u {}".format(ntp_uid))
+        except RunAnsibleModuleFail:
+            logger.exception("NTP account lookup or synchronization command failed on %s", duthost)
+            raise
         finally:
             duthost.service(name='ntp', state='restarted')
     elif ntp_daemon_in_use == NtpDaemon.CHRONY:
         duthost.service(name='chrony', state='stopped')
         try:
             duthost.command("timeout 20 chronyd -q -F 1")
+        except RunAnsibleModuleFail:
+            logger.exception("Chrony synchronization command failed on %s", duthost)
+            raise
         finally:
             duthost.service(name='chrony', state='restarted')
     pytest_assert(wait_until(720, 10, 0, check_ntp_status, duthost, ntp_daemon_in_use),
