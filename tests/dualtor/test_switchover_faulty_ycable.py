@@ -42,14 +42,16 @@ def simulated_good_side(rand_selected_dut):
 
 @pytest.fixture
 def setup_faulted_y_cable_driver(
-    simulated_faulty_side, select_mux_port, duthosts, active_standby_ports,  # noqa: F811
+    simulated_faulty_side, simulated_good_side, active_standby_ports,  # noqa: F811
     run_icmp_responder, toggle_all_simulator_ports_to_rand_unselected_tor,  # noqa: F811
     simulate_probe_unknown, simulate_peer_link_down
 ):
-    """Setup the faulted Y cable driver on the active ToR."""
+    """Set up the faulted Y-cable driver and yield the selected mux port."""
     duthost = simulated_faulty_side
-    mux_port = select_mux_port
+    duthosts = (simulated_faulty_side, simulated_good_side)
     ports = active_standby_ports
+    pytest_require(ports, "No active-standby mux ports, skip...")
+    select_mux_port = random.choice(ports)
 
     def _remove_pmon_container(duthost):
         logging.info("Stopping pmon container.")
@@ -95,7 +97,7 @@ def setup_faulted_y_cable_driver(
             "docker exec pmon supervisorctl restart ycabled")
         pytest_assert(_wait_for_ycabled_startup(duthost),
                       "Failed to start ycabled on {}".format(duthost.hostname))
-        yield
+        yield select_mux_port
     finally:
         if y_cable_simulated_path:
             duthost.shell(
@@ -105,7 +107,7 @@ def setup_faulted_y_cable_driver(
             )
         duthost.shell(
             "docker exec pmon supervisorctl restart ycabled")
-        if not _wait_for_recovery(duthost, mux_port, duthosts, ports):
+        if not _wait_for_recovery(duthost, select_mux_port, duthosts, ports):
             logging.warning("Y-cable or mux health did not recover; recreating PMON on %s", duthost.hostname)
             _remove_pmon_container(duthost)
             _restart_pmon_container(duthost)
@@ -115,7 +117,7 @@ def setup_faulted_y_cable_driver(
                 60, 5, 0, check_container_state, duthost, "pmon", True)
             pytest_assert(restarted, "Failed to start PMON on {}".format(duthost.hostname))
             logging.info("PMON is running.")
-            pytest_assert(_wait_for_recovery(duthost, mux_port, duthosts, ports),
+            pytest_assert(_wait_for_recovery(duthost, select_mux_port, duthosts, ports),
                           "Failed to recover Y-cable state or mux health after PMON recovery")
 
 
@@ -135,14 +137,6 @@ def get_tor_mux_probe_state(duthost, mux_port):
 def get_tor_mux_cable_info(duthost, mux_port):
     """Get the target ToR mux port info."""
     return ast.literal_eval(duthost.shell("sonic-db-cli STATE_DB hgetall \"MUX_CABLE_INFO|%s\"" % mux_port)["stdout"])
-
-
-@pytest.fixture(scope="module")
-def select_mux_port(active_standby_ports):  # noqa: F811
-    """Select an active-standby mux port to test."""
-    pytest_require(active_standby_ports,
-                   "No active-standby mux ports, skip...")
-    return random.choice(active_standby_ports)
 
 
 def _wait_for_ycabled_startup(duthost):
@@ -180,26 +174,25 @@ def _wait_for_recovery(duthost, mux_port, duthosts, ports):
 def test_switchover_probe_unknown(
     simulated_good_side,
     simulated_faulty_side,
-    setup_faulted_y_cable_driver,
-    select_mux_port
+    setup_faulted_y_cable_driver
 ):
-    mux_port = select_mux_port
-    logging.info("Use mux port %s to test", mux_port)
+    select_mux_port = setup_faulted_y_cable_driver
+    logging.info("Use mux port %s to test", select_mux_port)
     # ensure that no switchover after the ycabled restart
     pytest_assert(get_tor_mux_status(
-        simulated_faulty_side, mux_port) == "active")
+        simulated_faulty_side, select_mux_port) == "active")
     pytest_assert(get_tor_mux_status(
-        simulated_good_side, mux_port) == "standby")
+        simulated_good_side, select_mux_port) == "standby")
 
     try:
         logging.info("Toggle to active via cli on %s", simulated_good_side)
-        simulated_good_side.shell("config mux mode active %s" % mux_port)
+        simulated_good_side.shell("config mux mode active %s" % select_mux_port)
         # With the faulty ycable driver returning mux unknown, the unselected ToR is still
         # able to honor the mux toggle requested by the selected ToR.
         verify_tor_states(simulated_good_side,
-                          simulated_faulty_side, intf_names=[mux_port])
+                          simulated_faulty_side, intf_names=[select_mux_port])
         pytest_assert(get_tor_mux_probe_state(
-            simulated_faulty_side, mux_port) == "unknown")
+            simulated_faulty_side, select_mux_port) == "unknown")
     finally:
         simulated_good_side.shell("config mux mode auto all")
 
@@ -208,26 +201,25 @@ def test_switchover_probe_unknown(
 def test_switchover_peer_link_down(
     simulated_good_side,
     simulated_faulty_side,
-    setup_faulted_y_cable_driver,
-    select_mux_port
+    setup_faulted_y_cable_driver
 ):
-    mux_port = select_mux_port
-    logging.info("Use mux port %s to test", mux_port)
+    select_mux_port = setup_faulted_y_cable_driver
+    logging.info("Use mux port %s to test", select_mux_port)
     # ensure that no switchover after the ycabled restart
     pytest_assert(get_tor_mux_status(
-        simulated_faulty_side, mux_port) == "active")
+        simulated_faulty_side, select_mux_port) == "active")
     pytest_assert(get_tor_mux_status(
-        simulated_good_side, mux_port) == "standby")
+        simulated_good_side, select_mux_port) == "standby")
 
     try:
         logging.info("Toggle to active via cli on %s", simulated_good_side)
-        simulated_good_side.shell("config mux mode active %s" % mux_port)
+        simulated_good_side.shell("config mux mode active %s" % select_mux_port)
         # With the faulty ycable driver returning peer link down, the unselected ToR will try
         # toggle back as the peer link is down. And as the ycabled polls the link status every
         # 60s, let's wait for 90 seconds here.
         verify_tor_states(simulated_faulty_side, simulated_good_side, intf_names=[
-                          mux_port], verify_db_timeout=90)
-        pytest_assert(get_tor_mux_cable_info(simulated_faulty_side, mux_port)[
+                          select_mux_port], verify_db_timeout=90)
+        pytest_assert(get_tor_mux_cable_info(simulated_faulty_side, select_mux_port)[
                       "link_status_peer"] == "down")
     finally:
         simulated_good_side.shell("config mux mode auto all")
