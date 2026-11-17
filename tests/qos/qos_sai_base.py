@@ -3219,6 +3219,7 @@ class QosSaiBase(QosBase):
             yield
             return
 
+        src_vm_host = None
         if ('platform_asic' in dutTestParams["basicParams"] and
                 dutTestParams["basicParams"]["platform_asic"] in ["broadcom-dnx", "broadcom", "broadcom-legacy-th"]):
             src_dut = get_src_dst_asic_and_duts['src_dut']
