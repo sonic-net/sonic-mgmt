@@ -1,5 +1,6 @@
 """Integration tests for the PygnmiClient gNMI client via the gnmi_tls fixture."""
 
+import contextlib
 import logging
 import threading
 from unittest import mock
@@ -259,7 +260,7 @@ def test_pygnmi_subscribe_once(gnmi_tls):  # noqa: F811
 
 def _offline_client():
     """A client used only for request-building/validation paths (never connects)."""
-    return PygnmiClient("", 0, plaintext=True, connect=False)
+    return PygnmiClient("", 0, plaintext=True)
 
 
 def test_build_subscribe_request_passthrough():
@@ -343,6 +344,18 @@ def test_subscribe_poll_rejects_non_positive_count():
     """Test POLL rejects a non-positive trigger count before connecting."""
     with pytest.raises(PygnmiClientCallError, match="poll_count must be > 0"):
         _offline_client().subscribe("path", mode=SubscribeMode.POLL, poll_count=0)
+
+
+def test_subscribe_stream_rejects_non_positive_window():
+    """Test STREAM rejects a non-positive collection window before connecting."""
+    with pytest.raises(PygnmiClientCallError, match="collect_seconds must be > 0"):
+        _offline_client().subscribe("path", collect_seconds=0)
+
+
+def test_subscribe_stream_rejects_non_positive_count():
+    """Test STREAM rejects a non-positive notification count before connecting."""
+    with pytest.raises(PygnmiClientCallError, match="count must be > 0"):
+        _offline_client().subscribe("path", count=0)
 
 
 def test_get_requires_paths():
@@ -535,6 +548,82 @@ def test_subscribe_closes_channel_before_subscriber(monkeypatch):
     assert calls[:2] == ["channel.close", "subscriber.close"]
 
 
+def test_subscribe_ignores_error_from_its_own_shutdown(monkeypatch):
+    """Test a completed subscription doesn't report the CANCELLED that pygnmi stores when its channel closes."""
+
+    class FakeSubscriber:
+        error = None
+
+        def get_update(self, timeout):
+            return {"update": {}}
+
+        def close(self):
+            pass
+
+    subscriber = FakeSubscriber()
+
+    class FakeGnmiClient:
+        def connect(self):
+            pass
+
+        def subscribe2(self, **kwargs):
+            return subscriber
+
+        def close(self):
+            # Like pygnmi's receiver thread, which stores the RPC error the channel close causes.
+            subscriber.error = _rpc_error(grpc.StatusCode.CANCELLED)
+
+    monkeypatch.setattr("tests.common.pygnmi_client.gNMIclient", lambda **kwargs: FakeGnmiClient())
+
+    assert list(_offline_client().subscribe("path", count=1)) == [{"update": {}}]
+
+
+def test_set_during_subscription_leaves_subscription_channel_open(monkeypatch):
+    """Test a set() on the subscribing client opens its own channel, so the subscription keeps receiving."""
+    channels = []
+
+    class FakeSubscriber:
+        error = None
+
+        def get_update(self, timeout):
+            return {"update": {}}
+
+        def close(self):
+            pass
+
+    class FakeGnmiClient:
+        closed = False
+
+        def connect(self):
+            pass
+
+        def subscribe2(self, **kwargs):
+            return FakeSubscriber()
+
+        def set(self, **kwargs):
+            return {"response": []}
+
+        def close(self):
+            self.closed = True
+
+    def new_channel(**kwargs):
+        channels.append(FakeGnmiClient())
+        return channels[-1]
+
+    monkeypatch.setattr("tests.common.pygnmi_client.gNMIclient", new_channel)
+    client = _offline_client()
+
+    with contextlib.closing(client.subscribe("path", count=2)) as notifications:
+        next(notifications)
+        client.set(update=[("/interfaces", {})])
+        subscription_channel, set_channel = channels
+        assert set_channel.closed
+        assert not subscription_channel.closed
+        next(notifications)
+
+    assert subscription_channel.closed
+
+
 # pygnmi hides some failures: its capabilities() returns None after swallowing
 # an error with a bare except, its connect() then raises a raw TypeError while
 # indexing that None, and its set() returns None when it cannot parse the
@@ -559,7 +648,6 @@ def test_connect_type_error_becomes_connection_error(fake_gnmi):
         client.capabilities()
 
     fake_gnmi.close.assert_called()
-    assert client._client is None
 
 
 def test_connect_unexpected_error_propagates(fake_gnmi):
@@ -571,7 +659,6 @@ def test_connect_unexpected_error_propagates(fake_gnmi):
         client.capabilities()
 
     fake_gnmi.close.assert_called_once()
-    assert client._client is None
 
 
 def test_connect_failure_closes_half_built_channel(fake_gnmi):
@@ -583,7 +670,6 @@ def test_connect_failure_closes_half_built_channel(fake_gnmi):
         client.get("/interfaces")
 
     fake_gnmi.close.assert_called_once()
-    assert client._client is None
 
 
 def test_connect_timeout_message_includes_deadline(fake_gnmi):
@@ -624,33 +710,6 @@ def test_wrapped_rpc_error_classified_by_status(fake_gnmi, orig_exc, expected):
 
     with pytest.raises(expected, match="GRPC ERROR Host: 192.0.2.1:50052"):
         _offline_client().get("/interfaces")
-
-
-def test_construction_with_connect_maps_gnmi_errors(fake_gnmi):
-    """Test connect=True maps a gNMI error from the initial connection's capabilities() probe."""
-    fake_gnmi.connect.side_effect = gNMIException(
-        "GRPC ERROR Host: 192.0.2.1:50052, Error: refused", _rpc_error(grpc.StatusCode.UNAVAILABLE)
-    )
-
-    with pytest.raises(PygnmiClientConnectionError, match="connection failed"):
-        PygnmiClient("", 0, plaintext=True, connect=True)
-
-    fake_gnmi.close.assert_called()
-
-
-def test_construction_with_connect_closes_probe_channel(fake_gnmi):
-    """Test connect=True closes the channel it opened to probe the connection."""
-    PygnmiClient("", 0, plaintext=True, connect=True)
-
-    fake_gnmi.connect.assert_called_once()
-    fake_gnmi.close.assert_called_once()
-
-
-def test_context_manager_opens_no_channel(fake_gnmi):
-    """Test entering a with block opens no channel beyond the constructor's probe."""
-    with PygnmiClient("", 0, plaintext=True, connect=True):
-        fake_gnmi.connect.assert_called_once()
-        fake_gnmi.close.assert_called_once()
 
 
 def test_capabilities_none_raises(fake_gnmi):

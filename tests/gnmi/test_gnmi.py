@@ -266,8 +266,6 @@ def test_on_change_updates(rand_selected_dut, pygnmi_client: PygnmiClient):
     set_path = f"sonic-db:APPL_DB/localhost/{table}/{key}"
     subscribe_path = f"sonic-db:APPL_DB/localhost/_{table}/{key}"
     value = f"value-{int(time.time())}"
-    # A second client: a call on pygnmi_client would close the subscription's channel.
-    mutating_client = build_pygnmi_client(duthost)
 
     # One window for the whole exchange, starting at the first next(): the snapshot,
     # the Set below and our update must all arrive within it.
@@ -287,7 +285,7 @@ def test_on_change_updates(rand_selected_dut, pygnmi_client: PygnmiClient):
                 snapshot is not None
             ), f"No initial ON_CHANGE snapshot for {subscribe_path} within {total_subscription_timeout}"
 
-            mutating_client.set(update=[(set_path, {field: value})])
+            pygnmi_client.set(update=[(set_path, {field: value})])
             for notification in notifications:
                 if value in str(notification):
                     msg = notification

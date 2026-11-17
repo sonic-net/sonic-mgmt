@@ -1,6 +1,7 @@
 """Offline AAA reuse regressions; no device connections or testbed imports."""
 
 import ast
+import contextlib
 from copy import deepcopy
 import json
 import shlex
@@ -66,7 +67,7 @@ def environment():
         return {"rc": 0, "stdout": json.dumps(value)}
 
     dut.shell = Mock(side_effect=read)
-    client = SimpleNamespace(close=Mock())
+    client = SimpleNamespace()
     fixture = SimpleNamespace(duthost=dut, pygnmi_client=client)
 
     def flow(*args, **kwargs):
@@ -122,7 +123,6 @@ def test_repeated_reuse_restores_exact_state(environment, cloud, role):
             env.state["DEVICE_METADATA"]["localhost"]["cloudtype"] = "Public"
         assert env.state == env.initial
     assert env.events == ["start"]
-    assert env.client.close.call_count == 6
     env.owner.close()
     assert env.events == ["start", "stop"]
 
@@ -184,17 +184,6 @@ def test_restore_failure_attempts_other_field(environment):
     with pytest.raises(RuntimeError, match="case cleanup"):
         env.ns["_restore_case"](env.dut, before, env.initial["GNMI_CLIENT_CERT"][env.ns["PRINCIPAL"]])
     hdel.assert_called_once()
-
-
-def test_client_close_failure_still_restores(environment):
-    env = environment
-    env.client.close.side_effect = [None, ValueError("close")]
-    with pytest.raises(ValueError, match="close"):
-        with env.owner.case(None, None, None):
-            env.state["GNMI_CLIENT_CERT"].clear()
-    assert env.state == env.initial
-    assert env.events == ["start", "stop"]
-    assert env.owner.broken
 
 
 def test_setup_failure_cleanup_and_teardown_failure_blocks_reuse(environment):
@@ -322,7 +311,7 @@ def test_certificate_removal_propagates_only_in_strict_mode(strict):
 
 
 @pytest.mark.parametrize("strict", [False, True])
-@pytest.mark.parametrize("failure", ["setup", "close", "rollback", "health", "certs", "health-pytest"])
+@pytest.mark.parametrize("failure", ["setup", "probe", "rollback", "health", "certs", "health-pytest"])
 def test_actual_tls_flow_cleanup(strict, failure):
     """Exercise the extracted production generator, not a copied lifecycle."""
     ns = _load()
@@ -334,7 +323,7 @@ def test_actual_tls_flow_cleanup(strict, failure):
               CertPaths=SimpleNamespace, GnmiFixture=SimpleNamespace,
               rollback=Mock(return_value={"rc": 0, "stdout": "Config rolled back successfully"}),
               wait_critical_processes=Mock(), _delete_gnoi_certs=Mock(), dump_gnmi_debug_state=Mock())
-    failing = {"setup": ns["_establish_gnoi_tls_handshake"], "close": client.close,
+    failing = {"setup": ns["_establish_gnoi_tls_handshake"], "probe": client.capabilities,
                "rollback": ns["rollback"], "health": ns["wait_critical_processes"],
                "certs": ns["_delete_gnoi_certs"],
                "health-pytest": ns["wait_critical_processes"]}[failure]
@@ -342,8 +331,8 @@ def test_actual_tls_flow_cleanup(strict, failure):
     exec(compile(_source(GRPC, {"_gnmi_tls_flow"}), str(GRPC), "exec"), ns)
     duthost = SimpleNamespace(mgmt_ip="::1")
     flow = ns["_gnmi_tls_flow"](duthost, Mock(), strict_cleanup=strict)
-    if failure == "setup":
-        with pytest.raises(ValueError, match="setup") as setup_error:
+    if failure in ("setup", "probe"):
+        with pytest.raises(ValueError, match=failure) as setup_error:
             next(flow)
         # _gnmi_tls_flow dumps setup failures itself, before its rollback restores the server.
         ns["dump_gnmi_debug_state"].assert_called_once_with(duthost, error=setup_error.value)
@@ -397,7 +386,7 @@ def test_real_pytest_scope_ordering(tmp_path, order, failure):
             events.append('shared-start')
             try:
                 if failure == 'setup': raise ValueError('injected-setup')
-                yield SimpleNamespace(duthost=dut, pygnmi_client=SimpleNamespace(close=lambda: None))
+                yield SimpleNamespace(duthost=dut, pygnmi_client=SimpleNamespace())
             finally:
                 events.append('shared-stop')
                 log_events.append('shared-stop')
@@ -595,19 +584,18 @@ def test_production_public_rpcs_refresh_channels(method, fail):
     path = TESTS / "common/pygnmi_client.py"
     tree = ast.parse(path.read_text())
     cls = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "PygnmiClient")
-    names = {"_ensure_client", "close", method}
+    names = {"_rpc", method}
     cls.body = [node for node in cls.body if isinstance(node, ast.FunctionDef) and node.name in names]
     for node in cls.body:
         node.returns = None
         for arg in node.args.args:
             arg.annotation = None
-    ns = dict(GetDataType=SimpleNamespace(ALL="all"), Encoding=SimpleNamespace(JSON_IETF="json_ietf"),
-              _normalize_paths=lambda path: [path],
-              grpc=SimpleNamespace(RpcError=ValueError, FutureTimeoutError=TimeoutError),
-              gNMIException=ValueError, PygnmiClientError=ValueError, PygnmiClientCallError=ValueError)
+    ns = dict(contextlib=contextlib, _close_silently=lambda client: client.close(),
+              _GNMI_ERRORS=(ValueError,), PygnmiClientConnectionError=ValueError,
+              GetDataType=SimpleNamespace(ALL="all"), Encoding=SimpleNamespace(JSON_IETF="json_ietf"),
+              _normalize_paths=lambda path: [path], PygnmiClientError=ValueError, PygnmiClientCallError=ValueError)
     exec(compile(ast.Module(body=[cls], type_ignores=[]), str(path), "exec"), ns)
     client = ns["PygnmiClient"]()
-    client._client = None
     channels = [Mock(), Mock()]
     client._build_client = Mock(side_effect=channels)
     client._map_error = lambda error, operation: error
@@ -621,5 +609,4 @@ def test_production_public_rpcs_refresh_channels(method, fail):
             getattr(client, method)(**args)
         channel.connect.assert_called_once()
         channel.close.assert_called_once()
-        assert client._client is None
     assert client._build_client.call_count == 2

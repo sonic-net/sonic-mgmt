@@ -177,7 +177,6 @@ def build_pygnmi_client(duthost, cert_name: str = "gnmiclient", timeout: int = 3
         client_cert=os.path.abspath(f"{cert_name}.crt"),
         client_key=os.path.abspath(f"{cert_name}.key"),
         timeout=timeout,
-        connect=False,
     )
 
 

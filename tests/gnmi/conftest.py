@@ -1,7 +1,6 @@
 import logging
 import os
 import sys
-from collections.abc import Iterator
 
 import pytest
 
@@ -196,14 +195,12 @@ def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhos
 @pytest.fixture(scope="module")  # type: ignore[misc]
 def pygnmi_client(
     duthosts: DutHosts, rand_one_dut_hostname: str, setup_gnmi_server: None, setup_gnmi_rotated_server: None
-) -> Iterator[PygnmiClient]:
+) -> PygnmiClient:
     """
     PygnmiClient for the gNMI server configured by setup_gnmi_server, using the certs from
     setup_gnmi_rotated_server.
     """
-    client = build_pygnmi_client(duthosts[rand_one_dut_hostname])
-    yield client
-    client.close()
+    return build_pygnmi_client(duthosts[rand_one_dut_hostname])
 
 
 @pytest.fixture(scope="module")

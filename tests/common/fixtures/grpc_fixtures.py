@@ -280,7 +280,6 @@ def _gnmi_tls_flow(duthost, ptfhost, strict_cleanup=False):
     # 1. Create checkpoint for rollback
     create_checkpoint(duthost, checkpoint_name)
 
-    pygnmi_client = None
     try:
         # 2-5. Generate/distribute certs, configure + restart server, verify handshake
         _establish_gnoi_tls_handshake(
@@ -315,6 +314,8 @@ def _gnmi_tls_flow(duthost, ptfhost, strict_cleanup=False):
             client_cert=f"{cert_dir}/{grpc_config.CLIENT_CERT}",
             client_key=f"{cert_dir}/{grpc_config.CLIENT_KEY}",
         )
+        # Fail setup once, not every test, if pygnmi cannot connect with these certs.
+        pygnmi_client.capabilities()
 
         fixture = GnmiFixture(
             host=host,
@@ -340,17 +341,10 @@ def _gnmi_tls_flow(duthost, ptfhost, strict_cleanup=False):
         dump_gnmi_debug_state(duthost, error=e)
         raise
     finally:
-        # 6. Cleanup: close the reused gNMI channel, then rollback configuration
+        # 6. Cleanup: rollback configuration
         logger.info("Cleaning up gNOI TLS server environment")
         cleanup_errors = []
         try:
-            if pygnmi_client is not None:
-                try:
-                    pygnmi_client.close()
-                except Exception as e:
-                    logger.error("Failed to close PygnmiClient: %s", e)
-                    cleanup_errors.append(str(e))
-
             try:
                 output = rollback(duthost, checkpoint_name)
                 stdout = output.get('stdout', '')
@@ -410,21 +404,24 @@ def gnmi_plaintext(request, duthosts, ptfhost):
     client = PtfGrpc(ptfhost, target, plaintext=True)
     gnoi_client = PtfGnoi(client)
 
-    with PygnmiClient(host, port, plaintext=True) as pygnmi_client:
-        fixture = GnmiFixture(
-            host=host,
-            port=port,
-            tls=False,
-            cert_paths=None,
-            grpc=client,
-            gnoi=gnoi_client,
-            pygnmi_client=pygnmi_client,
-            transport='plaintext',
-            _duthost=duthost,
-        )
+    pygnmi_client = PygnmiClient(host, port, plaintext=True)
+    # Fail setup once, not every test, if the server isn't listening.
+    pygnmi_client.capabilities()
 
-        logger.info(f"Created plaintext GnmiFixture: {target}")
-        yield fixture
+    fixture = GnmiFixture(
+        host=host,
+        port=port,
+        tls=False,
+        cert_paths=None,
+        grpc=client,
+        gnoi=gnoi_client,
+        pygnmi_client=pygnmi_client,
+        transport='plaintext',
+        _duthost=duthost,
+    )
+
+    logger.info(f"Created plaintext GnmiFixture: {target}")
+    yield fixture
 
 
 def _gnmi_uds_flow(duthost):

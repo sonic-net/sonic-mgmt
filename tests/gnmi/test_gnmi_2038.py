@@ -65,7 +65,6 @@ def test_gnmi_capabilities_2038(duthosts, rand_one_dut_hostname, localhost, ptfh
             ca_cert="gnmiCA.pem",
             client_cert="gnmiclient.crt",
             client_key="gnmiclient.key",
-            connect=False,
         )
         client.get("proc/uptime", target="OTHERS")
     finally:
