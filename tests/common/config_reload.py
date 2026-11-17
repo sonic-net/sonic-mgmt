@@ -1,3 +1,4 @@
+import json
 import time
 import logging
 import os
@@ -8,6 +9,7 @@ from tests.common.helpers.parallel_utils import synchronized_config_reload
 from tests.common.plugins.loganalyzer.utils import support_ignore_loganalyzer
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
+from tests.common.constants import GOLDEN_CONFIG_DB_PATH_ORI
 from tests.common.configlet.utils import chk_for_pfc_wd
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
@@ -35,6 +37,53 @@ BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
 GOLDEN_CONFIG_TEMPLATE = os.path.join(TEMPLATE_DIR, 'golden_config_db.j2')
 DEFAULT_GOLDEN_CONFIG_PATH = '/etc/sonic/golden_config_db.json'
+
+
+def log_system_checks_state(duthost, stage=""):
+    """Log a snapshot of the DUT's systemd state for debugging.
+
+    Off by default — callers invoke this explicitly when they want a
+    one-shot picture of what systemd is doing on the DUT (e.g. after a
+    wait_until on config_system_checks_passed times out). Works on any
+    SONiC DUT, not BMC-specific.
+    """
+    stage_label = " ({})".format(stage) if stage else ""
+    try:
+        state = duthost.shell(
+            "systemctl is-system-running", module_ignore_errors=True
+        )
+        logging.info(
+            "system-checks diag%s: is-system-running=%s",
+            stage_label, (state.get("stdout") or "").strip(),
+        )
+        failed = duthost.shell(
+            "systemctl list-units --state=failed --no-legend",
+            module_ignore_errors=True,
+        )
+        logging.info(
+            "system-checks diag%s: failed units: %s",
+            stage_label, failed.get("stdout_lines"),
+        )
+        jobs = duthost.shell(
+            "systemctl list-jobs --no-legend", module_ignore_errors=True
+        )
+        logging.info(
+            "system-checks diag%s: pending jobs: %s",
+            stage_label, jobs.get("stdout_lines"),
+        )
+        activating = duthost.shell(
+            "systemctl list-units --state=activating --no-legend",
+            module_ignore_errors=True,
+        )
+        logging.info(
+            "system-checks diag%s: activating units: %s",
+            stage_label, activating.get("stdout_lines"),
+        )
+    except Exception as e:  # noqa: BLE001
+        logging.warning(
+            "system-checks diag%s: failed to collect systemd state: %s",
+            stage_label, e,
+        )
 
 
 def config_system_checks_passed(duthost, delayed_services=[]):
@@ -204,6 +253,57 @@ def config_reload_minigraph_with_rendered_golden_config_override(
                   safe_reload_ignored_dockers=safe_reload_ignored_dockers)
 
 
+def _golden_config_link_training(sonic_host, golden_config_path):
+    """Return {port: 'on'|'off'} for PORT entries with link_training in the golden config.
+
+    Reads golden_config_db.json.origin.backup first, then golden_config_path. Returns {}
+    when neither file is readable or the first readable one has no such entries.
+    """
+    candidates = [GOLDEN_CONFIG_DB_PATH_ORI]
+    if golden_config_path and golden_config_path not in candidates:
+        candidates.append(golden_config_path)
+    for path in candidates:
+        res = sonic_host.shell('cat {}'.format(path), module_ignore_errors=True)
+        if res.get('rc') != 0:
+            continue
+        try:
+            config = json.loads(res['stdout'])
+        except ValueError as e:
+            logger.warning("Malformed golden config %s (%s); not a link_training source", path, e)
+            continue
+        ports = config.get('PORT', {}) if isinstance(config, dict) else {}
+        return {
+            port: attrs.get('link_training') for port, attrs in ports.items()
+            if isinstance(attrs, dict) and attrs.get('link_training') in ('on', 'off')
+        }
+    return {}
+
+
+def _reapply_golden_link_training(sonic_host, golden_config_path):
+    """Set PORT.<intf>.link_training in CONFIG_DB from the golden config's PORT table.
+
+    Single-asic only. Ports absent from CONFIG_DB are skipped with a warning.
+    """
+    if getattr(sonic_host, 'is_multi_asic', False):
+        return
+    lt_ports = _golden_config_link_training(sonic_host, golden_config_path)
+    if not lt_ports:
+        return
+    keys = sonic_host.shell('sonic-db-cli CONFIG_DB keys "PORT|*"', module_ignore_errors=True)
+    present = {line.split('|', 1)[1] for line in keys.get('stdout_lines', []) if '|' in line}
+    cmds = []
+    for port in sorted(lt_ports):
+        if port not in present:
+            logger.warning("Golden config sets link_training=%s on %s, which is not in the reloaded "
+                           "PORT table; skipping", lt_ports[port], port)
+            continue
+        cmds.append('sonic-db-cli CONFIG_DB hset "PORT|{}" link_training {}'.format(port, lt_ports[port]))
+    if not cmds:
+        return
+    logger.info("Re-applying link_training from golden config on %d ports after minigraph reload", len(cmds))
+    sonic_host.shell(' && '.join(cmds), executable="/bin/bash")
+
+
 def pfcwd_feature_enabled(duthost):
     device_metadata = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']['DEVICE_METADATA']
     pfc_status = device_metadata['localhost']["default_pfcwd_status"]
@@ -295,8 +395,16 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         # Extend ignore fabric port msgs for T2 chassis with DNX chipset on Linecards
         ignore_t2_syslog_msgs(sonic_host)
 
+    # This command fails if executed when config-reload is happening. So lets store
+    # this away before config reload and reuse the variable later.
+    is_smartswitch_host = False
+    if is_dut:
+        is_smartswitch_host = sonic_host.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get(
+            'is_smartswitch', False)
+
     # Retrieve the enable_macsec passed by user for this test run
     # If macsec is enabled, use the override option to get macsec profile from golden config
+    macsec_en = False
     request = sonic_host.duthosts.request
     if request:
         macsec_en = request.config.getoption("--enable_macsec", default=False)
@@ -311,7 +419,8 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         cmd = 'config load_minigraph -y'
         if traffic_shift_away:
             cmd += ' -t'
-        if override_config or macsec_en:
+        golden_override = override_config or macsec_en
+        if golden_override:
             cmd += ' -o'
         if golden_config_path:
             cmd += ' -p {} '.format(golden_config_path)
@@ -325,6 +434,8 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
             sonic_host.shell(
                 'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" zebra_nexthop {}'.format(zebra_nexthop)
             )
+        if is_dut and not golden_override:
+            _reapply_golden_link_training(sonic_host, golden_config_path)
         time.sleep(60)
         if start_bgp:
             sonic_host.shell('config bgp startup all')
@@ -359,7 +470,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
     # On smartswitch, wait for DPUs to reach expected state after config reload.
     # This prevents consecutive config reloads from triggering DPU admin state
     # changes before the previous transitions have completed.
-    if is_dut and sonic_host.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
+    if is_dut and is_smartswitch_host:
         _wait_for_smartswitch_dpu_states(sonic_host)
 
     if safe_reload:

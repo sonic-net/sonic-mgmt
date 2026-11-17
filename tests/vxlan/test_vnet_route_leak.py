@@ -3,18 +3,20 @@ import pytest
 import re
 
 from collections import defaultdict
+from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from .vnet_constants import CLEANUP_KEY
+from .vnet_constants import APPLY_NEW_CONFIG_KEY, CLEANUP_KEY, NUM_ROUTES_KEY, DUT_VNET_ROUTE_JSON
 from .vnet_utils import cleanup_vnet_routes, cleanup_dut_vnets, cleanup_vxlan_tunnels, \
-    apply_dut_config_files, generate_dut_config_files
+    apply_dut_config_files, generate_dut_config_files, start_ptf_vnet_arp_responder, \
+    get_vnet_route_keys, verify_vnet_route_keys
 from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology("t0"),
-    pytest.mark.asic("mellanox")
+    pytest.mark.asic("mellanox", "vpp")
 ]
 
 BGP_WAIT_TIMEOUT = 240
@@ -37,7 +39,8 @@ LEAKED_ROUTES_TEMPLATE = "Leaked routes: {}"
 
 
 @pytest.fixture(scope="module")
-def configure_dut(request, minigraph_facts, duthosts, rand_one_dut_hostname, vnet_config, vnet_test_params):
+def configure_dut(minigraph_facts, duthosts, rand_one_dut_hostname, vnet_config,
+                  vnet_test_params, scaled_vnet_params, ptfhost):
     """
     Setup/teardown fixture for VNET route leak test
 
@@ -52,36 +55,54 @@ def configure_dut(request, minigraph_facts, duthosts, rand_one_dut_hostname, vne
     """
     duthost = duthosts[rand_one_dut_hostname]
 
+    use_arp_responder = duthost.facts["asic_type"] == "vpp"
+    if use_arp_responder:
+        # The unused physical RIF conflicts with its topology VLAN membership.
+        vnet_config = dict(vnet_config)
+        physical_ifnames = {intf["ifname"] for intf in vnet_config["intf_list"]}
+        vnet_config["intf_list"] = []
+        vnet_config["vnet_nbr_list"] = [
+            nbr for nbr in vnet_config["vnet_nbr_list"] if nbr["ifname"] not in physical_ifnames
+        ]
+
     logger.info("Backing up config_db.json")
     duthost.shell(BACKUP_CONFIG_DB_CMD)
 
-    num_routes = request.config.option.num_routes
+    num_routes = scaled_vnet_params[NUM_ROUTES_KEY]
     duthost.shell("sonic-clear fdb all")
     generate_dut_config_files(duthost, minigraph_facts,
                               vnet_test_params, vnet_config)
-    apply_dut_config_files(duthost, vnet_test_params, num_routes)
+    route_keys = get_vnet_route_keys(duthost) if use_arp_responder and vnet_test_params[APPLY_NEW_CONFIG_KEY] else None
+    try:
+        if use_arp_responder:
+            start_ptf_vnet_arp_responder(ptfhost, minigraph_facts, vnet_config,
+                                         "/tmp/vnet_route_leak_arpresponder.conf")
+        apply_dut_config_files(duthost, vnet_test_params, num_routes, vnet_config)
+        if route_keys is not None:
+            pytest_assert(route_keys and verify_vnet_route_keys(duthost, route_keys),
+                          "VNET test routes are missing from APP_DB")
+        yield route_keys
+        if vnet_test_params[CLEANUP_KEY]:
+            logger.info("Restoring config_db.json")
+            duthost.shell(RESTORE_CONFIG_DB_CMD)
+            duthost.shell(DELETE_BACKUP_CONFIG_DB_CMD)
 
-    # In this case yield is used only to separate this fixture into setup and teardown portions
-    yield
+            cleanup_vnet_routes(duthost, vnet_config, num_routes, route_keys)
+            cleanup_dut_vnets(duthost, vnet_config)
+            cleanup_vxlan_tunnels(duthost, vnet_test_params)
 
-    if vnet_test_params[CLEANUP_KEY]:
-        logger.info("Restoring config_db.json")
-        duthost.shell(RESTORE_CONFIG_DB_CMD)
-        duthost.shell(DELETE_BACKUP_CONFIG_DB_CMD)
+            logger.info("Restarting BGP and waiting for BGP sessions")
+            duthost.shell(RESTART_BGP_CMD)
 
-        cleanup_vnet_routes(duthost, vnet_test_params, num_routes)
-        cleanup_dut_vnets(duthost, vnet_config)
-        cleanup_vxlan_tunnels(duthost, vnet_test_params)
-
-        logger.info("Restarting BGP and waiting for BGP sessions")
-        duthost.shell(RESTART_BGP_CMD)
-
-        if not wait_until(BGP_WAIT_TIMEOUT, BGP_POLL_RATE, 0, bgp_connected, duthost):
-            logger.warning("BGP sessions not up {} seconds after BGP restart, restoring with `config_reload`".format(
-                BGP_WAIT_TIMEOUT))
-            config_reload(duthost)
-    else:
-        logger.info("Skipping cleanup")
+            if not wait_until(BGP_WAIT_TIMEOUT, BGP_POLL_RATE, 0, bgp_connected, duthost):
+                logger.warning("BGP sessions not up {} seconds after BGP restart, "
+                               "restoring with `config_reload`".format(BGP_WAIT_TIMEOUT))
+                config_reload(duthost)
+        else:
+            logger.info("Skipping cleanup")
+    finally:
+        if use_arp_responder:
+            ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
 
 
 def get_bgp_neighbors(duthost):
@@ -203,6 +224,10 @@ def test_vnet_route_leak(configure_dut, duthosts, rand_one_dut_hostname):
     pytest_assert(wait_until(BGP_WAIT_TIMEOUT, BGP_POLL_RATE, 0,
                   bgp_connected, duthost), BGP_ERROR_TEMPLATE.format(BGP_WAIT_TIMEOUT))
 
+    if configure_dut is not None:
+        pytest_assert(verify_vnet_route_keys(duthost, configure_dut),
+                      "VNET test routes are missing after BGP restart")
+
     leaked_routes = get_leaked_routes(duthost)
     pytest_assert(not leaked_routes,
                   LEAKED_ROUTES_TEMPLATE.format(leaked_routes))
@@ -211,8 +236,18 @@ def test_vnet_route_leak(configure_dut, duthosts, rand_one_dut_hostname):
     duthost.shell(CONFIG_SAVE_CMD)
     config_reload(duthost)
 
+    if configure_dut is not None:
+        duthost.shell("docker cp {} swss:/vnet.route.json".format(DUT_VNET_ROUTE_JSON))
+        duthost.shell('docker exec swss sh -c "swssconfig /vnet.route.json"')
+        pytest_assert(wait_until(60, 10, 0, verify_vnet_route_keys, duthost, configure_dut),
+                      "VNET test routes are missing after config reload")
+
     pytest_assert(wait_until(BGP_WAIT_TIMEOUT, BGP_POLL_RATE, 0,
                   bgp_connected, duthost), BGP_ERROR_TEMPLATE.format(BGP_WAIT_TIMEOUT))
+
+    if configure_dut is not None:
+        pytest_assert(verify_vnet_route_keys(duthost, configure_dut),
+                      "VNET test routes are missing after config reload")
 
     leaked_routes = get_leaked_routes(duthost)
     pytest_assert(not leaked_routes,

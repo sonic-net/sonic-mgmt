@@ -1,13 +1,146 @@
-import os
+from contextlib import contextmanager
+
 import logging
+import os
+import shlex
+from time import monotonic
+import uuid
+
 import pytest
-import time
-from scapy.all import rdpcap
+from scapy.all import Raw, UDP, rdpcap
+
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 DUT_PCAP_FILEPATH = "/tmp/test_syslog_tcpdump.pcap"
 DOCKER_TMP_PATH = "/tmp/"
+TCPDUMP_START_TIMEOUT = 20
+TCPDUMP_CAPTURE_TIMEOUT = 40
+SYSLOG_CAPTURE_SECONDS = 60
 
 logger = logging.getLogger(__name__)
+
+
+def add_syslog_server(dut, syslog_server_ip, source=None, vrf=None, port=None):
+    command = "sudo config syslog add {}".format(syslog_server_ip)
+    if source:
+        command += " --source {}".format(source)
+    if vrf:
+        command += " --vrf {}".format(vrf)
+    if port:
+        command += " --port {}".format(port)
+    logger.debug("Add syslog server command: %s", command)
+    return dut.command(command, module_ignore_errors=True)
+
+
+def del_syslog_server(dut, syslog_server_ip, module_ignore_errors=False):
+    return dut.command(
+        "sudo config syslog del {}".format(syslog_server_ip),
+        module_ignore_errors=module_ignore_errors,
+    )
+
+
+@contextmanager
+def capture_remote_syslog(dut, destination, vrf=None):
+    capture_file = "/tmp/syslog-{}.pcap".format(uuid.uuid4().hex)
+    capture_pool = None
+    capture_result = None
+    server_added = False
+
+    try:
+        result = add_syslog_server(dut, destination, vrf=vrf)
+        pytest_assert(result["rc"] == 0, "Failed to add syslog server")
+        server_added = True
+
+        remote_action = 'Target="{}" Port="514"'.format(destination)
+
+        def remote_action_configured():
+            command = "grep -F {} /etc/rsyslog.conf".format(
+                shlex.quote(remote_action)
+            )
+            if vrf:
+                command += " | grep -Fq {}".format(
+                    shlex.quote('Device="{}"'.format(vrf))
+                )
+            else:
+                command += " >/dev/null"
+            return dut.shell(
+                command, module_ignore_errors=True
+            )["rc"] == 0
+
+        pytest_assert(
+            wait_until(30, 1, 0, remote_action_configured),
+            "Host rsyslog did not configure UDP/514 forwarding",
+        )
+
+        capture_command = (
+            "sudo timeout {} tcpdump -i any -y LINUX_SLL -nn "
+            "-s0 -U -w {} {}"
+        ).format(
+            SYSLOG_CAPTURE_SECONDS,
+            shlex.quote(capture_file),
+            shlex.quote(
+                "udp and dst host {} and dst port 514".format(destination)
+            ),
+        )
+        capture_pool, capture_result = dut.shell(
+            capture_command,
+            module_async=True,
+            module_ignore_errors=True,
+        )
+
+        def capture_started():
+            return dut.shell(
+                "sudo test $(stat -c %s {}) -ge 24".format(
+                    shlex.quote(capture_file)
+                ),
+                module_ignore_errors=True,
+            )["rc"] == 0
+
+        pytest_assert(
+            wait_until(10, 1, 0, capture_started),
+            "UDP/514 packet capture did not start",
+        )
+        yield capture_result, capture_file
+    finally:
+        if capture_pool is not None:
+            if capture_result.ready():
+                capture_pool.close()
+            else:
+                capture_pool.terminate()
+            capture_pool.join()
+        dut.shell(
+            "sudo rm -f {}".format(shlex.quote(capture_file)),
+            module_ignore_errors=True,
+        )
+        if os.path.exists(capture_file):
+            os.remove(capture_file)
+        if server_added:
+            del_syslog_server(dut, destination, module_ignore_errors=True)
+
+
+def read_syslog_payloads(dut, capture_result, capture_file):
+    pytest_assert(
+        wait_until(SYSLOG_CAPTURE_SECONDS + 5, 1, 0, capture_result.ready),
+        "UDP/514 packet capture did not finish",
+    )
+    capture_status = capture_result.get()
+    pcap_status = dut.shell(
+        "sudo test -s {}".format(shlex.quote(capture_file)),
+        module_ignore_errors=True,
+    )
+    pytest_assert(
+        pcap_status["rc"] == 0,
+        "UDP/514 capture file is empty or missing: {}".format(
+            capture_status
+        ),
+    )
+    dut.fetch(src=capture_file, dest="/tmp/", flat=True)
+    return [
+        bytes(packet[Raw].load).decode("utf-8", errors="replace")
+        for packet in rdpcap(capture_file)
+        if UDP in packet and Raw in packet
+    ]
 
 
 # Before real test, check default route on DUT:
@@ -143,38 +276,61 @@ def run_syslog(rand_selected_dut, dummy_syslog_server_ip_a, dummy_syslog_server_
     # Scapy doesn't support LINUX_SLL2 (Linux cooked v2), and tcpdump on Bullseye
     # defaults to writing in that format when listening on any interface. Therefore,
     # have it use LINUX_SLL (Linux cooked) instead.
+    # Start the deadline before submitting the async task, including launch/SSH latency.
+    startup_deadline = monotonic() + TCPDUMP_START_TIMEOUT
     tcpdump_task, tcpdump_result = duthost.shell(
-        "sudo timeout 20 tcpdump -y LINUX_SLL -i any -s0 -A -w {} \"udp and port 514\""
-        .format(DUT_PCAP_FILEPATH), module_async=True)
-    # wait for starting tcpdump
-    time.sleep(5)
+        "sudo timeout {} tcpdump -U -y LINUX_SLL -i any -s0 -A -w {} \"udp and port 514\""
+        .format(TCPDUMP_CAPTURE_TIMEOUT, DUT_PCAP_FILEPATH), module_async=True)
 
-    logger.debug("Generating log message from DUT")
-    # Generate a syslog from the DUT
-    duthost.shell("logger --priority INFO {}".format(test_message))
+    try:
+        def capture_started_or_exited():
+            # This is the owned AsyncResult, not a process-name search that can
+            # match a shell wrapper or mistake an async launch delay for exit.
+            if tcpdump_result.ready() or monotonic() >= startup_deadline:
+                return True
+            return duthost.shell(
+                "test -s {}".format(DUT_PCAP_FILEPATH), module_ignore_errors=True
+            )["rc"] == 0
 
-    # wait for stoping tcpdump
-    tcpdump_task.close()
-    tcpdump_task.join()
+        # tcpdump installs its filter before opening the savefile; -U flushes
+        # the initial pcap header. No additional settling sleep is needed.
+        # Reserve 20s of the capture timeout for logger and packet delivery.
+        capture_ready = wait_until(TCPDUMP_START_TIMEOUT, 0.5, 0, capture_started_or_exited)
+        if tcpdump_result.ready():
+            pytest.fail("tcpdump exited before syslog generation: {}".format(tcpdump_result.get()))
+        pytest_assert(
+            capture_ready and monotonic() < startup_deadline,
+            "tcpdump did not become ready within {}s".format(TCPDUMP_START_TIMEOUT),
+        )
 
-    # Remove the syslog configuration
-    if dummy_syslog_server_ip_a is not None:
-        duthost.shell("sudo config syslog del {}".format(dummy_syslog_server_ip_a))
-        if ":" not in dummy_syslog_server_ip_a:
-            duthost.command(
-                "sudo ip -4 rule del from all to {} pref 1 lookup default".format(dummy_syslog_server_ip_a))
-        else:
-            duthost.command(
-                "sudo ip -6 rule del from all to {} pref 1 lookup default".format(dummy_syslog_server_ip_a))
+        logger.debug("Generating log message from DUT")
+        # Generate a syslog from the DUT
+        duthost.shell("logger --priority INFO {}".format(test_message))
+    finally:
+        # Wait for the bounded capture to finish even when readiness/logger fails.
+        # Terminating a ThreadPool does not stop the remote tcpdump command.
+        try:
+            tcpdump_task.close()
+            tcpdump_task.join()
+        finally:
+            # Remove the syslog configuration
+            if dummy_syslog_server_ip_a is not None:
+                duthost.shell("sudo config syslog del {}".format(dummy_syslog_server_ip_a))
+                if ":" not in dummy_syslog_server_ip_a:
+                    duthost.command(
+                        "sudo ip -4 rule del from all to {} pref 1 lookup default".format(dummy_syslog_server_ip_a))
+                else:
+                    duthost.command(
+                        "sudo ip -6 rule del from all to {} pref 1 lookup default".format(dummy_syslog_server_ip_a))
 
-    if dummy_syslog_server_ip_b is not None:
-        duthost.shell("sudo config syslog del {}".format(dummy_syslog_server_ip_b))
-        if ":" not in dummy_syslog_server_ip_b:
-            duthost.command(
-                "sudo ip -4 rule del from all to {} pref 2 lookup default".format(dummy_syslog_server_ip_b))
-        else:
-            duthost.command(
-                "sudo ip -6 rule del from all to {} pref 2 lookup default".format(dummy_syslog_server_ip_b))
+            if dummy_syslog_server_ip_b is not None:
+                duthost.shell("sudo config syslog del {}".format(dummy_syslog_server_ip_b))
+                if ":" not in dummy_syslog_server_ip_b:
+                    duthost.command(
+                        "sudo ip -4 rule del from all to {} pref 2 lookup default".format(dummy_syslog_server_ip_b))
+                else:
+                    duthost.command(
+                        "sudo ip -6 rule del from all to {} pref 2 lookup default".format(dummy_syslog_server_ip_b))
 
     duthost.fetch(src=DUT_PCAP_FILEPATH, dest=DOCKER_TMP_PATH)
     filepath = os.path.join(DOCKER_TMP_PATH, duthost.hostname, DUT_PCAP_FILEPATH.lstrip(os.path.sep))

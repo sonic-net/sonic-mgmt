@@ -122,6 +122,7 @@ tests/transceiver/
 │
 ├── common/                                  # Shared modules across all transceiver test categories
 │   ├── __init__.py
+│   ├── attribute_helpers.py                 # Shared attribute constants and breakout lane resolution
 │   ├── health_checks.py                     # Per-test health: PID baseline/verify, log baseline/scan, core file check
 │   ├── prerequisites.py                     # Cross-category prerequisite logic: presence check, gold FW check,
 │   │                                        #   link-up check — called by conftest.py session fixtures
@@ -137,7 +138,8 @@ tests/transceiver/
 │   ├── cli_parser_helper.py                 # CLI output parsers: presence / hexdump / read-eeprom (+ RC_FAILURE);
 │   │                                        #   baseline parse_eeprom remains in utils/cli_parser_helper.py
 │   ├── cmis_helper.py                       # CMIS page decode: page 11h DataPath state, page 01h CDB capability
-│   └── eeprom_decode.py                     # SFF-8024 family classify + per-family vendor-field offsets + stem/DAC helpers
+│   ├── eeprom_decode.py                     # SFF-8024 family classify + per-family vendor-field offsets + stem/DAC helpers
+│   └── topology.py                          # ASIC-scoped same-DUT/cross-DUT peer resolution
 │
 ├── eeprom/
 │   ├── __init__.py
@@ -186,10 +188,8 @@ tests/transceiver/
 │   ├── process_restart/
 │   │   ├── __init__.py
 │   │   ├── conftest.py                      # Overrides per-test health check: expects PID changes
-│   │   ├── test_xcvrd_restart.py            # TC 1-3: xcvrd restart tests
-│   │   ├── test_pmon_restart.py             # TC 4: pmon docker restart
-│   │   ├── test_swss_restart.py             # TC 5: swss docker restart
-│   │   └── test_syncd_restart.py            # TC 6: syncd process restart
+│   │   └── test_processes_restart.py        # TC 1-6: xcvrd/pmon/swss/syncd
+│   │                                        #   restart + xcvrd crash tests
 │   │
 │   ├── recovery/
 │   │   ├── __init__.py
@@ -221,6 +221,17 @@ tests/transceiver/
 │       ├── test_link_stability.py           # TC 6: Link stability monitoring
 │       └── test_power_cycle_stress.py       # TC 7: Power cycle stress test
 │
+├── oir/
+│   ├── __init__.py
+│   ├── conftest.py                          # OIR fixtures; autouse fixture requests presence_verified and
+│   │                                        #   links_verified from top-level conftest.py. Physical OIR and
+│   │                                        #   remote reseat fixtures (ports under test, teardown restoration)
+│   │                                        #   are opted into by their test module.
+│   ├── oir_helpers.py                       # Physical OIR and remote reseat operations, and the OIR
+│   │                                        #   verification primitives both halves share
+│   ├── test_physical_oir.py                 # Physical OIR TC 1-6
+│   └── test_remote_reseat.py                # Remote reseat TC 1-2 (also requests gold_fw_verified)
+│
 ├── cdb_firmware_upgrade/
 │   ├── __init__.py
 │   ├── conftest.py                          # CDB firmware upgrade-specific fixtures; autouse fixture requests
@@ -237,8 +248,16 @@ tests/transceiver/
 │
 ├── vdm/
 │   ├── __init__.py
-│   ├── conftest.py                          # VDM-specific fixtures
-│   └── test_vdm.py                          # VDM specific test cases
+│   ├── conftest.py                          # VDM-capable primary/non-primary port selection; autouse fixture
+│   │                                        #   requests presence_verified, gold_fw_verified, links_verified
+│   │                                        #   from top-level conftest.py and checks DOM/VDM polling
+│   ├── vdm_helpers.py                       # VDM field plans, table-specific readers, availability/range checks,
+│   │                                        #   and four-table threshold hierarchy/value validation
+│   ├── test_vdm_availability.py             # Basic TC 1: VDM data availability and primary-only publication
+│   ├── test_vdm_operational_range.py        # Basic TC 2: Inclusive operational ranges and freshness
+│   ├── test_vdm_threshold.py                # Basic TC 3: Threshold hierarchy and optional exact values
+│   └── test_vdm_data_consistency.py         # Basic TC 4: Samples consistency_check_poll_count times; checks
+│                                            #   timestamp advance, freshness/range, and statistic coherence
 │
 └── pm/
     ├── __init__.py

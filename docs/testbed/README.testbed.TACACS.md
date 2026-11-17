@@ -64,11 +64,18 @@ root        3303  8.3  0.0   5600   224 ?        S    05:08   0:00 /usr/sbin/tac
 3. TACACS server for dailywork need auto restart and allow all RW command, which conflict with TACACS test case.
 
 ### How PTF host TACACS server for dailywork deployed
-- TACACS server deployed when add-topo, in ansible/roles/vm_set/tasks/add_topo.yml:
+- The daily TACACS server is provisioned for PTF containers during both `add-topo`
+  and `renumber-topo`, in `ansible/roles/vm_set/tasks/add_topo.yml` and
+  `ansible/roles/vm_set/tasks/renumber_topo.yml`:
 ```
   - name: Start tacacs+ daily daemon
     include_tasks: start_tacacs_daily_daemon.yml
 ```
+
+- Provisioning runs with `ptf_use_docker_network` enabled, disabled, or unset.
+  Tasks connect to the management address from `ptf_ip`, whether Docker or a
+  Linux bridge provides management connectivity. The daily server still uses
+  TCP port 49; port 59 is reserved for TACACS-specific test cases.
 
 - Deploy step defined here ansible/roles/vm_set/tasks/start_tacacs_daily_daemon.yml
    - For TACACS server passkey, please check "Include tacacs_passkey" step

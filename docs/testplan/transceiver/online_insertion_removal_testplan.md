@@ -28,6 +28,7 @@ Please refer to the [Testbed Topology](./test_plan.md#testbed-topology) section.
 | physical_oir_stress_iteration | Int | 5 | No | dut |  The number of iterations to stress test the physical OIR process. |
 | monitor_kernel_errors | Bool | False | No | transceivers |  A flag indicating whether to monitor kernel errors during the test. |
 | link_flap_monitor_timeout_sec | Int | 10 | No | transceivers | The duration in seconds to monitor for link flaps after OIR operations. |
+| hot_swap_ports_under_test | List of lists | [] | No | dut | A list of lists under `dut.dut_name`. The first element of the inner list should be the physical port index (int) under test and it must be from `ports_under_test`. The second element of the inner list should be the [XcvrApi class name (str)](https://github.com/sonic-net/sonic-platform-common/blob/80a485708ea580f33b85d73c103bfed29428871f/sonic_platform_base/sonic_xcvr/xcvr_api_factory.py#L92) of the optics to be hot-swapped. The optic class type must be different from that of the original optical module inserted in that port. This attribute must exist only under `dut` field. One port can have multiple hot-swap optic class types. |
 
 >**Note:** In the manual `oir_method`, the user is expected to physically insert or remove the transceivers when prompted by the test script on the terminal. In the pseudo `oir_method`, the test script simulates the insertion and removal of transceivers using platform-specific commands/tools. In the automated `oir_method`, the insertion and removal occur unattended. The test script automatically performs the insertion and removal of transceivers using the appropriate commands, scripts or tools. We plan to implement the code for the manual `oir_method` for now. `pseudo` and `automated` methods will be implemented in the future.
 
@@ -43,6 +44,10 @@ Please refer to the [Testbed Topology](./test_plan.md#testbed-topology) section.
 
 4. `port_startup_wait_sec` attribute of the [transceiver system testplan](./system_test_plan.md#attributes) is to be used to get the wait time before checking the interface operational status after the optics insertion or remote reseat.
 
+5. A port under test cabled to another port of the same DUT (self loopback topology) takes that peer port down with it, so the physical OIR checks on the other interfaces exclude the peer port, which is checked against the peer port expected results instead. The peer port is identified only when the `verify_lldp_on_link_up` attribute of the [transceiver system testplan](./system_test_plan.md#attributes) is enabled; otherwise, it is checked like any other interface.
+
+6. The remote reseat tests also use the following [transceiver system testplan](./system_test_plan.md#attributes) attributes: `transceiver_reset_supported` (must be true for every module under test), `port_shutdown_wait_sec` (wait for the ports to go down in step 2), `low_power_mode_supported` (steps 4 and 5 of the remote reseat run only on modules supporting it), `transceiver_reset_i2c_recover_sec` (replaces the 5s sleep after the reset when longer, and bounds the wait for the low and high power mode to be reported), and `verify_lldp_on_link_up` and `lldp_neighbor_wait_sec` (LLDP check of step 6). DOM monitoring must be enabled on every module under test before the test, as the last step of the remote reseat enables it.
+
 #### 1.1 Online Insertion and Removal Testing
 
 This section outlines the test cases for validating the insertion and removal of optics in SONiC. The state transitions and services' health are to be tested as a result of optics insertion and removal. The tests cover both physical OIR and remote reseat scenarios, ensuring that the system behaves correctly when optics are inserted or removed.
@@ -51,11 +56,12 @@ This section outlines the test cases for validating the insertion and removal of
 
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
-| 1 | Optics removal validation| 1. Physically remove the optical module under test.|1. Show transceiver presence and sfputil presence commands should return "Not present" with exit code 0.<br>2. Show transceiver eeprom, show transceiver info and sfputil eeprom commands should return "SFP EEPROM not detected" with exit code 0.<br>3. DOM, VDM and PM (if applicable) values are returned as empty from the CLI.<br>4. Interface should go oper down.<br>5. Other interfaces on the device should stay up.<br>6. Peer port should go oper down.<br>7. Link flap count of the local port and the peer ports should increase by 1.<br>8. Ensure that [transceiver state tables](#transceiver-state-tables) and [transceiver flag change tables](#transceiver-flag-tables) are updated correctly for the local and the peer ports.<br>9. Check that kernel has no error messages in syslog if `monitor_kernel_errors` flag is set. |
-| 2 | Optics insertion validation| 1. Insert the optical module under test.|1. Show transceiver presence and sfputil presence commands should return "Present" with exit code 0.<br>2. Show transceiver eeprom, show transceiver info and sfputil eeprom commands should show the values as per the configuration file and with the exit code as 0.<br>3. No link flaps are seen for `link_flap_monitor_timeout_sec` seconds.<br>4. Check if the port has recovered as per [system test plan](./system_test_plan.md#standard-port-recovery-and-verification-procedure).<br>5. Ensure that [transceiver state tables](#transceiver-state-tables) and [transceiver flag change tables](#transceiver-flag-tables) are updated correctly for the local and the peer ports.<br>6. Peer port should become oper up.<br>7. Link flap count of the peer port should increase by 1 but the link flap count of the local port should be 0.<br>8. Check that kernel has no error messages in syslog if `monitor_kernel_errors` flag is set. |
+| 1 | Optics removal validation| 1. Physically remove the optical module under test.|1. Show transceiver presence and sfputil presence commands should return "Not present" with exit code 0.<br>2. Show transceiver eeprom, show transceiver info and sfputil eeprom commands should return "SFP EEPROM not detected" with exit code 0.<br>3. DOM, VDM and PM (if applicable) values are returned as empty from the CLI.<br>4. Interface should go oper down.<br>5. Other interfaces on the device should stay up and their link flap count should not change.<br>6. Peer port should go oper down.<br>7. Link flap count of the local port and the peer ports should increase by 1.<br>8. Ensure that [transceiver state tables](#transceiver-state-tables) and [transceiver flag change tables](#transceiver-flag-tables) are updated correctly for the local and the peer ports.<br>9. Check that kernel has no error messages in syslog if `monitor_kernel_errors` flag is set. |
+| 2 | Optics insertion validation| 1. Insert the optical module under test.|1. Show transceiver presence and sfputil presence commands should return "Present" with exit code 0.<br>2. Show transceiver eeprom, show transceiver info and sfputil eeprom commands should show the values as per the configuration file and with the exit code as 0.<br>3. Expected DOM, VDM and PM (if applicable) values should be present for the interface.<br>4. No link flaps are seen for `link_flap_monitor_timeout_sec` seconds.<br>5. Check if the port has recovered as per [system test plan](./system_test_plan.md#standard-port-recovery-and-verification-procedure).<br>6. Ensure that [transceiver state tables](#transceiver-state-tables) and [transceiver flag change tables](#transceiver-flag-tables) are updated correctly for the local and the peer ports.<br>7. Peer port should become oper up.<br>8. Link flap count of the peer port should increase by 1 but the link flap count of the local port should be 0.<br>9. Check that kernel has no error messages in syslog if `monitor_kernel_errors` flag is set.<br>10. Link flap count of the other interfaces on the device should not change. |
 | 3 | Simultaneous Physical OIR | Perform the following steps if `simultaneous_oir` attribute is `True`. Skip the test otherwise.<br>1. Physically remove all optical modules under test simultaneously.<br>2. Physically insert all optical modules under test simultaneously.| 1. All the expected results from TC#1 for all ports under test.<br>2. All the expected results from TC#2 for all ports under test.|
-| 4 | Physical OIR stress test| 1. Perform the physical OIR process `physical_oir_stress_iteration` times in quick succession.| 1. All the expected results from TC#2 after last insertion.|
-
+| 4 | Physical OIR stress test| 1. Perform the physical OIR process `physical_oir_stress_iteration` times in quick succession.| 1. All the expected results from TC#2 after last insertion.<br>2. Link flap count of the other interfaces on the device should not change across all the iterations.|
+| 5 | Optics hot-swap validation (same XcvrApi class)| Perform the following steps if `hot_swap_ports_under_test` attribute is non-empty. Skip the test otherwise.<br> 1. Physically remove the optical module under test specified by the first element of the inner list of `hot_swap_ports_under_test` attribute.<br>2. On the same port, insert the optical module of the same XcvrApi class.<br>3. Remove the optical module.<br>4. Insert the original optical module.| Checks after step 1:<br>1. All checks for TC#1.<br><hr>Checks after step 2:<br>1. Show transceiver presence and sfputil presence commands should return "Present" with exit code 0.<br>2. Show transceiver eeprom, show transceiver info and sfputil eeprom commands should return the output in the expected format with the exit code as 0.<br>3. Transceiver serial number should be different.<br>4. The python object id of XcvrApi object should be different from the original.<br>5. All the transceiver status db tables should be created.<br>6. Link flap count of the other interfaces on the device should not change.<br><hr>Checks after step 3:<br>1. All the checks of TC#1.<br><hr> Checks after step 4:<br> All the checks for TC#2. |
+| 6 | Optics hot-swap validation (different XcvrApi class)| Perform the following steps if `hot_swap_ports_under_test` attribute is non-empty. Skip the test otherwise.<br>1. Physically remove the optical module under test specified by the first element of the inner list of `hot_swap_ports_under_test`.<br>2. On the same port, insert the optical module of the XcvrApi class name specified by the second element of the inner list of `hot_swap_ports_under_test`.<br>3. Remove the optical module.<br>4. Insert the original optical module.| Checks after step 1:<br>All the checks of TC#1.<br><hr> Checks after step 2 if the optical module is supported:<br>1. Show transceiver presence and sfputil presence commands should return "Present" with exit code 0.<br>2. Show transceiver eeprom, show transceiver info and sfputil eeprom commands should return the output in the expected format with the exit code as 0.<br>3. Transceiver serial number should be different.<br>4. The python object id of XcvrApi object should be different from the original.<br>5. Verify that the port's XcvrApi class name matches the expected type for the hot-swapped optic.<br>6. All the transceiver status db tables should be created.<br>7. Link flap count of the other interfaces on the device should not change.<br><hr>Checks after step 2 if the optical module is not supported (its physical presence is detected, its identifier is readable, and the platform's XcvrApi factory creates no XcvrApi for that identifier, without error, even when every other EEPROM read succeeds; an empty cage, an unreadable identifier, or a missing XcvrApi due to a read or construction error fails this step):<br> All the checks of TC#1, except that the sfputil presence and sfputil eeprom (without DOM) commands, which read the module directly, should report it as present and `TRANSCEIVER_STATUS_SW` should record its insertion.<br><hr> Checks after step 3:<br> All the checks of TC#1.<br><hr> Checks after step 4:<br> All the checks for TC#2. |
 > Note: List of transceiver related DB tables can be found at [transceiver related DB tables](https://github.com/sonic-net/sonic-platform-daemons/blob/33c0d5e8236d99f870136731a2c3914888207749/sonic-xcvrd/xcvrd/xcvrd_utilities/xcvr_table_helper.py#L11-L47).
 
 ##### 1.1.2 Remote reseat Tests
@@ -133,65 +139,6 @@ This table lists the transceiver flag tables in STATE_DB. All the relevant field
 | TRANSCEIVER_VDM_LALARM_FLAG* |
 | TRANSCEIVER_VDM_HWARN_FLAG* |
 | TRANSCEIVER_VDM_LWARN_FLAG* |
-
-
-## Physical OIR API
-
-The Physical OIR API provides a set of functions for performing physical optical insertion and removal tests on the device under test (DUT). This API allows users to check OIR support status, perform optics insertion/removal operations, and clean up OIR resources. This API is needed to abstract the physical OIR operations for all OIR methods (manual, pseudo and automated) and provide a consistent interface for the test cases to interact with the underlying OIR mechanisms, regardless of the specific hardware or platform being tested.
-
-A class named `PhysicalOir` is defined under `tests.common.physical_oir` module. If the class cannot be imported, the physical OIR tests are skipped. The class has following methods:
-
-1. **Constructor Method**
-   - Description: Initializes the PhysicalOir class.
-   - Parameters:
-        - `duthost` : AnsibleHost object of the dut.
-        - `ansible-adhoc` : Ansible adhoc fixture to send commands to perform OIR operations.
-        - `port_attributes_dict`: A dictionary containing the port test attributes defined in `physical_oir.json` file.  Following attributes are fetched from the `port_attributes_dict` object for further processing:
-            - `ports_under_test`: List of ports to be tested.
-            - `physical_oir_timeout_min`: Timeout value in minutes for the OIR process.
-            - `oir_method`: The method used for OIR ("manual", "pseudo" or "automated").
-            - `simultaneous_oir`: A flag indicating whether to allow simultaneous OIR operations on multiple ports.
-
-2. **is_available**
-    - Description: Checks if the testbed supports physical OIR.
-    - Parameters: None
-    - Returns: Boolean indicating availability.
-
-3. **insert_sfps**
-    - Description: Inserts SFPs on the ports specified by the ports_under_test attribute.
-    - Parameters: None
-    - Returns: None when the operation is complete.
-
-4. **remove_sfps**
-    - Description: Removes SFPs from the ports specified by the ports_under_test attribute.
-    - Parameters: None
-    - Returns: None when the operation is complete.
-
-5. **cleanup**
-    - Description: Cleans up resources used by the PhysicalOir class.
-    - Parameters: None
-    - Returns: None
-
-The `PhysicalOir` class should look like below:
-
-```python
-# File tests/common/physical_oir.py
-class PhysicalOir:
-    def __init__(self, duthost, ansible_adhoc, port_attributes_dict):
-        # Initiate the class with required attributes
-
-    def is_available(self) -> bool:
-        # Check if physical OIR is supported in the testbed
-
-    def insert_sfps(self) -> None:
-        # Insert SFPs on the ports specified by the ports_under_test attribute
-
-    def remove_sfps(self) -> None:
-        # Remove SFPs from the ports specified by the ports_under_test attribute
-
-    def cleanup(self) -> None:
-        # Cleanup resources used by the PhysicalOir class
-```
 
 #### CLI commands
 
