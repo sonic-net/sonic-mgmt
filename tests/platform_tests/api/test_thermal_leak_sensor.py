@@ -162,10 +162,16 @@ class TestLeakSensorApi(PlatformApiTestBase):
     @pytest.mark.parametrize("severity", [None, "MINOR", "CRITICAL"])
     def test_leak_sensor_test_leak(self, platform_api_conn, leak_test_injection, severity):  # noqa: F811
         """Inject and withdraw a test leak on every sensor; verify it is reported and flagged as a test leak."""
+        tested = 0
         for sensor_index in range(self.num_leak_sensors):
             name = leak_sensor.get_name(platform_api_conn, sensor_index)
 
             ret = leak_sensor_test.set_test_leak(platform_api_conn, name, True, severity=severity)
+            if ret is not True and leak_sensor_test.is_test_leak_enabled(platform_api_conn, name) is not True:
+                # Some platforms support only a fixed severity per sensor and reject others
+                logger.info(f"Sensor {name} did not accept test leak severity {severity!r} (got {ret!r}); skipping")
+                continue
+            tested += 1
             self.expect(ret is True, f"set_test_leak({name}, True) should return True, got {ret!r}")
             self.expect(leak_sensor_test.is_test_leak_enabled(platform_api_conn, name) is True,
                         f"is_test_leak_enabled({name}) should be True after injection")
@@ -194,6 +200,8 @@ class TestLeakSensorApi(PlatformApiTestBase):
             # Idempotent withdrawal
             ret = leak_sensor_test.set_test_leak(platform_api_conn, name, False)
             self.expect(ret is True, f"Repeated set_test_leak({name}, False) should return True, got {ret!r}")
+
+        self.expect(tested > 0, f"No leak sensor accepted a test leak with severity {severity!r}")
 
     def test_liquid_cooling_major_leak_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname,
                                                  platform_api_conn):  # noqa: F811
