@@ -790,6 +790,11 @@ t0-vpp:
   - bgp/test_bgp_stress_link_flap.py
   - bgp/test_bgp_update_timer.py
   - bgp/test_bgpmon.py
+  - bmp/test_bmp_configdb.py
+  - bmp/test_bmp_redis_instance.py
+  - bmp/test_bmp_statedb.py
+  - bmp/test_docker_restart.py
+  - bmp/test_frr_bmp_sanity.py
   - cacl/test_cacl_function.py
   - cacl/test_ebtables_application.py
   - clock/test_clock.py
