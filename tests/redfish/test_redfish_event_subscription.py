@@ -56,6 +56,9 @@ from tests.redfish.redfish_utils import (
     assert_no_content,
     assert_redfish_error,
     assert_status_ok,
+    BMCCTLD,
+    BMCCTLD_TIMEOUT,
+    bmcctld_running,
     host_is_settled_on,
 )
 
@@ -167,9 +170,6 @@ HOST_STATE_POLL = 5
 CHASSIS_PATH = "/redfish/v1/Chassis/chassis"
 # A HOST_STATE row neither of whose fields maps to a host state.
 UNRECOGNISED_HOST_STATE = {"device_power_state": "RMC_TEST_UNRECOGNISED", "device_status": "RMC_TEST_UNRECOGNISED"}
-PMON_CONTAINER = "pmon"
-BMCCTLD = "bmcctld"
-BMCCTLD_TIMEOUT = 120
 
 # Runs a POST from inside the redfish container: exactly the network path bmcweb uses.
 PROBE_SNIPPET = ("import sys, urllib.request; "
@@ -337,14 +337,7 @@ def _wait_for_power_event(receiver, name, event_name, timeout):
 
 def _power_event(payloads, event_name):
     """The event record for `event_name` among delivered payloads, envelope checked."""
-    message_id = HOST_POWER_EVENTS[event_name][0]
-    event = next(
-        (record for payload in payloads for record in _assert_event_envelope(payload)
-         if record.get("MessageId") == message_id),
-        None)
-    pytest_assert(event is not None,
-                  "{} not found in deliveries: {}".format(message_id, _delivered_message_ids(payloads)))
-    return event
+    return _event_with_id(payloads, HOST_POWER_EVENTS[event_name][0])
 
 
 def _assert_host_power_event(event, event_name):
@@ -415,13 +408,43 @@ def _get_body(redfish_client, path):
     return response.json() if response.status_code == 200 else {}
 
 
+def _wait_for_body(redfish_client, path, predicate, timeout, poll=DELIVERY_POLL):
+    """Poll GET `path` until `predicate(body)` holds. Returns (held, the last body read)."""
+    last = {}
+
+    def _check():
+        last["body"] = _get_body(redfish_client, path)
+        return predicate(last["body"])
+
+    held = wait_until(timeout, poll, 0, _check)
+    return held, last.get("body", {})
+
+
+def _wait_for_message_ids(receiver, name, wanted, timeout=DELIVERY_TIMEOUT):
+    """Poll receiver path `name` until every MessageId in `wanted` arrived.
+
+    Returns (arrived, the last payloads read).
+    """
+    last = {}
+
+    def _check():
+        last["payloads"] = receiver.deliveries(name)
+        return set(wanted) <= set(_delivered_message_ids(last["payloads"]))
+
+    arrived = wait_until(timeout, DELIVERY_POLL, 0, _check)
+    return arrived, last.get("payloads", [])
+
+
+def _command_keys(bmc_duthost):
+    return set(redis_keys(bmc_duthost, STATE_DB, COMMAND_KEY_GLOB))
+
+
+def _command_done(bmc_duthost, key):
+    return redis_hgetall(bmc_duthost, STATE_DB, key).get("status") in ("DONE", "FAILED")
+
+
 def _reports_unknown_power(body):
     return bool(body) and "PowerState" not in body and body.get("Status", {}).get("State") == "UnavailableOffline"
-
-
-def _bmcctld_pid(bmc_duthost):
-    status, pid = bmc_duthost.get_pmon_daemon_status(BMCCTLD)
-    return pid if status == "RUNNING" else -1
 
 
 def _wait_for_bmcweb(redfish_client, bmc_duthost):
@@ -605,8 +628,11 @@ def host_power_restored(redfish_client, bmc_duthost):
 
 
 @pytest.fixture(scope="function")
-def late_leak_sensor(bmc_duthost, leak_sensor):
-    """Remove the late sensor row afterwards and restart the bridge so it no longer exports it."""
+def late_leak_sensor(bmc_duthost, leak_event):
+    """Remove the late sensor row afterwards and restart the bridge so it no longer exports it.
+
+    Depends on leak_event so the main sensor is at OK, which the teardown waits for again.
+    """
     yield LATE_LEAK_SENSOR_KEY
     redis_del(bmc_duthost, STATE_DB, LATE_LEAK_SENSOR_KEY)
     _restart_bridge(bmc_duthost, module_ignore_errors=True)
@@ -622,23 +648,31 @@ def bmcctld_stopped(bmc_duthost):
     """Stop bmcctld so HOST_STATE|switch-host stays absent, and start it again afterwards.
 
     bmcctld republishes HOST_STATE from the live oper status when it starts,
-    so starting it is also how the test ends the unknown state.
+    so starting it is also how the test ends the unknown state. If the test
+    did not get that far, the RACK_MANAGER_COMMAND rows it created are removed
+    before bmcctld is started, so a failed test cannot leave it a command to
+    execute.
     """
-    pyrequire(_bmcctld_pid(bmc_duthost) != -1, "{} is not RUNNING in the {} container".format(BMCCTLD, PMON_CONTAINER))
-    logger.info("Stopping %s in the %s container", BMCCTLD, PMON_CONTAINER)
-    bmc_duthost.shell("docker exec {} supervisorctl stop {}".format(PMON_CONTAINER, BMCCTLD))
+    pyrequire(bmcctld_running(bmc_duthost), "{} is not RUNNING in the pmon container".format(BMCCTLD))
+    keys_before = _command_keys(bmc_duthost)
 
     def _start():
-        logger.info("Starting %s in the %s container", BMCCTLD, PMON_CONTAINER)
-        bmc_duthost.shell("docker exec {} supervisorctl start {}".format(PMON_CONTAINER, BMCCTLD),
-                          module_ignore_errors=True)
+        logger.info("Starting %s in the pmon container", BMCCTLD)
+        bmc_duthost.start_pmon_daemon(BMCCTLD)
         return wait_until(BMCCTLD_TIMEOUT, HOST_STATE_POLL, 0, lambda: _host_state(bmc_duthost))
 
-    yield _start
-
-    if _bmcctld_pid(bmc_duthost) == -1 or not _host_state(bmc_duthost):
-        pytest_assert(_start(), "{} did not republish {} within {}s of starting".format(
-            BMCCTLD, HOST_STATE_KEY, BMCCTLD_TIMEOUT))
+    try:
+        logger.info("Stopping %s in the pmon container", BMCCTLD)
+        bmc_duthost.stop_pmon_daemon_service(BMCCTLD)
+        yield _start
+    finally:
+        if not bmcctld_running(bmc_duthost):
+            for key in _command_keys(bmc_duthost) - keys_before:
+                logger.info("Removing %s before starting %s: %s", key, BMCCTLD,
+                            redis_hgetall(bmc_duthost, STATE_DB, key))
+                redis_del(bmc_duthost, STATE_DB, key)
+            pytest_assert(_start(), "{} did not republish {} within {}s of starting".format(
+                BMCCTLD, HOST_STATE_KEY, BMCCTLD_TIMEOUT))
 
 
 class TestRedfishEventSubscription:
@@ -1038,12 +1072,12 @@ class TestRedfishEventSubscription:
         _assert_host_power_event(event, "PoweredOff")
         logger.info("Rack manager received %s with %s=%s, requesting ResetType=On",
                     event["MessageId"], HOST_STATE_KEY, _host_state(bmc_duthost))
-        keys_before = set(redis_keys(bmc_duthost, STATE_DB, COMMAND_KEY_GLOB))
+        keys_before = _command_keys(bmc_duthost)
 
         _reset(redfish_client, "On")
 
         def _new_command_keys():
-            return set(redis_keys(bmc_duthost, STATE_DB, COMMAND_KEY_GLOB)) - keys_before
+            return _command_keys(bmc_duthost) - keys_before
 
         pytest_assert(wait_until(DELIVERY_TIMEOUT, DELIVERY_POLL, 0, _new_command_keys),
                       "No RACK_MANAGER_COMMAND row appeared within {}s of the reset".format(DELIVERY_TIMEOUT))
@@ -1051,10 +1085,7 @@ class TestRedfishEventSubscription:
         pytest_assert(len(new_keys) == 1, "One reset must create one command row, got: {}".format(sorted(new_keys)))
         key = new_keys.pop()
 
-        def _command_done():
-            return redis_hgetall(bmc_duthost, STATE_DB, key).get("status") in ("DONE", "FAILED")
-
-        pytest_assert(wait_until(COMMAND_DONE_TIMEOUT, DELIVERY_POLL, 0, _command_done),
+        pytest_assert(wait_until(COMMAND_DONE_TIMEOUT, DELIVERY_POLL, 0, _command_done, bmc_duthost, key),
                       "{} was not completed by bmcctld within {}s".format(key, COMMAND_DONE_TIMEOUT))
         row = redis_hgetall(bmc_duthost, STATE_DB, key)
         pytest_assert(
@@ -1089,17 +1120,17 @@ class TestRedfishEventSubscription:
             leak_event(row)
             want_state, want_health = expected[state]
 
-            def _reports(member):
-                body = _get_body(redfish_client, member)
+            def _reports(body):
                 status = body.get("Status", {})
                 return (body.get("DetectorState") == state and status.get("State") == want_state
                         and status.get("Health") == want_health)
 
             for member in (LEAK_ORIGIN, LEAK_ORIGIN_CANONICAL):
+                held, body = _wait_for_body(redfish_client, member, _reports, DELIVERY_TIMEOUT)
                 pytest_assert(
-                    wait_until(DELIVERY_TIMEOUT, DELIVERY_POLL, 0, _reports, member),
+                    held,
                     "{} must report DetectorState {} with Status {}/{} within {}s, got: {}".format(
-                        member, state, want_state, want_health, DELIVERY_TIMEOUT, _get_body(redfish_client, member))
+                        member, state, want_state, want_health, DELIVERY_TIMEOUT, body)
                 )
                 logger.info("Verified %s DetectorState=%s Status=%s/%s", member, state, want_state, want_health)
 
@@ -1136,14 +1167,12 @@ class TestRedfishEventSubscription:
         leak_event("OK")
         recovered = (LEAK_STATUS_EVENTS["OK"][0], LEAK_EVENTS["OK"][0])
         for name in (unfiltered, by_type):
+            arrived, payloads = _wait_for_message_ids(rmc_receiver, name, recovered)
             pytest_assert(
-                wait_until(DELIVERY_TIMEOUT, DELIVERY_POLL, 0,
-                           lambda: set(recovered) <= set(_delivered_message_ids(rmc_receiver.deliveries(name)))),
+                arrived,
                 "{} must receive {} within {}s, got: {}".format(
-                    rmc_receiver.url(name), recovered, DELIVERY_TIMEOUT,
-                    _delivered_message_ids(rmc_receiver.deliveries(name)))
+                    rmc_receiver.url(name), recovered, DELIVERY_TIMEOUT, _delivered_message_ids(payloads))
             )
-            payloads = rmc_receiver.deliveries(name)
             _assert_leak_status_event(_event_with_id(payloads, LEAK_STATUS_EVENTS["OK"][0]), "OK")
             _assert_leak_event(_event_with_id(payloads, LEAK_EVENTS["OK"][0]), "OK")
         logger.info("Verified the sensor recovery was delivered as %s and %s", *recovered)
@@ -1173,12 +1202,11 @@ class TestRedfishEventSubscription:
         expected = [LEAK_STATUS_EVENTS["Warning"][0], LEAK_EVENTS[leak][0]]
         if leak == "Critical":
             expected.append(LEAK_STATUS_EVENTS["Critical"][0])
+        arrived, payloads = _wait_for_message_ids(rmc_receiver, name, expected)
         pytest_assert(
-            wait_until(DELIVERY_TIMEOUT, DELIVERY_POLL, 0,
-                       lambda: set(expected) <= set(_delivered_message_ids(rmc_receiver.deliveries(name)))),
+            arrived,
             "{} must receive {} within {}s, got: {}".format(
-                rmc_receiver.url(name), expected, DELIVERY_TIMEOUT,
-                _delivered_message_ids(rmc_receiver.deliveries(name)))
+                rmc_receiver.url(name), expected, DELIVERY_TIMEOUT, _delivered_message_ids(payloads))
         )
         time.sleep(NO_DELIVERY_SETTLE)
         payloads = rmc_receiver.deliveries(name)
@@ -1237,7 +1265,7 @@ class TestRedfishEventSubscription:
 
         collection = LEAK_ORIGIN_CANONICAL.rsplit("/", 1)[0]
         sensors = sorted(key.split("|", 1)[1] for key in redis_keys(bmc_duthost, STATE_DB, LEAK_SENSOR_KEY_GLOB))
-        detectors = sorted(m.get("@odata.id", "").rsplit("/", 1)[1]
+        detectors = sorted(m.get("@odata.id", "").rsplit("/", 1)[-1]
                            for m in _get_body(redfish_client, collection).get("Members", []))
         pytest_assert(detectors == sensors,
                       "{} must list one detector per {} row: detectors={} sensors={}".format(
@@ -1259,23 +1287,20 @@ class TestRedfishEventSubscription:
         _subscribe(redfish_client, rmc_receiver.url(name), "ctx-late")
         _seed_late_sensor(bmc_duthost, state)
 
-        def _served():
-            return _get_body(redfish_client, LATE_LEAK_ORIGIN_CANONICAL).get("DetectorState") == state
-
+        served, body = _wait_for_body(redfish_client, LATE_LEAK_ORIGIN_CANONICAL,
+                                      lambda b: b.get("DetectorState") == state, BRIDGE_READY_TIMEOUT, poll=3)
         pytest_assert(
-            wait_until(BRIDGE_READY_TIMEOUT, 3, 0, _served),
+            served,
             "{} did not report DetectorState {} within {}s of the row being written, got: {}".format(
-                LATE_LEAK_ORIGIN_CANONICAL, state, BRIDGE_READY_TIMEOUT,
-                _get_body(redfish_client, LATE_LEAK_ORIGIN_CANONICAL))
+                LATE_LEAK_ORIGIN_CANONICAL, state, BRIDGE_READY_TIMEOUT, body)
         )
 
         if state != "OK":
             pytest_assert(
                 wait_until(DELIVERY_TIMEOUT, DELIVERY_POLL, 0,
                            lambda: _events_for(rmc_receiver.deliveries(name), LATE_LEAK_SENSOR)),
-                "No event for {} reached {} within {}s, got: {}".format(
-                    LATE_LEAK_SENSOR, rmc_receiver.url(name), DELIVERY_TIMEOUT,
-                    _delivered_message_ids(rmc_receiver.deliveries(name)))
+                "No event for {} reached {} within {}s".format(
+                    LATE_LEAK_SENSOR, rmc_receiver.url(name), DELIVERY_TIMEOUT)
             )
         time.sleep(NO_DELIVERY_SETTLE)
         events = _events_for(rmc_receiver.deliveries(name), LATE_LEAK_SENSOR)
@@ -1306,7 +1331,7 @@ class TestRedfishEventSubscription:
         sonic-dbus-bridge starts, or present with no field the bridge
         recognises, Systems/system and Chassis/chassis omit
         PowerState and report Status.State UnavailableOffline, and no
-        ResourcePowered* event is raised. A ComputerSystem.Reset received
+        event is raised for the ComputerSystem. A ComputerSystem.Reset received
         meanwhile is still forwarded as a RACK_MANAGER_COMMAND row. bmcctld's
         first HOST_STATE row then sets the real state on both resources and
         raises the matching event, ResourcePoweredOn for a host that is on.
@@ -1328,32 +1353,31 @@ class TestRedfishEventSubscription:
         _restart_bridge(bmc_duthost)
 
         for path in (SYSTEM_ORIGIN, CHASSIS_PATH):
+            unknown, body = _wait_for_body(redfish_client, path, _reports_unknown_power, BRIDGE_READY_TIMEOUT, poll=3)
             pytest_assert(
-                wait_until(BRIDGE_READY_TIMEOUT, 3, 0, lambda: _reports_unknown_power(_get_body(redfish_client, path))),
+                unknown,
                 "{} must omit PowerState and report Status.State UnavailableOffline within {}s, got: {}".format(
-                    path, BRIDGE_READY_TIMEOUT, _get_body(redfish_client, path))
+                    path, BRIDGE_READY_TIMEOUT, body)
             )
-            logger.info("Verified %s reports an unknown power state: %s", path,
-                        _get_body(redfish_client, path).get("Status"))
+            logger.info("Verified %s reports an unknown power state: %s", path, body.get("Status"))
 
-        keys_before = set(redis_keys(bmc_duthost, STATE_DB, COMMAND_KEY_GLOB))
+        keys_before = _command_keys(bmc_duthost)
         _reset(redfish_client, "On")
         pytest_assert(
-            wait_until(DELIVERY_TIMEOUT, DELIVERY_POLL, 0,
-                       lambda: set(redis_keys(bmc_duthost, STATE_DB, COMMAND_KEY_GLOB)) - keys_before),
+            wait_until(DELIVERY_TIMEOUT, DELIVERY_POLL, 0, lambda: _command_keys(bmc_duthost) - keys_before),
             "ResetType=On in the unknown state created no RACK_MANAGER_COMMAND row within {}s".format(DELIVERY_TIMEOUT)
         )
-        new_keys = set(redis_keys(bmc_duthost, STATE_DB, COMMAND_KEY_GLOB)) - keys_before
+        new_keys = _command_keys(bmc_duthost) - keys_before
         pytest_assert(len(new_keys) == 1, "One reset must create one command row, got: {}".format(sorted(new_keys)))
         command_key = new_keys.pop()
-        row = redis_hgetall(bmc_duthost, STATE_DB, command_key)
-        pytest_assert(row.get("command") == "POWER_ON",
-                      "{} must carry command=POWER_ON, got: {}".format(command_key, row))
-        logger.info("Verified ResetType=On in the unknown state was forwarded as %s: %s", command_key, row)
+        command = redis_hgetall(bmc_duthost, STATE_DB, command_key)
+        pytest_assert(command.get("command") == "POWER_ON",
+                      "{} must carry command=POWER_ON, got: {}".format(command_key, command))
+        logger.info("Verified ResetType=On in the unknown state was forwarded as %s: %s", command_key, command)
 
         time.sleep(NO_DELIVERY_SETTLE)
         early = _delivered_message_ids(rmc_receiver.deliveries(name))
-        pytest_assert(not early, "The unknown state must raise no power event, got: {}".format(early))
+        pytest_assert(not early, "The unknown state must raise no event, got: {}".format(early))
 
         pytest_assert(bmcctld_stopped(), "{} did not republish {} within {}s of starting".format(
             BMCCTLD, HOST_STATE_KEY, BMCCTLD_TIMEOUT))
@@ -1363,26 +1387,22 @@ class TestRedfishEventSubscription:
         logger.info("%s republished %s: %s", BMCCTLD, HOST_STATE_KEY, _host_state(bmc_duthost))
 
         for path in (SYSTEM_ORIGIN, CHASSIS_PATH):
+            powered_on, body = _wait_for_body(
+                redfish_client, path,
+                lambda b: b.get("PowerState") == "On" and b.get("Status", {}).get("State") == "Enabled",
+                DELIVERY_TIMEOUT)
             pytest_assert(
-                wait_until(DELIVERY_TIMEOUT, DELIVERY_POLL, 0,
-                           lambda: _get_body(redfish_client, path).get("PowerState") == "On"),
-                "{} must report PowerState On once {} is published, got: {}".format(
-                    path, HOST_STATE_KEY, _get_body(redfish_client, path))
+                powered_on,
+                "{} must report PowerState On with Status.State Enabled once {} is published, got: {}".format(
+                    path, HOST_STATE_KEY, body)
             )
-            status = _get_body(redfish_client, path).get("Status", {})
-            pytest_assert(status.get("State") != "UnavailableOffline",
-                          "{} must leave UnavailableOffline once {} is published, got: {}".format(
-                              path, HOST_STATE_KEY, status))
-            logger.info("Verified %s reports PowerState On, Status %s", path, status)
+            logger.info("Verified %s reports PowerState On, Status %s", path, body.get("Status"))
 
         payloads = _wait_for_power_event(rmc_receiver, name, "PoweredOn", HOST_ON_TIMEOUT)
         _assert_host_power_event(_power_event(payloads, "PoweredOn"), "PoweredOn")
         logger.info("Verified the first published %s raised %s", HOST_STATE_KEY, HOST_POWER_EVENTS["PoweredOn"][0])
 
-        def _command_done():
-            return redis_hgetall(bmc_duthost, STATE_DB, command_key).get("status") in ("DONE", "FAILED")
-
-        if not wait_until(COMMAND_DONE_TIMEOUT, DELIVERY_POLL, 0, _command_done):
+        if not wait_until(COMMAND_DONE_TIMEOUT, DELIVERY_POLL, 0, _command_done, bmc_duthost, command_key):
             logger.info("%s was not consumed after %s started, removing it: %s", command_key, BMCCTLD,
                         redis_hgetall(bmc_duthost, STATE_DB, command_key))
             redis_del(bmc_duthost, STATE_DB, command_key)

@@ -147,7 +147,7 @@ Each test module carries its own in-file `pytest.mark.topology("any")` marker (t
 
 | D-Bus Service Name                 | Interface                               | Purpose                          |
 | :----------------------------------- | :---------------------------------------- | :--------------------------------- |
-| `xyz.openbmc_project.Inventory.Manager` | `xyz.openbmc_project.Inventory.Item.Chassis` | Chassis/system inventory objects |
+| `xyz.openbmc_project.Inventory.Manager` | `xyz.openbmc_project.Inventory.Decorator.Asset`, `xyz.openbmc_project.Inventory.Item.LeakDetector` | Chassis/system inventory and leak detector objects |
 | `xyz.openbmc_project.ObjectMapper` | `xyz.openbmc_project.ObjectMapper`      | Object discovery for bmcweb      |
 
 # Test Cases
@@ -710,8 +710,8 @@ Each test module carries its own in-file `pytest.mark.topology("any")` marker (t
 1. Subscribe with `ResourceTypes` `["ComputerSystem"]`, stop `bmcctld`, delete `HOST_STATE|switch-host` and restart `sonic-dbus-bridge`
 2. Validate `Systems/system` and `Chassis/chassis` omit `PowerState` and report `Status.State` `UnavailableOffline`
 3. Send `ResetType` `On` and validate one `RACK_MANAGER_COMMAND` row with `command=POWER_ON` is created
-4. Validate no power event is delivered
-5. Start `bmcctld` and validate both resources report `PowerState` `On` and the subscriber receives `ResourceEvent.1.3.ResourcePoweredOn`
+4. Validate no event is delivered
+5. Start `bmcctld` and validate both resources report `PowerState` `On` with `Status.State` `Enabled` and the subscriber receives `ResourceEvent.1.3.ResourcePoweredOn`
 6. Repeat with `HOST_STATE|switch-host` present but carrying unrecognised `device_power_state` and `device_status` values
 
 
@@ -948,5 +948,3 @@ Certificate-based tests use a `bmc_tls_certs` pytest fixture that handles the fu
 # Open Items
 
 1. No open items at this time.
-
-

@@ -36,6 +36,7 @@ from tests.common.utilities import wait_until
 from tests.redfish.redfish_utils import (
     BMCWEB_CONTAINER,
     bmcweb_pid,
+    BRIDGE_SERVICE,
     build_cert_chain,
     CA_CERT_NAME,
     cert_status,
@@ -270,10 +271,10 @@ class TestRedfishCertProvisioning:
                       "CA hash symlink {}.0 missing from the truststore".format(ca_hash.strip()))
 
         # The redfish container's critical processes: every Redfish resource depends on both.
-        for program in ("sonic-dbus-bridge", "bmcweb"):
-            stdout, _, _ = bmc_exec(in_container("supervisorctl status {}".format(program)))
-            pytest_assert("RUNNING" in stdout,
-                          "{} is not running after provisioning: {}".format(program, stdout))
+        for program in (BRIDGE_SERVICE, "bmcweb"):
+            state = program_state(bmc_duthost, program)
+            pytest_assert(state == "RUNNING",
+                          "{} is not running after provisioning: {}".format(program, state))
 
     def test_provisioned_state_is_recorded(self, bmc_tls_certs, bmc_exec):
         """Provisioning writes the marker and the staging stamp on the host mount."""

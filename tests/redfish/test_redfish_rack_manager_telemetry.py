@@ -43,6 +43,9 @@ from tests.redfish.redfish_utils import (
     assert_redfish_error,
     assert_retry_after,
     assert_status_ok,
+    BRIDGE_DOWN_STATUSES,
+    BRIDGE_RECOVERY_TIMEOUT,
+    BRIDGE_STATE_TIMEOUT,
 )
 
 logger = logging.getLogger(__name__)
@@ -72,8 +75,6 @@ PERSIST_TIMEOUT = 20
 PERSIST_POLL = 1
 # Settle time before asserting that a rejected request wrote nothing.
 NO_WRITE_SETTLE = 3
-BRIDGE_STATE_TIMEOUT = 30
-BRIDGE_RECOVERY_TIMEOUT = 60
 # bmcweb rejects OEM action bodies above this size before forwarding them.
 MAX_BODY_BYTES = 64 * 1024
 # isoUtcNow() in the bridge: ISO 8601 UTC with microseconds.
@@ -81,8 +82,6 @@ TIMESTAMP_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
 BMCWEB_CONTAINER = "redfish"
 BRIDGE_PROGRAM = "sonic-dbus-bridge"
-# Acceptable answers while the bridge is down; see test_submit_telemetry_bridge_unavailable.
-BRIDGE_DOWN_STATUSES = (401, 500, 503)
 
 # Documented reference payload (oem-extension/README.md, section 4.3).
 TELEMETRY_PAYLOAD = {
