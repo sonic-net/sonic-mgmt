@@ -96,15 +96,22 @@ def setup_faulted_y_cable_driver(
                       "Failed to start ycabled on {}".format(simulated_faulty_side.hostname))
         yield select_mux_port
     finally:
+        restore_ok = True
         if y_cable_simulated_path:
-            simulated_faulty_side.shell(
+            result = simulated_faulty_side.shell(
                 "docker exec pmon mv {path}/y_cable_simulated.py.orig {path}/y_cable_simulated.py".format(
                     path=y_cable_simulated_path
-                )
-            )
-        simulated_faulty_side.shell(
-            "docker exec pmon supervisorctl restart ycabled")
-        if not _wait_for_recovery(simulated_faulty_side, simulated_good_side, select_mux_port, active_standby_ports):
+                ), module_ignore_errors=True)
+            restore_ok = result.get("rc") == 0
+        if restore_ok:
+            result = simulated_faulty_side.shell(
+                "docker exec pmon supervisorctl restart ycabled", module_ignore_errors=True)
+            restore_ok = result.get("rc") == 0
+        if not restore_ok:
+            logging.warning("Primary Y-cable cleanup command failed: %s", result)
+
+        if not restore_ok or not _wait_for_recovery(
+                simulated_faulty_side, simulated_good_side, select_mux_port, active_standby_ports):
             logging.warning("Y-cable or mux health did not recover; recreating PMON on %s",
                             simulated_faulty_side.hostname)
             _remove_pmon_container(simulated_faulty_side)
