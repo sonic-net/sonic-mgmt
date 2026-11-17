@@ -454,7 +454,7 @@ def cleanup_hft_config(duthost, profile_name, group_names=None):
 def ensure_countersyncd_daemon(duthost):
     """Verify the supervisor-owned countersyncd daemon is OTEL-enabled."""
     status = duthost.shell(
-        "docker exec swss supervisorctl status countersyncd",
+        "docker exec hft supervisorctl status countersyncd",
         module_ignore_errors=True,
     )
     pytest_assert(
@@ -463,7 +463,7 @@ def ensure_countersyncd_daemon(duthost):
         f"{status.get('stdout', '')} {status.get('stderr', '')}",
     )
     command = duthost.shell(
-        "docker exec swss sh -c 'pid=$(supervisorctl pid countersyncd) && "
+        "docker exec hft sh -c 'pid=$(supervisorctl pid countersyncd) && "
         "xargs -0 echo < /proc/$pid/cmdline'",
         module_ignore_errors=True,
     )
@@ -477,7 +477,7 @@ def ensure_countersyncd_daemon(duthost):
 
 def _get_running_countersyncd_pid(duthost):
     status = duthost.shell(
-        "docker exec swss supervisorctl status countersyncd",
+        "docker exec hft supervisorctl status countersyncd",
         module_ignore_errors=True,
     )
     fields = status.get("stdout", "").split()
@@ -485,7 +485,7 @@ def _get_running_countersyncd_pid(duthost):
             or fields[0] != "countersyncd" or fields[1] != "RUNNING":
         return None
     pid = duthost.shell(
-        "docker exec swss supervisorctl pid countersyncd",
+        "docker exec hft supervisorctl pid countersyncd",
         module_ignore_errors=True,
     )
     try:
@@ -503,7 +503,7 @@ def restart_countersyncd_daemon(duthost, timeout=30):
         "Unable to determine the running countersyncd PID before restart",
     )
     result = duthost.shell(
-        "docker exec swss supervisorctl restart countersyncd",
+        "docker exec hft supervisorctl restart countersyncd",
         module_ignore_errors=True,
     )
     pytest_assert(
