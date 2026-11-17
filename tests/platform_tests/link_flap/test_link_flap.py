@@ -6,11 +6,12 @@ import pytest
 
 from tests.platform_tests.link_flap.link_flap_utils import check_orch_cpu_utilization, build_test_candidates, \
     get_avg_redis_mem_usage, validate_redis_memory_increase
-from tests.common.platform.device_utils import toggle_one_link
+from tests.common.platform.device_utils import toggle_one_link, toggle_fanout_links
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
+LINK_FLAP_BATCH_SIZE = 5
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -55,6 +56,9 @@ def test_link_flap(request, duthosts, rand_one_dut_hostname, tbinfo, fanouthosts
 
     candidates = build_test_candidates(duthost, fanouthosts, 'all_ports')
     pytest_require(candidates, "Didn't find any port that is admin up and present in the connection graph")
+    ports_by_fanout = {}
+    for dut_port, fanout, fanout_port in candidates:
+        ports_by_fanout.setdefault(fanout, []).append((dut_port, fanout_port))
 
     for loop_time in range(0, loop_times):
         watch = False
@@ -62,9 +66,18 @@ def test_link_flap(request, duthosts, rand_one_dut_hostname, tbinfo, fanouthosts
         if loop_time == 0 or loop_time == loop_times - 1:
             watch = True
             check_status = True
-
-        for dut_port, fanout, fanout_port in candidates:
-            toggle_one_link(duthost, dut_port, fanout, fanout_port, watch=watch, check_status=check_status)
+        for fanout, ports in ports_by_fanout.items():
+            # Use batch mode if the fanout supports them
+            support_batch = all(callable(getattr(type(fanout.host), method, None))
+                                for method in ('shutdown_multiple', 'no_shutdown_multiple'))
+            if support_batch:
+                for start in range(0, len(ports), LINK_FLAP_BATCH_SIZE):
+                    batch = ports[start:start + LINK_FLAP_BATCH_SIZE]
+                    # Always check status in batch mode to ensure recovery before the next batch.
+                    toggle_fanout_links(duthost, fanout, batch, watch=watch)
+            else:
+                for dut_port, fanout_port in ports:
+                    toggle_one_link(duthost, dut_port, fanout, fanout_port, watch=watch, check_status=check_status)
 
     # Record memory status at end
     memory_output = duthost.shell("show system-memory")["stdout"]
