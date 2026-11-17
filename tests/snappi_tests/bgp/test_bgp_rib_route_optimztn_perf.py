@@ -6,6 +6,8 @@ from tests.common.snappi_tests.snappi_fixtures import (                     # no
     get_snappi_ports, get_snappi_ports_single_dut, get_snappi_ports_multi_dut)
 from tests.snappi_tests.bgp.files.bgp_convergence_helper import run_rib_in_convergence_test, \
     find_blocked_ports                                                      # Added for multi-asic support
+from tests.snappi_tests.bgp.files.bgp_convergence_helper_dyn_ecmp import (
+    run_dynamic_ecmp_link_addition_test)
 # Added for multi-asic support: per-ASIC / per-DUT setup helpers
 from tests.snappi_tests.bgp.files.rib_combo_dut_setup import (
     affected_setup_targets,
@@ -32,10 +34,10 @@ import yaml
 logger = logging.getLogger(__name__)
 
 # Added for multi-asic support: 'multidut-tgen' topology (line-card / multi-DUT testbeds) in addition to
-# 'tgen'; memory_utilization stays disabled and loganalyzer is disabled because the DUTs are cold rebooted.
+# 'tgen'; loganalyzer is disabled because the DUTs are cold rebooted. memory_utilization is disabled per test
+# (test_rib_route_opt_perf only): test_dynamic_ecmp_link_addition keeps it, with relaxed thresholds.
 pytestmark = [
     pytest.mark.topology('multidut-tgen', 'tgen'),
-    pytest.mark.disable_memory_utilization,
     pytest.mark.disable_loganalyzer,
     pytest.mark.enable_proc_mem_cpu_monitor,
 ]
@@ -48,8 +50,11 @@ pytestmark = [
 TGEN_PORTS_MULTI_ASIC_SUPPORT = True
 
 # Test parameters (not from files)
-CONVERGENCE_TEST_ITERATIONS = 1
+CONVERGENCE_TEST_ITERATIONS = 3     # used by both tests (test_dynamic_ecmp_link_addition repeats its whole sequence)
 RIB_TIMEOUT = 120
+# test_dynamic_ecmp_link_addition: sleep after each link addition before checking steady state
+# (route programming + ECMP balance).
+LINK_SETTLE_SEC = 30
 
 _FILES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files')
 
@@ -198,6 +203,7 @@ def dut_ready_for_rib_combo(
         revert_config_db(dh, indices)
 
 
+@pytest.mark.disable_memory_utilization
 @pytest.mark.parametrize('profile_name', PROFILE_NAMES)
 @pytest.mark.parametrize('bulk_value,batch_value', _BK_PAIRS)
 @pytest.mark.parametrize('route_type', ['IPv4', 'IPv6'])
@@ -279,6 +285,158 @@ def test_rib_route_opt_perf(snappi_api,                    # noqa: F811
                                     mem_cpu_monitor=mem_cpu_monitor,
                                     tag_tier2_leak_communities=True,    # Added for multi-asic support
                                     skip_cleanup=True)                  # Added for multi-asic support
+    finally:
+        mem_cpu_monitor.stop()
+        plot_path = mem_cpu_monitor.plot(out_dir=str(tmp_path))
+        if plot_path:
+            logger.info('mem_cpu_monitor plot written to %s', plot_path)
+        exported = mem_cpu_monitor.export_samples(out_dir=str(tmp_path))
+        for fmt, p in exported.items():
+            logger.info('mem_cpu_monitor export_samples (%s) wrote %s', fmt, p)
+
+
+def _apply_memory_thresholds(memory_monitors, hostname):
+    """Relax the memory_utilization thresholds of ``hostname`` for the large route scale of the test."""
+    if not memory_monitors or hostname not in memory_monitors:
+        return
+    monitor = memory_monitors[hostname]
+    for name, cmd, memory_params, memory_check_fn in monitor.commands:
+        if name == 'docker':
+            if 'swss' in memory_params:
+                memory_params['swss']['memory_increase_threshold'] = {
+                    "type": "percentage_points", "value": 90
+                }
+                memory_params['swss']['memory_high_threshold'] = {
+                    "type": "percentage_points", "value": 25
+                }
+            if 'bgp' in memory_params:
+                memory_params['bgp']['memory_increase_threshold'] = {
+                    "type": "percentage_points", "value": 25
+                }
+            continue
+        if name == 'frr_bgp':
+            if 'used' in memory_params:
+                memory_params['used']['memory_high_threshold'] = {"type": "value", "value": 8096}
+                memory_params['used']['memory_increase_threshold'] = {"type": "value", "value": 8096}
+            continue
+        if name == 'frr_zebra':
+            if 'used' in memory_params:
+                memory_params['used']['memory_high_threshold'] = {"type": "value", "value": 8096}
+                memory_params['used']['memory_increase_threshold'] = {"type": "value", "value": 8096}
+            continue
+        if name == 'top':
+            if 'bgpd' in memory_params:
+                memory_params['bgpd']['memory_increase_threshold'] = {"type": "value", "value": 8096}
+            if 'zebra' in memory_params:
+                memory_params['zebra']['memory_increase_threshold'] = {"type": "value", "value": 8096}
+            continue
+        if name == 'free':
+            if 'used' in memory_params:
+                memory_params['used']['memory_increase_threshold'] = {"type": "percentage", "value": "800%"}
+            continue
+
+
+@pytest.mark.parametrize('profile_name', PROFILE_NAMES)
+@pytest.mark.parametrize('bulk_value,batch_value', _BK_PAIRS)
+@pytest.mark.parametrize('MULTIPATH', [3])
+@pytest.mark.parametrize('route_type', ['IPv4', 'IPv6'])
+@pytest.mark.parametrize('NUMBER_OF_ROUTES', [300000])
+def test_dynamic_ecmp_link_addition(snappi_api,                    # noqa: F811
+                                    duthost,
+                                    tgen_ports,                 # noqa: F811
+                                    conn_graph_facts,           # noqa: F811
+                                    fanout_graph_facts,         # noqa: F811
+                                    dut_ready_for_rib_combo,    # fixture: apply profile + bulk/batch + reboot
+                                    request,
+                                    profile_name,
+                                    memory_utilization,
+                                    mem_cpu_monitor,
+                                    tmp_path,
+                                    bulk_value,
+                                    batch_value,
+                                    MULTIPATH,
+                                    NUMBER_OF_ROUTES,
+                                    route_type):
+    """
+    Dynamic ECMP link addition.
+
+    DUT is already prepared by dut_ready_for_rib_combo (same boot). All MULTIPATH BGP sessions are up
+    with every route range withdrawn. Egress links are added one by one by advertising routes on that
+    link only. Before each link the traffic is stopped, the IXIA CP/DP threshold is set to ``96/k``
+    percent, the traffic is regenerated/applied and restarted (routes of earlier links stay advertised).
+    For the k-th link the convergence time is the time from the advertise request until the new link
+    carries ``96/k`` percent of the ingress Tx rate (96, 48, 32, 24, ...). After the last link the
+    traffic is stopped, all routes are withdrawn and the protocols stopped. The whole sequence is
+    repeated CONVERGENCE_TEST_ITERATIONS times; a summary table lists every iteration and the average
+    for each link combination (1 link, 2 links, ...).
+
+    Convergence is reported both from snappi ``port_metrics`` polling (about 1s resolution) and
+    from IXIA CP/DP ``convergence_metrics`` (value of each link taken while that link was under
+    test).
+
+    Besides the convergence wait: after each link the DUT route counts from two CLIs
+    (``show ip[v6] route nexthop-group summary`` and the ASIC_DB route count) are displayed (no
+    pass/fail); the DUT interface counters are cleared once traffic has stopped after link 1, and
+    after links 2 and 3 the ingress RX_OK must not exceed the egress TX_OK (pass/fail). The
+    SUMMARY lists port_metrics, IXIA CP/DP and the syncd first log / last log / Last-First.
+
+    Profiles and (bulk, batch) pairs are parameterized from files/fine-tunings.yml and
+    files/bk_values.json (same as test_rib_route_opt_perf).
+
+    ``tgen_ports`` order: ``[ingress, egress_1 .. egress_MULTIPATH]``. Supports --bgp_pc_config and
+    multi-asic / multi-DUT testbeds the same way as test_rib_route_opt_perf (shared tgen_ports,
+    dut_ready_for_rib_combo and TGEN BGP config builder).
+    """
+    if profile_name == '_no_profile_':
+        pytest.skip("No valid profiles in fine-tunings.yml")
+
+    memory_monitors, memory_values = memory_utilization
+    port_count = MULTIPATH + 1
+    monitor_hosts = _hosts_for_mem_monitor(duthost, tgen_ports, port_count)
+    for mh in monitor_hosts:
+        _apply_memory_thresholds(memory_monitors, mh.hostname)
+
+    use_bgp_pc_config = request.config.getoption("--bgp_pc_config", default=False)
+
+    logger.info(
+        'Dynamic ECMP link addition: Multipath=%s, Profile=%s, bulk_value=%s, batch_value=%s, '
+        'route_type=%s, bgp_pc_config=%s multi_asic=%s',
+        str(MULTIPATH), profile_name, bulk_value, batch_value, route_type,
+        use_bgp_pc_config, duthost.is_multi_asic,
+    )
+
+    mem_cpu_monitor.start(
+        monitor_hosts,
+        ["bgpd", "zebra"],
+        interval=2.0,
+        include_host_free=True,
+        host_top_all_procs=True,
+        capture_raw_stdout=True,
+        include_tcmalloc_stats=True,
+        output_basename_style="short_node",
+    )
+    try:
+        results = run_dynamic_ecmp_link_addition_test(
+            snappi_api,
+            duthost,
+            tgen_ports,
+            MULTIPATH,
+            NUMBER_OF_ROUTES,
+            route_type,
+            timeout=RIB_TIMEOUT,
+            skip_cleanup=True,
+            skip_duthost_bgp_config=use_bgp_pc_config,
+            settle_sec=LINK_SETTLE_SEC,
+            iterations=CONVERGENCE_TEST_ITERATIONS,
+            mem_cpu_monitor=mem_cpu_monitor)
+        expected = MULTIPATH * CONVERGENCE_TEST_ITERATIONS
+        pytest_assert(len(results) == expected,
+                      "Expected {} link results, got {}".format(expected, len(results)))
+        for res in results:
+            logger.info('Iteration %d, %d link(s) in ECMP (%s) threshold %.2f%%: '
+                        'port_metrics=%s ms, IXIA=%s ms, balanced=%s',
+                        res['iteration'], res['link'], res['port'], res['threshold_pct'],
+                        res['port_metrics_ms'], res['ixia_ms'], res['balanced'])
     finally:
         mem_cpu_monitor.stop()
         plot_path = mem_cpu_monitor.plot(out_dir=str(tmp_path))

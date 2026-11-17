@@ -6,6 +6,13 @@
 
 This document describes the high-level design of the **RIB end-to-end optimization and performance** test suite, which measures control-plane-to-data-plane convergence time for BGP route advertisement under different DUT configuration profiles and orchagent tuning parameters. The tests are used to evaluate RIB-IN performance and SONiC optimizations (e.g., northbound ZMQ, synchronous mode, orchagent bulk/batch settings) across multiple dimensions in a single parameterized framework.
 
+The test module contains two tests that share the same fixtures, parameterization and helpers:
+
+| Test | Scenario |
+|------|----------|
+| `test_rib_route_opt_perf` | RIB-IN convergence: all routes are advertised at once on a single egress link (Sections 3 to 8). |
+| `test_dynamic_ecmp_link_addition` | Dynamic ECMP link addition: egress links are added to an ECMP group one at a time while traffic flows, and the time for the new link to carry its share is measured (Section 9). |
+
 ### 1.2 Goals
 
 - **Parameterized coverage**: Run RIB convergence (default 300K routes) for each combination of:
@@ -13,7 +20,8 @@ This document describes the high-level design of the **RIB end-to-end optimizati
   - **Orchagent bulk/batch pair** (e.g. `-b` / `-k` from `bk_values.json`)
   - **Route type** (IPv4, IPv6, IPv4v6)
 - **Clean state**: Each test applies profile + b/k, reboots, runs the convergence test, then reverts config and orchagent so the next parameterized run starts from a known state.
-- **Memory observability**: The memory-utilization is disabled for this test using pytest.marker functionality. Instead, the optional per-process CPU / memory monitor (`mem_cpu_monitor`, Section 8.4) samples the DUT(s) during the convergence run.
+- **Memory observability**: The memory-utilization plugin is disabled for `test_rib_route_opt_perf` using a pytest marker on that test. `test_dynamic_ecmp_link_addition` keeps it enabled, with relaxed thresholds for the large route scale (Section 9.6). For both tests the optional per-process CPU / memory monitor (`mem_cpu_monitor`, Section 8.4) samples the DUT(s) during the run.
+- **Dynamic ECMP convergence**: Measure how fast the DUT programs a newly added BGP ECMP path (1 -> 2 -> 3 links) under traffic, with two independent measurements and a set of distribution and counter checks (Section 9).
 - **Multi-ASIC / multi-DUT support**: The same test runs on single-ASIC DUTs, on single-DUT multi-ASIC DUTs and on testbeds whose test ports are spread across several DUTs / line cards (see Section 7).
 
 ---
@@ -26,6 +34,7 @@ This document describes the high-level design of the **RIB end-to-end optimizati
 |------|-------------|
 | Test modules | `test_bgp_rib_route_optimztn_perf.py` (with optional `--bgp_pc_config`) |
 | Helper | `bgp_convergence_helper.py` (e.g. `run_rib_in_convergence_test`, `get_rib_in_convergence`, BGP/traffic config) |
+| Helper (dynamic ECMP) | `bgp_convergence_helper_dyn_ecmp.py` (`run_dynamic_ecmp_link_addition_test`, `get_dynamic_ecmp_link_addition_convergence` and the checks of Section 9); reuses the shared TGEN config builder, DUT BGP config and cleanup of `bgp_convergence_helper.py` |
 | Monitoring | `mem_cpu_monitor` fixture (`tests/common/plugins/proc_mem_cpu_monitor`): CPU / memory sampling of the DUT(s) during the run (see Section 8.4) |
 | DUT setup helper | `rib_combo_dut_setup.py` (per-(DUT, ASIC) config_db backup / revert, profile merge and orchagent `-b` / `-k` patching; see Section 7) |
 | Fixtures | `tgen_ports` (in `tests/common/snappi_tests/snappi_fixtures.py`); behavior depends on `--bgp_pc_config` and, for multi-ASIC / multi-DUT setups, on the module opt-in `TGEN_PORTS_MULTI_ASIC_SUPPORT` (see Section 7) |
@@ -75,6 +84,7 @@ Note: On multi-ASIC and multi-DUT setups, SETUP and REVERT are executed per (DUT
 |-----------|------|
 | **Test modules** | Pytest parametrization; setup/revert helpers; call into helper for convergence run |
 | **bgp_convergence_helper** | BGP/traffic config (e.g. `__tgen_bgp_config`), `run_rib_in_convergence_test`, `get_rib_in_convergence`; Snappi control/state and metrics |
+| **bgp_convergence_helper_dyn_ecmp** | Dynamic ECMP link addition scenario (Section 9): per-link advertise / measure loop, IXIA CP/DP threshold handling, DUT counter / route / syncd checks and the result tables. Uses `build_tgen_bgp_config`, `set_bgp_as_path_segment_type_asseq`, `duthost_bgp_config` and `cleanup_config` of `bgp_convergence_helper` |
 | **rib_combo_dut_setup** | DUT setup helpers: resolve the (DUT, ASIC) targets of the test ports, back up / revert the config_db of each ASIC (`config_db.json` or `config_db<N>.json`), apply the profile and the orchagent `-b` / `-k` values in the right swss container (`swss` or `swss<N>`) |
 | **fine-tunings.yml** | Named profiles for DEVICE_METADATA sections (e.g. ZMQ on/off, synchronous_mode, suppress-fib-pending, nexthop_group) |
 | **bk_values.json** | List of [bulk_value, batch_value] pairs for orchagent `-b` and `-k` |
@@ -87,8 +97,8 @@ Note: On multi-ASIC and multi-DUT setups, SETUP and REVERT are executed per (DUT
 
 ### 4.1 Topology
 
-- **Mark**: `pytest.mark.topology('multidut-tgen', 'tgen')`, `pytest.mark.disable_memory_utilization`, `pytest.mark.disable_loganalyzer` (the DUTs are cold rebooted) and `pytest.mark.enable_proc_mem_cpu_monitor` (enables the `mem_cpu_monitor` fixture, Section 8.4).
-- **Logical**: TGEN1  DUT  TGEN(2..N); multipath = 1; number_of_routes = 300,000.
+- **Mark** (module level, both tests): `pytest.mark.topology('multidut-tgen', 'tgen')`, `pytest.mark.disable_loganalyzer` (the DUTs are cold rebooted) and `pytest.mark.enable_proc_mem_cpu_monitor` (enables the `mem_cpu_monitor` fixture, Section 8.4). `pytest.mark.disable_memory_utilization` is set on `test_rib_route_opt_perf` only.
+- **Logical**: TGEN1  DUT  TGEN(2..N); multipath = 1; number_of_routes = 300,000. (`test_dynamic_ecmp_link_addition` uses multipath = 3, see Section 9.)
 - **Route types**: IPv4, IPv6, or IPv4v6 (e.g. 150K v4 + 150K v6 for IPv4v6).
 - **Supported DUT topologies**: single-ASIC DUT, single-DUT multi-ASIC DUT, and test ports spread across multiple DUTs / line cards (`multidut-tgen`). See Section 7.
 - **Port usage**: Only the first `MULTIPATH + 1` entries of `tgen_ports` are used. The first port is the traffic source (no BGP session); every other port is a BGP peer that advertises the routes.
@@ -97,10 +107,11 @@ Note: On multi-ASIC and multi-DUT setups, SETUP and REVERT are executed per (DUT
 
 | Parameter | Value | Meaning |
 |-----------|--------|---------|
-| MULTIPATH | 1 | ECMP / multipath for BGP/traffic |
-| CONVERGENCE_TEST_ITERATIONS | 1 | Iterations per RIB-IN convergence run |
+| MULTIPATH | 1 (`test_rib_route_opt_perf`), 3 (`test_dynamic_ecmp_link_addition`) | ECMP / multipath for BGP/traffic |
+| CONVERGENCE_TEST_ITERATIONS | 3 | Iterations per convergence run; used by both tests (for the dynamic ECMP test it is the number of times the whole link-addition sequence is repeated) |
 | NUMBER_OF_ROUTES | 300000 | Total BGP routes (v4, v6, or split) |
-| RIB_TIMEOUT | 90 | Timeout (seconds) for routes advertisement/withdrawal |
+| RIB_TIMEOUT | 120 | Timeout (seconds) for routes advertisement/withdrawal |
+| LINK_SETTLE_SEC | 30 | `test_dynamic_ecmp_link_addition` only: sleep after each link addition before the steady-state checks |
 | WAIT_INTERVAL | 30 | Timeout (seconds) for traffic/protocol start/stop |
 | CONTAINER | swss | Container where orchagent.sh is modified |
 | ORCHAGENT_PATH | /usr/bin/orchagent.sh | Script patched for -b / -k |
@@ -160,6 +171,7 @@ For testbeds where **port-channels and BGP are already configured** (e.g. minigr
 - **Type**: Store-true (boolean); default `False`.
 - **Usage**: Pass at test start, e.g.\
   `pytest tests/snappi_tests/bgp/test_bgp_rib_route_optimztn_perf.py --bgp_pc_config ...`
+- **Scope**: Applies to both tests of the module. `test_dynamic_ecmp_link_addition` passes the flag on as `skip_duthost_bgp_config` in the same way.
 
 ### 6.3 Behavior When Flag Is Set
 
@@ -242,6 +254,8 @@ Details of the paths:
 
 ### 7.3 Setup and Revert per (DUT, ASIC) (fixture `dut_ready_for_rib_combo`)
 
+The fixture is shared by both tests of the module; the steps below apply to `test_dynamic_ecmp_link_addition` as well (with `MULTIPATH = 3`, so the first four ports are used).
+
 1. Skip when there is no valid profile (`_no_profile_`) or when `route_type` is `IPv4v6` (outstanding keysight issue). These skips happen before the DUT is touched.
 2. Without `--bgp_pc_config`, when the DUT is multi-ASIC or the ports were planned per ASIC: check the ports for ACL / VLAN binding in the **saved** config_db and skip if found (Section 7.4).
 3. Build the list of targets: the distinct (DUT, ASIC) pairs of the first `MULTIPATH + 1` ports.
@@ -270,7 +284,7 @@ Without `--bgp_pc_config`, the helper later removes the test ports from their po
 | 2 | Run `config save` and back up the config_db of every involved ASIC (backup tag `bgp_convergence_helper`). Done only after step 1 has passed. |
 | 3 | Free each port: remove its IP addresses and remove it from its PortChannel(s). |
 | 4 | Create one PortChannel per port with the port as its only member. Name: `PortChannel<i+1>`, or the next free `PortChannel<N>` on that ASIC when the name is taken. Configure the IPv4 and IPv6 addresses of the plan on the PortChannel. |
-| 5 | Per ASIC, in the ASIC namespace through `vtysh`: `router bgp <DUT ASN>`, `no bgp ebgp-requires-policy`, `bgp bestpath as-path multipath-relax`, `maximum-paths <number of BGP peers on that ASIC>`, then one neighbor (IPv4 or IPv6 according to `route_type`) with its peer ASN for every BGP peer port on that ASIC. |
+| 5 | Per ASIC, in the ASIC namespace through `vtysh`: `router bgp <DUT ASN>`, `no bgp ebgp-requires-policy`, `bgp bestpath as-path multipath-relax`, then one neighbor (IPv4 or IPv6 according to `route_type`) with its peer ASN for every BGP peer port on that ASIC. `maximum-paths` is **not** set: the value of the DUT baseline config is used (a per-ASIC value would limit the ECMP group of the ingress ASIC, see Section 9.7). |
 
 `cleanup_config` restores the config_db backed up in step 2 of every involved ASIC and reloads the config; the helper calls it only when `run_rib_in_convergence_test` is called with `skip_cleanup=False`. This test uses `skip_cleanup=True`, so the changes of steps 3 to 5 are reverted by the teardown of the fixture (Section 7.3), which restores the config_db backed up before the helper changed anything.
 
@@ -298,6 +312,8 @@ The resolved values are stored in the port entries (`bgp_dut_asn`, `bgp_peer_asn
 - The CPU / memory monitor samples every DUT / line card used by the test ports (Section 8.4), and the tier-2 community tagging also applies on multi-ASIC DUTs (Section 8.3).
 
 ## 8. RIB-IN Convergence Logic (Helper)
+
+This section describes the helper of `test_rib_route_opt_perf` (`bgp_convergence_helper.py`). The helper of `test_dynamic_ecmp_link_addition` is described in Section 9.
 
 ### 8.1 run_rib_in_convergence_test
 
@@ -343,27 +359,141 @@ Note:
 | **Test, `finally` block** | `stop()` (already stopped by the helper in the normal case), `plot(out_dir=tmp_path)` and `export_samples(out_dir=tmp_path)`. The written paths are logged. |
 
 - **Output**: Written under the pytest `tmp_path` of the test: a PNG plot (CPU idle, per-process CPU, memory, RSS), JSON / CSV samples with the timeline events, and raw `top` / command / tcmalloc logs. File names use the `short_node` style (`<test node name>__<dut>__<timestamp>`). See the plugin README for the details of the options and files.
-- **Impact**: With `interval=2.0` the DUT runs `top` and `free` every 2 seconds on every monitored DUT, and the success path adds 300 s to every test case.
+- **Impact**: With `interval=2.0` the DUT runs `top` and `free` every 2 seconds on every monitored DUT, and the success path of `test_rib_route_opt_perf` adds 300 s to every test case.
+- **Dynamic ECMP test**: `test_dynamic_ecmp_link_addition` uses the same monitor settings, but the monitor is stopped by the test (no 300 s post-convergence wait) and the timeline events are different (Section 9.6).
 
 ---
 
-## 9. Dependencies and Interfaces
+## 9. Dynamic ECMP Link Addition (`test_dynamic_ecmp_link_addition`)
 
-### 9.1 Fixtures
+### 9.1 Purpose
+
+Qualify how quickly the DUT programs a **new BGP ECMP path while traffic is flowing**. Egress links are added to an ECMP group one at a time (1 -> 2 -> 3 links) for a large route table (300,000 routes). For each added link the test measures the time for traffic to start using the new link, and checks how evenly traffic is shared across the links afterwards.
+
+Convergence is measured in two independent ways, so that they can be cross-checked:
+
+| Method | What it measures | Resolution |
+|--------|------------------|------------|
+| snappi `port_metrics` polling | Time from the route-advertise request until the Rx rate of the new link reaches `96/k` percent of the ingress Tx rate (k = number of links in the ECMP group) | about 1 s |
+| IXIA CP/DP `convergence_metrics` | IXIA control-plane event to data-plane threshold crossing | microseconds |
+
+The test reuses the infrastructure of `test_rib_route_opt_perf`: the `tgen_ports` fixture, `dut_ready_for_rib_combo` (profile, bulk/batch, reboot, revert; Section 7.3), the DUT BGP configuration (Section 7.5) and `--bgp_pc_config` handling (Section 6). Only the scenario and its checks are specific to this test.
+
+### 9.2 Topology, Routes and Parameters
+
+- **Ports**: `tgen_ports` order is `[ingress, egress_1 .. egress_MULTIPATH]`. With `MULTIPATH = 3` the first four ports are used (ports 5 and above are ignored). The ingress port sends traffic and has no BGP session. Each egress port holds an emulated eBGP peer to the DUT.
+- **Traffic**: one traffic item from the ingress port towards the advertised range, 100 % line rate, 1024 B frames.
+- **DUT BGP**: equal routes from all peers must form one ECMP group. Without `--bgp_pc_config` the helper sets `bgp bestpath as-path multipath-relax` per ASIC (Section 7.5); `maximum-paths` comes from the DUT baseline config (the SONiC FRR template sets 64 when `bgp.maximum_paths` is enabled in `constants.yml`). With `--bgp_pc_config` the existing DUT configuration is used as is.
+- **Routes**: every egress peer advertises the **identical** prefix set, so every prefix gains one next hop per added link. Ranges are defined once in `bgp_convergence_helper.py` (`V4_ROUTE_START`, `V4_ROUTE_PREFIX_LEN`, `V6_ROUTE_START`, `V6_ROUTE_PREFIX_LEN`) and shared by both tests.
+
+| Item | IPv4 | IPv6 |
+|------|------|------|
+| Advertised range (per egress peer) | `200.1.0.1/32`, count 300,000 | `3000::1/64`, count 300,000 |
+| First prefix | `200.1.0.1/32` | `3000::/64` |
+| Last prefix (300,000 routes) | `200.5.147.224/32` | `3000:0:4:93df::/64` |
+| AS path | 65002 65003 (AS-SEQ) | same |
+
+The first / middle / last prefixes used by the checks are derived from these constants and the number of routes (not hard coded).
+
+| Parameter | Value |
+|-----------|-------|
+| `profile_name`, `bulk_value,batch_value` | Same files and values as `test_rib_route_opt_perf` (Section 4.3) |
+| `MULTIPATH` | `[3]` (ECMP width; number of egress links) |
+| `route_type` | `IPv4`, `IPv6` (`IPv4v6` is skipped, Section 10.4) |
+| `NUMBER_OF_ROUTES` | `[300000]` |
+| Iterations | `CONVERGENCE_TEST_ITERATIONS` (shared with `test_rib_route_opt_perf`; 3) |
+| `LINK_SETTLE_SEC` | 30 |
+
+Total cases = |profiles| x |pairs| x |route types| (as for the RIB-IN test; `MULTIPATH` and `NUMBER_OF_ROUTES` are single-value lists).
+
+### 9.3 Test Flow
+
+Per test case, the fixture first prepares the DUT (profile, bulk/batch, cold reboot, `TSB`; Section 7.3). Then `run_dynamic_ecmp_link_addition_test` runs:
+
+1. Build the TGEN config (shared `build_tgen_bgp_config`), configure the DUT BGP unless `--bgp_pc_config` is set, and set the BGP AS path segment type to AS-SEQ (shared `set_bgp_as_path_segment_type_asseq`, Section 10.4).
+2. For each iteration: start the protocols (wait 60 s; BGP is up on all egress ports) and **withdraw the routes on all egress links**.
+3. For each link `k = 1 .. MULTIPATH`:
+   1. Set the IXIA CP/DP threshold to `96/k` percent.
+   2. Stop traffic, regenerate and apply the traffic, start traffic, and wait for the ingress Tx rate to become non-zero.
+   3. If `k > 1`: wait up to 60 s until links `1 .. k-1` each carry `Tx/(k-1)` within 2 %. This guarantees that every step starts from a known ECMP state (100 % on link 1 before step 2, 50 % each on links 1 and 2 before step 3).
+   4. **Advertise the routes on link k only**, start a timer.
+   5. Measure convergence: poll `port_metrics` until the new link reaches `96/k` percent of the ingress Tx (120 s, extended in 60 s steps up to 600 s), then read the IXIA CP/DP result.
+   6. Run the checks with traffic running (Section 9.5): DUT route counts, settle `LINK_SETTLE_SEC`, syncd log timing, Rx balance, DUT / IXIA counter balance, last-prefix next-hop check.
+   7. Record the result of link `k`, stop traffic. After link 1 the DUT counters are cleared; after links 2 and 3 the ingress RX_OK must not exceed the egress TX_OK.
+4. After the last link: stop traffic, withdraw all routes, stop the protocols.
+5. After all iterations: log a table per iteration and a SUMMARY with the average per ECMP link count.
+6. Teardown of the fixture reverts config_db / orchagent (Section 7.3). The test calls the helper with `skip_cleanup=True`.
+
+Traffic is stopped and restarted for every link and the IXIA statistics are reset on restart, so each link gets a fresh CP/DP result.
+
+### 9.4 Results Captured
+
+| Result | Source |
+|--------|--------|
+| `port_metrics` convergence (ms) | Python timer started at the advertise request; polls the IXIA port Rx rate until the new link reaches `96/k` percent of the ingress Tx (k = 1: 96 %, k = 2: 48 %, k = 3: 32 %) |
+| IXIA CP/DP convergence (ms) | IXIA `convergence_metrics`; the row is accepted only if its `route_advertise` event names the route range of the link under test; stored once per link |
+| ECMP distribution | `portstat` TX_OK of the DUT ports and IXIA `frames_rx` deltas over a 30 s window |
+| DUT route counts | `show ip[v6] route nexthop-group summary \| wc -l` and the ASIC_DB route entries with a next hop group (`sonic-db-dump -n ASIC_DB`), polled every 10 s for up to 60 s until they reach the number of routes; displayed after each link, no pass/fail criterion |
+| Route programming timing | syncd `Syncd::syncUpdateRedisBulkQuadEvent` "op took" lines in syslog since the advertise: first log, last log and Last-First (ms). Shown in the SUMMARY next to `port_metrics` and IXIA CP/DP. Only this log is parsed for now, so link 1 (route create) shows no syncd data |
+| Last prefix next hops | `show ip[v6] route <last prefix>` on the ingress DUT (in the ASIC namespace of the ingress port on multi-ASIC DUTs): the next hop of each of the `k` active links must be listed |
+| CPU / memory | `mem_cpu_monitor` samples `bgpd`, `zebra` and host memory / CPU every 2 s (Section 9.6) |
+| Tables | One table per iteration and a SUMMARY with the average per ECMP link count, in the test log |
+
+### 9.5 Verification
+
+| Check | Criterion | On failure |
+|-------|-----------|------------|
+| Traffic running | Ingress Tx rate above 0 after start | Fail |
+| Pre-advertise state (k > 1) | Links `1 .. k-1` each within 2 % of `Tx/(k-1)` within 60 s | Fail |
+| Convergence reached | New link Rx at or above `96/k` percent of the ingress Tx within 120 s (extended to 600 s) | Fail |
+| IXIA CP/DP result | Event source equals the route range of the link under test, within 120 s | Warn, recorded as n/a |
+| DUT route counts | Displayed only (nexthop-group summary line count and ASIC_DB routes) | None (information) |
+| Last prefix next hops | All `k` next hops listed for the last prefix | Warn |
+| Traffic converged | After settle, the sum of Tx and the sum of Rx differ by less than 1 % of the ingress line rate (frames per second, derived from the port speed and 1024 B frames) | Fail |
+| Rx balance | Each link within 10 % of `Tx/k` | Warn |
+| Counter balance | DUT TX_OK and IXIA `frames_rx` within 2 % of the mean across the `k` links, over 30 s | Warn |
+| Counters after traffic stops (links 2, 3) | DUT ingress RX_OK not above the egress TX_OK of links `1 .. k` (0.1 % margin); counters cleared once after link 1 | Fail |
+
+The `port_metrics` method is bounded by the roughly 1 s statistics refresh of IXIA; use the IXIA CP/DP value for sub-second accuracy. A single traffic item is used, so the `96/k` threshold depends on how evenly the DUT hashes the flows; the 2 % counter check shows the real steady-state split and helps to separate a slow convergence from a threshold that is only crossed by rate fluctuation.
+
+### 9.6 Memory Utilization and CPU / Memory Monitor
+
+- The test keeps the `memory_utilization` fixture enabled (the `disable_memory_utilization` marker is on `test_rib_route_opt_perf` only). Because 300,000 routes legitimately increase the memory of `swss`, `bgp`, `bgpd`, `zebra` and the host, the thresholds of the monitors of every DUT used by the test ports are relaxed by `_apply_memory_thresholds` (for example `swss` increase +90 and `bgp` increase +25 percentage points, FRR `bgpd` / `zebra` limits raised to 8096, host `free` used increase +800 %; see `_apply_memory_thresholds` in the test module).
+- The `mem_cpu_monitor` is started by the test with the same options as in Section 8.4 on every DUT used by the test ports. The helper records a timeline snapshot at `Protocols_Started_iter_<N>`, `Route_Withdrawal_Start_iter_<N>`, `Traffic_Started_link_<k>_iter_<N>`, `Before_Route_Advertise_link_<k>_iter_<N>`, `After_Route_Advertise_link_<k>_iter_<N>`, `Traffic_Stopped_link_<k>_iter_<N>`, `Traffic_Stopped_iter_<N>` and `After_protocol_stop_iter_<N>`. The test stops the monitor and writes the plot and samples in its `finally` block.
+
+### 9.7 Multi-ASIC / Multi-DUT, Requirements and Limitations
+
+- Port discovery, per-ASIC setup / revert, DUT BGP configuration and ASN resolution are those of Section 7; nothing is specific to this test.
+- Setup requirement: at least `MULTIPATH + 1` = **4** connected test ports (or port-channels with `--bgp_pc_config`, Section 6.7), present in the links csv file.
+- **Egress ports may be on different ASICs than the ingress port.** The ingress ASIC learns the routes of remote-ASIC egress ports over iBGP and, with the DUT baseline BGP config (`maximum-paths`, and on VOQ chassis `bgp bestpath peer-type multipath-relax`), adds them to the ECMP group. This was observed with `--bgp_pc_config` (3 links, two of them on other ASICs than the ingress port, counters within 0.1 %) and, after the helper stopped setting `maximum-paths`, without it (2 links, traffic shared across the two ECMP links). The helper therefore does not set `maximum-paths`: a per-ASIC value (number of IXIA peers on that ASIC) had capped the ECMP group of the ingress ASIC, so routes of egress ports on other ASICs were visible but carried no traffic and the convergence wait failed.
+- **DUT baseline requirement**: the DUT baseline BGP config must allow at least `MULTIPATH` paths (`maximum-paths`; the SONiC FRR template sets 64 when `bgp.maximum_paths` is enabled in `constants.yml`). FRR's own default is 1, in which case the link 2 convergence wait times out. Check with `vtysh -n <asic> -c 'show running-config' | grep -i maximum-paths`.
+- With `--bgp_pc_config` the order of `tgen_ports` is grouped by ASIC namespace and, within an ASIC, by PortChannel number; no oper-status or speed filtering is done (Section 7.2). The ingress and the first three egress entries follow this order.
+- The test is long: protocol start, per-link settle and counter windows, and the CP/DP wait are added to the cold reboot of the fixture. With `CONVERGENCE_TEST_ITERATIONS = 3` it runs the whole sequence three times, so a test case takes roughly three times as long as a single pass (the cold reboot of the fixture is done once).
+- IPv4 uses `/32` prefixes, IPv6 `/64` prefixes (Section 9.2).
+
+---
+
+## 10. Dependencies and Interfaces
+
+### 10.1 Fixtures
 
 - **snappi_api**, **tgen_ports**: Snappi/IXIA and port mapping. **tgen_ports** behavior depends on `--bgp_pc_config`: if set, built from PORTCHANNEL_* and BGP_NEIGHBOR in config_db; otherwise from INTERFACE (see Section 6). On multi-ASIC / multi-DUT setups the config_db of every ASIC and DUT is used (see Section 7).
 - **duthost**, **localhost**: DUT and local host for reboot/shell/copy. On multi-DUT setups the DUT that owns each port is taken from the `duthost` field of the `tgen_ports` entry; the reboot, shell and copy actions are run on every DUT used by the test ports.
 - **duthosts**: Used by `tgen_ports` to detect a multi-DUT / line-card testbed.
 - **conn_graph_facts**, **fanout_graph_facts**: Connectivity/graph data (for topology). **fanout_graph_facts_multidut** is used by `tgen_ports` on multi-DUT testbeds.
 - **mem_cpu_monitor**, **tmp_path**: CPU / memory monitor (Section 8.4) and the pytest directory where its plot, samples and logs are written.
+- **memory_utilization**: Used by `test_dynamic_ecmp_link_addition` to relax the memory thresholds (Section 9.6); disabled for `test_rib_route_opt_perf`.
+- **dut_ready_for_rib_combo**: Setup / revert fixture shared by both tests (Section 7.3).
 - **request**: Used in `test_bgp_rib_route_optimztn_perf.py` to read `--bgp_pc_config`, and in `tgen_ports` to read `--bgp_pc_config` and the module opt-in `TGEN_PORTS_MULTI_ASIC_SUPPORT`.
 
-### 9.2 File Paths
+### 10.2 File Paths
 
+- **Test module**: `tests/snappi_tests/bgp/test_bgp_rib_route_optimztn_perf.py` (both tests).
+- **Helpers**: `tests/snappi_tests/bgp/files/bgp_convergence_helper.py` (shared) and `tests/snappi_tests/bgp/files/bgp_convergence_helper_dyn_ecmp.py` (dynamic ECMP link addition).
 - **Config files**: Under `tests/snappi_tests/bgp/files/` (e.g. `fine-tunings.yml`, `bk_values.json`).
 - **DUT backup**: config_db backup at e.g. `/etc/sonic/config_db_rib_combo_v1_backup.json` so it survives reboot; removed after revert. On multi-ASIC DUTs one backup per ASIC is kept, e.g. `/etc/sonic/config_db0_rib_combo_v1_backup.json`; the DUT BGP config of Section 7.5 uses the tag `bgp_convergence_helper` instead of `rib_combo_v1`.
 
-### 9.3 Assumptions
+### 10.3 Assumptions
 
 - Testbed has tgen topology; Correct Snappi API version exists and BGP/traffic config is valid.
 - DUT is in healthy state and has swss container running; default orchagent args contain the expected pattern (e.g. `-b 1024`) so sed replacement is correct.
@@ -371,30 +501,34 @@ Note:
 - fine-tunings.yml and bk_values.json are present and well-formed; fallbacks exist in code if load fails (e.g. default profile list, default pairs).
 - IPv4 network group used for the test is 200.1.0.1/32 and IPv6 network is 3000::1/64.
 
-### 9.4 Known Limitations
+### 10.4 Known Limitations
 
-- Outstanding sonic-mgmt issue 23744 needs setting of BGP segment as 'AS-SEQ' via restPy in file/bgp_convergence_helper.py. This will be removed on resolution of the issue.
+- Outstanding sonic-mgmt issue 23744 needs setting of BGP segment as 'AS-SEQ' via restPy in file/bgp_convergence_helper.py (function `set_bgp_as_path_segment_type_asseq`, called by both helpers). This will be removed on resolution of the issue.
 - Skip for IPv4v6 routes will be removed on resolution of sonic-mgmt issue 22717.
+- `test_dynamic_ecmp_link_addition` relies on the DUT baseline `maximum-paths` being at least `MULTIPATH` (Section 9.7); the multi-ASIC helper does not set it.
 
 ---
 
-## 10. Possible enhancements
+## 11. Possible enhancements
 
 Following possible enhancements can be added:
   - Support for extended BGP messages with MTU of 9100 bytes via Snappi.
   - Measure route-capacity for routes with optimization parameters.
   - Remove reboot after configuration change to config_reload to save time.
   - Support to save RFC report generated by IXIA locally.
+  - Dynamic ECMP link addition: parse the syncd route create log (`processBulkCreateEntry`) so that link 1 also reports syncd timing; support egress ports spread over several ASICs.
 
 
-## 11. Summary
+## 12. Summary
 
 The RIB-IN optimization and performance tests provide a parameterized framework to measure RIB-IN convergence time (300K routes) across:
 
 - **Profiles** (DEVICE_METADATA from fine-tunings.yml),
 - **Orchagent tuning** (bulk/batch pairs from bk_values.json),
 - **Route type** (IPv4, IPv6, IPv4v6),
-- **MULTIPATH** (1),
+- **MULTIPATH** (1 for `test_rib_route_opt_perf`, 3 for `test_dynamic_ecmp_link_addition`),
 - **NUMBER_OF_ROUTES** (300000).
 
-Each test applies a single (profile, bulk, batch, route_type), reboots the DUT, runs the convergence scenario once, then reverts config and orchagent. The **`--bgp_pc_config`** option (Section 6) allows using preconfigured port-channels and BGP on the testbed via port data from config_db and skipping DUT BGP configuration in the helper. Section 7 describes how the test runs on single-DUT multi-ASIC DUTs and on testbeds with ports on several DUTs / line cards, with or without that option.
+The module has two tests on the same framework: `test_rib_route_opt_perf` measures the convergence of a full route advertisement, and `test_dynamic_ecmp_link_addition` (Section 9) measures how fast each newly added ECMP link starts carrying traffic (1 -> 2 -> 3 links), with `port_metrics` and IXIA CP/DP measurements and distribution / counter checks.
+
+Each test applies a single (profile, bulk, batch, route_type), reboots the DUT, runs the convergence scenario `CONVERGENCE_TEST_ITERATIONS` times (3), then reverts config and orchagent. The **`--bgp_pc_config`** option (Section 6) allows using preconfigured port-channels and BGP on the testbed via port data from config_db and skipping DUT BGP configuration in the helper. Section 7 describes how the test runs on single-DUT multi-ASIC DUTs and on testbeds with ports on several DUTs / line cards, with or without that option.

@@ -74,6 +74,13 @@ temp_tg_port = dict()
 NG_LIST = []
 aspaths = [65002, 65003]
 
+# Route range advertised by every emulated BGP peer (start address / prefix length); shared with
+# bgp_convergence_helper_dyn_ecmp so the prefixes it probes always match what is advertised.
+V4_ROUTE_START = '200.1.0.1'
+V4_ROUTE_PREFIX_LEN = 32
+V6_ROUTE_START = '3000::1'
+V6_ROUTE_PREFIX_LEN = 64
+
 # ``get_rib_in_convergence`` ``finally``: pre-``stop()`` sleep for ``mem_cpu_monitor`` sampling.
 # Full wait only when all iterations finish without exception; short wait on failure/early exit.
 MEM_CPU_MONITOR_RIB_IN_POST_SUCCESS_SEC = 300
@@ -332,7 +339,9 @@ def _duthost_bgp_config_multi_asic(duthost, tgen_ports, port_count, route_type):
     for (dh, asic_index), neighbor_idxs in neighbors_by_asic.items():
         asic = dh.asic_instance(asic_index)
         dut_asn = tgen_ports[neighbor_idxs[0]][RESOLVED_DUT_ASN_KEY]
-        max_paths = len(neighbor_idxs)
+        # maximum-paths is intentionally not set here: a per-ASIC value (number of IXIA peers on that ASIC) would
+        # cap the ECMP group of the ingress ASIC and keep it from using paths of egress ports on other ASICs.
+        # The maximum-paths of the DUT baseline config is used.
         _run_vtysh_lines(
             asic,
             [
@@ -340,7 +349,6 @@ def _duthost_bgp_config_multi_asic(duthost, tgen_ports, port_count, route_type):
                 "router bgp {}".format(dut_asn),
                 "no bgp ebgp-requires-policy",
                 "bgp bestpath as-path multipath-relax",
-                "maximum-paths {}".format(max_paths),
                 "exit",
             ],
         )
@@ -792,7 +800,7 @@ def __tgen_bgp_config(snappi_api,
                 ('peer_asn', 'TGEN_AS_NUM'), TGEN_AS_NUM)
             route_range = bgpv4_peer.v4_routes.add(name=NG_LIST[-1])
             route_range.addresses.add(
-                address='200.1.0.1', prefix=32, count=number_of_routes)
+                address=V4_ROUTE_START, prefix=V4_ROUTE_PREFIX_LEN, count=number_of_routes)
             as_path = route_range.as_path
             as_path_segment = as_path.segments.add()
             as_path_segment.type = as_path_segment.AS_SEQ
@@ -842,7 +850,7 @@ def __tgen_bgp_config(snappi_api,
                 ('peer_asn', 'TGEN_AS_NUM'), TGEN_AS_NUM)
             route_range = bgpv6_peer.v6_routes.add(name=NG_LIST[-1])
             route_range.addresses.add(
-                address='3000::1', prefix=64, count=number_of_routes)
+                address=V6_ROUTE_START, prefix=V6_ROUTE_PREFIX_LEN, count=number_of_routes)
             as_path = route_range.as_path
             as_path_segment = as_path.segments.add()
             as_path_segment.type = as_path_segment.AS_SEQ
@@ -956,6 +964,74 @@ def __tgen_bgp_config(snappi_api,
     else:
         raise Exception('Invalid route type given')
     return config
+
+
+def build_tgen_bgp_config(snappi_api,
+                          tgen_ports,
+                          port_count,
+                          number_of_routes,
+                          route_type,
+                          skip_duthost_bgp_config=False,
+                          tag_tier2_leak_communities=False,):
+    """
+    Build the TGEN BGP config (same as ``__tgen_bgp_config``) for callers that need the route range
+    names of the egress peers (e.g. the dynamic ECMP link addition test).
+
+    Sets the module state the way ``run_rib_in_convergence_test`` does (``temp_tg_port`` and the tier-2
+    tagging flag), builds the config and hands back the route range names collected in ``NG_LIST``
+    (reset before and after, so it never leaks into other tests).
+
+    Args:
+        snappi_api (pytest fixture): snappi API
+        tgen_ports (pytest fixture): ports mapping info
+        port_count: multipath + 1
+        number_of_routes: Number of IPv4/IPv6 Routes
+        route_type: IPv4, IPv6 or IPv4v6
+        skip_duthost_bgp_config: boolean (true) if DUT is preconfigured
+        tag_tier2_leak_communities: tag IXIA routes with the tier-2 leak community when the DUT has
+            UPSTREAM_PREFIX_DENY or is multi-asic (see ``_should_tag_tier2_leak_communities``)
+
+    Returns:
+        (config, ng_list): TGEN config and the route range names (ng_list[k-1] belongs to egress link k)
+    """
+    global temp_tg_port, NG_LIST, _tag_tier2_leak_on_routes
+    temp_tg_port = tgen_ports
+    _tag_tier2_leak_on_routes = bool(tag_tier2_leak_communities)
+    NG_LIST = []
+    try:
+        config = __tgen_bgp_config(snappi_api,
+                                   port_count,
+                                   number_of_routes,
+                                   route_type,
+                                   skip_duthost_bgp_config=skip_duthost_bgp_config,)
+        ng_list = list(NG_LIST)
+    finally:
+        NG_LIST = []
+    return config, ng_list
+
+
+def set_bgp_as_path_segment_type_asseq(snappi_api):
+    """
+    Outstanding sonic-mgmt issue 23744: set the AS path segment type of every IPv4/IPv6 route range
+    to AS-SEQ manually via restPy (call after ``snappi_api.set_config``).
+
+    Args:
+        snappi_api (pytest fixture): snappi API
+    """
+    logger.info('Setting AS-SEQ manually via restPy')
+    ix = snappi_api._ixnetwork
+
+    for topo in ix.Topology.find():
+        for dg in topo.DeviceGroup.find():
+            for ng in dg.NetworkGroup.find():
+                for ipp in ng.Ipv4PrefixPools.find():
+                    for bgp_prop in ipp.BgpIPRouteProperty.find():
+                        for seg in bgp_prop.BgpAsPathSegmentList.find():
+                            seg.SegmentType.Single('asseq')
+                for ipp in ng.Ipv6PrefixPools.find():
+                    for bgp_prop in ipp.BgpV6IPRouteProperty.find():
+                        for seg in bgp_prop.BgpAsPathSegmentList.find():
+                            seg.SegmentType.Single('asseq')
 
 
 def get_flow_stats(snappi_api):
@@ -1209,20 +1285,7 @@ def get_rib_in_convergence(snappi_api,
     bgp_config.events.dp_events.rx_rate_threshold = 90/multipath
     snappi_api.set_config(bgp_config)
     # Outstanding sonic-mgmt issue 23744.
-    logger.info('Setting AS-SEQ manually via restPy')
-    ix = snappi_api._ixnetwork
-
-    for topo in ix.Topology.find():
-        for dg in topo.DeviceGroup.find():
-            for ng in dg.NetworkGroup.find():
-                for ipp in ng.Ipv4PrefixPools.find():
-                    for bgp_prop in ipp.BgpIPRouteProperty.find():
-                        for seg in bgp_prop.BgpAsPathSegmentList.find():
-                            seg.SegmentType.Single('asseq')
-                for ipp in ng.Ipv6PrefixPools.find():
-                    for bgp_prop in ipp.BgpV6IPRouteProperty.find():
-                        for seg in bgp_prop.BgpAsPathSegmentList.find():
-                            seg.SegmentType.Single('asseq')
+    set_bgp_as_path_segment_type_asseq(snappi_api)
 
     table, avg, tx_frate, rx_frate, avg_delta = [], [], [], [], []
     rib_in_all_iterations_completed = False
