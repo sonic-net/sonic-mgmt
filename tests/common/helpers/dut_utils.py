@@ -3,6 +3,7 @@ import pathlib
 import allure
 import os
 import jinja2
+from jinja2.nativetypes import NativeEnvironment
 import glob
 import re
 import shlex
@@ -867,7 +868,12 @@ def creds_on_dut(duthost):
     creds["console_password"] = {}
     creds["console_enable_passwd"] = {}
 
-    creds["ansible_altpasswords"] = []
+    altpasswords = hostvars.get("ansible_altpasswords") or []
+    if isinstance(altpasswords, str):
+        altpasswords = NativeEnvironment().from_string(altpasswords).render(**hostvars)
+    if not isinstance(altpasswords, list):
+        raise ValueError("ansible_altpasswords must resolve to a list")
+    creds["ansible_altpasswords"] = list(altpasswords)
 
     # If ansible_altpasswords is empty, add ansible_altpassword to it
     if len(creds["ansible_altpasswords"]) == 0:
