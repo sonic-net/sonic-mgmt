@@ -31,6 +31,15 @@ ip netns exec ns-example .venv-nic-simulator/bin/python \
   --ipv6-loopback-ips fc00::36,fc00::38,fc00::39
 ```
 
+The simulator namespace is an endpoint, not an IPv4 router. `vm_topology.py`
+disables `net.ipv4.ip_forward` when creating it. Downstream frames are copied to
+both the PTF and simulated NIC; if the NIC accepts a server's frame (for example,
+because their MAC addresses overlap), forwarding it back to both ToRs can create
+a packet amplification loop. Locally originated gRPC replies still use the
+per-interface policy routes. This setting does not change forwarding in the PTF,
+neighbor containers, or host namespace. Recreate an existing topology to apply
+the namespace-provisioning change; restarting only the simulator is insufficient.
+
 Both triplets are ordered **Loopback2, upper-ToR Loopback3, lower-ToR Loopback3**.
 Each must contain three bare literals of the correct family (no prefixes or zone
 IDs). The optional `--ipv6-loopback-ips` enables IPv6 listener discovery and adds
