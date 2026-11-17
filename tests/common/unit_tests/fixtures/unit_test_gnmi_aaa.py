@@ -333,22 +333,26 @@ def test_actual_tls_flow_cleanup(strict, failure):
               PtfGrpc=Mock(), PtfGnoi=Mock(), PygnmiClient=Mock(return_value=client),
               CertPaths=SimpleNamespace, GnmiFixture=SimpleNamespace,
               rollback=Mock(return_value={"rc": 0, "stdout": "Config rolled back successfully"}),
-              wait_critical_processes=Mock(), _delete_gnoi_certs=Mock())
+              wait_critical_processes=Mock(), _delete_gnoi_certs=Mock(), dump_gnmi_debug_state=Mock())
     failing = {"setup": ns["_establish_gnoi_tls_handshake"], "close": client.close,
                "rollback": ns["rollback"], "health": ns["wait_critical_processes"],
                "certs": ns["_delete_gnoi_certs"],
                "health-pytest": ns["wait_critical_processes"]}[failure]
     failing.side_effect = pytest.fail.Exception(failure) if failure == "health-pytest" else ValueError(failure)
     exec(compile(_source(GRPC, {"_gnmi_tls_flow"}), str(GRPC), "exec"), ns)
-    flow = ns["_gnmi_tls_flow"](SimpleNamespace(mgmt_ip="::1"), Mock(), strict_cleanup=strict)
+    duthost = SimpleNamespace(mgmt_ip="::1")
+    flow = ns["_gnmi_tls_flow"](duthost, Mock(), strict_cleanup=strict)
     if failure == "setup":
-        with pytest.raises(ValueError, match="setup"):
+        with pytest.raises(ValueError, match="setup") as setup_error:
             next(flow)
+        # _gnmi_tls_flow dumps setup failures itself, before its rollback restores the server.
+        ns["dump_gnmi_debug_state"].assert_called_once_with(duthost, error=setup_error.value)
     else:
         next(flow)
         expected = pytest.fail.Exception if failure == "health-pytest" else (RuntimeError if strict else StopIteration)
         with pytest.raises(expected):
             next(flow)
+        ns["dump_gnmi_debug_state"].assert_not_called()
     ns["rollback"].assert_called_once()
     ns["wait_critical_processes"].assert_called_once()
     ns["_delete_gnoi_certs"].assert_called_once()
