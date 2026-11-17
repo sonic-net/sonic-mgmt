@@ -26,7 +26,7 @@
       nic_simulator_action: stop
     when: topology.host_interfaces_active_active is defined and topology.host_interfaces_active_active|length > 0
 
-  - name: Detect Python major version of the PTF container being removed
+  - name: Detect Python version of the PTF container being removed
     command:
       argv:
         - docker
@@ -34,8 +34,8 @@
         - ptf_{{ vm_set_name }}
         - /usr/bin/python
         - -c
-        - "import sys; print(sys.version_info[0])"
-    register: ptf_existing_python_major
+        - "import sys; print('%d.%d' % sys.version_info[:2])"
+    register: ptf_existing_python_version
     changed_when: false
     failed_when: false
     become: yes
@@ -47,7 +47,15 @@
       ptf_portchannel_action: stop
     when:
       - "'bmc' not in topo"
-      - ptf_existing_python_major.rc != 0 or ptf_existing_python_major.stdout | trim != '2'
+      - >-
+        ansible_version.full is version('2.17', '<')
+        or ptf_existing_python_version.rc != 0
+        or ptf_existing_python_version.stdout | trim is not match('^[0-9]+[.][0-9]+$')
+        or ptf_existing_python_version.stdout | trim is version(
+          '3.9' if ansible_version.full is version('2.20', '>=')
+          else '3.8' if ansible_version.full is version('2.18', '>=')
+          else '3.7',
+          '>=')
 
   - name: Get duts ports
     include_tasks: get_dut_port.yml
