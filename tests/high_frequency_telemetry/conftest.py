@@ -402,6 +402,9 @@ def hft_test_services(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, skip_
 def hft_influxdb(request, ptfhost, skip_unsupported_hft_test,
                  duthosts, enum_rand_one_per_hwsku_hostname, tbinfo):
     """Provide a unique InfluxDB database for every HFT case."""
+    # WR case: skip before InfluxDB/OTEL setup when ISSU is not enabled.
+    if "hft_warm_reboot_profile" in request.fixturenames:
+        request.getfixturevalue("hft_warm_reboot_profile")
     request.getfixturevalue("ensure_swss_ready")
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     request.getfixturevalue("hft_test_services")
@@ -445,15 +448,9 @@ def hft_influxdb(request, ptfhost, skip_unsupported_hft_test,
         # Setup failures are active here; pytest reports call-phase failures
         # separately from any teardown error raised below.
         original_error = sys.exc_info()[1]
-        cleanup_steps = []
-        if database_created:
-            # Let samples countersyncd still exports for this case reach this
-            # database before the next case points the collector elsewhere.
-            cleanup_steps.append(
-                (f"drain HFT export into InfluxDB database {bucket}",
-                 sink.wait_until_drained)
-            )
-        cleanup_steps.append(("stop OTEL collector", cleanup_stop_collector))
+        cleanup_steps = [
+            ("stop OTEL collector", cleanup_stop_collector),
+        ]
         if database_created:
             cleanup_steps.append(
                 (f"drop InfluxDB database {bucket}", sink.drop)
@@ -474,6 +471,14 @@ def hft_queue_influxdb(hft_influxdb, duthosts,
     yield hft_influxdb
     cleanup_hft_config(duthost, "queue_profile", ["QUEUE"])
     restart_countersyncd_daemon(duthost)
+
+
+@pytest.fixture(scope="function")
+def hft_warm_reboot_profile(rand_selected_dut, skip_if_warm_reboot_unsupported):
+    """Provide warm-reboot HFT profile; skip if ISSU is not enabled."""
+    profile_name = "warm_reboot_hft_profile"
+    yield profile_name
+    cleanup_hft_config(rand_selected_dut, profile_name, ["PORT"])
 
 
 @pytest.fixture(autouse=True)
