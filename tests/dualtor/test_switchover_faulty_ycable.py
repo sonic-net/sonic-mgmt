@@ -105,20 +105,18 @@ def setup_faulted_y_cable_driver(
         time.sleep(10)
         yield
     finally:
-        try:
-            if y_cable_simulated_path:
-                duthost.shell(
-                    "docker exec pmon mv {path}/y_cable_simulated.py.orig {path}/y_cable_simulated.py".format(
-                        path=y_cable_simulated_path
-                    )
-                )
+        if y_cable_simulated_path:
             duthost.shell(
-                "docker exec pmon supervisorctl restart ycabled")
-        finally:
-            if not _wait_for_recovery(duthost, mux_port, duthosts, ports):
-                logging.warning("Y-cable or mux health did not recover; recreating PMON on %s", duthost.hostname)
-                _remove_pmon_container(duthost)
-                _restart_pmon_container(duthost)
+                "docker exec pmon mv {path}/y_cable_simulated.py.orig {path}/y_cable_simulated.py".format(
+                    path=y_cable_simulated_path
+                )
+            )
+        duthost.shell(
+            "docker exec pmon supervisorctl restart ycabled")
+        if not _wait_for_recovery(duthost, mux_port, duthosts, ports):
+            logging.warning("Y-cable or mux health did not recover; recreating PMON on %s", duthost.hostname)
+            _remove_pmon_container(duthost)
+            _restart_pmon_container(duthost)
 
 
 def get_tor_mux_status(duthost, mux_port):
