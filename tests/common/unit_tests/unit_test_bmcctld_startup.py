@@ -5,7 +5,7 @@ import json
 import logging
 from pathlib import Path
 import re
-from unittest.mock import Mock, call
+from unittest.mock import MagicMock, Mock, call
 
 import pytest
 
@@ -32,6 +32,16 @@ def startup_namespace():
                and node.name in ("test_bmcctld_power_on_delay", "test_bmc_reboot_does_not_affect_switch_host")]
     namespace = dict(json=json, re=re, pytest_assert=_assert, pytest=pytest,
                      logger=logging.getLogger(__name__), CAUSE_POWER_LOSS="power loss")
+    reboot_path = MODULE_PATH.parents[2] / "common" / "reboot.py"
+    reboot_tree = ast.parse(reboot_path.read_text(encoding="utf-8"))
+    constants = [
+        node for node in reboot_tree.body if isinstance(node, ast.Assign) and any(
+            isinstance(target, ast.Name)
+            and target.id in ("SONIC_SSH_PORT", "SONIC_SSH_REGEX", "ANSIBLE_READY_INTERVAL")
+            for target in node.targets
+        )
+    ]
+    exec(compile(ast.Module(body=constants, type_ignores=[]), str(reboot_path), "exec"), namespace)
     exec(compile(ast.Module(body=helpers + methods, type_ignores=[]), str(MODULE_PATH), "exec"), namespace)
     return namespace
 
@@ -118,6 +128,8 @@ def _integration_context(namespace, cooling=False, startup=ONLINE):
         make_bmc_loganalyzer=Mock(return_value=analyzer),
         wait_until=lambda timeout, interval, delay, condition: condition(),
         wait_critical_processes=Mock(),
+        wait_for_shutdown=Mock(),
+        wait_for_startup=Mock(),
         wait_host_on=Mock(return_value=True),
     )
     namespace["chassis"].is_liquid_cooled.return_value = cooling
@@ -216,7 +228,175 @@ def test_pdu_restoration_attempts_all_outlets_after_exception(startup_namespace,
         call("Failed to restore PDU outlet %s", outlet)
         for outlet, result in zip(outlets, results) if isinstance(result, Exception)
     ]
-    startup_namespace["wait_critical_processes"].assert_not_called()
+    startup_namespace["wait_critical_processes"].assert_called_once_with(instance.duthost, timeout=600)
+
+
+@pytest.mark.parametrize("failure", [None, "shutdown", "pdu-off", "pdu-off-exception", "pdu-on"])
+def test_power_loss_recovers_before_config_cleanup(startup_namespace, failure):
+    """Probe from localhost and recover SSH/services before any CONFIG_DB cleanup."""
+    instance, _, pdu = _integration_context(startup_namespace)
+    bmc = instance.duthost
+    localhost = Mock()
+    events = []
+    online = True
+    original_shell = bmc.shell.side_effect
+
+    def shell(command, **kwargs):
+        assert online, "AnsibleConnectionFailure: BMC is unreachable"
+        if "power-on-delay" in command or "config save" in command:
+            events.append(command)
+        return original_shell(command, **kwargs)
+
+    def power_off(outlet):
+        nonlocal online
+        online = False
+        events.append("off")
+        if failure == "pdu-off-exception":
+            raise RuntimeError("PDU power-off failed")
+        return failure != "pdu-off"
+
+    def shutdown(duthost, controller, delay, timeout):
+        assert duthost is bmc and controller is localhost
+        assert delay == 10 and timeout == 120
+        assert not online
+        events.append("shutdown")
+        if failure == "shutdown":
+            raise RuntimeError("DUT did not shutdown")
+
+    def startup(duthost, controller, delay, timeout):
+        nonlocal online
+        assert duthost is bmc and controller is localhost
+        assert delay == 10 and timeout == 600
+        assert pdu.turn_on_outlet.call_count == 2
+        events.append("startup")
+        online = True
+
+    def healthy(duthost, timeout):
+        assert duthost is bmc and timeout == 600 and online
+        events.append("healthy")
+
+    bmc.shell.side_effect = shell
+    pdu.turn_off_outlet.side_effect = power_off
+    if failure == "pdu-on":
+        pdu.turn_on_outlet.side_effect = [False, True]
+    startup_namespace["wait_for_shutdown"].side_effect = shutdown
+    startup_namespace["wait_for_startup"].side_effect = startup
+    startup_namespace["wait_critical_processes"].side_effect = healthy
+    run = startup_namespace["test_bmcctld_power_on_delay"]
+    if failure:
+        error = RuntimeError if failure in ("shutdown", "pdu-off-exception") else AssertionError
+        with pytest.raises(error):
+            run(instance, localhost, Mock(return_value=pdu), Mock())
+    else:
+        run(instance, localhost, Mock(return_value=pdu), Mock())
+    assert pdu.turn_on_outlet.call_args_list == [
+        call(outlet) for outlet in pdu.get_outlet_status.return_value
+    ]
+    assert events[-4:] == [
+        "startup", "healthy", "config chassis modules power-on-delay SWITCH-HOST 30", "sudo config save -y"
+    ]
+    bmc.shell.assert_any_call("sudo config save -y", module_ignore_errors=True)
+    assert not any(args[0] == "true" for args, _ in bmc.shell.call_args_list)
+
+
+@pytest.mark.parametrize("failure", ["ssh", "ansible", "services"])
+def test_failed_bmc_recovery_does_not_attempt_config_cleanup(startup_namespace, failure):
+    """Report failed recovery without issuing cleanup commands to an unready BMC."""
+    instance, _, pdu = _integration_context(startup_namespace)
+    startup_namespace["logger"] = Mock()
+    localhost = Mock()
+    startup_namespace["wait_for_startup"].side_effect = RuntimeError("Late SSH startup")
+    if failure == "ssh":
+        localhost.wait_for.side_effect = RuntimeError("BMC recovery failed")
+    elif failure == "ansible":
+        instance.duthost.command.return_value.is_successful = False
+    else:
+        startup_namespace["wait_critical_processes"].side_effect = RuntimeError("BMC recovery failed")
+    with pytest.raises((RuntimeError, AssertionError), match="BMC.*(recovery failed|Ansible)"):
+        startup_namespace["test_bmcctld_power_on_delay"](instance, localhost, Mock(return_value=pdu), Mock())
+    assert pdu.turn_on_outlet.call_count == 2
+    assert not any(kwargs.get("module_ignore_errors") for _, kwargs in instance.duthost.shell.call_args_list)
+    startup_namespace["logger"].error.assert_called_once()
+
+
+@pytest.mark.parametrize("failed", [False, True])
+def test_power_loss_uses_localhost_ssh_probe(startup_namespace, failed):
+    """Execute the shared shutdown helper; SSH loss must not run a remote command."""
+    instance, _, pdu = _integration_context(startup_namespace)
+    reboot_path = MODULE_PATH.parents[2] / "common" / "reboot.py"
+    tree = ast.parse(reboot_path.read_text(encoding="utf-8"))
+    nodes = [
+        node for node in tree.body
+        if (isinstance(node, ast.FunctionDef) and node.name == "wait_for_shutdown")
+        or (isinstance(node, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id in ("SONIC_SSH_PORT", "SONIC_SSH_REGEX")
+            for target in node.targets
+        ))
+    ]
+    exec(compile(ast.Module(body=nodes, type_ignores=[]), str(reboot_path), "exec"), startup_namespace)
+    localhost = Mock()
+    localhost.wait_for.return_value = MagicMock(is_failed=failed)
+    run = startup_namespace["test_bmcctld_power_on_delay"]
+    if failed:
+        with pytest.raises(Exception, match="did not shutdown"):
+            run(instance, localhost, Mock(return_value=pdu), Mock())
+    else:
+        run(instance, localhost, Mock(return_value=pdu), Mock())
+    localhost.wait_for.assert_any_call(
+        host=instance.duthost.mgmt_ip, port=22, state="absent",
+        search_regex=startup_namespace["SONIC_SSH_REGEX"], delay=10, timeout=120,
+        module_ignore_errors=True,
+    )
+    startup_namespace["wait_for_startup"].assert_called_once_with(
+        instance.duthost, localhost, delay=10, timeout=600,
+    )
+    startup_namespace["wait_critical_processes"].assert_called_once_with(instance.duthost, timeout=600)
+
+
+@pytest.mark.parametrize("original_delay", ["30", "0", ""])
+def test_late_ssh_startup_restores_config_before_propagating_failure(startup_namespace, original_delay):
+    """Execute the real second-attempt startup failure and still recover/restore."""
+    instance, _, pdu = _integration_context(startup_namespace)
+    startup_namespace["logger"] = Mock()
+    bmc = instance.duthost
+    localhost = Mock()
+    events = []
+    original_shell = bmc.shell.side_effect
+    reads = 0
+
+    def shell(command, **kwargs):
+        nonlocal reads
+        if "HGET" in command:
+            reads += 1
+            return {"stdout": original_delay if reads == 1 else "30"}
+        if kwargs.get("module_ignore_errors"):
+            events.append(command)
+        return original_shell(command, **kwargs)
+
+    bmc.shell.side_effect = shell
+    bmc.meta.side_effect = lambda action: events.append(action)
+    bmc.command.side_effect = lambda *args, **kwargs: (
+        events.append("ansible") or Mock(is_successful=True)
+    )
+    startup_namespace["wait_critical_processes"].side_effect = lambda *args, **kwargs: events.append("services")
+    reboot_path = MODULE_PATH.parents[2] / "common" / "reboot.py"
+    tree = ast.parse(reboot_path.read_text(encoding="utf-8"))
+    startup = next(node for node in tree.body
+                   if isinstance(node, ast.FunctionDef) and node.name == "wait_for_startup")
+    exec(compile(ast.Module(body=[startup], type_ignores=[]), str(reboot_path), "exec"), startup_namespace)
+    startup_namespace["ssh_connection_with_retry"] = Mock(return_value=(True, {}, 2))
+    startup_namespace["collect_mgmt_config_by_console"] = Mock()
+    with pytest.raises(Exception, match="did not startup at first try"):
+        startup_namespace["test_bmcctld_power_on_delay"](instance, localhost, Mock(return_value=pdu), Mock())
+    expected_restore = (
+        f"config chassis modules power-on-delay SWITCH-HOST {original_delay}" if original_delay else
+        "sonic-db-cli CONFIG_DB HDEL 'CHASSIS_MODULE|SWITCH-HOST' power_on_delay"
+    )
+    assert events == ["clear_facts", "ansible", "services", expected_restore, "sudo config save -y"]
+    localhost.wait_for.assert_called_once_with(
+        host=bmc.mgmt_ip, port=startup_namespace["SONIC_SSH_PORT"], state="started",
+        delay=0, timeout=600,
+    )
 
 
 def _cold_reboot_context(namespace, original_delay):
