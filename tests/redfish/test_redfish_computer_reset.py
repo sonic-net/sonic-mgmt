@@ -491,8 +491,8 @@ class TestRedfishComputerReset:
             try:
                 response = redfish_client.post(RESET_PATH, json={"ResetType": "On"})
             except requests.exceptions.RequestException as e:
-                pytest.fail("bmcweb did not answer ComputerSystem.Reset while {} was stopped: {}".format(
-                    BRIDGE_SERVICE, e))
+                raise AssertionError("bmcweb did not answer ComputerSystem.Reset while {} was stopped: {}".format(
+                    BRIDGE_SERVICE, e)) from e
             logger.info("POST %s ResetType=On with %s stopped -> HTTP %s headers=%s body=%r", RESET_PATH,
                         BRIDGE_SERVICE, response.status_code, dict(response.headers), response.text[:300])
             pytest_assert(
