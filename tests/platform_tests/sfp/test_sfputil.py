@@ -7,6 +7,7 @@ https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan
 import logging
 import time
 import copy
+from contextlib import ExitStack
 from natsort import natsorted
 import pytest
 
@@ -565,7 +566,7 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
     )
 
 
-def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+def test_check_sfputil_low_power_mode(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                       enum_frontend_asic_index, conn_graph_facts,
                                       tbinfo, xcvr_skip_list, shutdown_ebgp, port_list_with_flat_memory):   # noqa: F811
     """
@@ -608,6 +609,8 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
 
     logging.info("Try to change SFP lpmode")
     tested_physical_ports = set()
+    restore_lpmode = ExitStack()
+    request.addfinalizer(restore_lpmode.close)
 
     not_supporting_lpm_physical_ports = set()
     for intf in dev_conn:
@@ -630,6 +633,8 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
             tested_physical_ports.add(phy_intf)
             logging.info("setting {} physical interface {}".format(intf, phy_intf))
             new_lpmode = "off" if original_lpmode[intf].lower() == "on" else "on"
+            restore_lpmode.callback(
+                duthost.command, "{} {} {}".format(cmd_sfp_set_lpmode, original_lpmode[intf].lower(), intf))
             lpmode_set_result = duthost.command("{} {} {}".format(cmd_sfp_set_lpmode, new_lpmode, intf))
             assert lpmode_set_result["rc"] == 0, (
                 "'{} {} {}' failed"
@@ -733,3 +738,4 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
         assert all_intf_up, (
             "Some interfaces are down: {}."
         ).format(intf_facts["ansible_interface_link_down_ports"])
+    restore_lpmode.pop_all()
