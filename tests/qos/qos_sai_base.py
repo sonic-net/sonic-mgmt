@@ -1771,7 +1771,7 @@ class QosSaiBase(QosBase):
     def freeze_mux_for_qos(
         self, duthosts, get_mux_status, tbinfo, upper_tor_host, lower_tor_host,  # noqa: F811
         toggle_all_simulator_ports, active_active_ports, active_standby_ports,  # noqa: F811
-        mux_status_from_nic_simulator  # noqa: F811
+        mux_status_from_nic_simulator, nic_simulator_info  # noqa: F811
     ):
         """Keep dual-ToR mux ports stable during QoS tests.
 
@@ -1786,6 +1786,10 @@ class QosSaiBase(QosBase):
         tor_hosts = (lower_tor_host, upper_tor_host)
         mux_ports = set(active_standby_ports) | set(active_active_ports)
         removed_session_ports = {tor_host.hostname: set() for tor_host in tor_hosts}
+        has_nic_simulator = nic_simulator_info[0] is not None
+        if active_active_ports and not has_nic_simulator:
+            logger.info('No NIC simulator on %s; verify active-active mux state on both ToRs',
+                        tbinfo['topo']['name'])
 
         def linkmgrd_running(tor_host):
             status = tor_host.shell(
@@ -1812,7 +1816,7 @@ class QosSaiBase(QosBase):
                     if len(key.split(':')) == 5 and key.split(':')[2] in mux_ports]
 
         def remove_mux_icmp_sessions(tor_host):
-            session_keys = mux_icmp_session_keys(tor_host, 'APP_DB')
+            session_keys = mux_icmp_session_keys(tor_host, 'APPL_DB')
             removed_session_ports[tor_host.hostname] = {
                 key.split(':')[2] for key in session_keys}
             for key in session_keys:
@@ -1827,11 +1831,23 @@ class QosSaiBase(QosBase):
                     shlex.quote(script), shlex.quote(session_key)))
             pytest_assert(
                 wait_until(30, 2, 0,
-                           lambda: not mux_icmp_session_keys(tor_host, 'APP_DB')
+                           lambda: not mux_icmp_session_keys(tor_host, 'APPL_DB')
                            and not mux_icmp_session_keys(tor_host, 'STATE_DB')),
                 'ICMP offload sessions remain on {}'.format(tor_host.hostname))
 
+        def active_active_tor_status(tor_host, expected):
+            status = json.loads(tor_host.shell('show muxcable status --json')['stdout'])['MUX_CABLE']
+            return all(status.get(port, {}).get('STATUS') == expected
+                       and status[port].get('SERVER_STATUS') == expected
+                       for port in active_active_ports)
+
         def active_active_ports_forward_only_on_lower():
+            if not has_nic_simulator:
+                # Some beds have active-active cables under a plain
+                # dualtor topology. The NIC simulator fixture returns no
+                # client there, so verify the state reported by both ToRs.
+                return (active_active_tor_status(lower_tor_host, 'active')
+                        and active_active_tor_status(upper_tor_host, 'standby'))
             mux_status = mux_status_from_nic_simulator()
             return len(mux_status) == len(active_active_ports) and all(
                 port_status.get(ActiveActivePortID.LOWER_TOR, False)
@@ -1842,11 +1858,15 @@ class QosSaiBase(QosBase):
             if active_standby_ports and not check_mux_status(duthosts, LOWER_TOR):
                 return False
             if active_active_ports:
-                mux_status = mux_status_from_nic_simulator()
-                if len(mux_status) != len(active_active_ports) or not all(
-                        port_status.get(ActiveActivePortID.UPPER_TOR, False)
-                        and port_status.get(ActiveActivePortID.LOWER_TOR, False)
-                        for port_status in mux_status.values()):
+                if has_nic_simulator:
+                    mux_status = mux_status_from_nic_simulator()
+                    if len(mux_status) != len(active_active_ports) or not all(
+                            port_status.get(ActiveActivePortID.UPPER_TOR, False)
+                            and port_status.get(ActiveActivePortID.LOWER_TOR, False)
+                            for port_status in mux_status.values()):
+                        return False
+                elif not (active_active_tor_status(lower_tor_host, 'active')
+                          and active_active_tor_status(upper_tor_host, 'active')):
                     return False
             for tor_host in tor_hosts:
                 status = json.loads(tor_host.shell('show muxcable status --json')['stdout'])['MUX_CABLE']
@@ -1856,7 +1876,7 @@ class QosSaiBase(QosBase):
                         for port in mux_ports):
                     return False
                 recovered_session_ports = {
-                    key.split(':')[2] for key in mux_icmp_session_keys(tor_host, 'APP_DB')}
+                    key.split(':')[2] for key in mux_icmp_session_keys(tor_host, 'APPL_DB')}
                 if not removed_session_ports[tor_host.hostname].issubset(recovered_session_ports):
                     return False
             return True
@@ -1889,13 +1909,13 @@ class QosSaiBase(QosBase):
 
                 pytest_assert(
                     wait_until(60, 5, 0, active_active_ports_forward_only_on_lower),
-                    'Active-active mux ports did not forward only to the lower ToR')
+                    'Active-active mux ports did not reach lower active / upper standby')
 
             for tor_host in tor_hosts:
                 tor_host.shell('sudo config muxcable mode manual all')
             if active_active_ports:
                 pytest_assert(active_active_ports_forward_only_on_lower(),
-                              'Active-active forwarding changed after setting manual mode')
+                              'Active-active mux state changed after setting manual mode')
             for tor_host in tor_hosts:
                 tor_host.shell('docker exec mux supervisorctl stop linkmgrd')
                 pytest_assert(not linkmgrd_running(tor_host),
