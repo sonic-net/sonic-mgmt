@@ -802,8 +802,7 @@ def test_fallback_to_local_authorization_with_config_reload(
                                     setup_authorization_tacacs,
                                     tacacs_creds,
                                     check_tacacs,  # noqa: F811
-                                    remote_user_client,
-                                    remote_rw_user_client):
+                                    remote_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     """
         During load minigraph BGP service will shutdown and restart.
@@ -840,15 +839,21 @@ def test_fallback_to_local_authorization_with_config_reload(
         wait_for_bgp = not duthost.get_bgp_confed_asn()
         reload_minigraph_with_golden_config(duthost, override_config, wait_for_bgp=wait_for_bgp)
 
-        # Shutdown tacacs server to simulate network unreachable because BGP shutdown
-        stop_tacacs_server(ptfhost)
+        with ssh_connect_remote_retry(
+            duthost.mgmt_ip,
+            tacacs_creds['tacacs_rw_user'],
+            tacacs_creds['tacacs_rw_user_passwd'],
+            duthost
+        ) as remote_rw_user_client:
+            # Shutdown tacacs server to simulate network unreachable because BGP shutdown
+            stop_tacacs_server(ptfhost)
 
-        # Test "sudo config save -y" can success after reload minigraph
-        exit_code, stdout, stderr = ssh_run_command(remote_rw_user_client, "sudo config save -y",
-                                                    expect_exit_code=0, verify=True)
+            # Test "sudo config save -y" can success after reload minigraph
+            exit_code, stdout, stderr = ssh_run_command(remote_rw_user_client, "sudo config save -y",
+                                                        expect_exit_code=0, verify=True)
 
-        #  Cleanup UT.
-        start_tacacs_server(ptfhost)
+            #  Cleanup UT.
+            start_tacacs_server(ptfhost)
     finally:
         #  Restore config after test finish
         restore_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
