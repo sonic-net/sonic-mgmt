@@ -63,17 +63,6 @@ def setup_faulted_y_cable_driver(
         logging.info("Restarting pmon container ...")
         duthost.shell("systemctl restart pmon.service")
 
-        logging.info("Waiting for PMON to start ...")
-        restarted = wait_until(
-            60, 5, 0, check_container_state, duthost, "pmon", True)
-        pytest_assert(restarted, "Failed to start PMON on {}".format(duthost.hostname))
-        ycabled_started = wait_until(
-            60, 5, 0, lambda: duthost.get_pmon_daemon_status("ycabled")[0] == "RUNNING")
-        pytest_assert(ycabled_started, "Failed to start ycabled on {}".format(duthost.hostname))
-        logging.info("PMON and ycabled are running.")
-        pytest_assert(_wait_for_recovery(duthost, mux_port, duthosts, ports),
-                      "Failed to recover Y-cable state or mux health after PMON recovery")
-
     y_cable_simulated_path = None
     try:
         extra_vars = {
@@ -117,6 +106,17 @@ def setup_faulted_y_cable_driver(
             logging.warning("Y-cable or mux health did not recover; recreating PMON on %s", duthost.hostname)
             _remove_pmon_container(duthost)
             _restart_pmon_container(duthost)
+
+            logging.info("Waiting for PMON to start ...")
+            restarted = wait_until(
+                60, 5, 0, check_container_state, duthost, "pmon", True)
+            pytest_assert(restarted, "Failed to start PMON on {}".format(duthost.hostname))
+            ycabled_started = wait_until(
+                60, 5, 0, lambda: duthost.get_pmon_daemon_status("ycabled")[0] == "RUNNING")
+            pytest_assert(ycabled_started, "Failed to start ycabled on {}".format(duthost.hostname))
+            logging.info("PMON and ycabled are running.")
+            pytest_assert(_wait_for_recovery(duthost, mux_port, duthosts, ports),
+                          "Failed to recover Y-cable state or mux health after PMON recovery")
 
 
 def get_tor_mux_status(duthost, mux_port):
