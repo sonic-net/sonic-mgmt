@@ -110,18 +110,22 @@ def define_config(duthost, template_src_path, template_dst_path):
     duthost.copy(src=template_src_path, dest=template_dst_path)
 
 
-def get_no_export_output(vm_host, ipv6=False):
+def get_no_export_output(vm, ipv6=False):
     """
     Get no export routes on the VM
 
     Args:
-        vm_host: VM host object
+        vm: Neighbor entry from nbrhosts
         ipv6: Boolean flag to check IPv6 routes
     """
+    vm_host = vm['host']
+    vrf_option = ''
+    if isinstance(vm_host, EosHost) and vm.get('is_multi_vrf_peer', False):
+        vrf_option = ' vrf {}'.format(vm['multi_vrf_data']['vrf'])
     if ipv6:
         ipv6_pattern = r'[0-9a-fA-F:]+\/\d+\s+[0-9a-fA-F:]+.*'
         if isinstance(vm_host, EosHost):
-            out = vm_host.eos_command(commands=['show ipv6 bgp match community no-export'])["stdout"]
+            out = vm_host.eos_command(commands=['show ipv6 bgp match community no-export' + vrf_option])["stdout"]
             return re.findall(ipv6_pattern, out[0])
         elif isinstance(vm_host, SonicHost):
             out = vm_host.command("vtysh -c 'show ipv6 bgp community no-export'")["stdout"]
@@ -132,7 +136,7 @@ def get_no_export_output(vm_host, ipv6=False):
     else:
         ipv4_pattern = r'\d+\.\d+.\d+.\d+\/\d+\s+\d+\.\d+.\d+.\d+.*'
         if isinstance(vm_host, EosHost):
-            out = vm_host.eos_command(commands=['show ip bgp community no-export'])["stdout"]
+            out = vm_host.eos_command(commands=['show ip bgp community no-export' + vrf_option])["stdout"]
             return re.findall(ipv4_pattern, out[0])
         elif isinstance(vm_host, SonicHost):
             out = vm_host.command("vtysh -c 'show ip bgp community no-export'")["stdout"]
