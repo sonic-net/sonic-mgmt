@@ -47,6 +47,10 @@ show_platform_cmds = [
     "show platform summary",
 ]
 
+show_platform_cmds_simx = [
+    "show platform summary",
+]
+
 ip_cmds = [
     "ip link",
     "ip addr",

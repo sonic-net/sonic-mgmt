@@ -506,6 +506,9 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_hostname):
         "misc_cmds": cmds.misc_cmds,
     }
 
+    if re.match(r'.*(mlnx|nvidia).*simx.*', duthost.facts["platform"]):
+        cmds_to_check["show_platform_cmds"] = cmds.show_platform_cmds_simx
+
     if '201911' in duthost.os_version:
         docker_cmds = cmds.docker_cmds_201911
     elif duthost.facts['router_type'] == 'spinerouter':
