@@ -17,6 +17,7 @@ from tests.common.snappi_tests.read_pcap import is_ecn_marked
 from tests.snappi_tests.files.helper import skip_ecn_tests
 from tests.common.snappi_tests.common_helpers import packet_capture
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.common.snappi_tests.snappi_helpers import fetch_snappi_flow_metrics
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
@@ -122,6 +123,13 @@ def test_dequeue_ecn(request,
                            prio_dscp_map=prio_dscp_map,
                            iters=num_iterations,
                            snappi_extra_params=snappi_extra_params)[0]
+
+    flow_names = [flow.name for flow in testbed_config.flows]
+    for metric in fetch_snappi_flow_metrics(snappi_api, flow_names):
+        logger.info("ECN dequeue flow %s: TX packets=%s, RX packets=%s",
+                    metric.name, metric.frames_tx, metric.frames_rx)
+    logger.info("ECN dequeue capture: captured IP packets=%s, expected packets=%s",
+                len(ip_pkts), data_flow_pkt_count)
 
     logger.info("Running verification for ECN dequeue test")
     # Check if all the packets are captured
