@@ -47,11 +47,8 @@ def setup_faulted_y_cable_driver(
     simulate_probe_unknown, simulate_peer_link_down
 ):
     """Set up the faulted Y-cable driver and yield the selected mux port."""
-    duthost = simulated_faulty_side
-    duthosts = (simulated_faulty_side, simulated_good_side)
-    ports = active_standby_ports
-    pytest_require(ports, "No active-standby mux ports, skip...")
-    select_mux_port = random.choice(ports)
+    pytest_require(active_standby_ports, "No active-standby mux ports, skip...")
+    select_mux_port = random.choice(active_standby_ports)
 
     def _remove_pmon_container(duthost):
         logging.info("Stopping pmon container.")
@@ -74,51 +71,53 @@ def setup_faulted_y_cable_driver(
             "SIMULATE_PROBE_UNKNOWN": simulate_probe_unknown,
             "SIMULATE_PEER_LINK_DOWN": simulate_peer_link_down
         }
-        duthost.host.options['variable_manager'].extra_vars.update(
+        simulated_faulty_side.host.options['variable_manager'].extra_vars.update(
             extra_vars)
-        duthost.template(
+        simulated_faulty_side.template(
             src="dualtor/files/y_cable_simulated.py.j2",
             dest="/tmp/y_cable_simulated.py",
             force=True
         )
-        find_path_res = duthost.shell(
+        find_path_res = simulated_faulty_side.shell(
             "docker exec pmon find / -name y_cable_simulated.py 2>/dev/null", module_ignore_errors=True)["stdout"]
         # Let's check the file exist before patching
-        duthost.shell("docker exec pmon stat %s" % find_path_res)
+        simulated_faulty_side.shell("docker exec pmon stat %s" % find_path_res)
         y_cable_simulated_path = os.path.dirname(find_path_res)
-        duthost.shell(
+        simulated_faulty_side.shell(
             "docker exec pmon mv {path}/y_cable_simulated.py {path}/y_cable_simulated.py.orig".format(
                 path=y_cable_simulated_path
             )
         )
-        duthost.shell(
+        simulated_faulty_side.shell(
             "docker cp /tmp/y_cable_simulated.py pmon:%s/" % y_cable_simulated_path)
-        duthost.shell(
+        simulated_faulty_side.shell(
             "docker exec pmon supervisorctl restart ycabled")
-        pytest_assert(_wait_for_ycabled_startup(duthost),
-                      "Failed to start ycabled on {}".format(duthost.hostname))
+        pytest_assert(_wait_for_ycabled_startup(simulated_faulty_side),
+                      "Failed to start ycabled on {}".format(simulated_faulty_side.hostname))
         yield select_mux_port
     finally:
         if y_cable_simulated_path:
-            duthost.shell(
+            simulated_faulty_side.shell(
                 "docker exec pmon mv {path}/y_cable_simulated.py.orig {path}/y_cable_simulated.py".format(
                     path=y_cable_simulated_path
                 )
             )
-        duthost.shell(
+        simulated_faulty_side.shell(
             "docker exec pmon supervisorctl restart ycabled")
-        if not _wait_for_recovery(duthost, select_mux_port, duthosts, ports):
-            logging.warning("Y-cable or mux health did not recover; recreating PMON on %s", duthost.hostname)
-            _remove_pmon_container(duthost)
-            _restart_pmon_container(duthost)
+        if not _wait_for_recovery(simulated_faulty_side, simulated_good_side, select_mux_port, active_standby_ports):
+            logging.warning("Y-cable or mux health did not recover; recreating PMON on %s",
+                            simulated_faulty_side.hostname)
+            _remove_pmon_container(simulated_faulty_side)
+            _restart_pmon_container(simulated_faulty_side)
 
             logging.info("Waiting for PMON to start ...")
             restarted = wait_until(
-                60, 5, 0, check_container_state, duthost, "pmon", True)
-            pytest_assert(restarted, "Failed to start PMON on {}".format(duthost.hostname))
+                60, 5, 0, check_container_state, simulated_faulty_side, "pmon", True)
+            pytest_assert(restarted, "Failed to start PMON on {}".format(simulated_faulty_side.hostname))
             logging.info("PMON is running.")
-            pytest_assert(_wait_for_recovery(duthost, select_mux_port, duthosts, ports),
-                          "Failed to recover Y-cable state or mux health after PMON recovery")
+            pytest_assert(
+                _wait_for_recovery(simulated_faulty_side, simulated_good_side, select_mux_port, active_standby_ports),
+                "Failed to recover Y-cable state or mux health after PMON recovery")
 
 
 def get_tor_mux_status(duthost, mux_port):
@@ -143,17 +142,17 @@ def _wait_for_ycabled_startup(duthost):
     return wait_until(60, 5, 0, lambda: duthost.get_pmon_daemon_status("ycabled")[0] == "RUNNING")
 
 
-def _wait_for_recovery(duthost, mux_port, duthosts, ports):
-    if not _wait_for_ycabled_startup(duthost):
-        logging.warning("ycabled did not reach RUNNING on %s", duthost.hostname)
+def _wait_for_recovery(faulty_side, good_side, mux_port, ports):
+    if not _wait_for_ycabled_startup(faulty_side):
+        logging.warning("ycabled did not reach RUNNING on %s", faulty_side.hostname)
         return False
 
     def _check_fault_cleared():
-        return (get_tor_mux_probe_state(duthost, mux_port) in ("active", "standby") and
-                get_tor_mux_cable_info(duthost, mux_port).get("link_status_peer") == "up")
+        return (get_tor_mux_probe_state(faulty_side, mux_port) in ("active", "standby") and
+                get_tor_mux_cable_info(faulty_side, mux_port).get("link_status_peer") == "up")
 
     def _check_mux_ports_healthy():
-        for duthost in duthosts:
+        for duthost in (faulty_side, good_side):
             mux_status = show_muxcable_status(duthost)
             for port in ports:
                 if port not in mux_status:
