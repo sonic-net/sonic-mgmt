@@ -6,8 +6,6 @@ Only use this while no kernel driver is bound to the device (for a PDDF device,
 after `pddfparse.py --delete-subtree`), otherwise the transfers race the driver.
 """
 
-from tests.common.helpers.assertions import pytest_assert
-
 PMBUS_OPERATION = 0x01
 PMBUS_CLEAR_FAULTS = 0x03
 PMBUS_IOUT_OC_FAULT_LIMIT = 0x46
@@ -25,6 +23,10 @@ STATUS_WORD_POWER_GOOD_N = 1 << 11
 STATUS_IOUT_OC_FAULT = 1 << 7
 
 LINEAR11_MAX_MANTISSA = 1023
+
+
+class PmbusError(Exception):
+    """An i2ctransfer to the device failed."""
 
 
 def linear11_exponent(word):
@@ -62,8 +64,9 @@ class PmbusPsu:
     def _xfer(self, args):
         cmd = "sudo i2ctransfer -y {} {}".format(self.bus, args)
         res = self.duthost.shell(cmd, module_ignore_errors=True)
-        pytest_assert(res['rc'] == 0, "{}: '{}' failed (rc={}): {}{}".format(
-            self.name, cmd, res['rc'], res['stdout'], res['stderr']))
+        if res['rc'] != 0:
+            raise PmbusError("{}: '{}' failed (rc={}): {}{}".format(
+                self.name, cmd, res['rc'], res['stdout'], res['stderr']))
         return [int(tok, 16) for tok in res['stdout'].split()]
 
     def read_byte(self, command):
