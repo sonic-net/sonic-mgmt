@@ -192,6 +192,8 @@ def exec_routes(
     if asic_type == "vs":
         # In vs, route entries need more time to be installed
         route_timeout = max(len(prefixes) / 160, 1)
+    elif duthost.facts["hwsku"] == "Nokia-M0-7215":
+        route_timeout = max(len(prefixes) / 200, 1)
     else:
         route_timeout = max(len(prefixes) / 250, 1)
 
