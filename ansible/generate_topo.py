@@ -312,6 +312,8 @@ vlan_group_cfgs = [
         "v4_prefix": "192.168.0.0/22", "v6_prefix": "fc02:100::0/64"},
 ]
 
+VLAN_RESERVED_V4_RANGE = IPv4Network("192.168.0.0/21")
+
 
 # Utility functions to calculate IP addresses
 def calc_ipv4_pair(subnet_str, port_id):
@@ -440,6 +442,11 @@ class VlanGroup:
 
         v4_prefix = IPv4Network(v4_prefix)
         v6_prefix = IPv6Network(v6_prefix)
+
+        if num_asics > 1:
+            vlan_total = num_asics * vlan_count
+            v4_prefix = IPv4Network((int(VLAN_RESERVED_V4_RANGE.network_address),
+                                     VLAN_RESERVED_V4_RANGE.prefixlen + (vlan_total - 1).bit_length()))
 
         # On multi-ASIC devices a VLAN cannot span ASIC namespaces, so the host
         # interfaces are first partitioned per ASIC and then each ASIC's interfaces
