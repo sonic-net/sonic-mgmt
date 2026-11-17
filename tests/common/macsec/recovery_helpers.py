@@ -39,11 +39,6 @@ def macsec_containers(duthost):
     return [container.name for container in duthost.containers().macsec()]
 
 
-def macsec_namespace_prefixes(duthost):
-    """Return sonic-db-cli namespace options for the configured ASICs."""
-    return ["-n {}".format(ns) if ns else ""
-            for ns in duthost.get_asic_namespace_list()]
-
 # ---------------------------------------------------------------------------
 # Disruption primitives
 # ---------------------------------------------------------------------------
@@ -309,7 +304,7 @@ def get_egress_encoding_ans(duthost, ctrl_links):
     return ans
 
 
-def advance_egress_encoding_an(duthost, profile_name, ctrl_links,
+def advance_egress_encoding_an(duthost, get_port_profile_name, ctrl_links,
                                policy, cipher_suite, send_sci,
                                rekey_period=20, advance_timeout=240):
     """
@@ -318,7 +313,7 @@ def advance_egress_encoding_an(duthost, profile_name, ctrl_links,
     precondition for the stale-AN bug (the fix's sweep only runs when
     new_an != m_encoding_an).
 
-    Sets rekey_period on the DUT MACSEC_PROFILE, graceful-restarts macsec to
+    Sets rekey_period on the DUT's active profiles, graceful-restarts macsec to
     apply it (the session starts at AN=0), waits for MKA to converge, then
     polls until at least one egress SC's encoding_an advances to a non-zero
     value (i.e. one rekey has happened).  Leaves rekey_period set; the caller
@@ -327,7 +322,7 @@ def advance_egress_encoding_an(duthost, profile_name, ctrl_links,
 
     Returns the {(port, sci): encoding_an} map observed after the advance.
     """
-    set_rekey_period(duthost, profile_name, rekey_period)
+    set_rekey_period(duthost, get_port_profile_name, ctrl_links, rekey_period)
     graceful_restart_macsec(duthost)
     pytest_assert(
         wait_for_mka_converged(duthost, ctrl_links, policy, cipher_suite, send_sci),
@@ -345,9 +340,19 @@ def advance_egress_encoding_an(duthost, profile_name, ctrl_links,
     return get_egress_encoding_ans(duthost, ctrl_links)
 
 
-def set_rekey_period(duthost, profile_name, rekey_period):
-    """Set rekey_period in every ASIC namespace (does not restart macsec)."""
-    for ns_prefix in macsec_namespace_prefixes(duthost):
+def set_rekey_period(duthost, get_port_profile_name, ctrl_links, rekey_period):
+    """Set rekey_period on each controlled port's profile without restarting MACsec."""
+    profiles = {(getns_prefix(duthost, port), get_port_profile_name(port))
+                for port in ctrl_links}
+    for ns_prefix, profile_name in sorted(profiles):
+        # HSET creates missing hashes, so verify the profile before updating it.
+        exists = duthost.shell(
+            "sonic-db-cli {} CONFIG_DB EXISTS 'MACSEC_PROFILE|{}'".format(
+                ns_prefix, profile_name),
+            module_ignore_errors=False,
+        )["stdout"].strip()
+        pytest_assert(exists == "1", "MACsec profile {} missing in namespace {}".format(
+            profile_name, ns_prefix.strip() or "global"))
         duthost.shell(
             "sonic-db-cli {} CONFIG_DB HSET 'MACSEC_PROFILE|{}' rekey_period {}".format(
                 ns_prefix, profile_name, rekey_period),

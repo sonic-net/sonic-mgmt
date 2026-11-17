@@ -1,6 +1,7 @@
 import logging
 import pytest
 
+from tests.common.macsec.macsec_helper import getns_prefix
 from tests.common.macsec.recovery_helpers import (
     advance_egress_encoding_an,
     assert_appl_db_sak_programmed_in_asic,
@@ -8,7 +9,6 @@ from tests.common.macsec.recovery_helpers import (
     dirty_kill_macsec_container,
     get_egress_encoding_ans,
     graceful_restart_macsec,
-    macsec_namespace_prefixes,
     set_rekey_period,
     snapshot_appl_db_saks,
     wait_for_macsec_container,
@@ -59,7 +59,7 @@ pytestmark = [
 
 
 @pytest.fixture
-def force_dut_key_server(macsec_duthost, profile_name, ctrl_links,
+def force_dut_key_server(macsec_duthost, get_port_profile_name, ctrl_links,
                          policy, cipher_suite, send_sci):
     """
     Lower the DUT's MACSEC_PROFILE priority below the peer's so the DUT
@@ -76,11 +76,41 @@ def force_dut_key_server(macsec_duthost, profile_name, ctrl_links,
     restart.  rekey_period is restored here (not just in the test body) so
     that an advance-timeout error mid-test can't leak a non-zero rekey_period
     into the next profile's run.
+
+    Resolve each port's active profile in its ASIC namespace, supporting both
+    shared and per-interface profiles. Check profiles exist before updating them.
     """
     duthost = macsec_duthost
 
+    def _update_existing_profile(ns_prefix, profile_name, *fields):
+        # Skip missing profiles so HSET does not create an incomplete entry.
+        exists = duthost.shell(
+            "sonic-db-cli {} CONFIG_DB EXISTS 'MACSEC_PROFILE|{}'".format(
+                ns_prefix, profile_name),
+            module_ignore_errors=False,
+        )["stdout"].strip()
+        if exists != "1":
+            return False
+        # Apply the requested field/value pairs to the existing profile.
+        duthost.shell(
+            "sonic-db-cli {} CONFIG_DB HSET 'MACSEC_PROFILE|{}' {}".format(
+                ns_prefix, profile_name, " ".join(str(value) for value in fields)),
+            module_ignore_errors=False,
+        )
+        return True
+
+    # 1. Resolve and validate each unique namespace/profile, then save its original settings.
+    profiles = {(getns_prefix(duthost, port), get_port_profile_name(port))
+                for port in ctrl_links}
     original_settings = {}
-    for ns_prefix in macsec_namespace_prefixes(duthost):
+    for ns_prefix, profile_name in sorted(profiles):
+        exists = duthost.shell(
+            "sonic-db-cli {} CONFIG_DB EXISTS 'MACSEC_PROFILE|{}'".format(
+                ns_prefix, profile_name),
+            module_ignore_errors=False,
+        )["stdout"].strip()
+        assert exists == "1", "MACsec profile {} missing in namespace {}".format(
+            profile_name, ns_prefix.strip() or "global")
         orig_priority = duthost.shell(
             "sonic-db-cli {} CONFIG_DB HGET 'MACSEC_PROFILE|{}' priority".format(
                 ns_prefix, profile_name),
@@ -91,35 +121,34 @@ def force_dut_key_server(macsec_duthost, profile_name, ctrl_links,
                 ns_prefix, profile_name),
             module_ignore_errors=False,
         )["stdout"].strip() or "0"
-        original_settings[ns_prefix] = (orig_priority, orig_rekey)
-
+        original_settings[(ns_prefix, profile_name)] = (orig_priority, orig_rekey)
+    # 2. Give the DUT the lowest priority value so it wins key-server election.
+    #    Restart macsec container to apply config.
     try:
-        for ns_prefix, (orig_priority, orig_rekey) in original_settings.items():
-            logger.info("force_dut_key_server: namespace=%s original priority=%s "
+        for (ns_prefix, profile_name), (orig_priority, orig_rekey) in original_settings.items():
+            logger.info("force_dut_key_server: namespace=%s profile=%s original priority=%s "
                         "rekey_period=%s, forcing priority to 0",
-                        ns_prefix or "global", orig_priority, orig_rekey)
-            duthost.shell(
-                "sonic-db-cli {} CONFIG_DB HSET 'MACSEC_PROFILE|{}' priority 0".format(
-                    ns_prefix, profile_name),
-                module_ignore_errors=False,
-            )
+                        ns_prefix.strip() or "global", profile_name, orig_priority, orig_rekey)
+            assert _update_existing_profile(ns_prefix, profile_name, "priority", 0), \
+                "MACsec profile {} disappeared in namespace {}".format(
+                    profile_name, ns_prefix.strip() or "global")
         graceful_restart_macsec(duthost)
         assert wait_for_mka_converged(
             duthost, ctrl_links, policy, cipher_suite, send_sci), \
             "MKA did not converge after forcing DUT KS priority"
-
         yield
+    # 3. Restore the saved settings, skipping profiles removed during the test.
     finally:
-        for ns_prefix, (orig_priority, orig_rekey) in original_settings.items():
-            logger.info("force_dut_key_server teardown: namespace=%s restoring "
-                        "priority=%s rekey_period=%s", ns_prefix or "global",
-                        orig_priority, orig_rekey)
-            duthost.shell(
-                "sonic-db-cli {} CONFIG_DB HSET 'MACSEC_PROFILE|{}' priority {} "
-                "rekey_period {}".format(ns_prefix, profile_name, orig_priority, orig_rekey),
-                module_ignore_errors=False,
-            )
-        graceful_restart_macsec(duthost)
+        for (ns_prefix, profile_name), (orig_priority, orig_rekey) in original_settings.items():
+            logger.info("force_dut_key_server teardown: namespace=%s profile=%s restoring "
+                        "priority=%s rekey_period=%s", ns_prefix.strip() or "global",
+                        profile_name, orig_priority, orig_rekey)
+            if not _update_existing_profile(ns_prefix, profile_name, "priority", orig_priority,
+                                            "rekey_period", orig_rekey):
+                logger.warning("Not restoring missing MACsec profile %s in namespace %s",
+                               profile_name, ns_prefix.strip() or "global")
+        if original_settings:
+            graceful_restart_macsec(duthost)
 
 
 @pytest.mark.backstop
@@ -194,7 +223,7 @@ def test_dirty_container_kill_preserves_sak_consistency(
 
 @pytest.mark.backstop
 def test_dirty_container_kill_recovers_encoding_an(
-        macsec_duthost, profile_name, ctrl_links, policy, cipher_suite,
+        macsec_duthost, profile_name, get_port_profile_name, ctrl_links, policy, cipher_suite,
         send_sci, force_dut_key_server):
     """
     Stale-AN regression guard.  Distinct from the stale-SAK case: here the
@@ -238,7 +267,7 @@ def test_dirty_container_kill_recovers_encoding_an(
 
     logger.info("Step 2: advancing egress encoding AN past 0 via brief rekey")
     advanced = advance_egress_encoding_an(
-        duthost, profile_name, ctrl_links, policy, cipher_suite, send_sci)
+        duthost, get_port_profile_name, ctrl_links, policy, cipher_suite, send_sci)
     logger.info("Pre-kill egress encoding_an: %s", advanced)
 
     logger.info("Step 3: dirty-killing macsec container on %s",
@@ -247,7 +276,7 @@ def test_dirty_container_kill_recovers_encoding_an(
 
     logger.info("Step 4: restoring rekey_period=0 so the respawned session "
                 "is stable at AN=0")
-    set_rekey_period(duthost, profile_name, 0)
+    set_rekey_period(duthost, get_port_profile_name, ctrl_links, 0)
 
     logger.info("Step 5: waiting for macsec container to respawn")
     wait_for_macsec_container(duthost)
