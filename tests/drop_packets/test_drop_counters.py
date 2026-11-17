@@ -47,6 +47,7 @@ LOG_EXPECT_PORT_ADMIN_UP_RE = ".*Port {} oper state set from down to up.*"
 COMBINED_L2L3_DROP_COUNTER = False
 COMBINED_ACL_DROP_COUNTER = False
 
+
 def _get_dut_hostvars(duthost):
     _vm = duthost.host.options['variable_manager']
     if _vm._hostvars is not None:
@@ -90,6 +91,7 @@ def cisco_8000_mtu_drop_counter(duthost):
             or _hwsku_in(hostvars, "cisco-8000_gr2x_hwskus", hwsku)):
         return "TX_ERR"
     pytest.skip("MTU drop counter is not characterized for Cisco-8000 hwsku {}".format(hwsku))
+    return None
 
 
 def mtu_check_ports(mg_facts, mtu_iface):
