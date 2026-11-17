@@ -125,7 +125,12 @@ def test_dequeue_ecn(request,
                            snappi_extra_params=snappi_extra_params)[0]
 
     flow_names = [flow.name for flow in testbed_config.flows]
-    for metric in fetch_snappi_flow_metrics(snappi_api, flow_names):
+    try:
+        flow_metrics = fetch_snappi_flow_metrics(snappi_api, flow_names)
+    except Exception:
+        logger.exception("Unable to retrieve ECN dequeue flow metrics")
+        flow_metrics = []
+    for metric in flow_metrics:
         logger.info("ECN dequeue flow %s: TX packets=%s, RX packets=%s",
                     metric.name, metric.frames_tx, metric.frames_rx)
     logger.info("ECN dequeue capture: captured IP packets=%s, expected packets=%s",
