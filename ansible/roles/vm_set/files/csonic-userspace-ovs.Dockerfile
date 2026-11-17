@@ -1,5 +1,6 @@
 ARG CSONIC_BASE_IMAGE=docker-sonic-vs
-FROM debian:bookworm AS ovs-builder
+ARG CSONIC_OVS_BUILDER_IMAGE=publicmirror.azurecr.io:443/debian:bookworm
+FROM ${CSONIC_OVS_BUILDER_IMAGE} AS ovs-builder
 
 RUN sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/debian.sources \
     && apt-get update \
