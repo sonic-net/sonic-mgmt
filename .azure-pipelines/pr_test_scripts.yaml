@@ -783,13 +783,23 @@ t0-vpp:
   - bgp/test_bgp_dual_asn.py
   - bgp/test_bgp_fact.py
   - bgp/test_bgp_gr_helper.py
+  - bgp/test_bgp_gr_suppress_fib.py
+  - bgp/test_bgp_link_local.py
+  - bgp/test_bgp_max_route.py
   - bgp/test_bgp_peer_shutdown.py
   - bgp/test_bgp_route_neigh_learning.py
+  - bgp/test_bgp_route_weight.py
   - bgp/test_bgp_router_id.py
   - bgp/test_bgp_session.py
+  - bgp/test_bgp_speaker.py
   - bgp/test_bgp_stress_link_flap.py
+  - bgp/test_bgp_update_replication.py
   - bgp/test_bgp_update_timer.py
+  - bgp/test_bgp_vnet.py
   - bgp/test_bgpmon.py
+  - bgp/test_frr_config_check.py
+  - bgp/test_frr_set_src_route_map.py
+  - bgp/test_ping_bgp_neighbor.py
   - bmp/test_bmp_configdb.py
   - bmp/test_bmp_redis_instance.py
   - bmp/test_bmp_statedb.py

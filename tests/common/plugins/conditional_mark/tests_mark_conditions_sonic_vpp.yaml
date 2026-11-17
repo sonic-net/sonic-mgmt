@@ -43,6 +43,12 @@ bgp/test_bgp_session.py::test_bgp_session_interface_down:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/27487 and asic_type in ['vpp']"
 
+bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot:
+  skip:
+    reason: "SLB warm/fast persistence requires system warm-restart recovery, unsupported on VPP"
+    conditions:
+      - "asic_type in ['vpp']"
+
 bgp/test_bgp_suppress_fib.py::test_bgp_route_with_suppress[:
   skip:
     reason: "Suppress-FIB dataplane behavior has not been validated on VPP"

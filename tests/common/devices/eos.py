@@ -192,10 +192,10 @@ def _vrf_scope_eos_reads(commands, vrf):
 _CONVERGED_TEST_LOOPBACK_OFFSET = 1000
 
 _ROUTER_BGP_RE = re.compile(r'^\s*router\s+bgp\s+\d+', re.IGNORECASE)
-# Match only the lowercase ad-hoc idiom (``interface loopback <N>``); the
+# Match the lowercase ad-hoc creation/deletion idiom; the
 # converged prime's real interfaces render as capitalized ``Loopback<N>`` and
 # must not be renumbered.
-_TEST_LOOPBACK_RE = re.compile(r'^(\s*)interface\s+loopback\s+(\d+)\s*$')
+_TEST_LOOPBACK_RE = re.compile(r'^(\s*)(no\s+)?interface\s+loopback\s+(\d+)\s*$')
 
 
 def _vrf_scope_eos_config(commands, vrf, prime_asn):
@@ -213,6 +213,8 @@ def _vrf_scope_eos_config(commands, vrf, prime_asn):
       followed by ``vrf <vrf>``, so the connected host route used to source an
       advertised ``network`` exists in the right VRF instead of clobbering a
       sub-peer's Loopback.
+    * ``no interface loopback <N>`` removes that same temporary interface,
+      without entering a VRF context after the deletion.
 
     Returns ``commands`` unchanged when no VRF is set, the input is not a list,
     or nothing matches -- so stock topologies and ordinary command lists are
@@ -229,10 +231,11 @@ def _vrf_scope_eos_config(commands, vrf, prime_asn):
         if isinstance(cmd, str):
             loopback_match = _TEST_LOOPBACK_RE.match(cmd)
             if loopback_match:
-                indent, num = loopback_match.group(1), int(loopback_match.group(2))
-                rewritten.append('{}interface Loopback{}'.format(
-                    indent, num + _CONVERGED_TEST_LOOPBACK_OFFSET))
-                rewritten.append('vrf {}'.format(vrf))
+                indent, negate, num = loopback_match.groups()
+                rewritten.append('{}{}interface Loopback{}'.format(
+                    indent, negate or '', int(num) + _CONVERGED_TEST_LOOPBACK_OFFSET))
+                if not negate:
+                    rewritten.append('vrf {}'.format(vrf))
                 continue
             if _ROUTER_BGP_RE.match(cmd) and prime_asn:
                 rewritten.append('router bgp {}'.format(prime_asn))
