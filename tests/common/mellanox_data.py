@@ -1429,6 +1429,18 @@ def get_chip_type(dut):
     return platform_data.get("chip_type")
 
 
+def is_spectrum6_or_newer(duthost):
+    if not is_mellanox_device(duthost):
+        return False
+    chip_type = get_chip_type(duthost)
+    if not chip_type or not chip_type.startswith("spectrum"):
+        return False
+    try:
+        return int(chip_type.replace("spectrum", "")) >= 6
+    except ValueError:
+        return False
+
+
 @read_only_cache()
 def get_hardware_version(duthost, platform):
     if platform in MULTI_HARDWARE_TYPE_PLATFORMS:

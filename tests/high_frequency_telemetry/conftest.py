@@ -45,6 +45,7 @@ TEST_HFT_PROFILES = (
     "state_transition_profile",
     "config_deletion_profile",
     "port_shutdown_profile",
+    "warm_reboot_hft_profile",
     "e2e_port_profile",
     "poll_interval_profile_1000",
 )
@@ -366,6 +367,9 @@ def hft_influxdb_server(ptfhost):
 def hft_influxdb(request, ptfhost, skip_unsupported_hft_test,
                  duthosts, enum_rand_one_per_hwsku_hostname, tbinfo):
     """Provide a unique InfluxDB database for every HFT case."""
+    # WR case: skip before InfluxDB/OTEL setup when ISSU is not enabled.
+    if "hft_warm_reboot_profile" in request.fixturenames:
+        request.getfixturevalue("hft_warm_reboot_profile")
     request.getfixturevalue("cleanup_high_frequency_telemetry")
     request.getfixturevalue("hft_influxdb_server")
     request.getfixturevalue("hft_otel_collector")
@@ -410,15 +414,9 @@ def hft_influxdb(request, ptfhost, skip_unsupported_hft_test,
         # Setup failures are active here; pytest reports call-phase failures
         # separately from any teardown error raised below.
         original_error = sys.exc_info()[1]
-        cleanup_steps = []
-        if database_created:
-            # Let samples countersyncd still exports for this case reach this
-            # database before the next case points the collector elsewhere.
-            cleanup_steps.append(
-                (f"drain HFT export into InfluxDB database {bucket}",
-                 sink.wait_until_drained)
-            )
-        cleanup_steps.append(("stop OTEL collector", cleanup_stop_collector))
+        cleanup_steps = [
+            ("stop OTEL collector", cleanup_stop_collector),
+        ]
         if database_created:
             cleanup_steps.append(
                 (f"drop InfluxDB database {bucket}", sink.drop)
@@ -439,6 +437,14 @@ def hft_queue_influxdb(hft_influxdb, duthosts,
     yield hft_influxdb
     cleanup_hft_config(duthost, "queue_profile", ["QUEUE"])
     restart_countersyncd_daemon(duthost)
+
+
+@pytest.fixture(scope="function")
+def hft_warm_reboot_profile(rand_selected_dut, skip_if_warm_reboot_unsupported):
+    """Provide warm-reboot HFT profile; skip if ISSU is not enabled."""
+    profile_name = "warm_reboot_hft_profile"
+    yield profile_name
+    cleanup_hft_config(rand_selected_dut, profile_name, ["PORT"])
 
 
 @pytest.fixture(autouse=True)
