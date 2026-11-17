@@ -97,6 +97,7 @@ def setup_faulted_y_cable_driver(
         yield select_mux_port
     finally:
         restore_ok = True
+        result = None
         if y_cable_simulated_path:
             result = simulated_faulty_side.shell(
                 "docker exec pmon mv {path}/y_cable_simulated.py.orig {path}/y_cable_simulated.py".format(
