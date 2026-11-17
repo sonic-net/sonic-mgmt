@@ -17,7 +17,6 @@ from tests.common.utilities import skip_release, wait_until, paramiko_ssh
 from .utils import check_server_received
 from tests.common.utilities import backup_config, restore_config, \
         reload_minigraph_with_golden_config
-from tests.common.helpers.dut_utils import is_container_running
 from .utils import duthost_shell_with_unreachable_retry
 
 pytestmark = [
@@ -340,12 +339,7 @@ def test_authorization_tacacs_only(
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     if duthost.sonichost.is_frontend_node():
         commands.extend(frontend_commands)
-    telemetry_is_running = is_container_running(duthost, 'telemetry')
-    gnmi_is_running = is_container_running(duthost, 'gnmi')
-    if not telemetry_is_running and gnmi_is_running:
-        commands.append("show feature status gnmi")
-    else:
-        commands.append("show feature status telemetry")
+    commands.append("show feature status gnmi")
 
     for subcommand in commands:
         exit_code, stdout, stderr = ssh_run_command(remote_user_client, subcommand, expect_exit_code=0, verify=True)
