@@ -2,6 +2,7 @@ import logging
 import re
 import json
 import math
+import time
 from natsort import natsorted
 
 import pytest
@@ -16,7 +17,19 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import check_qos_db_fv_reference_with_table
 from tests.common.utilities import skip_release
 from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports      # noqa: F401
-from tests.qos.buffer_helpers import DutDbInfo, update_cable_len_for_all_ports    # noqa: F401
+from tests.qos.buffer_helpers import update_cable_len_for_all_ports  # noqa: F401
+from tests.qos.buffer_helpers import (
+    DutDbInfo,
+    get_reduced_shared_buffer_service_ports,
+    verify_service_port_config_and_metadata,
+    get_service_port_appl_buffer_items,
+    wait_buffer_pg_table_restored,
+    assert_buffermgrd_and_syncd_alive,
+    flap_service_port,
+    resolve_service_port_profile_names,
+    SERVICE_PORT_INGRESS_PROFILE,
+    LEGACY_SERVICE_PORT_PG_PROFILE,
+)
 from tests.common.platform.interface_utils import get_dpu_npu_ports_from_hwsku
 
 pytestmark = [
@@ -487,6 +500,7 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
                 'redis-cli -n 4 keys "PORT|*"')['stdout'].split('\n')]
         else:
             ports = list(ports_info.keys())
+        ports = [port for port in ports if port not in get_reduced_shared_buffer_service_ports(duthost)]
         if PORTS_WITH_8LANES is None:
             PORTS_WITH_8LANES = []
             for port in ports:
@@ -983,12 +997,19 @@ def port_to_test(request, duthosts, rand_one_dut_hostname):
     testPort = set(mgFacts["minigraph_ports"].keys())
     lagMembers = set(dutLagInterfaces)
     testPort -= lagMembers
+    service_ports = get_reduced_shared_buffer_service_ports(duthost)
+    if service_ports:
+        testPort -= service_ports
     pytest_require(len(testPort) > 0, "No port to run test")
 
     PORT_TO_TEST = request.config.getoption("--port_to_test")
     if PORT_TO_TEST in lagMembers:
         logging.info(
             "LAG member port {} can not be used for dynamic buffer test".format(PORT_TO_TEST))
+        PORT_TO_TEST = None
+    if PORT_TO_TEST in service_ports:
+        logging.info(
+            "Service port {} can not be used for dynamic buffer test on Spectrum-6+".format(PORT_TO_TEST))
         PORT_TO_TEST = None
     if not PORT_TO_TEST:
         # The NVIDIA SPC1 platform requires a 4 lanes port for testing to avoid exceeding the maximum available headroom
@@ -3092,12 +3113,70 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
 
     configdb_ports = [port for port in configdb_ports if duthost.shell(
         f'redis-cli -n 4 hget "PORT|{port}" "admin_status"')['stdout'] == 'up']
-    logging.info(f"test ports is {configdb_ports}")
+    service_ports_platform = get_reduced_shared_buffer_service_ports(duthost)
+    service_port_list = [port for port in configdb_ports if port in service_ports_platform]
+    data_ports = [port for port in configdb_ports if port not in service_ports_platform]
+    logging.info(f"test data ports {data_ports}, service ports {service_port_list}")
     profiles_checked = {}
     lossless_pool_oid = None
     admin_up_ports = set()
     config_facts = duthost.config_facts(host=duthost.hostname, asic_index=0, source="running")['ansible_facts']
-    for port in configdb_ports:
+
+    def _check_service_ports_appl_asic(pg_profile_name, ports=None):
+        ports_to_check = ports if ports is not None else service_port_list
+        if not ports_to_check:
+            return
+        buffer_items = get_service_port_appl_buffer_items(profile_wrapper, pg_profile_name)
+        for port in ports_to_check:
+            logging.info("Checking service port buffer APPL/ASIC: {}".format(port))
+            for table, ids, expected_profile in buffer_items:
+                if not expected_profile:
+                    continue
+                buffer_profile_oid, _ = _check_port_buffer_info_and_get_profile_oid(
+                    dut_db_info, table, ids, port, expected_profile)
+                if not buffer_profile_oid:
+                    raise Exception(
+                        "Service port {} buffer profile {} not found in ASIC_DB".format(port, expected_profile))
+
+    sp_pg_profile_name = None
+    if service_ports_platform:
+        if not any(duthost.is_interface_status_up(port) for port in service_ports_platform):
+            logging.info(
+                "Skip service port buffer verification: all SP ports are operationally down ({})".format(
+                    sorted(service_ports_platform)))
+        else:
+            # verify_service_port_config_and_metadata also checks show pfc priority
+            # on each SP: Lossless priorities must be empty or N/A.
+            sp_pg_profile_name, _ = verify_service_port_config_and_metadata(duthost, service_ports_platform)
+            _check_service_ports_appl_asic(sp_pg_profile_name)
+            assert_buffermgrd_and_syncd_alive(duthost)
+
+            # repeated config qos reload must not crash buffermgrd/syncd
+            for reload_idx in (1, 2):
+                logging.info(
+                    "Running config qos reload #{} before re-checking service port state".format(reload_idx))
+                duthost.shell("config qos reload")
+                wait_buffer_pg_table_restored(duthost)
+                assert_buffermgrd_and_syncd_alive(duthost)
+                dut_db_info.update_db_info()
+                verify_service_port_config_and_metadata(duthost, service_ports_platform)
+                _check_service_ports_appl_asic(sp_pg_profile_name)
+
+            # port flap on SP must not crash buffermgrd/syncd
+            sp_to_flap = sorted(service_port_list or [
+                port for port in service_ports_platform if duthost.is_interface_status_up(port)])[0]
+            logging.info("Flapping service port {}".format(sp_to_flap))
+            flap_service_port(duthost, sp_to_flap)
+            wait_buffer_pg_table_restored(duthost)
+            assert_buffermgrd_and_syncd_alive(duthost)
+            dut_db_info.update_db_info()
+            verify_service_port_config_and_metadata(duthost, service_ports_platform)
+            _check_service_ports_appl_asic(
+                sp_pg_profile_name,
+                [port for port in sorted(service_ports_platform)
+                 if duthost.is_interface_status_up(port) or port == sp_to_flap])
+
+    for port in data_ports:
         logging.info("Checking port buffer information: {}".format(port))
         port_config = dut_db_info.get_port_info_from_config_db(port)
         cable_length = cable_length_map[port]
@@ -3259,6 +3338,75 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
         finally:
             duthost.shell('config interface startup {}'.format(
                 port_to_shutdown), module_ignore_errors=True)
+
+
+@pytest.mark.disable_loganalyzer
+def test_service_port_invalid_buffer_config_rejected(duthosts, rand_one_dut_hostname, request):
+    """SPC6+ service ports reject mixing SP ingress profile with ingress_lossy_profile.
+
+    Writing both profiles into BUFFER_PORT_INGRESS_PROFILE_LIST for a service port
+    must fail in SAI and emit orchagent/syncd error syslog. The original
+    profile_list is restored afterwards.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    service_ports = get_reduced_shared_buffer_service_ports(duthost)
+    if not service_ports:
+        pytest.skip("Platform has no Spectrum-6+ service ports")
+
+    dut_db_info = DutDbInfo(duthost)
+    _, ingress_profile = resolve_service_port_profile_names(dut_db_info.config_db)
+    if ingress_profile != SERVICE_PORT_INGRESS_PROFILE:
+        pytest.skip("Platform does not use {} (current ingress_profile={})".format(
+            SERVICE_PORT_INGRESS_PROFILE, ingress_profile))
+
+    port = sorted(service_ports)[0]
+    key = "BUFFER_PORT_INGRESS_PROFILE_LIST|{}".format(port)
+    original_profile_list = duthost.shell(
+        'sonic-db-cli CONFIG_DB hget "{}" profile_list'.format(key))["stdout"].strip()
+    pytest_assert(
+        original_profile_list,
+        "Service port {} has empty BUFFER_PORT_INGRESS_PROFILE_LIST.profile_list".format(port))
+
+    # Invalid mix rejected on SPC6+; expect orchagent (or legacy syncd BULK_SET) failure
+    invalid_profile_list = "{},{}".format(
+        SERVICE_PORT_INGRESS_PROFILE, LEGACY_SERVICE_PORT_PG_PROFILE)
+
+    expected_err = [
+        r".*ERR (swss#orchagent: :- start: Encountered failure in set operation, "
+        r"SAI API: SAI_API_PORT, status: SAI_STATUS_NOT_EXECUTED|"
+        r"swss#orchagent: :- processIngressBufferProfileListPost: "
+        r"Failed to set ingress buffer profile list on port|"
+        r"syncd#SDK: :- sendApiResponse: api SAI_COMMON_API_BULK_SET "
+        r"failed in syncd mode: SAI_STATUS_FAILURE).*",
+    ]
+    # Side-effect ERRs from orchagent/syncd during rejection. Expect is matched first,
+    # so lines in expected_err still count as expected even if they also match here.
+    ignored_err = [
+        r".*ERR (swss#orchagent|syncd#SDK):.*",
+    ]
+
+    loganalyzer, marker = init_log_analyzer(
+        duthost,
+        "service_port_invalid_ingress_profile_list",
+        expected_err,
+        ignored_err,
+        request)
+
+    try:
+        duthost.shell(
+            'sonic-db-cli CONFIG_DB hset "{}" profile_list "{}"'.format(
+                key, invalid_profile_list))
+        # Allow buffermgrd/syncd to process the CONFIG_DB update and emit the ERR
+        time.sleep(10)
+        check_log_analyzer(loganalyzer, marker)
+    finally:
+        duthost.shell(
+            'sonic-db-cli CONFIG_DB hset "{}" profile_list "{}"'.format(
+                key, original_profile_list))
+        duthost.shell(
+            'sonic-db-cli STATE_DB hmset "PROCESS_HEALTH|orchagent" unhealthy false error ""')
+        verify_service_port_config_and_metadata(duthost, service_ports)
+        assert_buffermgrd_and_syncd_alive(duthost)
 
 
 def calculate_headroom_data(duthost, port_to_test):

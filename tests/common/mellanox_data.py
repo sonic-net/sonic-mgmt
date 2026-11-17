@@ -5,6 +5,21 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+SERVICE_PORTS_BY_PLATFORM = {
+    "x86_64-nvidia_sn5600-r0": ["Ethernet512"],
+    "x86_64-nvidia_sn5600_simx-r0": ["Ethernet512"],
+    "x86_64-nvidia_sn5640-r0": ["Ethernet512", "Ethernet520"],
+    "x86_64-nvidia_sn5640_simx-r0": ["Ethernet512", "Ethernet520"],
+    "x86_64-nvidia_sn6600-r0": ["Ethernet512", "Ethernet520", "Ethernet528", "Ethernet536"],
+    "x86_64-nvidia_sn6600_simx-r0": ["Ethernet512", "Ethernet520", "Ethernet528", "Ethernet536"],
+    "x86_64-nvidia_sn5810_ld-r0": ["Ethernet512", "Ethernet513"],
+    "x86_64-nvidia_sn5810_ld_simx-r0": ["Ethernet512", "Ethernet513"],
+    "x86_64-nvidia_sn6600_ld-r0": ["Ethernet512", "Ethernet513"],
+    "x86_64-nvidia_sn6600_ld_simx-r0": ["Ethernet512", "Ethernet513"],
+    "x86_64-nvidia_sn6810_ld-r0": ["Ethernet512", "Ethernet513"],
+    "x86_64-nvidia_sn6810_ld_simx-r0": ["Ethernet512", "Ethernet513"],
+}
+
 SPC1_HWSKUS = ["ACS-MSN2700", "Mellanox-SN2700", "Mellanox-SN2700-D48C8", "ACS-MSN2740", "ACS-MSN2100", "ACS-MSN2410",
                "ACS-MSN2010", "ACS-SN2201", "Mellanox-SN2700-C28D8", "Mellanox-SN2700-A1-C28D8"]
 SPC2_HWSKUS = ["ACS-MSN3700", "ACS-MSN3700C", "ACS-MSN3800", "Mellanox-SN3800-D112C8", "ACS-MSN3420"]
@@ -1427,6 +1442,27 @@ def get_platform_data(dut):
 def get_chip_type(dut):
     platform_data = get_platform_data(dut)
     return platform_data.get("chip_type")
+
+
+def is_spectrum6_or_newer(duthost):
+    if not is_mellanox_device(duthost):
+        return False
+    chip_type = get_chip_type(duthost)
+    if not chip_type or not chip_type.startswith("spectrum"):
+        return False
+    try:
+        return int(chip_type.replace("spectrum", "")) >= 6
+    except ValueError:
+        return False
+
+
+def get_service_ports(platform):
+    """
+    @summary: This method is for getting the service ports of a platform
+    @param: platform: DUT platform name, e.g. duthost.facts['platform']
+    @return: list of the platform's service ports, empty if it has none
+    """
+    return list(SERVICE_PORTS_BY_PLATFORM.get(platform, []))
 
 
 @read_only_cache()
