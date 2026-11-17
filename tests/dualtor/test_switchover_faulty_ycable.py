@@ -4,7 +4,6 @@ import logging
 import os
 import pytest
 import random
-import time
 
 from tests.common.dualtor.control_plane_utils import verify_tor_states
 from tests.common.dualtor.dual_tor_common import active_standby_ports                                       # noqa: F401
@@ -90,8 +89,8 @@ def setup_faulted_y_cable_driver(
             "docker cp /tmp/y_cable_simulated.py pmon:%s/" % y_cable_simulated_path)
         duthost.shell(
             "docker exec pmon supervisorctl restart ycabled")
-        # Sleep 10 seconds for ycabled restart
-        time.sleep(10)
+        pytest_assert(_wait_for_ycabled_startup(duthost),
+                      "Failed to start ycabled on {}".format(duthost.hostname))
         yield
     finally:
         if y_cable_simulated_path:
@@ -111,10 +110,7 @@ def setup_faulted_y_cable_driver(
             restarted = wait_until(
                 60, 5, 0, check_container_state, duthost, "pmon", True)
             pytest_assert(restarted, "Failed to start PMON on {}".format(duthost.hostname))
-            ycabled_started = wait_until(
-                60, 5, 0, lambda: duthost.get_pmon_daemon_status("ycabled")[0] == "RUNNING")
-            pytest_assert(ycabled_started, "Failed to start ycabled on {}".format(duthost.hostname))
-            logging.info("PMON and ycabled are running.")
+            logging.info("PMON is running.")
             pytest_assert(_wait_for_recovery(duthost, mux_port, duthosts, ports),
                           "Failed to recover Y-cable state or mux health after PMON recovery")
 
@@ -145,7 +141,15 @@ def select_mux_port(active_standby_ports):  # noqa: F811
     return random.choice(active_standby_ports)
 
 
+def _wait_for_ycabled_startup(duthost):
+    return wait_until(60, 5, 0, lambda: duthost.get_pmon_daemon_status("ycabled")[0] == "RUNNING")
+
+
 def _wait_for_recovery(duthost, mux_port, duthosts, ports):
+    if not _wait_for_ycabled_startup(duthost):
+        logging.warning("ycabled did not reach RUNNING on %s", duthost.hostname)
+        return False
+
     def _check_fault_cleared():
         return (get_tor_mux_probe_state(duthost, mux_port) in ("active", "standby") and
                 get_tor_mux_cable_info(duthost, mux_port).get("link_status_peer") == "up")
@@ -162,6 +166,8 @@ def _wait_for_recovery(duthost, mux_port, duthosts, ports):
                     return False
         return True
 
+    # ycabled is RUNNING, but as of 2026-11-17 its info worker waits 60s
+    # after worker startup (following daemon initialization) before its first periodic refresh.
     return (wait_until(90, 10, 0, _check_fault_cleared) and
             wait_until(120, 10, 0, _check_mux_ports_healthy))
 
