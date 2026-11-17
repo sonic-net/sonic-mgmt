@@ -1,5 +1,7 @@
 """High frequency telemetry counter configuration keyed by platform and object type.
 
+Virtual platforms that share one platform string use ``asic_type`` as the key.
+
 The counters listed here are supported on Spectrum-4 (SN5600 / SPC4) and above.
 ``_QUEUE_COUNTERS_SPC6_EXTRA`` are the queue counters that are additionally
 supported only on Spectrum-6 (SN6600 / SPC6) and above.
@@ -24,6 +26,7 @@ class CounterObjectType(Enum):
 
 
 _DEFAULT_PLATFORM = "default"
+_VPP_PLATFORM = "vpp"
 
 # Counters supported on Spectrum-4 (SN5600 / SPC4) and above
 _PORT_COUNTERS = (
@@ -61,6 +64,12 @@ _QUEUE_COUNTERS_SPC6_EXTRA = (
 )
 
 SUPPORTED_STATS: Mapping[str, Mapping[CounterObjectType, Sequence[str]]] = {
+    _VPP_PLATFORM: {
+        CounterObjectType.PORT: _PORT_COUNTERS,
+        CounterObjectType.QUEUE: (),
+        CounterObjectType.BUFFER_POOL: (),
+        CounterObjectType.INGRESS_PRIORITY_GROUP: (),
+    },
     "x86_64-nvidia_sn5600-r0": {
         CounterObjectType.PORT: _PORT_COUNTERS,
         CounterObjectType.QUEUE: _QUEUE_COUNTERS,
@@ -98,15 +107,17 @@ def _normalize_platform(platform: str | None) -> str:
     return platform.strip().lower()
 
 
-def _get_platform(duthost) -> str:
+def _get_profile_key(duthost) -> str:
     facts = getattr(duthost, "facts", {})
+    if facts.get("asic_type", "").strip().lower() == _VPP_PLATFORM:
+        return _VPP_PLATFORM
     return facts.get("platform", "")
 
 
 def get_support_counter_list(duthost, counter_type: CounterObjectType) -> Sequence[str]:
     """Return the list of supported counters for `counter_type` on the DUT platform."""
 
-    platform_key = _normalize_platform(_get_platform(duthost))
+    platform_key = _normalize_platform(_get_profile_key(duthost))
     platform_defs = SUPPORTED_STATS.get(platform_key)
 
     if not platform_defs:
