@@ -3,7 +3,7 @@
 #Stop or start all the services in the DUT
 
 #Services can be started, they must be in order
-services=("swss" "syncd" "radv" "lldp" "dhcp_relay" "teamd" "bgp" "pmon" "telemetry" "acms" "snmp")
+services=("swss" "syncd" "radv" "lldp" "dhcp_relay" "teamd" "bgp" "pmon" "acms" "snmp")
 service_dir='/lib/systemd/system'
 op_service(){
     if [[ x"$op" == x"remove" ]]; then
