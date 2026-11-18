@@ -116,6 +116,8 @@ class FibTest(BaseTest):
          - dst_vid                vlan tag id of dst pkts. Default: None(untag)
          - ignore_ttl:            mask the ttl field in the expected packet
          - single_fib_for_duts:   have a single fib file for all DUTs in multi-dut case. Default: False
+         - fib_asic_indexes:      ASIC index of each fib file, for a DUT whose ASICs are not connected.
+                                  The fib of the ingress port's ASIC is used. Default: None
         '''
         self.dataplane = ptf.dataplane_instance
         self.asic_type = self.test_params.get('asic_type')
@@ -128,6 +130,13 @@ class FibTest(BaseTest):
         self.fibs = []
         for fib_info_file in self.test_params.get('fib_info_files'):
             self.fibs.append(fib.Fib(fib_info_file))
+
+        # One FIB per ASIC of a DUT whose ASICs are not connected: maps ASIC index to FIB index
+        self.fib_index_by_asic = {}
+        fib_asic_indexes = self.test_params.get('fib_asic_indexes')
+        if fib_asic_indexes:
+            self.fib_index_by_asic = {int(asic_index): fib_index
+                                      for fib_index, asic_index in enumerate(fib_asic_indexes)}
 
         ptf_test_port_map = self.test_params.get('ptf_test_port_map')
         with open(ptf_test_port_map) as f:
@@ -205,7 +214,13 @@ class FibTest(BaseTest):
         while True:
             src_port = int(random.choice(self.src_ports))
             active_dut_indexes = [0]
-            if self.single_fib == "multiple-fib":
+            if self.fib_index_by_asic:
+                # A packet can only use the routes of the ASIC it enters
+                fib_index = self.fib_index_by_asic.get(self.ptf_test_port_map[str(src_port)].get('asic_idx'))
+                if fib_index is None or dst_ip not in self.fibs[fib_index]:
+                    continue
+                active_dut_indexes = [fib_index]
+            elif self.single_fib == "multiple-fib":
                 active_dut_indexes = self.ptf_test_port_map[str(
                     src_port)]['target_dut']
 
