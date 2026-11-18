@@ -66,7 +66,7 @@
       multi_vrf: "{{ topo_is_multi_vrf }}"
       multi_vrf_data: "{{ convergence_data|default({}) }}"
     become: yes
-    when: (not enable_async or VM_hosts | length == 0) and "bmc" not in topo
+    when: (not enable_async or VM_targets | length == 0) and "bmc" not in topo
 
   - name: Unbind topology {{ topo }} to VMs. base vm = {{ VM_base }} (async mode)
     loop: "{{ VM_hosts | flatten(levels=1) }}"
@@ -95,7 +95,7 @@
     poll: 0
     throttle: 50
     register: async_unbind_vm
-    when: enable_async and "bmc" not in topo
+    when: enable_async and VM_targets | length > 0 and "bmc" not in topo
 
   - name: Wait for unbind tasks to complete
     become: yes
@@ -108,7 +108,7 @@
     until: async_unbind_topology_poll_results.finished
     retries: 30
     delay: 60
-    when: enable_async
+    when: enable_async and VM_targets | length > 0 and "bmc" not in topo
 
   - name: Unbind topology {{ topo }} to DPU VMs. base vm = {{ VM_base }}
     vm_topology:
