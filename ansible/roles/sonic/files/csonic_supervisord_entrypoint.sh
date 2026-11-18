@@ -17,4 +17,7 @@ if grep -q '"frr_mgmt_framework_config"[[:space:]]*:[[:space:]]*"true"' "$config
         /etc/supervisor/conf.d/csonic_frr_daemons.conf
 fi
 
+# docker_init.sh normally defines this before starting supervisord.
+export BGPD_GRACEFUL_RESTART_ARG="${BGPD_GRACEFUL_RESTART_ARG:-}"
+
 exec /usr/local/bin/supervisord "$@"
