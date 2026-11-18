@@ -521,7 +521,7 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
     logger.info(f"Backing up current minigraph from {MINIGRAPH} to {MINIGRAPH_BACKUP}")
     if not duthost.stat(path=MINIGRAPH)["stat"]["exists"]:
         pytest.fail(f"{MINIGRAPH} not found on DUT")
-    duthost.shell(f"sudo cp {MINIGRAPH} {MINIGRAPH_BACKUP}")
+    duthost.shell(f"sudo cp -p {MINIGRAPH} {MINIGRAPH_BACKUP}")
 
     # Step 1.1: Reload minigraph to ensure clean state.
     #

@@ -4,7 +4,12 @@ import ast
 import builtins
 import importlib.util
 import json
+import os
 from pathlib import Path
+import shlex
+import shutil
+import subprocess
+from types import SimpleNamespace
 import xml.etree.ElementTree as ET
 
 import jsonpatch
@@ -13,6 +18,49 @@ from defusedxml.common import EntitiesForbidden
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_minigraph_backup_preserves_metadata_for_restoration(tmp_path):
+    cp = shutil.which("cp")
+    if cp is None:
+        pytest.skip("The native minigraph copy commands require cp")
+
+    original = tmp_path / "minigraph.xml"
+    original.write_bytes(b"<Minigraph />\n")
+    os.utime(original, ns=(1600000000123456700, 1600000000123456700))
+    before = original.stat()
+    paths = {"/minigraph.xml": original, "/minigraph.xml.backup": tmp_path / "backup.xml"}
+
+    def copy(command):
+        args = shlex.split(command)
+        if args[0] == "sudo":
+            args = args[1:]
+        assert args[0] == "cp"
+        subprocess.run([cp] + [str(paths.get(arg, arg)) for arg in args[1:]], check=True, capture_output=True)
+
+    source = ROOT / "test_dt2_addcluster.py"
+    tree = ast.parse(source.read_text(encoding="utf-8"))
+    names = {"MINIGRAPH", "MINIGRAPH_BACKUP"}
+    namespace = {
+        "MINIGRAPH": "/minigraph.xml",
+        "MINIGRAPH_BACKUP": "/minigraph.xml.backup",
+        "duthost": SimpleNamespace(shell=copy),
+    }
+    for function_name in ("test_dt2_addcluster_workflow", "setup_env"):
+        function = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == function_name)
+        commands = [
+            node for node in ast.walk(function)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "shell" and node.args
+            and {part.id for part in ast.walk(node.args[0]) if isinstance(part, ast.Name)} == names
+        ]
+        assert len(commands) == 1
+        eval(compile(ast.Expression(body=commands[0]), str(source), "eval"), namespace)
+        if function_name == "test_dt2_addcluster_workflow":
+            original.write_bytes(b"<ChangedMinigraph />\n")
+
+    assert original.read_bytes() == b"<Minigraph />\n"
+    assert original.stat().st_mtime_ns == before.st_mtime_ns
 
 
 def caller_helpers(single_asic):
