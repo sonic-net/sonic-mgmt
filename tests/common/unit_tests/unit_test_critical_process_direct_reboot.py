@@ -15,16 +15,55 @@ BEFORE = '00000000-0000-0000-0000-000000000001'
 AFTER = '00000000-0000-0000-0000-000000000002'
 
 
+class Failed(BaseException):
+    """Match pytest.fail.Exception inheritance, not AssertionError."""
+
+
 def require(condition, message):
     if not condition:
-        raise AssertionError(message)
+        raise Failed(message)
 
 
 def fail(message):
-    require(False, message)
+    raise Failed(message)
 
 
-fail.Exception = AssertionError
+fail.Exception = Failed
+
+
+class InertFuture:
+    def __init__(self, function, args, kwargs):
+        self.collected = []
+        self.pending = False
+        self.error = None
+        try:
+            self.result = function(*args, **kwargs)
+        except Exception as error:
+            self.error = error
+
+    def get(self, timeout=None):
+        self.collected.append(timeout)
+        if self.pending:
+            raise TimeoutError('submission still pending')
+        if self.error is not None:
+            raise self.error
+        return self.result
+
+    def ready(self):
+        return not self.pending
+
+
+class InertPool:
+    def __init__(self):
+        self.closed = False
+        self.future = None
+
+    def apply_async(self, function, args, kwargs):
+        self.future = InertFuture(function, args, kwargs)
+        return self.future
+
+    def close(self):
+        self.closed = True
 
 
 class AnsibleConnectionFailure(Exception):
@@ -58,9 +97,11 @@ class DirectRebootControls(unittest.TestCase):
             'ensure_all_critical_processes_running': Mock(),
             'postcheck_critical_processes_status': Mock(return_value=True),
             'POST_CHECK_THRESHOLD_SECS': 600,
+            'ThreadPool': self.make_pool, 'monotonic': lambda: 0,
         }
         tree = ast.parse(SOURCE.read_text())
-        names = {'_read_boot_id', '_admit_database_recovery', '_boot_id_changed', 'recover_critical_processes'}
+        names = {'_read_boot_id', '_admit_database_recovery', '_boot_id_changed',
+                 '_submit_os_reboot_and_wait_for_shutdown', 'recover_critical_processes'}
         constants = {'DatabaseRecovery', 'BOOT_ID_COMMAND', 'REBOOT_SHUTDOWN_TIMEOUT_SEC',
                      'MULTI_ASIC_VS_REBOOT_DELAY_SEC'}
         nodes = []
@@ -73,6 +114,13 @@ class DirectRebootControls(unittest.TestCase):
                 nodes.append(node)
         exec(compile(ast.Module(body=nodes, type_ignores=[]), str(SOURCE), 'exec'), self.ns)
         self.topology = {'topo': {'name': 'bmc', 'type': 'bmc'}}
+        self.pools = []
+
+    def make_pool(self, processes):
+        self.assertEqual(processes, 1)
+        pool = InertPool()
+        self.pools.append(pool)
+        return pool
 
     def command(self, command, **kwargs):
         if command == 'cat /proc/sys/kernel/random/boot_id':
@@ -118,6 +166,8 @@ class DirectRebootControls(unittest.TestCase):
         self.ns['config_reload'].assert_called_once()
         self.ns['ensure_all_critical_processes_running'].assert_called_once()
         self.ns['postcheck_critical_processes_status'].assert_called_once()
+        self.assertTrue(self.pools[0].closed)
+        self.assertEqual(len(self.pools[0].future.collected), 1)
 
     def test_current_dual_mgmt_without_pdu_uses_one_normal_bmc_reboot_trial(self):
         self.topology['topo']['name'] = 'bmc-dual-mgmt'
@@ -136,7 +186,7 @@ class DirectRebootControls(unittest.TestCase):
 
     def test_probe_failure_prevents_yield(self):
         self.probe_rc = 1
-        with self.assertRaisesRegex(AssertionError, 'unavailable'):
+        with self.assertRaisesRegex(Failed, 'unavailable'):
             next(self.fixture())
         self.assertEqual([call.args[0] for call in self.dut.command.call_args_list], ['test -x /sbin/reboot'])
 
@@ -149,7 +199,7 @@ class DirectRebootControls(unittest.TestCase):
                 self.reboot_error = failure
             else:
                 self.reboot_rc = failure
-            with self.assertRaises((AssertionError, RuntimeError, ConnectionError)):
+            with self.assertRaises((Failed, RuntimeError, ConnectionError)):
                 next(generator)
             self.assertEqual([call.args[0] for call in self.dut.command.call_args_list].count('/sbin/reboot'), 1)
             self.ns['wait_for_startup'].assert_not_called()
@@ -163,9 +213,9 @@ class DirectRebootControls(unittest.TestCase):
             original = self.dut.command.side_effect
             self.dut.command.side_effect = lambda command, **kwargs: (
                 result if command == '/sbin/reboot' else original(command, **kwargs))
-            with self.assertRaises(AssertionError):
+            with self.assertRaises(Failed):
                 next(generator)
-            self.ns['wait_for_shutdown'].assert_not_called()
+            self.ns['wait_for_shutdown'].assert_called_once()
             self.ns['wait_for_startup'].assert_not_called()
 
     def test_known_dispatch_disconnect_requires_full_verification_without_resend(self):
@@ -199,7 +249,7 @@ class DirectRebootControls(unittest.TestCase):
             elif boundary == 'postcheck':
                 self.ns['postcheck_critical_processes_status'].return_value = False
             self.boot = BEFORE if boundary == 'unchanged' else AFTER
-            with self.assertRaises((AssertionError, TimeoutError, RuntimeError)) as caught:
+            with self.assertRaises((Failed, TimeoutError, RuntimeError)) as caught:
                 next(generator)
             self.assertIs(caught.exception.__cause__, disconnect)
             self.assertEqual([call.args[0] for call in self.dut.command.call_args_list].count('/sbin/reboot'), 1)
@@ -213,6 +263,92 @@ class DirectRebootControls(unittest.TestCase):
         self.ns['wait_for_shutdown'].assert_not_called()
         self.dut.command.assert_not_called()
 
+    def test_blocked_submission_down_up_window_observed_before_result_collection(self):
+        events = []
+        error = AnsibleConnectionFailure('delivered after SSH was back')
+        future = Mock()
+        future.ready.return_value = True
+
+        def get(timeout):
+            self.assertEqual(events, ['submitted', 'ssh-down-up-observed'])
+            self.assertGreater(timeout, 0)
+            events.append('collected')
+            raise error
+
+        future.get.side_effect = get
+        pool = Mock()
+        pool.apply_async.side_effect = lambda *args: events.append('submitted') or future
+        self.ns['ThreadPool'] = Mock(return_value=pool)
+        self.ns['wait_for_shutdown'].side_effect = lambda *args, **kwargs: events.append('ssh-down-up-observed')
+        result = self.ns['_submit_os_reboot_and_wait_for_shutdown'](self.dut, Mock())
+        self.assertIs(result, error)
+        self.assertEqual(events, ['submitted', 'ssh-down-up-observed', 'collected'])
+        pool.apply_async.assert_called_once_with(self.dut.command, ('/sbin/reboot',), {'module_ignore_errors': True})
+        pool.close.assert_called_once()
+        pool.join.assert_not_called()
+        pool.terminate.assert_not_called()
+
+    def test_pending_submission_timeout_retains_owner_and_prevents_health_success(self):
+        pool = Mock()
+        future = Mock()
+        future.ready.return_value = False
+        future.get.side_effect = TimeoutError('pending dispatch')
+        pool.apply_async.return_value = future
+        self.ns['ThreadPool'] = Mock(return_value=pool)
+        generator = self.fixture()
+        next(generator)
+        with self.assertRaises(TimeoutError) as caught:
+            next(generator)
+        self.assertIs(caught.exception.reboot_dispatch_future, future)
+        self.assertIs(caught.exception.reboot_dispatch_pool, pool)
+        self.ns['wait_for_startup'].assert_not_called()
+        pool.apply_async.assert_called_once()
+        pool.close.assert_called_once()
+        pool.join.assert_not_called()
+        pool.terminate.assert_not_called()
+
+    def test_submission_result_uses_remaining_shutdown_deadline(self):
+        self.ns['monotonic'] = Mock(side_effect=[0, 5, 299])
+        self.assertIsNone(self.ns['_submit_os_reboot_and_wait_for_shutdown'](self.dut, Mock()))
+        self.assertEqual(self.pools[0].future.collected, [1])
+        self.assertTrue(self.pools[0].closed)
+        self.assertEqual(self.ns['wait_for_shutdown'].call_args.kwargs['timeout'], 295)
+
+    def test_boot_poll_retries_specific_failed_outcomes_and_eventually_changes(self):
+        responses = [{'rc': 1}, {'rc': 0, 'stdout': 'malformed'}, {'rc': 0, 'stdout': BEFORE},
+                     {'rc': 0, 'stdout': AFTER}]
+        self.dut.command.side_effect = responses
+        self.assertFalse(issubclass(Failed, Exception))
+        self.assertEqual([self.ns['_boot_id_changed'](self.dut, BEFORE) for _ in responses],
+                         [False, False, False, True])
+
+    def test_boot_poll_cancellation_is_not_swallowed(self):
+        for error in [KeyboardInterrupt(), SystemExit(2)]:
+            self.dut.command.side_effect = error
+            with self.assertRaises(type(error)):
+                self.ns['_boot_id_changed'](self.dut, BEFORE)
+
+    def test_unchanged_boot_poll_exhaustion_after_disconnect_retains_cause(self):
+        generator = self.fixture()
+        next(generator)
+        disconnect = AnsibleConnectionFailure('submitted once')
+        self.reboot_error = disconnect
+        attempts = []
+
+        def poll(timeout, interval, delay, function, *args):
+            if function is self.ns['_boot_id_changed']:
+                for _ in range(3):
+                    attempts.append(function(*args))
+                return any(attempts)
+            return function(*args)
+
+        self.ns['wait_until'] = poll
+        with self.assertRaises(Failed) as caught:
+            next(generator)
+        self.assertEqual(attempts, [False, False, False])
+        self.assertIs(caught.exception.__cause__, disconnect)
+        self.ns['config_reload'].assert_not_called()
+
     def test_pdu_preferred_frozen_and_operation_failure_never_software_falls_back(self):
         pdu = Mock()
         self.controller.return_value = pdu
@@ -220,7 +356,7 @@ class DirectRebootControls(unittest.TestCase):
         next(generator)
         self.controller.return_value = None
         self.ns['pdu_reboot'].return_value = False
-        with self.assertRaisesRegex(AssertionError, 'PDU reboot failed'):
+        with self.assertRaisesRegex(Failed, 'PDU reboot failed'):
             next(generator)
         self.ns['pdu_reboot'].assert_called_once_with(pdu)
         self.assertNotIn('/sbin/reboot', [call.args[0] for call in self.dut.command.call_args_list])
@@ -234,7 +370,7 @@ class DirectRebootControls(unittest.TestCase):
     def test_changed_authenticated_boot_is_required(self):
         generator = self.fixture()
         next(generator)
-        with self.assertRaisesRegex(AssertionError, 'boot ID did not change'):
+        with self.assertRaisesRegex(Failed, 'boot ID did not change'):
             self.finish(generator, BEFORE)
         self.ns['config_reload'].assert_not_called()
 
@@ -245,7 +381,7 @@ class DirectRebootControls(unittest.TestCase):
             self.missing_file, self.failed_ping = missing, failed
             generator = self.fixture()
             next(generator)
-            with self.assertRaisesRegex(AssertionError, 'not ready'):
+            with self.assertRaisesRegex(Failed, 'not ready'):
                 self.finish(generator)
             self.ns['config_reload'].assert_not_called()
 

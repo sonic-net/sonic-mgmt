@@ -3,6 +3,8 @@ Test the feature of monitoring critical processes on 20191130 image (Monit),
 202012 and newer images (Supervisor)
 """
 from collections import defaultdict, namedtuple
+from multiprocessing.pool import ThreadPool
+from time import monotonic
 import re
 import time
 import logging
@@ -92,9 +94,50 @@ def _admit_database_recovery(duthost, tbinfo, get_pdu_controller):
 def _boot_id_changed(duthost, previous):
     try:
         return _read_boot_id(duthost) != previous
-    except Exception as error:
+    except (Exception, pytest.fail.Exception) as error:
         logger.info("Waiting for authenticated boot-ID read: %s", error)
         return False
+
+
+def _submit_os_reboot_and_wait_for_shutdown(duthost, localhost):
+    """Submit once and observe SSH-down while Ansible is still returning.
+
+    close() is nonblocking. A timed-out running thread is NOT cancelled; retain
+    its future/pool on the error for the owning fixture's diagnostic handoff.
+    No join/terminate (which can wait on running work), retry or second reset.
+    """
+    deadline = monotonic() + REBOOT_SHUTDOWN_TIMEOUT_SEC
+    pool = ThreadPool(processes=1)
+    future = None
+    try:
+        future = pool.apply_async(duthost.command, ("/sbin/reboot",), {"module_ignore_errors": True})
+        shutdown_error = None
+        try:
+            wait_for_shutdown(duthost, localhost, delay=1,
+                              timeout=max(0, deadline - monotonic()))
+        except (Exception, pytest.fail.Exception) as error:
+            shutdown_error = error
+        disconnect = None
+        try:
+            result = future.get(timeout=max(0, deadline - monotonic()))
+        except AnsibleConnectionFailure as error:
+            disconnect = error  # Indeterminate submission, never success alone.
+        else:
+            pytest_assert(result.get("rc") == 0 and not result.get("failed") and not result.get("unreachable"),
+                          "Normal /sbin/reboot was not accepted; no automatic retry or forced fallback")
+        if shutdown_error is not None:
+            if disconnect is not None:
+                raise shutdown_error from disconnect
+            raise shutdown_error
+        return disconnect
+    except (Exception, pytest.fail.Exception) as error:
+        if future is not None and not future.ready():
+            error.reboot_dispatch_future = future
+            error.reboot_dispatch_pool = pool
+            logger.error("Reboot submission is still unresolved; worker may remain active; no retry is safe")
+        raise
+    finally:
+        pool.close()  # Running work drains on completion; no cancellation claim.
 
 
 # Critical processes that are listed in the image's per-container critical_processes
@@ -734,21 +777,7 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
             elif recovery.method == "pdu":
                 pytest_assert(pdu_reboot(recovery.controller), "PDU reboot failed; no software fallback attempted")
             else:
-                # Ying requested the normal absolute OS reboot entry, not the
-                # Redis-reading SONiC wrapper. Exactly one attempt, no -f or
-                # alternate dispatcher on rejection/disconnect/unknown outcome.
-                try:
-                    result = duthost.command("/sbin/reboot", module_ignore_errors=True)
-                except AnsibleConnectionFailure as error:
-                    # Submission may have reached the OS before SSH disappeared.
-                    # This is NOT acceptance/success and must never cause a resend.
-                    dispatch_disconnect = error
-                    logger.warning("Connection lost during single reboot submission; "
-                                   "verifying shutdown and recovery")
-                else:
-                    pytest_assert(result.get("rc") == 0 and not result.get("failed") and not result.get("unreachable"),
-                                  "Normal /sbin/reboot was not accepted; no automatic retry or forced fallback")
-                wait_for_shutdown(duthost, localhost, delay=1, timeout=REBOOT_SHUTDOWN_TIMEOUT_SEC)
+                dispatch_disconnect = _submit_os_reboot_and_wait_for_shutdown(duthost, localhost)
 
             logger.info("Waiting for DUT to boot up after reboot...")
             # Wait for DUT to come back up after reboot. Like tests.common.reboot.reboot(), use the
@@ -756,9 +785,7 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
             tc_name = os.environ.get("PYTEST_CURRENT_TEST", "").split(" ")[0]
             plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, tc_name, REBOOT_TYPE_COLD)
             timeout = plt_reboot_ctrl.get("timeout", reboot_ctrl_dict[REBOOT_TYPE_COLD]["timeout"])
-            wait_time = 120
             if duthost.facts.get("modular_chassis"):
-                wait_time = max(wait_time, 600)
                 timeout = max(timeout, 420)
 
             # Wait for SSH to come back up
