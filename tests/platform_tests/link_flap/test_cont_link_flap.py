@@ -30,6 +30,8 @@ pytestmark = [
     pytest.mark.supported_completeness_level(CompletenessLevel.confident, CompletenessLevel.thorough)
 ]
 
+FRR_BUFFER_DATA_PATTERN = re.compile(r'^\s*Buffer data\s*:\s*\d+\s+(?:\d+|variable)\s+(\d+)', re.MULTILINE)
+
 
 class TestContLinkFlap(object):
     """
@@ -63,9 +65,13 @@ class TestContLinkFlap(object):
                 elif "Holding block headers:" in line:
                     holding_block_headers = TestContLinkFlap._parse_memory_value(line)
 
-            total_memory = used_ordinary_blocks + used_small_blocks + holding_block_headers
-            logging.info("{} total memory for asic{}: {} MiB; ordinary {}, small {}, holding {}".format(
-                daemon, asic.asic_index, total_memory, used_ordinary_blocks, used_small_blocks, holding_block_headers))
+            buffer_data_size = TestContLinkFlap.get_buffer_size(frr_daemon_memory_output)
+
+            total_memory = used_ordinary_blocks + used_small_blocks + holding_block_headers - buffer_data_size
+            logging.info("{} total memory for asic{}: {} MiB; ordinary {}, small {}, holding {}, "
+                         "excluded buffer data size {}".format(daemon, asic.asic_index, total_memory,
+                                                               used_ordinary_blocks, used_small_blocks,
+                                                               holding_block_headers, buffer_data_size))
             frr_daemon_memory_per_asics[asic.asic_index] = total_memory
 
         return frr_daemon_memory_per_asics
@@ -103,6 +109,15 @@ class TestContLinkFlap(object):
             return value
         else:
             return value
+
+    @staticmethod
+    def get_buffer_size(frr_daemon_memory_output):
+        match = FRR_BUFFER_DATA_PATTERN.search(frr_daemon_memory_output)
+        if not match:
+            return 0
+        buffer_size = int(match.group(1))
+        mib = 2 ** 20
+        return buffer_size / mib
 
     def test_cont_link_flap(self, request, duthosts, nbrhosts, enum_rand_one_per_hwsku_frontend_hostname,
                             fanouthosts, bring_up_dut_interfaces, tbinfo):
@@ -233,7 +248,7 @@ class TestContLinkFlap(object):
         for daemon in frr_demons_to_check:
             for asic_index, asic_frr_memory in start_time_frr_daemon_memory[daemon].items():
                 incr_frr_daemon_memory_threshold[daemon][asic_index] = 10 if tbinfo["topo"]["type"] in ["m0", "mx"]\
-                                                                       else 5
+                    else 5
 
                 min_threshold_percent = 1 / float(asic_frr_memory) * 100
 
