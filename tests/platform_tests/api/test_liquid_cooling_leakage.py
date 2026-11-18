@@ -102,8 +102,9 @@ class TestLiquidCoolingLeakage(PlatformApiTestBase):
         leak_sensor_test.clear_test_leaks(platform_api_conn)
 
     def test_is_leak_test_supported(self, platform_api_conn, leak_test_injection):    # noqa: F811
-        supported = leak_sensor_test.is_leak_test_supported(platform_api_conn)
-        self.expect(isinstance(supported, bool), "is_leak_test_supported() should return bool")
+        # The fixture skips unsupported platforms, so the API must report support here
+        self.expect(leak_sensor_test.is_leak_test_supported(platform_api_conn) is True,
+                    "is_leak_test_supported() should return True on a platform that passed the fixture")
         self.assert_expectations()
 
     @pytest.mark.disable_loganalyzer
@@ -123,14 +124,21 @@ class TestLiquidCoolingLeakage(PlatformApiTestBase):
                     "clear_test_leaks() should return True when nothing is injected")
 
         names = [leak_sensor.get_name(platform_api_conn, i) for i in range(self.num_leak_sensors)]
+        # Some platforms fix the severity per sensor, so try the default and then CRITICAL
+        injected = []
         for name in names:
-            self.expect(leak_sensor_test.set_test_leak(platform_api_conn, name, True) is True,
-                        f"set_test_leak({name}, True) should return True")
+            for severity in (None, 'CRITICAL'):
+                if leak_sensor_test.set_test_leak(platform_api_conn, name, True, severity=severity) is True:
+                    injected.append(name)
+                    break
+        if not injected:
+            pytest.skip("No leak sensor accepted a test leak injection")
+        for name in injected:
             self.expect(leak_sensor_test.is_test_leak_enabled(platform_api_conn, name) is True,
                         f"is_test_leak_enabled({name}) should be True before clear_test_leaks()")
         self.expect(leak_sensor_test.clear_test_leaks(platform_api_conn) is True,
                     "clear_test_leaks() should return True")
-        for name in names:
+        for name in injected:
             self.expect(leak_sensor_test.is_test_leak_enabled(platform_api_conn, name) is False,
                         f"is_test_leak_enabled({name}) should be False after clear_test_leaks()")
         self.assert_expectations()

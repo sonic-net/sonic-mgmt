@@ -108,6 +108,14 @@ class LiquidLeakageMockerBMC(LiquidLeakageMocker, ABC):
         """
         pass
 
+    def supports_sensor_state(self, index, state):
+        """
+        Return True if the sensor can be set to the requested state.
+
+        Mockers that can inject any state on any sensor need not override this.
+        """
+        return True
+
     def deinit(self):
         """Restore all sensors on teardown, then chain to the base mocker."""
         self.restore_all_sensors()
@@ -172,6 +180,17 @@ class LeakTestApiInjector(LiquidLeakageMockerBMC):
     def restore_all_sensors(self):
         """Withdraw every injected test leak."""
         leak_sensor_test.clear_test_leaks(self.conn)
+
+    def supports_sensor_state(self, index, state):
+        """Probe by injecting then withdrawing; some platforms accept only a fixed severity per sensor."""
+        if state == 'None':
+            return True
+        name = self.get_sensor_name(index)
+        try:
+            accepted = leak_sensor_test.set_test_leak(self.conn, name, True, severity=state) is True
+        finally:
+            leak_sensor_test.set_test_leak(self.conn, name, False)
+        return accepted
 
     def set_sensor_state(self, index, state):
         """

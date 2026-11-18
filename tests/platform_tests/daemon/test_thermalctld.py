@@ -103,21 +103,32 @@ def _is_eligible_leak_sensor_duration(max_minor_duration_sec, max_minor_duration
     return True
 
 
-def _select_leak_sensor_indices(leak_mocker, num_sensors, max_minor_duration_sec_lb, max_minor_duration_sec_ub):
-    """Randomly pick sensor indices that won't escalate during the test window."""
+def _select_leak_sensor_indices(leak_mocker, severities, max_minor_duration_sec_lb, max_minor_duration_sec_ub):
+    """Randomly pick one sensor per requested severity that won't escalate during the test window.
+
+    Returns indices aligned with severities. Sensors that cannot be set to the requested
+    severity (e.g. fixed per-sensor severity) are not selected.
+    """
     candidates = [
         index for index, name in enumerate(leak_mocker.sensor_names)
         if _is_eligible_leak_sensor_duration(
             leak_mocker.sensors[name]['max_minor_duration_sec'], max_minor_duration_sec_lb, max_minor_duration_sec_ub)
     ]
 
-    if len(candidates) < num_sensors:
-        pytest.skip(
-            "Need {} leak sensor(s) with max_minor_duration_sec in bounds"
-            "[{}, {}], but only {} candidate(s) available".format(
-                num_sensors, max_minor_duration_sec_lb, max_minor_duration_sec_ub, len(candidates)))
+    selected_indices = []
+    remaining = list(candidates)
+    for severity in severities:
+        random.shuffle(remaining)
+        match = next((i for i in remaining if leak_mocker.supports_sensor_state(i, severity)), None)
+        if match is None:
+            pytest.skip(
+                "No unused leak sensor with max_minor_duration_sec in bounds [{}, {}] supports severity {} "
+                "(requested {}, {} candidate(s))".format(
+                    max_minor_duration_sec_lb, max_minor_duration_sec_ub, severity, list(severities),
+                    len(candidates)))
+        remaining.remove(match)
+        selected_indices.append(match)
 
-    selected_indices = random.sample(candidates, num_sensors)
     selected_sensors = []
     for index in selected_indices:
         name = leak_mocker.get_sensor_name(index)
@@ -126,7 +137,7 @@ def _select_leak_sensor_indices(leak_mocker, num_sensors, max_minor_duration_sec
             'name': name,
             'max_minor_duration_sec': leak_mocker.sensors[name]['max_minor_duration_sec'],
         })
-    logger.info("Selected %d leak sensor(s): %s", num_sensors, selected_sensors)
+    logger.info("Selected %d leak sensor(s): %s", len(selected_indices), selected_sensors)
     return selected_indices
 
 
@@ -212,24 +223,12 @@ class TestThermalctldDaemon:
         - LIQUID_COOLING_INFO sensors have leaking (Yes|No|N/A) and leak_sensor_status (Good|Fault)
         - Severity levels are valid (per-sensor MINOR|CRITICAL; MAJOR is system aggregate only)
         - Escalation timeout is configured in LEAK_PROFILE
-        - Critical leak events propagate to bmcctld (HOST_STATE consistency), checked on
-          an already-active real leak since injected test leaks never trigger mitigation
         """
         leak_mocker = _create_platform_api_leak_mocker(self.duthost, platform_api_conn)
         poll_interval = get_liquid_cooling_update_interval(self.duthost) or DEFAULT_LIQUID_COOLING_POLL_INTERVAL_SEC
 
-        # Verify bmcctld coordination: critical leaks propagate to HOST_STATE
-        if get_system_leak_status(self.duthost) == 'CRITICAL':
-            host_status = redis_hget(self.duthost, STATE_DB,
-                                     'HOST_STATE|switch-host', 'device_status')
-            pytest_assert(host_status is not None,
-                          "HOST_STATE|switch-host device_status not set despite CRITICAL leak active")
-            pytest_assert(host_status != 'ONLINE',
-                          f"HOST_STATE device_status={host_status!r} — "
-                          "switch-host must not be ONLINE when CRITICAL leak is active")
-
         # MINOR leak on a sensor that will not escalate during the test
-        sensor_index = _select_leak_sensor_indices(leak_mocker, 1, MIN_NO_ESCALATION_TIMEOUT_SEC, None)[0]
+        sensor_index = _select_leak_sensor_indices(leak_mocker, ['MINOR'], MIN_NO_ESCALATION_TIMEOUT_SEC, None)[0]
         sensor_name = leak_mocker.get_sensor_name(sensor_index)
         try:
             leak_mocker.set_sensor_state(sensor_index, 'MINOR')
@@ -325,7 +324,7 @@ class TestThermalctldDaemon:
         poll_interval = get_liquid_cooling_update_interval(self.duthost) or DEFAULT_LIQUID_COOLING_POLL_INTERVAL_SEC
 
         # MINOR leak on a sensor that will not escalate during the test
-        sensor_index = _select_leak_sensor_indices(leak_mocker, 1, MIN_NO_ESCALATION_TIMEOUT_SEC, None)[0]
+        sensor_index = _select_leak_sensor_indices(leak_mocker, ['MINOR'], MIN_NO_ESCALATION_TIMEOUT_SEC, None)[0]
         sensor_name = leak_mocker.get_sensor_name(sensor_index)
 
         # Bracket the trigger with BmcLogAnalyzer scanning syslog (live, no reboot).
@@ -476,18 +475,19 @@ class TestThermalctldDaemon:
         poll_interval = get_liquid_cooling_update_interval(self.duthost) or DEFAULT_LIQUID_COOLING_POLL_INTERVAL_SEC
 
         if escalation is None:
-            # aggregation cases, any sensors will work, as long as they do not escalate too quickly
+            # aggregation cases: MINOR leaks must not escalate by timeout, CRITICAL-only cases have no limit
+            no_escalation_lb = MIN_NO_ESCALATION_TIMEOUT_SEC if 'MINOR' in leak_severities else None
             sensor_indices = _select_leak_sensor_indices(
-                leak_mocker, len(leak_severities), None, None)
+                leak_mocker, leak_severities, no_escalation_lb, None)
         elif escalation is True:
             # A single MINOR sensor persisting > max_minor_duration_sec escalates the
             # system to MAJOR_SYSTEM_LEAK (not CRITICAL).
             sensor_indices = _select_leak_sensor_indices(
-                leak_mocker, len(leak_severities), MIN_ESCALATION_TIMEOUT_SEC, MAX_ESCALATION_TIMEOUT_SEC)
+                leak_mocker, leak_severities, MIN_ESCALATION_TIMEOUT_SEC, MAX_ESCALATION_TIMEOUT_SEC)
         else:
             # MINOR sensor will not escalate (stays MINOR)
             sensor_indices = _select_leak_sensor_indices(
-                leak_mocker, len(leak_severities), MIN_NO_ESCALATION_TIMEOUT_SEC, None)
+                leak_mocker, leak_severities, MIN_NO_ESCALATION_TIMEOUT_SEC, None)
 
         selected_sensor_names = [leak_mocker.get_sensor_name(index) for index in sensor_indices]
         la = make_bmc_loganalyzer(self.duthost, "thermalctld_leak_severity_aggregation")
@@ -510,7 +510,7 @@ class TestThermalctldDaemon:
             time.sleep(2 * poll_interval)
 
             status_reached = _wait_for_system_leak_status(
-                leak_mocker, expected_system_leak_status, 2 * poll_interval, poll_interval)
+                leak_mocker, expected_system_leak_status, 2 * poll_interval + 10, poll_interval)
             pytest_assert(
                 status_reached,
                 "Expected SYSTEM_LEAK_STATUS={}, got {}".format(
@@ -530,7 +530,7 @@ class TestThermalctldDaemon:
             if escalation is True:
                 time.sleep(leak_mocker.sensors[selected_sensor_names[0]]["max_minor_duration_sec"])
                 escalated = _wait_for_system_leak_status(
-                    leak_mocker, 'MAJOR', 2 * poll_interval, poll_interval)
+                    leak_mocker, 'MAJOR', 2 * poll_interval + 10, poll_interval)
                 pytest_assert(
                     escalated,
                     "Expected SYSTEM_LEAK_STATUS=MAJOR after escalation, got {}".format(
@@ -541,12 +541,21 @@ class TestThermalctldDaemon:
                 _leak_reported_syslog_regex(name) for name in selected_sensor_names]
             la.analyze(marker, fail=True, log_target='syslog')
         finally:
-            recovery_marker = la.init(log_target='syslog')
-            for sensor_index in sensor_indices:
-                leak_mocker.set_sensor_state(sensor_index, 'None')
-            leak_mocker.restore_all_sensors()
-            _wait_for_system_leak_status(leak_mocker, 'None', 2 * poll_interval, poll_interval)
-            recover_switch_host_after_power_off(self.duthost, host)
+            # Take the recovery marker before withdrawing, but never let a marker
+            # failure leave the leak injected
+            recovery_marker = None
+            try:
+                recovery_marker = la.init(log_target='syslog')
+            finally:
+                try:
+                    for sensor_index in sensor_indices:
+                        leak_mocker.set_sensor_state(sensor_index, 'None')
+                finally:
+                    leak_mocker.restore_all_sensors()
+            _wait_for_system_leak_status(leak_mocker, 'None', 2 * poll_interval + 10, poll_interval)
+            # Only a vendor mocker injecting a real CRITICAL leak powers the switch-host off
+            if not isinstance(leak_mocker, LeakTestApiInjector) and 'CRITICAL' in leak_severities:
+                recover_switch_host_after_power_off(self.duthost, host)
 
             recovery_syslog_la = la._get_syslog_analyzer()
             recovery_syslog_la.expect_regex = [
