@@ -12,7 +12,11 @@ from bgp_helpers import get_no_export_output
 from bgp_helpers import BGP_ANNOUNCE_TIME
 
 pytestmark = [
-    pytest.mark.topology('t1')
+    pytest.mark.topology('t1'),
+    pytest.mark.frr_bgpcfgd_only(
+        "this module injects a legacy bgpd.conf directly into the bgp container; "
+        "frr_mgmt_framework runs FRR in integrated-config mode, which reads frr.conf and "
+        "never loads it"),
 ]
 
 

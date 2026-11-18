@@ -18,6 +18,9 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
+    pytest.mark.frr_bgpcfgd_only(
+        "this module configures BGP entirely through vtysh rather than CONFIG_DB, so frrcfgd "
+        "does not carry the config and the advertised route never installs"),
     pytest.mark.topology('t2', 'lrh', 'urh')
 ]
 
@@ -25,7 +28,7 @@ EOS_NEIGH_BACKUP_CONFIG_FILE = "/tmp/ipv6_nlri_eos_backup_config_{}"
 
 
 @pytest.fixture(scope='module')
-def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
+def setup(frr_config_mode, tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
     neighbor_type = request.config.getoption("neighbor_type")
     if neighbor_type not in ["sonic", "csonic", "eos"]:
         pytest.skip("Unsupported neighbor type: {}".format(neighbor_type))

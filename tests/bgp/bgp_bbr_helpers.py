@@ -5,6 +5,8 @@ import time
 import yaml
 
 from tests.common.gcu_utils import apply_gcu_patch
+from tests.common.helpers.constants import DEFAULT_NAMESPACE
+from tests.common.helpers.frr.bgp_config_writer import write_bgp_config
 
 CONSTANTS_FILE = "/etc/sonic/constants.yml"
 logger = logging.getLogger(__name__)
@@ -32,6 +34,13 @@ def get_bbr_default_state(duthost):
             return bbr_supported, bbr_default_state
 
     return bbr_supported, bbr_default_state
+
+
+def program_bbr_for_mode(duthost, enabled, namespace=DEFAULT_NAMESPACE):
+    """In frr mode write BGP_BBR's frrcfgd conversion (allowas-in); no-op in traditional mode."""
+    if duthost.get_frr_mgmt_framework_config():
+        write_bgp_config(duthost, {"BGP_BBR": {"all": {"status": "enabled" if enabled else "disabled"}}},
+                         namespace=namespace)
 
 
 def is_bbr_enabled(duthost):

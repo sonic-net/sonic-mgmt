@@ -19,6 +19,8 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+
+# frr variant skipped via conditional mark: frrcfgd lacks route-map 'on-match next'.
 DEPLOYMENT_ID = '0'
 ALLOW_LIST = {
     'BGP_ALLOWED_PREFIXES': {
@@ -73,7 +75,7 @@ def get_expected_bgpmon_routes(setup_info):
     return expected
 
 
-def test_default_allow_list_preconfig(duthosts, rand_one_dut_hostname, bgp_allow_list_setup, nbrhosts,  # noqa:F811
+def test_default_allow_list_preconfig(frr_config_mode, duthosts, rand_one_dut_hostname, bgp_allow_list_setup, nbrhosts,  # noqa:F811,E501
                                       ptfhost, bgpmon_setup_teardown):
     """
     Before applying allow list, verify the bgp policy by default config
@@ -96,7 +98,7 @@ def test_default_allow_list_preconfig(duthosts, rand_one_dut_hostname, bgp_allow
 
 
 @pytest.mark.parametrize('load_remove_allow_list', ["permit", "deny"], indirect=['load_remove_allow_list'])
-def test_allow_list(duthosts, rand_one_dut_hostname, bgp_allow_list_setup, nbrhosts,    # noqa:F811
+def test_allow_list(frr_config_mode, duthosts, rand_one_dut_hostname, bgp_allow_list_setup, nbrhosts,    # noqa:F811
                     load_remove_allow_list, ptfhost, bgpmon_setup_teardown):
     permit = True if load_remove_allow_list == "permit" else False
     duthost = duthosts[rand_one_dut_hostname]
@@ -117,10 +119,10 @@ def test_allow_list(duthosts, rand_one_dut_hostname, bgp_allow_list_setup, nbrho
     )
 
 
-def test_default_allow_list_postconfig(duthosts, rand_one_dut_hostname, bgp_allow_list_setup,   # noqa:F811
+def test_default_allow_list_postconfig(frr_config_mode, duthosts, rand_one_dut_hostname, bgp_allow_list_setup,   # noqa:F811,E501
                                        nbrhosts, ptfhost, bgpmon_setup_teardown):
     """
     After removing allow list, verify bgp policy
     """
-    test_default_allow_list_preconfig(duthosts, rand_one_dut_hostname, bgp_allow_list_setup,    # noqa:F811
+    test_default_allow_list_preconfig(frr_config_mode, duthosts, rand_one_dut_hostname, bgp_allow_list_setup,  # noqa:F811,E501
                                       nbrhosts, ptfhost, bgpmon_setup_teardown)

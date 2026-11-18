@@ -19,9 +19,13 @@ from tests.bgp.route_checker import assert_only_loopback_routes_announced_to_nei
 from tests.bgp.traffic_checker import get_traffic_shift_state, check_tsa_persistence_support, \
     verify_traffic_shift_per_asic
 from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE, TS_NO_NEIGHBORS
+from tests.common.fixtures.frr_config_mode import FRR_BGP_DEVICE_GLOBAL_GAP_REASON
 
 pytestmark = [
-    pytest.mark.topology('t1', 'm1', 'c0', 'uma', 'lma')
+    pytest.mark.topology('t1', 'm1', 'c0', 'uma', 'lma'),
+    pytest.mark.frr_bgpcfgd_only(FRR_BGP_DEVICE_GLOBAL_GAP_REASON),
+    # TSA/TSB can leave a dplane_fpm_nl core; the marker lets every core-dump checker honour it.
+    pytest.mark.expected_core_dumps("dplane_fpm_nl"),
 ]
 
 logger = logging.getLogger(__name__)
@@ -163,7 +167,9 @@ def test_TSA(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
                 logging.warning("Not all routes are announced to bgpmon: {}".format(e))
 
 
-def test_TSB(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts, bgpmon_setup_teardown, tbinfo):
+def test_TSB(
+        duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts,
+        bgpmon_setup_teardown, tbinfo):
     """
     Test TSB.
     Establish BGP session between PTF and DUT, and verify all routes are announced to bgp monitor,
@@ -262,9 +268,11 @@ def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_ho
             existing_core_dumps = duthost.shell('ls /var/core/ | grep -v python || true')['stdout'].split()
         else:
             existing_core_dumps = duthost.shell('ls /var/core/')['stdout'].split()
-        for core_dump in existing_core_dumps:
-            if re.match("dplane_fpm_nl", core_dump):
-                duts_data[duthost.hostname]["pre_core_dumps"].append(core_dump)
+        # duts_data is {} when the generic check is disabled.
+        if duthost.hostname in duts_data:
+            for core_dump in existing_core_dumps:
+                if re.match("dplane_fpm_nl", core_dump):
+                    duts_data[duthost.hostname]["pre_core_dumps"].append(core_dump)
 
         # Wait until all routes are announced to neighbors
         cur_v4_routes = {}
@@ -287,8 +295,9 @@ def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_ho
 
 
 @pytest.mark.disable_loganalyzer
-def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts,
-                                    nbrhosts_to_dut, bgpmon_setup_teardown, traffic_shift_community, tbinfo):
+def test_TSA_TSB_with_config_reload(
+        duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts, nbrhosts_to_dut,
+        bgpmon_setup_teardown, traffic_shift_community, tbinfo):
     """
     Test TSA after config save and config reload
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs

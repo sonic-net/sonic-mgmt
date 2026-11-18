@@ -82,3 +82,55 @@ pytest example/test_example.py --inventory ../ansible/veos_vtb --host-pattern vl
 ```
 
 During pre-parse, pytest recognizes that `example/test_example.py ` is a test script. Then pytest will try to load file `sonic-mgmt/tests/try_opt/conftest.py`. After this conftest.py file is loaded, there is no problem of parsing argument `--example_option1`.
+
+## Run BGP tests in traditional (bgpcfgd) and/or frr_mgmt_framework (frrcfgd) mode ##
+
+SONiC programs FRR from CONFIG_DB either through bgpcfgd (traditional) or frrcfgd
+("frr_mgmt_framework"). Tests that use the `frr_config_mode` fixture (most of `tests/bgp`,
+plus BFD and the config-writing FRR tests) run in **both** modes by default; the fixture
+switches the DUT's mode mid-module and restores it on exit.
+
+Select the mode(s) with `--frr-config-mode`:
+
+* `both` (default): run each opted-in test in traditional **and** frr_mgmt_framework.
+* `traditional`: run only the bgpcfgd variant.
+* `frr_mgmt_framework`: run only the frrcfgd variant.
+
+```
+pytest bgp/test_bgp_speaker.py --inventory ../ansible/veos_vtb --host-pattern all \
+    --testbed vms-kvm-t0 --testbed_file vtestbed.yaml --frr-config-mode=frr_mgmt_framework
+```
+
+Notes:
+* The DUT should boot traditional; the fixture switches it to frr_mgmt_framework and back. A DUT
+  booting frr_mgmt_framework runs the frrcfgd variant natively but cannot run the traditional
+  one (the translator only converts traditional->frr).
+* Persisting a switch across the reload needs `/etc/sonic/golden_config_db.json` on the DUT;
+  without it, mode-switching tests skip with a clear reason.
+* Switching is single-ASIC only; multi-ASIC and supervisor nodes run their native mode only.
+* All `[traditional]` variants run before all `[frr_mgmt_framework]` ones, so a run switches
+  the DUT once and restores it once.
+
+### `frr_generic` modules: one mode instead of two
+
+Many modules assert FRR / zebra / dataplane / kernel behavior over boot config rather than
+the bgpcfgd<->frrcfgd translation (whose render equivalence the fixture's fingerprint already
+checks), so running them twice only re-tests FRR. They carry `pytest.mark.frr_generic` and
+run in **one** mode:
+
+| `--frr-config-mode` | `frr_generic` module runs in |
+|---|---|
+| `both` (default) | `--frr-generic-mode`, default `FRR_GENERIC_DEFAULT_MODE` (`traditional`) |
+| `traditional` | `traditional` |
+| `frr_mgmt_framework` | `frr_mgmt_framework` |
+
+`FRR_GENERIC_DEFAULT_MODE` lives in `tests/common/fixtures/frr_config_mode.py`; pass
+`--frr-generic-mode=frr_mgmt_framework` to prefer frrcfgd. If the preferred mode is unreachable
+(e.g. frrcfgd without `golden_config_db.json`, multi-ASIC, supervisor, `--enable_macsec`; or
+traditional on a DUT that boots frrcfgd), a `both` run falls back to the other mode so the
+module still runs. Both test IDs are still generated (so `conditional_mark` keys and `-k`
+selection are unchanged); the unused variant skips, naming the mode that ran.
+
+Modules **without** the marker are those where the config daemon is the subject (render
+equivalence, `BGP_GLOBALS.router_id`, `BGP_BBR`, `BGP_ALLOWED_PREFIXES`, `ROUTE_MAP.set_src`,
+GCU patch paths, listen-range peer-groups, ...) and run in both modes.

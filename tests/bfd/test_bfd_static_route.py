@@ -20,6 +20,10 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
+# Not parametrized over frr_config_mode: multi-ASIC chassis runs native mode only, and
+# BFD static routes reach FRR via APPL_DB STATIC_ROUTE, which frrcfgd does not consume.
+
+
 class TestBfdStaticRoute(BfdBase):
     COMPLETENESS_TO_ITERATIONS = {
         'debug': 1,

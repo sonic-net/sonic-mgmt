@@ -54,14 +54,13 @@ def get_dut_interfaces_status(duthost):
     return intf_status
 
 
-def check_interface_status_of_up_ports(duthost):
+def get_admin_up_ports(duthost):
+    """@summary: Return admin-up front-panel ports from CONFIG_DB (empty if there is no PORT table)."""
     if duthost.facts['asic_type'] == 'vs' and duthost.is_supervisor_node():
-        return True
+        return []
 
-    # SONiC BMC images have no front-panel ports, so CONFIG_DB has no PORT
-    # table. Treat as "no admin-up ports to check".
     if duthost.is_bmc():
-        return True
+        return []
 
     if duthost.is_multi_asic:
         up_ports = []
@@ -73,6 +72,22 @@ def check_interface_status_of_up_ports(duthost):
     else:
         cfg_facts = duthost.get_running_config_facts()
         up_ports = [p for p, v in list(cfg_facts['PORT'].items()) if v.get('admin_status', None) == 'up']
+    return up_ports
+
+
+def get_oper_up_ports(duthost):
+    """@summary: Return the set of admin-up front-panel ports that are also operationally up."""
+    up_ports = get_admin_up_ports(duthost)
+    if not up_ports:
+        return set()
+    intf_facts = duthost.interface_facts(up_ports=up_ports)['ansible_facts']
+    return set(up_ports) - set(intf_facts['ansible_interface_link_down_ports'])
+
+
+def check_interface_status_of_up_ports(duthost):
+    up_ports = get_admin_up_ports(duthost)
+    if not up_ports:
+        return True
 
     intf_facts = duthost.interface_facts(up_ports=up_ports)['ansible_facts']
     if len(intf_facts['ansible_interface_link_down_ports']) != 0:

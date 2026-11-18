@@ -26,6 +26,7 @@ from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
 from tests.common.multi_servers_utils import MultiServersUtils
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa: F401
+from tests.common.fixtures.frr_config_mode import frr_mode_perturbed, frr_mode_switch_count
 from tests.common.fixtures.vlan_config_swap import parametrize_vlan_config_from_topo  # noqa: F401
 from tests.common.devices.local import Localhost
 from tests.common.devices.ptf import PTFHost
@@ -155,6 +156,7 @@ pytest_plugins = ('tests.common.plugins.nasa_debug',
                   'tests.common.plugins.memory_utilization',
                   'tests.common.plugins.proc_mem_cpu_monitor',
                   'tests.common.fixtures.duthost_utils',
+                  'tests.common.fixtures.frr_config_mode',
                   'tests.common.plugins.parallel_fixture',
                   'tests.common.plugins.erspan_mirror',
                   'tests.common.port_attributes.pytest_plugin')
@@ -3405,6 +3407,9 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
 
         duts_data = {}
 
+        # Lets teardown detect an FRR mode switch (config reload) during this module.
+        frr_switch_count = frr_mode_switch_count(request)
+
         if check_flag:
 
             def collect_before_test(dut):
@@ -3535,6 +3540,15 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
                 for duthost in duthosts:
                     executor.submit(collect_after_test, duthost)
 
+            # An FRR mode switch diverges from the pretest baseline; skip only the config diff.
+            skip_config_diff = frr_mode_perturbed(request, frr_switch_count)
+            if skip_config_diff:
+                logger.info(
+                    "%s: skipping the running-config comparison -- the FRR config mode was "
+                    "switched during this module, or the DUT is not in its boot mode, so the "
+                    "pretest config baseline does not apply. Core-dump detection still runs.",
+                    module_name)
+
             def wait_for_runtime_managed_config(dut):
                 pre_running_config = duts_data[dut.hostname]["pre_running_config"]
                 cur_running_config = duts_data[dut.hostname]["cur_running_config"]
@@ -3577,9 +3591,11 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
                         )
                     )
 
-            with SafeThreadPoolExecutor(max_workers=8) as executor:
-                for duthost in duthosts:
-                    executor.submit(wait_for_runtime_managed_config, duthost)
+            # This wait only feeds the config comparison.
+            if not skip_config_diff:
+                with SafeThreadPoolExecutor(max_workers=8) as executor:
+                    for duthost in duthosts:
+                        executor.submit(wait_for_runtime_managed_config, duthost)
 
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts:
@@ -3592,6 +3608,9 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
                     base_dir = os.path.dirname(os.path.realpath(__file__))
                     for new_core_dump in new_core_dumps[duthost.hostname]:
                         duthost.fetch(src="/var/core/{}".format(new_core_dump), dest=os.path.join(base_dir, "logs"))
+
+                if skip_config_diff:
+                    continue
 
                 # The tables that we don't care
                 exclude_config_table_names = set([])
@@ -3963,6 +3982,20 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "stress_test" in item.keywords:
                 item.add_marker(skip_stress_tests)
+
+    # frr_config_mode's mid-module config reload re-learns the route table, which the
+    # memory_utilization monitor misreads as a leak.
+    for item in items:
+        if "frr_config_mode" in getattr(item, "fixturenames", ()):
+            item.add_marker("disable_memory_utilization")
+            # Health checks decide at runtime via frr_mode_perturbed(); frr_dual_mode goes on
+            # the module node because those fixtures are module-scoped.
+            module = item.getparent(pytest.Module)
+            if module is not None:
+                if not any(m.name == "disable_memory_utilization" for m in module.own_markers):
+                    module.add_marker("disable_memory_utilization")
+                if not any(m.name == "frr_dual_mode" for m in module.own_markers):
+                    module.add_marker("frr_dual_mode")
 
 
 def update_t1_test_ports(duthost, mg_facts, test_ports, tbinfo):
@@ -4536,6 +4569,14 @@ def yang_validation_check(request, duthosts):
             yield
             return
 
+    # An FRR mode switch's reload regenerates gnmi certs and re-runs db_migrator, failing
+    # validation; see frr_mode_perturbed().
+    if frr_mode_perturbed(request):
+        logger.info("Skipping YANG validation: the DUT is not in its boot FRR config mode")
+        yield
+        return
+    frr_switch_count = frr_mode_switch_count(request)
+
     def run_yang_validation_all(stage):
         """Run YANG validation on all DUTs and return results"""
         validation_results = {}
@@ -4556,6 +4597,12 @@ def yang_validation_check(request, duthosts):
         pt_assert(False, "pre-test YANG validation failed:\n" + "\n".join(error_summary))
 
     yield
+
+    if frr_mode_perturbed(request, frr_switch_count):
+        logger.info("Skipping post-test YANG validation: the FRR config mode was switched "
+                    "during this module (its config reload regenerates gnmi certs and "
+                    "re-runs db_migrator)")
+        return
 
     # post-test YANG validation
     post_results = run_yang_validation_all("post-test")

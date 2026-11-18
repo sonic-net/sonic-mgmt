@@ -109,6 +109,15 @@ pytestmark = [
 ]
 
 
+# bgpcfgd-only: frrcfgd does not consume APPL_DB BGP_PROFILE_TABLE, so skip on native frrcfgd.
+@pytest.fixture(scope="module", autouse=True)
+def _skip_vnet_bgp_route_precedence_in_frr_mgmt_framework(duthosts, rand_one_dut_hostname):
+    if duthosts[rand_one_dut_hostname].get_frr_mgmt_framework_config():
+        pytest.skip("VNET SLB/appliance BGP-profile community propagation relies on "
+                    "bgpcfgd's APPL_DB BGP_PROFILE_TABLE consumer (managers_rm); not "
+                    "applicable in frr_mgmt_framework mode")
+
+
 @pytest.fixture(
     name="encap_type",
     scope="module",

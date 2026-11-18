@@ -19,6 +19,9 @@ from ptf.mask import Mask
 from scapy.all import IP, Ether
 
 pytestmark = [
+    pytest.mark.frr_bgpcfgd_only(
+        "this module writes VNET-scoped BGP config in the bgpcfgd schema (BGP_PEER_RANGE, "
+        "unqualified BGP_NEIGHBOR keys); frrcfgd needs a VRF-keyed schema it does not build"),
     pytest.mark.topology('t0'),
     pytest.mark.disable_loganalyzer
 ]

@@ -56,7 +56,10 @@ from tests.bgp.table_map_helpers import (  # noqa: F401
 
 pytestmark = [
     pytest.mark.topology('urh'),
-    pytest.mark.skip_check_dut_health
+    pytest.mark.skip_check_dut_health,
+    pytest.mark.frr_bgpcfgd_only(
+        "PREFIX_LIST (ANCHOR_PREFIX) is implemented by bgpcfgd's PrefixListMgr, a bgpcfgd "
+        "convenience frrcfgd does not consume"),
 ]
 
 logger = logging.getLogger(__name__)

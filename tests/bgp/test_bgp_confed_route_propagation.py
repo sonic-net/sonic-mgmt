@@ -40,6 +40,8 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('lma', 'uma'),
+    # Assertions read FRR state via vtysh; confed config is translated to confed_id/confed_peers.
+    pytest.mark.frr_generic,
 ]
 
 # A freshly deployed / rebooted testbed may still be converging when the test

@@ -51,3 +51,11 @@ steps:
       --ignore-conditional-mark \
       --color=no --collect-only --continue-on-collection-errors
   displayName: 'Run pytest --collect-only'
+
+- script: |
+    set -x
+
+    docker exec -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect \
+      python3 -m pytest --noconftest -p no:logging -p no:cacheprovider -q \
+      common/helpers/frr/
+  displayName: 'Run tests/common/helpers/frr unit tests'
