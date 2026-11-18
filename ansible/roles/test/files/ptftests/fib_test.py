@@ -210,9 +210,15 @@ class FibTest(BaseTest):
             random.shuffle(covered_ip_ranges)
             self.check_balancing(covered_ip_ranges, dut_index, ipv4)
 
-    def get_src_and_exp_ports(self, dst_ip):
+    def get_src_and_exp_ports(self, dst_ip, fib_index=None):
+        src_ports = self.src_ports
+        if self.fib_index_by_asic and fib_index is not None:
+            # Enter on the ASIC whose FIB is under test, so that FIB's routes are the ones checked
+            src_ports = [port for port in self.src_ports
+                         if self.fib_index_by_asic.get(
+                             self.ptf_test_port_map[str(port)].get('asic_idx')) == fib_index] or self.src_ports
         while True:
-            src_port = int(random.choice(self.src_ports))
+            src_port = int(random.choice(src_ports))
             active_dut_indexes = [0]
             if self.fib_index_by_asic:
                 # A packet can only use the routes of the ASIC it enters
@@ -264,7 +270,7 @@ class FibTest(BaseTest):
             dst_ips.append(ip_range.get_random_ip())
 
         for dst_ip in dst_ips:
-            src_port, exp_port_lists, _ = self.get_src_and_exp_ports(dst_ip)
+            src_port, exp_port_lists, _ = self.get_src_and_exp_ports(dst_ip, dut_index)
             # if dst_ip is local to DUT, the nexthops will be empty.
             # for active-active dualtor testbed, if the dst_ip is local to the upper ToR and src_port is an
             # active-active port, the expect egress ports of upper ToR will be empty, exp_port_lists will be
@@ -286,7 +292,7 @@ class FibTest(BaseTest):
             for ip_range in ip_ranges:
                 dst_ip = ip_range.get_random_ip()
                 src_port, exp_port_lists, next_hops = self.get_src_and_exp_ports(
-                    dst_ip)
+                    dst_ip, dut_index)
                 if self.single_fib == "single-fib-multi-hop":
                     updated_exp_port_list = []
                     # assume only test `single-fib-multi-hop` scenario on a single DUT testbed
