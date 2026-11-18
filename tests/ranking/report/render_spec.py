@@ -148,7 +148,6 @@ def build_fill_rate_rows(results) -> List[Dict[str, Any]]:
                 "test_class": tc,
                 "spec_name": name,
                 "fill": spec.get("value"),
-                "attempted": details.get("attempted_count"),
                 "installed": details.get("completed_count"),
                 "order": details.get("scenario"),
                 "result": _decide_result(spec.get("value"),
@@ -630,7 +629,7 @@ def _fill_rate_table(rfrows, actual) -> str:
     """Fill rate dimensioned by deployment scenario (test case).
 
     Covers route fill rates and fdb_fill_rate alike. One row per case:
-    scenario | capacity | installed scale | fill rate (+ attempted in tooltip).
+    scenario | scale | installed scale | fill rate.
     The fill cell is colored by its own result.
     """
     out = ["<h2>Fill Rate &amp; Scale</h2>",
@@ -660,15 +659,10 @@ def _fill_rate_table(rfrows, actual) -> str:
                 src = "min of " + src
             cap_cell = (f"<td title=\"from {_html(src)}\">"
                         f"<span class=\"val\">{_fmt_num(cap)}</span></td>")
-        # attempted (the fill-rate denominator) is derivable from fill% and
-        # installed, so it lives in the tooltip rather than its own column.
-        att = (f"attempted {_fmt_num(r['attempted'])}"
-               if isinstance(r["attempted"], (int, float)) else "")
-        ta = f" title=\"{att}\"" if att else ""
         scenario = r["test_class"] or "—"
         if r.get("order"):
             scenario += f" ({r['order']})"
-        out.append(f"<tr{ta}><td><strong>{_html(scenario)}</strong></td>")
+        out.append(f"<tr><td><strong>{_html(scenario)}</strong></td>")
         out.append(cap_cell)
         out.append(f"<td><span class=\"val\">{inst}</span></td>")
         out.append(f"<td class=\"{colorcls}\"><span class=\"val\">{fill}</span></td></tr>")

@@ -144,7 +144,12 @@ class BrcmSaiHelper(CommonSaiHelper):
         """
         Start switch and wait seconds for a warm up.
         """
-        switch_init_wait = 5
+        switch_init_wait = self.test_params.get(
+            'vsonic_dataplane_wait_s', 5)
+        if (type(switch_init_wait) not in (int, float)
+                or switch_init_wait <= 0):
+            raise ValueError(
+                'vsonic_dataplane_wait_s must be a positive number')
         self.switch_id = sai_thrift_create_switch(
             self.client, init_switch=True, src_mac_address=ROUTER_MAC,
             port_state_change_notify=None, fdb_event_notify=None,

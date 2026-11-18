@@ -172,7 +172,7 @@
         }
       }
     },
-    "ext_sai_srv6_test": {
+    "sai_srv6_test": {
       "cases": {
         "Srv6DecapMySidTest": {
           "priority": "P2"
@@ -2189,6 +2189,9 @@
     },
     "saiwred": {
       "cases": {
+        "_WredAttributeCheckTest": {
+          "priority": "P2"
+        },
         "_WredBindProfileMultipleQueuesTest": {
           "priority": "P2"
         },

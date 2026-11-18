@@ -3,9 +3,9 @@ import json
 
 import pytest
 
-from tests.ranking.cases.tools import generate_manifest as manifest_generator
+from tests.ranking.cases import generate_manifest as manifest_generator
 from tests.ranking.common.case_selection import load_case_manifest, select_ranking_cases
-from tests.ranking.cases.tools.generate_manifest import build_manifest
+from tests.ranking.cases.generate_manifest import build_manifest
 
 
 def test_manifest_sorting_and_default_priority(manifest):
@@ -201,33 +201,6 @@ def test_parse_test_names_rejects_invalid_output(output, match):
         manifest_generator.parse_test_names(io.StringIO(output))
 
 
-def test_parse_priorities():
-    assert manifest_generator.parse_priority(
-        'sairoute.RouteA=P0') == ('sairoute.RouteA', 'P0')
-    assert manifest_generator.parse_priorities([
-        'sairoute.RouteA=P0', 'saivlan.VlanA=P1',
-    ]) == {
-        'sairoute.RouteA': 'P0', 'saivlan.VlanA': 'P1',
-    }
-
-
-@pytest.mark.parametrize('value', [
-    '', 'sairoute.RouteA', '=P0', 'sairoute.RouteA=',
-    'sairoute.RouteA=P3', 'bad-module.RouteA=P0',
-    'sairoute=P0', 'sairoute.RouteA=P0=extra',
-])
-def test_parse_priority_rejects_invalid_value(value):
-    with pytest.raises(ValueError):
-        manifest_generator.parse_priority(value)
-
-
-def test_parse_priorities_rejects_duplicate_case():
-    with pytest.raises(ValueError, match='duplicate priority'):
-        manifest_generator.parse_priorities([
-            'sairoute.RouteA=P0', 'sairoute.RouteA=P1',
-        ])
-
-
 def test_write_manifest_is_deterministic(tmp_path):
     identity = {'repo': 'SAI', 'commit': 'a' * 40}
     first = tmp_path / 'first.json'
@@ -258,6 +231,73 @@ def test_write_manifest_is_deterministic(tmp_path):
     }
 
 
+def test_generator_lists_cases_with_explicit_ptf_inputs(tmp_path):
+    runner = tmp_path / 'ptf'
+    test_dir = tmp_path / 'cases'
+    test_dir.mkdir()
+    runner.write_text(
+        '#!/usr/bin/env python3\n'
+        'import sys\n'
+        'expected = ["--test-dir", {!r}, "--list-test-names"]\n'
+        'if sys.argv[1:] != expected:\n'
+        '    print("unexpected arguments: " + repr(sys.argv[1:]), file=sys.stderr)\n'
+        '    raise SystemExit(7)\n'
+        'print("sairoute.RouteB")\n'
+        'print("saivlan.VlanA")\n'.format(str(test_dir)),
+        encoding='utf-8')
+    runner.chmod(0o755)
+
+    assert manifest_generator.discover_test_names(runner, test_dir) == [
+        'sairoute.RouteB', 'saivlan.VlanA',
+    ]
+
+
+def test_generator_reports_ptf_listing_failure(tmp_path):
+    runner = tmp_path / 'ptf'
+    test_dir = tmp_path / 'cases'
+    test_dir.mkdir()
+    runner.write_text(
+        '#!/usr/bin/env python3\n'
+        'import sys\n'
+        'print("missing dependency", file=sys.stderr)\n'
+        'raise SystemExit(3)\n', encoding='utf-8')
+    runner.chmod(0o755)
+
+    with pytest.raises(ValueError, match='PTF test listing failed.*missing dependency'):
+        manifest_generator.discover_test_names(runner, test_dir)
+
+
+def test_generator_preserves_existing_priorities(tmp_path):
+    destination = tmp_path / 'manifest.json'
+    destination.write_text(json.dumps({
+        'schema_version': 2,
+        'source_identity': {'repo': 'vendor/SAI'},
+        'modules': {
+            'sairoute': {'cases': {
+                'RouteA': {'priority': 'P0'},
+                'Removed': {'priority': 'P1'},
+            }},
+        },
+    }))
+
+    generated = manifest_generator.generate_manifest(
+        ['sairoute.RouteA', 'sairoute.RouteB'], destination)
+
+    assert generated['source_identity'] == {'repo': 'vendor/SAI'}
+    assert generated['modules']['sairoute']['cases'] == {
+        'RouteA': {'priority': 'P0'},
+        'RouteB': {'priority': 'P2'},
+    }
+
+
+def test_manifest_cli_exposes_only_concrete_inputs():
+    parser = manifest_generator.build_parser()
+    options = {action.dest for action in parser._actions}
+
+    assert {'ptf_runner', 'test_dir', 'test_name_list'} <= options
+    assert not {'sai_root', 'output', 'source_manifest', 'priority'} & options
+
+
 def test_write_manifest_failure_preserves_existing_output(tmp_path, monkeypatch):
     output = tmp_path / 'manifest.json'
     output.write_text('existing\n')
@@ -275,63 +315,16 @@ def test_write_manifest_failure_preserves_existing_output(tmp_path, monkeypatch)
     assert list(tmp_path.iterdir()) == [output]
 
 
-def test_main_reads_stdin_and_updates_manifest_in_place(tmp_path, manifest):
+def test_main_reads_optional_test_name_list(tmp_path, monkeypatch, manifest):
+    discovered = tmp_path / 'names.txt'
+    discovered.write_text('sairoute.RouteA\n')
     output = tmp_path / 'manifest.json'
     output.write_text(json.dumps(manifest))
-
-    result = manifest_generator.main([
-        '--source-manifest', str(output),
-        '--priority', 'sairoute.RouteA=P0',
-        '--output', str(output),
-    ], stdin=io.StringIO('PTF startup\nsairoute.RouteA\n'))
-
-    assert result == 0
-    assert json.loads(output.read_text())['source_identity'] == manifest['source_identity']
-    assert json.loads(output.read_text())['modules'] == {
-        'sairoute': {'cases': {
-            'RouteA': {'priority': 'P0'},
-        }},
-    }
-
-
-def test_main_reads_input_file(tmp_path):
-    discovered = tmp_path / 'names.txt'
-    discovered.write_text('sairoute.RouteA\n')
-    output = tmp_path / 'manifest.json'
+    monkeypatch.setattr(manifest_generator, 'DEFAULT_MANIFEST', output)
 
     assert manifest_generator.main([
-        '--input', str(discovered),
-        '--output', str(output),
+        '--test-name-list', str(discovered),
     ]) == 0
-    baseline = load_case_manifest(manifest_generator.DEFAULT_MANIFEST)
-    assert load_case_manifest(output)['source_identity'] == baseline['source_identity']
-
-
-def test_main_reports_invalid_discovery(tmp_path):
-    with pytest.raises(SystemExit) as error:
-        manifest_generator.main([
-            '--output', str(tmp_path / 'manifest.json'),
-        ], stdin=io.StringIO('PTF startup only\n'))
-
-    assert error.value.code == 2
-
-
-@pytest.mark.parametrize('missing_argument', ['manifest', 'input'])
-def test_main_reports_unreadable_input(tmp_path, missing_argument, manifest):
-    source = tmp_path / 'source-manifest.json'
-    source.write_text(json.dumps(manifest))
-    discovered = tmp_path / 'names.txt'
-    discovered.write_text('sairoute.RouteA\n')
-    if missing_argument == 'manifest':
-        source = tmp_path / 'missing-manifest.json'
-    else:
-        discovered = tmp_path / 'missing-names.txt'
-
-    with pytest.raises(SystemExit) as error:
-        manifest_generator.main([
-            '--input', str(discovered),
-            '--source-manifest', str(source),
-            '--output', str(tmp_path / 'manifest.json'),
-        ])
-
-    assert error.value.code == 2
+    assert load_case_manifest(output)['modules'] == {
+        'sairoute': {'cases': {'RouteA': {'priority': 'P2'}}},
+    }

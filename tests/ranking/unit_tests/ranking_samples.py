@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.ranking.cases.tools.generate_manifest import build_manifest
+from tests.ranking.cases.generate_manifest import build_manifest
 
 
 @pytest.fixture

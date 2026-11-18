@@ -13,7 +13,6 @@ import importlib.abc
 import importlib.machinery
 import json
 import os
-import subprocess
 import sys
 import tempfile
 import types
@@ -21,10 +20,7 @@ import unittest
 
 TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
 PTF_DIR = os.path.dirname(TOOLS_DIR)
-SAI_DIR = os.path.dirname(PTF_DIR)
 REGISTRY_PATH = os.path.join(PTF_DIR, 'spec_registry.json')
-HEADER_PARSER = os.path.join(TOOLS_DIR, 'parse_sai_headers.py')
-INC_DIRS = [os.path.join(SAI_DIR, 'inc'), os.path.join(SAI_DIR, 'experimental')]
 
 EXPECTED_SPEC_COUNT = 1641
 PERF_SPEC = 'ipv4_route_scale'
@@ -171,27 +167,6 @@ class RecordSpecTest(unittest.TestCase):
             self.assertTrue(self.host._spec_registry.is_known(name),
                             '%s:%d records unregistered spec %r'
                             % (module, lineno, name))
-
-        # probe_get_capability is called with attr full names, so every attr the
-        # headers declare must be registered or the hard check would explode.
-        if all(os.path.isdir(path) for path in INC_DIRS):
-            self._assert_every_header_attr_is_registered()
-
-    def _assert_every_header_attr_is_registered(self):
-        attr_db = os.path.join(self.tmp, 'attr_db.json')
-        command = [sys.executable, HEADER_PARSER, '-o', attr_db]
-        for path in INC_DIRS:
-            command += ['--inc-dir', path]
-        subprocess.check_call(command, stdout=subprocess.DEVNULL,
-                              stderr=subprocess.DEVNULL)
-        with open(attr_db) as handle:
-            attrs = json.load(handle)['attrs']
-        missing = sorted(entry['attr'] for entry in attrs
-                         if not self.host._spec_registry.is_known(
-                             entry['attr']))
-        self.assertEqual(missing, [])
-        self.assertGreater(len(attrs), 1000)
-
 
 if __name__ == '__main__':
     unittest.main()

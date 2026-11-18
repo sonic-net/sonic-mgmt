@@ -3,6 +3,7 @@
 import pytest
 
 from tests.ranking.prepare.case_sync import sync_cases
+from tests.ranking.prepare.timing import measure
 
 
 pytestmark = [
@@ -17,8 +18,11 @@ def test_prepare_workflow(ranking_prepare_context):
     context = ranking_prepare_context
     description = context.driver.describe(context)
     if 'configure_env' in context.steps:
-        context.driver.configure_env(context, description)
+        with measure('configure_env'):
+            context.driver.configure_env(context, description)
     if 'check_env' in context.steps:
-        context.driver.check_env(context, description)
+        with measure('check_env'):
+            context.driver.check_env(context, description)
     if 'sync_cases' in context.steps:
-        sync_cases(context, description)
+        with measure('sync_cases'):
+            sync_cases(context, description)

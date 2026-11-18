@@ -129,6 +129,66 @@
       "base_sha256": "6c551166b6f3227ba027615e68c98948d19331bca81b0eca0278fc72b7887e39",
       "path": "resources/Jenkinsfile.Saitest",
       "reason": "Unrelated CI resource contains a hard-coded external access token and is not a PTF runtime dependency."
+    },
+    {
+      "base_sha256": "9fc6efa1b568860e4483f40fea4a13e8a967c00a4d7d82ca8f4d5ab4b1fbf1bb",
+      "path": "tools/build_capability.py",
+      "reason": "Legacy report generator is superseded by the maintained Ranking report pipeline outside the deployed PTF case tree."
+    },
+    {
+      "base_sha256": "7b66b68ca03310c740c14a94b2716f6067411e6c80221e97a575e39cf13c1f33",
+      "path": "tools/capability_report.py",
+      "reason": "Legacy report renderer is superseded by the maintained Ranking report pipeline outside the deployed PTF case tree."
+    },
+    {
+      "base_sha256": "22a8af827581ee719543f882873e9adee2e4e6ef25f5545d60c5145aae0dea75",
+      "path": "tools/gen_attr_map.py",
+      "reason": "Build-time attribute-map generation is owned by tests/ranking/cases and is not a PTF runtime dependency."
+    },
+    {
+      "base_sha256": "78642749afb8d6f79980905696181cf8f2cb4dd3c5404703ca5862f95fb471ef",
+      "path": "tools/gen_enum_values.py",
+      "reason": "Build-time report metadata generation is owned by tests/ranking/report and is not a PTF runtime dependency."
+    },
+    {
+      "base_sha256": "ba3ac3587bbf0d7af5812f4ad769dd5018e6fdd3d2f1ceb780c49882f580ad47",
+      "path": "tools/gen_skeleton.py",
+      "reason": "Build-time report metadata generation is owned by tests/ranking/report and is not a PTF runtime dependency."
+    },
+    {
+      "base_sha256": "aaaf68b8eade4c30d68350fd34c649c2c1ef7514805fcbc315d1826f5f9c7423",
+      "path": "tools/parse_sai_headers.py",
+      "reason": "Build-time SAI header parsing is owned by tests/ranking/report and is not a PTF runtime dependency."
+    },
+    {
+      "base_sha256": "cade8f69610f731393532e1641a5466bf95ccc6eb318e1df7289bf3afe7b029e",
+      "path": "tools/test_build_capability.py",
+      "reason": "Tests for the removed legacy report generator are not PTF runtime dependencies."
+    },
+    {
+      "base_sha256": "55951659af0e878308aeefafd49b28e1272745a038f460c424b9c3902d9c2305",
+      "path": "tools/test_capability_report.py",
+      "reason": "Tests for the removed legacy report renderer are not PTF runtime dependencies."
+    },
+    {
+      "base_sha256": "981a4247207904f6a5307b8c164977b35c9544ddefd3b6bdd694fde65e4ab08b",
+      "path": "tools/test_capture_wiring.py",
+      "reason": "Build-time capture wiring tests are maintained outside the deployed PTF case tree."
+    },
+    {
+      "base_sha256": "942a1b96d3e634c26af8cccf94a37484e59253103100a3b376d307c244a78107",
+      "path": "tools/test_gen_attr_map.py",
+      "reason": "Tests for build-time attribute-map generation are maintained outside the deployed PTF case tree."
+    },
+    {
+      "base_sha256": "40a419394ef5ccaf8cc5bb5d6a1bd1f4e307d7d86cc69c97bea86009e376eb40",
+      "path": "tools/test_gen_enum_values.py",
+      "reason": "Tests for build-time report metadata generation are maintained outside the deployed PTF case tree."
+    },
+    {
+      "base_sha256": "da100ebf1fbdb110f02c1e934ec3dc8b06cc4d9c05567db0c472ad57a120f30f",
+      "path": "tools/test_gen_skeleton.py",
+      "reason": "Tests for build-time report metadata generation are maintained outside the deployed PTF case tree."
     }
   ],
   "patches": [
@@ -201,6 +261,13 @@
       "patched_sha256": "8bbedfb04dfbfe9df518642b1bb44f8d0e8d3f8823eda309eecceead98aa9ebc",
       "path": "saiport.py",
       "reason": "Require Broadcom host control before base setup, skip without an explicitly injected transport, and restore host and SAI state on failures."
+    },
+    {
+      "base_sha256": "b76e0b32bb7c5223cde1e484a9e28dbd838921ea8732ef392f0823d1c577e393",
+      "id": "remove-vendored-header-parser-dependency",
+      "patched_sha256": "a6a9e781dc02c0966fdf5df900fcd3cd699fd641ba35ab413cc303789c0c9924",
+      "path": "tools/test_record_spec.py",
+      "reason": "Move header-to-registry coverage validation to the maintained report metadata generator after removing the vendored parser."
     }
   ],
   "schema_version": 1

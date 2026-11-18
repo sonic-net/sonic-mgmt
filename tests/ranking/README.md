@@ -483,19 +483,46 @@ for module, definition in manifest['modules'].items():
 PY
 ```
 
-To regenerate the catalog, save the PTF `--list-test-names` output and pass it
-to the generator on the controller:
+To regenerate the catalog, point the generator at the PTF launcher and case
+directory from the matching SAI checkout:
 
 ```bash
-python3 -m tests.ranking.cases.tools.generate_manifest \
-  --input /path/to/ptf-test-names.txt \
-  --output tests/ranking/cases/manifest.json
+python3 -m tests.ranking.cases.generate_manifest \
+  --ptf-runner /path/to/SAI/test/ptf/ptf \
+  --test-dir /path/to/SAI/ptf
 ```
 
-The generator reads `source_identity` from the existing checked-in manifest;
-`--source-manifest JSON` selects another baseline. It assigns `P2` by default;
-repeat `--priority module.Class=P0` or `--priority module.Class=P1` to retain
-non-default priorities. It does not verify the deployed case version.
+The generator runs `ptf --test-dir ... --list-test-names` itself and always
+updates `tests/ranking/cases/manifest.json`. It preserves `source_identity` and
+the priorities of cases that remain in the catalog; newly discovered cases use
+`P2`. For an offline fallback, `--test-name-list FILE` consumes previously
+captured list output instead of launching PTF.
+
+The case runtime also owns an attribute map derived from the concrete SAI
+Python adapter used with these cases. Regenerate it with:
+
+```bash
+python3 -m tests.ranking.cases.generate_attr_map \
+  --adapter /path/to/sai_adapter.py
+```
+
+This command always updates `tests/ranking/cases/ptf/attr_map.json`.
+
+Report metadata is maintained separately because it belongs to report
+interpretation rather than PTF execution. Regenerate the three checked-in
+report metadata files with:
+
+```bash
+python3 -m tests.ranking.report.tools.generate_metadata \
+  --headers /path/to/SAI/inc \
+  --experimental-headers /path/to/SAI/experimental
+```
+
+`--experimental-headers` is optional and repeatable. The command always
+updates `enum_values.json`, `skeleton.json`, and `spec_registry.json` under
+`tests/ranking/report/metadata/`. The report registry is derived from the
+non-capability entries in `tests/ranking/cases/ptf/spec_registry.json`; the
+case registry remains the source used while tests execute.
 
 ### Case selectors
 

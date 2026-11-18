@@ -79,9 +79,7 @@ from config.port_config_ini_loader import PortConfigInILoader
 
 from sai_test_result import TestResultCollector, SpecRegistry, Measurement
 
-# Perf cases carry no capability evidence, so the attr capture is pure cost
-# there. ext_sai_srv6_test is deliberately absent: it is a capability case
-# that happens to share the ext_ prefix.
+# Performance cases omit attribute capture because they produce no capability evidence.
 PERF_MODULES = frozenset((
     'ext_sai_counter_stress_test',
     'ext_sai_l2_scale_test',

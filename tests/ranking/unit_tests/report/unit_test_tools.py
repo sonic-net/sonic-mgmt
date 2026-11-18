@@ -1,5 +1,4 @@
 import json
-from types import SimpleNamespace
 
 from tests.ranking.report.tools import generate_metadata
 
@@ -22,26 +21,48 @@ typedef enum _sai_port_attr_t
     return include
 
 
+def _write_case_registry(path, capability='SAI_PORT_ATTR_ADMIN_STATE'):
+    path.write_text(json.dumps({
+        '_meta': {'source': 'fixture'},
+        capability: {
+            'direction': 'equal',
+            'operations': ['create', 'set', 'read'],
+            'result_type': 'capability',
+            'unit': 'supported',
+        },
+        'port_counter_read': {
+            'description': 'Port counter read latency',
+            'direction': 'lower_better',
+            'operations': ['read'],
+            'result_type': 'performance',
+            'unit': 's/op',
+        },
+    }))
+    return path
+
+
 def test_pipeline_generates_metadata_from_explicit_external_inputs(tmp_path):
     include = _write_source_tree(tmp_path / 'source')
+    registry = _write_case_registry(tmp_path / 'case-spec-registry.json')
     output = tmp_path / 'generated'
-    generate_metadata.generate(SimpleNamespace(
-        inc=include, experimental=[], out_dir=output))
+    generate_metadata.generate(include, [], registry, output)
     paths = generate_metadata.validate_metadata(output)
     assert set(paths) == set(generate_metadata.METADATA_FILES)
     skeleton = json.loads(paths['skeleton.json'].read_text())
     assert skeleton['denominator'] == len(skeleton['cells'])
     assert {cell['attr'] for cell in skeleton['cells']} == {
         'SAI_PORT_ATTR_ADMIN_STATE'}
+    report_registry = json.loads(paths['spec_registry.json'].read_text())
+    assert set(report_registry) == {'port_counter_read'}
 
 
 def test_pipeline_output_is_stable_across_source_roots(tmp_path):
+    registry = _write_case_registry(tmp_path / 'case-spec-registry.json')
     outputs = []
     for name in ('first-root', 'unrelated-second-root'):
         include = _write_source_tree(tmp_path / name)
         output = tmp_path / ('output-' + name)
-        generate_metadata.generate(SimpleNamespace(
-            inc=include, experimental=[], out_dir=output))
+        generate_metadata.generate(include, [], registry, output)
         outputs.append(output)
 
     for name in generate_metadata.METADATA_FILES:
@@ -53,7 +74,8 @@ def test_pipeline_output_is_stable_across_source_roots(tmp_path):
     assert str(tmp_path) not in (outputs[0] / 'skeleton.json').read_text()
 
 
-def test_pipeline_resolves_experimental_enums_for_standard_attributes(tmp_path):
+def test_pipeline_resolves_experimental_enums_for_standard_attributes(
+        tmp_path, monkeypatch):
     include = _write_source_tree(tmp_path / 'source')
     header = include / 'saiport.h'
     header.write_text(header.read_text().replace(
@@ -79,10 +101,15 @@ typedef enum _sai_external_attr_t
 } sai_external_attr_t;
 """, encoding='utf-8')
     output = tmp_path / 'generated'
+    registry = _write_case_registry(
+        tmp_path / 'case-spec-registry.json',
+        capability='SAI_PORT_ATTR_EXTERNAL_MODE')
+    monkeypatch.setattr(generate_metadata, 'METADATA_ROOT', output)
+    monkeypatch.setattr(generate_metadata, 'CASE_SPEC_REGISTRY', registry)
 
     assert generate_metadata.main([
-        '--inc', str(include), '--experimental', str(experimental),
-        '--out-dir', str(output),
+        '--headers', str(include),
+        '--experimental-headers', str(experimental),
     ]) == 0
 
     enums = json.loads((output / 'enum_values.json').read_text())
@@ -100,3 +127,25 @@ typedef enum _sai_external_attr_t
         ('set', 'SAI_EXTERNAL_MODE_ENABLED'),
         ('read', None),
     }
+
+
+def test_pipeline_rejects_header_attributes_missing_from_case_registry(tmp_path):
+    include = _write_source_tree(tmp_path / 'source')
+    registry = _write_case_registry(
+        tmp_path / 'case-spec-registry.json',
+        capability='SAI_PORT_ATTR_UNRELATED')
+
+    try:
+        generate_metadata.generate(include, [], registry, tmp_path / 'generated')
+    except ValueError as error:
+        assert 'missing capability definitions' in str(error)
+        assert 'SAI_PORT_ATTR_ADMIN_STATE' in str(error)
+    else:
+        raise AssertionError('missing capability definition was accepted')
+
+
+def test_metadata_cli_exposes_header_inputs_only():
+    options = {action.dest for action in generate_metadata.build_parser()._actions}
+
+    assert {'headers', 'experimental_headers'} <= options
+    assert not {'sai_root', 'inc', 'experimental', 'out_dir'} & options

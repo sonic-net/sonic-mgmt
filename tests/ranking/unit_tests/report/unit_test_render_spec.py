@@ -202,3 +202,26 @@ def test_specification_uses_expanded_user_facing_labels():
     assert 'Counter perf' not in section
     assert 'Op Latency' not in section
     assert 'Read 2 acl counters' not in section
+
+
+def test_fill_rate_table_uses_scale_without_attempted_column_or_tooltip():
+    actual = {
+        ('ipv4_prefix', '', 'scale.RouteCase', '', 0): {'value': 1000},
+    }
+    fill_rows = [{
+        'test_class': 'scale.RouteCase',
+        'spec_name': 'ipv4_route_fill_rate',
+        'fill': 90.0,
+        'attempted': 1000,
+        'installed': 900,
+        'order': 'sequential',
+        'result': 'MEASURED',
+    }]
+
+    table = render_spec._fill_rate_table(fill_rows, actual)
+
+    assert '>Scale</th>' in table
+    assert '<th>Installed</th><th>Fill rate</th>' in table
+    assert 'Capacity' not in table
+    assert 'Attempted' not in table
+    assert 'attempted' not in table

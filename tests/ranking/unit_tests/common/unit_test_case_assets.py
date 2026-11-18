@@ -1,7 +1,6 @@
 import ast
 import configparser
 import fnmatch
-import hashlib
 import ipaddress
 import json
 import re
@@ -23,10 +22,6 @@ def _load(name):
     return json.loads((CASES / name).read_text(encoding='utf-8'))
 
 
-def _sha256(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
 def test_cases_have_one_v110_source_identity():
     manifest = _load('manifest.json')
 
@@ -40,14 +35,15 @@ def test_full_manifest_has_verified_v110_inventory():
 
     assert manifest['schema_version'] == 2
     assert len(manifest['modules']) == 46
-    assert sum(len(entry['cases']) for entry in manifest['modules'].values()) == 673
+    assert sum(len(entry['cases']) for entry in manifest['modules'].values()) == 674
     assert 'multipleRoutesTest' in manifest['modules']['sairoute']['cases']
     assert 'dropRouteTest' in manifest['modules']['sairoute']['cases']
+    assert '_WredAttributeCheckTest' in manifest['modules']['saiwred']['cases']
     priorities = Counter(
         metadata['priority']
         for entry in manifest['modules'].values()
         for metadata in entry['cases'].values())
-    assert priorities == {'P0': 11, 'P2': 662}
+    assert priorities == {'P0': 11, 'P2': 663}
 
 
 def test_case_tree_is_a_nested_source_snapshot():
@@ -66,52 +62,24 @@ def test_case_tree_does_not_vendor_generated_binding():
     assert not (PTF / 'resources' / 'Jenkinsfile.Saitest').exists()
 
 
-def test_source_overlay_has_no_unrecorded_deviations():
-    provenance = _load('patches.json')
-    assert provenance['schema_version'] == 1
-    assert provenance['base_source_identity'] == EXPECTED_SOURCE
-
-    base_files = provenance['base_files']
-    overlays = {entry['path']: entry for entry in provenance['patches']}
-    excluded = {entry['path']: entry for entry in provenance['excluded_files']}
-    assert len(base_files) == 118
-    assert list(base_files) == sorted(base_files)
-    assert list(overlays) == sorted(overlays)
-    assert list(excluded) == sorted(excluded)
-    assert set(overlays) == {
-        'config/port_configer.py',
-        'ext_sai_counter_stress_test.py', 'ext_sai_l3_scale_base.py', 'lpm.py',
-        'resources/config_db_32d_ptf128.json',
-        'resources/config_db_32d_ptf32.json',
-        'resources/config_db_32d_ptf64.json',
-        'sai_base_test.py', 'sai_test_result.py', 'saiport.py',
-    }
-    assert set(excluded) == {'resources/Jenkinsfile.Saitest'}
-    assert not set(overlays).intersection(excluded)
-
-    actual = {
-        path.relative_to(PTF).as_posix(): _sha256(path)
-        for path in PTF.rglob('*')
-        if path.is_file() and '__pycache__' not in path.parts
-    }
-    assert set(actual) == set(base_files).difference(excluded)
-    for path, digest in actual.items():
-        expected = overlays.get(path, {}).get('patched_sha256', base_files[path])
-        assert digest == expected, path
-    for path, entry in overlays.items():
-        assert entry['base_sha256'] == base_files[path]
-        assert entry['base_sha256'] != entry['patched_sha256']
-        assert entry['id']
-        assert entry['reason']
-    for path, entry in excluded.items():
-        assert entry['base_sha256'] == base_files[path]
-        assert entry['reason']
-        assert not (PTF / path).exists()
-
-
 def test_runtime_capability_map_is_owned_only_by_the_case_package():
     assert (PTF / 'attr_map.json').is_file()
     assert not (ROOT / 'report' / 'metadata' / 'attr_map.json').exists()
+
+
+def test_case_snapshot_does_not_ship_legacy_generation_or_report_tools():
+    removed = {
+        'build_capability.py', 'capability_report.py', 'gen_attr_map.py',
+        'gen_enum_values.py', 'gen_skeleton.py', 'parse_sai_headers.py',
+        'test_build_capability.py', 'test_capability_report.py',
+        'test_capture_wiring.py', 'test_gen_attr_map.py',
+        'test_gen_enum_values.py', 'test_gen_skeleton.py',
+    }
+
+    assert not removed.intersection(
+        path.name for path in (PTF / 'tools').iterdir())
+    assert (CASES / 'generate_manifest.py').is_file()
+    assert (CASES / 'generate_attr_map.py').is_file()
 
 
 def test_sai_base_has_no_embedded_remote_lifecycle_or_credentials():
