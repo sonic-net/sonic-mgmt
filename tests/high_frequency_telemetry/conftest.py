@@ -211,9 +211,9 @@ def skip_unsupported_hft_platform(
     config_existed = config_exists.get("rc") == 0
     original_config = ""
     if config_existed:
-        original_config = duthost.shell(
-            f"sudo cat {OTEL_CONFIG_PATH}", module_ignore_errors=False
-        ).get("stdout", "")
+        original_config = base64.b64decode(
+            duthost.slurp(src=OTEL_CONFIG_PATH)["content"]
+        ).decode("utf-8")
 
     feature_result = duthost.shell(
         "redis-cli -n 4 --raw HGETALL 'FEATURE|otel'",
