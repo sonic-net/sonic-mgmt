@@ -2,6 +2,7 @@
 
 # Script to detect changed files in tests/common2/
 # This script is reused by multiple Azure Pipeline steps to avoid code duplication
+# Changes to the Common2 pipeline select all Common2 files for validation.
 #
 # Usage:
 #   source get-changed-python-files.sh [python-only]
@@ -26,7 +27,15 @@ else
     echo "Comparing changes since $BASE_COMMIT."
 fi
 
-if [ "$FILTER_MODE" = "all" ]; then
+PIPELINE_CHANGED_FILES=$(git diff --name-only "$BASE_COMMIT" HEAD -- .azure-pipelines/common2)
+
+if [ -n "$PIPELINE_CHANGED_FILES" ]; then
+    echo "Common2 pipeline changed; selecting all Common2 files."
+    CHANGED_FILES=$(git ls-files -- tests/common2 .azure-pipelines/common2 | tr '\n' ' ')
+    CHANGED_PYTHON_FILES=$(git ls-files -- 'tests/common2/*.py' | tr '\n' ' ')
+    HAS_CHANGED_FILES=$( [ -n "$CHANGED_FILES" ] && echo true || echo false )
+    HAS_CHANGED_PYTHON_FILES=$( [ -n "$CHANGED_PYTHON_FILES" ] && echo true || echo false )
+elif [ "$FILTER_MODE" = "all" ]; then
     # Get all changed files in tests/common2
     CHANGED_FILES=$(git diff --name-only "$BASE_COMMIT" HEAD -- tests/common2 | tr '\n' ' ')
 

@@ -8,7 +8,6 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import (
-    check_container_state,
     get_container_processes,
     kill_container_processes,
     start_container_process,
@@ -130,12 +129,6 @@ def recover_cert_config(duthost, stopped_programs=None):
         output = duthost.shell(dut_command, module_ignore_errors=True)
         logger.error("GNMI service failed to start. GNMI log: {}".format(output["stdout"]))
         pytest.fail("Failed to recover GNMI client cert configuration.")
-
-    # Restart telemetry container if it was stopped during cert config change
-    # apply_cert_config may trigger ctrmgrd to stop the telemetry container
-    if not check_container_state(duthost, "telemetry", should_be_running=True):
-        logger.info("Telemetry container is not running after cert config recovery, restarting it")
-        duthost.shell("sudo systemctl restart telemetry", module_ignore_errors=True)
 
     duthost.shell("sudo /usr/bin/container_checker")
 

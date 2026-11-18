@@ -69,6 +69,8 @@ def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost, gnm
     and the system recovers with all critical processes running.
     """
     duthost = duthosts[rand_one_dut_hostname]
+    is_smartswitch = duthost.dut_basic_facts()["ansible_facts"]["dut_basic_facts"].get("is_smartswitch")
+    shutdown_timeout = 360 if is_smartswitch else 180
 
     # Record uptime before reboot
     uptime_before = duthost.get_up_time(utc_timezone=True)
@@ -79,8 +81,8 @@ def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost, gnm
 
     check_reboot_status(gnmi_tls, expected_active=True, expected_reason=REBOOT_MESSAGE, expected_method="COLD")
 
-    # Wait until the system is down
-    wait_for_shutdown(duthost, localhost, delay=10, timeout=180, reboot_res=None)
+    # SmartSwitch DPU shutdown requires a longer timeout. This returns as soon as SSH drops.
+    wait_for_shutdown(duthost, localhost, delay=10, timeout=shutdown_timeout, reboot_res=None)
     logging.info("System is down after reboot")
 
     # Wait until the system is back up
