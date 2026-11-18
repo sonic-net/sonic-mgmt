@@ -220,14 +220,7 @@ class ArpTest(BaseTest):
         if self.asic_type == 'mellanox':
             payload = b'\x00' * 22 + bytes(arp_request)
 
-        if self.asic_type == 'barefoot':
-            exp_pkt = testutils.ipv4_erspan_pkt(
-                eth_src=self.dut_mac,
-                ip_src=self.dut_loopback_ip,
-                ip_dst=self.ferret_endpoint_ip,
-                inner_frame=bytes(arp_request)
-            )
-        elif self.asic_type == 'cisco-8000':
+        if self.asic_type in ('barefoot', 'cisco-8000'):
             exp_pkt = testutils.ipv4_erspan_pkt(
                 eth_src=self.dut_mac,
                 ip_src=self.dut_loopback_ip,
@@ -236,6 +229,10 @@ class ArpTest(BaseTest):
                 version=1
             )
             exp_pkt['ERSPAN II'].ver = 1
+            # The ERSPAN II helper enables the GRE sequence field by default.
+            # Match Ferret's assumed inner-frame offsets by clearing it for
+            # Barefoot (byte 46) and retaining it for Cisco (byte 50).
+            exp_pkt[scapy.GRE].seqnum_present = int(self.asic_type == 'cisco-8000')
         else:
             exp_pkt = testutils.simple_gre_packet(
                 pktlen=0,
@@ -309,11 +306,14 @@ class ArpTest(BaseTest):
             attach_filter(packet_source.socket, packet_filter,
                           packet_source.interface_name)
 
-        self.portchannel_ports = sorted({
+        self.uplink_ports = sorted({
             graph['minigraph_port_indices'][member]
-            for portchannel in graph['minigraph_portchannels'].values()
+            for portchannel in graph.get('minigraph_portchannels', {}).values()
             for member in portchannel['members']
         })
+        if not self.uplink_ports:
+            # Match Ferret's extract_iface_names() fallback for routed uplinks.
+            self.uplink_ports = sorted({int(iface[3:]) for iface in graph.get('net_ports', [])})
 
         self.tests = []
         vni_base = 0
@@ -598,7 +598,7 @@ class ArpTest(BaseTest):
                     "Expected ARP reply only on requester port {}, received on {}".format(
                         port, sorted(arp_reply_ports)))
 
-            unexpected_erspan_ports = (erspan_request_ports - set(self.portchannel_ports))
+            unexpected_erspan_ports = (erspan_request_ports - set(self.uplink_ports))
             self.assertTrue(
                 not unexpected_erspan_ports,
                 "Received mirrored ARP request on unexpected ports {}".format(
@@ -613,18 +613,19 @@ class ArpTest(BaseTest):
                 self.assertTrue(
                     False,
                     "Expected mirrored ARP request on ports {}, received none".format(
-                        self.portchannel_ports))
+                        self.uplink_ports))
 
         self.assertTrue(False, "Timed out waiting for CPA teardown")
 
     def poll_erspan_and_arp_reply(self, exp_pkt, exp_erspan_pkt, requester_port):
-        '''Polls until the requester receives an ARP reply and an ERSPAN request is found.'''
+        '''Collects replies and mirrors, including a bounded drain after both arrive.'''
         arp_reply_ports = set()
         erspan_request_ports = set()
-        stop_at = time.time() + 2 * ptf.ptfutils.default_timeout
+        stop_at = time.monotonic() + 2 * ptf.ptfutils.default_timeout
+        draining = False
 
-        while not (requester_port in arp_reply_ports and erspan_request_ports):
-            timeout = stop_at - time.time()
+        while True:
+            timeout = stop_at - time.monotonic()
             if timeout <= 0:
                 break
 
@@ -637,6 +638,12 @@ class ArpTest(BaseTest):
 
             if ptf.dataplane.match_exp_pkt(exp_erspan_pkt, result.packet):
                 erspan_request_ports.add(result.port)
+
+            if not draining and requester_port in arp_reply_ports and erspan_request_ports:
+                # Keep observing every port for forbidden copies. Set this
+                # deadline only once so continued traffic cannot extend it.
+                stop_at = time.monotonic() + ptf.ptfutils.default_negative_timeout
+                draining = True
 
         return arp_reply_ports, erspan_request_ports
 
