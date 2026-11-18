@@ -4463,6 +4463,18 @@ platform_tests/test_reload_config.py::test_reload_configuration_checks:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
       - "https://github.com/sonic-net/sonic-buildimage/issues/24543 and asic_type in ['mellanox'] and 'sn4280' in platform"
 
+platform_tests/test_sfp_thermal_state_db.py:
+  skip:
+    reason: "thermalctld is not available on sn6600_ld_simx and sn6810_ld_simx platforms"
+    conditions:
+      - "'sn6600_ld_simx' in platform or 'sn6810_ld_simx' in platform"
+
+platform_tests/test_thermal_polling.py:
+  skip:
+    reason: "thermalctld is not available on sn6600_ld_simx and sn6810_ld_simx platforms"
+    conditions:
+      - "'sn6600_ld_simx' in platform or 'sn6810_ld_simx' in platform"
+
 portstat/test_portstat.py:
   skip:
     reason: 'Port stat tests require ASIC port counters, not available on BMC'
