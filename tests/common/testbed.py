@@ -236,7 +236,7 @@ class TestbedInfo(object):
                 ptf_ip,
                 ptf_ipv6,
                 tb_dict["server"],
-                tb_dict["vm_base"] or None,
+                tb_dict.get("vm_base") or None,
                 tb_dict["duts"],
                 tb_dict["comment"]
             ]
@@ -250,7 +250,7 @@ class TestbedInfo(object):
                 ptf_ip,
                 ptf_ipv6,
                 tb_dict["server"],
-                tb_dict["vm_base"] or None,
+                tb_dict.get("vm_base") or None,
                 tb_dict["duts"],
                 tb_dict["inv_name"],
                 tb_dict["auto_recover"],

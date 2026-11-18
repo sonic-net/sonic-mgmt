@@ -9,7 +9,8 @@ behavior is unchanged.
 
 Add a normal single-DUT, single-ASIC testbed entry with `topo: generic`. Keep the actual base
 HWSKU in the DUT inventory and supply the usual PTF, server and inventory fields.
-No `generic_hwsku` policy section or separate request file is needed.
+No neighbor VM base, `generic_hwsku` policy section or separate request file is
+needed. The group-name and PTF fields identify existing PTF resources, not VMs.
 
 ```bash
 ./testbed-cli.sh add-topo <testbed> <vault-password-file>
@@ -31,7 +32,10 @@ The normal inventory credentials and Ansible errors are used throughout.
 
 `remove-topo` removes the PTF topology through the normal role. Like an ordinary
 testbed removal, it does not restore the DUT configuration. Redeploy the original
-testbed to return to its configuration.
+testbed to recreate its declared baseline, not to recover preexisting custom state.
+This feature does not capture an original snapshot or provide rollback. Preserve
+any custom configuration through the operator's normal backup/restore procedure
+before deployment.
 
 ## Port calculation
 
@@ -46,7 +50,9 @@ same-speed child count, its lookup cable-length count and an optional
 compatible cage modes. Single-lane auxiliary cages retain a compatible baseline
 mode; on an entirely single-lane platform they participate as data ports.
 
-The existing connection graph's speeds and VLANs constrain usable PTF ports.
+The existing connection graph's speeds/VLANs and the base port's ordered ASIC
+lanes constrain usable PTF ports. Effective native minigraph autoneg/FEC settings
+are retained without restoring old port names, speeds or lane assignments.
 The calculation does not reconfigure a fanout to make a DUT layout fit. An
 infeasible layout fails the ordinary `add-topo` Ansible task.
 Image/platform support and deployment errors remain the responsibility of the

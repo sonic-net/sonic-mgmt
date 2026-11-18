@@ -1083,6 +1083,9 @@ class GenerateGoldenConfigDBModule(object):
         if "DEVICE_METADATA" in ori_config_db:
             golden_config_db["DEVICE_METADATA"] = ori_config_db["DEVICE_METADATA"]
 
+        if self.port_config:
+            golden_config_db["PORT"] = ori_config_db.get("PORT", {})
+
         # Set buffer_model to traditional to prevent regression, as it is currently
         # hardcoded here:
         # See sonic-utilities config/main.py:L2216.
@@ -1533,7 +1536,12 @@ class GenerateGoldenConfigDBModule(object):
 
         if self.port_config:
             config_dict = json.loads(config)
-            config_dict.update(self.port_config)
+            native_ports = config_dict.get("PORT", {})
+            config_dict.update(copy.deepcopy(self.port_config))
+            for name, row in config_dict.get("PORT", {}).items():
+                for field in ("autoneg", "fec"):
+                    if field in native_ports.get(name, {}):
+                        row[field] = native_ports[name][field]
             config = json.dumps(config_dict, indent=4)
 
         # set switch-host admin_up by default for BMC

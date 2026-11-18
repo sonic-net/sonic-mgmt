@@ -49,6 +49,11 @@
     fail: msg="Define duts_name variable with -e duts_name=something"
     when: duts_name is not defined
 
+  - name: Default unused VM base for Generic topology
+    set_fact:
+      VM_base: ""
+    when: topo | default('') == 'generic' and VM_base is not defined
+
   - name: Check that variable VM_base is defined
     fail: msg="Define VM_base variable with -e VM_base=something"
     when: VM_base is not defined

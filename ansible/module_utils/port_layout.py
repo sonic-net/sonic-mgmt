@@ -49,8 +49,10 @@ def _lanes(row):
     return frozenset(row["lanes"].split(","))
 
 
-def _connected(name, row, connections, base_indices, vlans):
+def _connected(name, row, connections, base_ports, base_indices, vlans):
     return (name in base_indices and base_indices[name] in vlans and name in connections
+            and bool(base_ports[name].get("lanes"))
+            and row["lanes"].split(",") == base_ports[name]["lanes"].split(",")
             and str(connections[name]["speed"]) == str(row["speed"]))
 
 
@@ -80,7 +82,7 @@ def select_modes(cages, cables, connections, base_ports, vlans, min_subports=0, 
                     required[demand] = max(required[demand], count, len(cables[speed]), min_subports)
             contribution = Counter(
                 (choice["mode"], int(row["speed"])) for name, row in choice["ports"].items()
-                if _connected(name, row, connections, base_indices, vlans))
+                if _connected(name, row, connections, base_ports, base_indices, vlans))
             options[cage].append((choice, contribution))
 
     nodes = 0
@@ -162,7 +164,7 @@ def generate_port_config(cages, lookup, base_ports, connections, vlan_map, min_s
     by_mode_speed = defaultdict(list)
     for index, name in enumerate(sorted(ports, key=natural_key)):
         row = ports[name]
-        connected = _connected(name, row, connections, base_indices, vlans)
+        connected = _connected(name, row, connections, base_ports, base_indices, vlans)
         row["admin_status"] = "up" if connected else "down"
         if connected:
             port_vlans[index] = vlans[base_indices[name]]

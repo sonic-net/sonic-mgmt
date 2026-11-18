@@ -63,6 +63,11 @@
     fail: msg="Define duts_name variable with -e duts_name=something"
     when: duts_name is not defined
 
+  - name: Default unused VM base for Generic topology
+    set_fact:
+      VM_base: ""
+    when: topo | default('') == 'generic' and VM_base is not defined
+
   - name: Check that variable VM_base is defined
     fail: msg="Define VM_base variable with -e VM_base=something"
     when: VM_base is not defined
@@ -136,11 +141,16 @@
       delegate_to: "{{ duts_name }}"
 
     - name: Use calculated PTF interfaces in the standard vm_set role
+      vars:
+        port_indices: "{{ port_config.port_vlan_map.keys() | map('int') | sort | list }}"
       set_fact:
-        topology:
-          host_interfaces: "{{ port_config.port_vlan_map.keys() | map('int') | sort | list }}"
-          DUT:
-            port_config: "{{ port_config }}"
+        topology: >-
+          {{ topology | combine({
+            'host_interfaces': port_indices,
+            'DUT': {
+              'port_config': port_config,
+              'vlan_configs': {'one_vlan_a': {'Vlan1000': {'intfs': port_indices}}}
+            }}, recursive=True) }}
         device_vlan_map_list: "{{ device_vlan_map_list | combine({duts_name: port_config.port_vlan_map}) }}"
 
     - name: Save generated topology for deploy-mg and pytest
@@ -174,6 +184,10 @@
   gather_facts: no
   serial: "{{ eos_batch_size | default(0) | int }}"
   pre_tasks:
+    - name: Skip neighbor configuration for Generic topology
+      meta: end_play
+      when: topo | default('') == 'generic'
+
     - block:
         - name: Check that variable topo is defined
           fail: msg="Define topo variable with -e topo=something"
