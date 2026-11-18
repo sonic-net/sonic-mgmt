@@ -130,12 +130,11 @@ def test_dequeue_ecn(request,
     except Exception:
         logger.exception("Unable to retrieve ECN dequeue flow metrics")
         flow_metrics = []
-    log_level = logging.WARNING if len(ip_pkts) != data_flow_pkt_count else logging.INFO
     for metric in flow_metrics:
-        logger.log(log_level, f"ECN dequeue flow {metric.name}: "
-                   f"TX packets={metric.frames_tx}, RX packets={metric.frames_rx}")
-    logger.log(log_level, f"ECN dequeue capture: captured IP packets={len(ip_pkts)}, "
-               f"expected packets={data_flow_pkt_count}")
+        logger.info(f"ECN dequeue flow {metric.name}: "
+                    f"TX packets={metric.frames_tx}, RX packets={metric.frames_rx}")
+    logger.info(f"ECN dequeue capture: captured IP packets={len(ip_pkts)}, "
+                f"expected packets={data_flow_pkt_count}")
 
     logger.info("Running verification for ECN dequeue test")
     # Check if all the packets are captured
