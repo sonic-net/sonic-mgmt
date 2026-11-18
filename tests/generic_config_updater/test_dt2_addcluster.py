@@ -48,8 +48,8 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.gu_utils import apply_patch, generate_tmpfile, delete_tmpfile
 from tests.common.utilities import wait_until
-from tests.generic_config_updater.util.dt2_generate_patch import (
-    generate_config_patch,
+from tests.generic_config_updater.util.generate_patch import (
+    generate_single_asic_config_patch as generate_config_patch,
     is_front_panel_port,
     extract_mirror_acl_ports,
     AUTOGEN_BUFFER_PG_PROFILE_PREFIX,
@@ -67,7 +67,7 @@ from tests.generic_config_updater.util.verify_patch import (
     expected_lossless_profile_name,
 )
 
-from .util.dt2_process_minigraph import MinigraphRefactor
+from .util.process_minigraph import SingleAsicMinigraphRefactor as MinigraphRefactor
 
 # dt2 addcluster tests target single-ASIC pizza box switches in the T2 role. 'lt2' is
 # listed alongside 't2' because a lower-T2 testbed is where the downstream T1 neighbours
