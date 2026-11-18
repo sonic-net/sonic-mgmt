@@ -5511,6 +5511,12 @@ snappi_tests/reboot:
       - "'2025' in release"
       - "https://github.com/sonic-net/sonic-mgmt/issues/27415"
 
+snappi_tests/test_orchagent_icmp_hw_offload.py:
+  skip:
+    reason: "ICMP hardware offload orchagent test only runs on Mellanox SPC3."
+    conditions:
+      - "asic_gen != 'spc3'"
+
 #######################################
 #####            snmp             #####
 #######################################

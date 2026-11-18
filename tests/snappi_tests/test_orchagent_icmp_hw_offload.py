@@ -123,6 +123,7 @@ from tests.common.fixtures.conn_graph_facts import (  # noqa: F401, E402
     conn_graph_facts, fanout_graph_facts)
 # Import general test utilities
 from tests.common.helpers.assertions import pytest_assert  # noqa: E402
+from tests.common.mellanox_data import is_mellanox_device  # noqa: E402
 
 # ICMP orchestrator utility is handled by copying to DUT
 # The icmporch_util.py will be copied to the DUT and executed there
@@ -770,11 +771,13 @@ def create_test_sessions(setup_icmp_sessions, snappi_testbed_config):  # noqa: F
     duthost.shell("config interface startup {}".format(interface_name), module_ignore_errors=True)
 
     # Key format: vrf:interface:session_id:type (using colon separators)
+    # NVIDIA rx_interval is 1-127 ms, and tx_interval is at most one third of it.
+    mellanox = is_mellanox_device(duthost)
     normal_session_key = "default:{}:{}:{}".format(  # noqa: E231
         interface_name, ICMP_GUID_NORMAL, ICMP_SESSION_TYPE_NORMAL)
     normal_session_config = {
-        "tx_interval": "300",  # 300ms interval for ICMP requests
-        "rx_interval": "1500",  # 1.5s timeout for replies
+        "tx_interval": "25" if mellanox else "300",
+        "rx_interval": "125" if mellanox else "1500",
         "session_cookie": ICMP_SESSION_COOKIE,
         "src_ip": dut_ip,  # DUT interface IP (source of requests)
         "dst_ip": remote_ip,  # Remote IP (destination of requests)
@@ -787,7 +790,7 @@ def create_test_sessions(setup_icmp_sessions, snappi_testbed_config):  # noqa: F
         interface_name, ICMP_GUID_DUMMY, ICMP_SESSION_TYPE_RX)
     rx_session_config = {
         "tx_interval": "0",  # No TX for RX session
-        "rx_interval": "1500",  # Same timeout as normal session
+        "rx_interval": "125" if mellanox else "1500",
         "session_cookie": ICMP_SESSION_COOKIE,
         "src_ip": dut_ip,  # DUT interface IP (source of requests)
         "dst_ip": remote_ip,  # Remote IP (destination of requests)
@@ -1000,7 +1003,7 @@ def test_icmp_orchestrator_tx_interval_values(
 
     This test validates that normal sessions remain UP with different tx_interval values:
     1. tx_interval = 3ms (very fast)
-    2. tx_interval = 1200ms (slow)
+    2. tx_interval = 40ms on NVIDIA, 1200ms otherwise (slow)
 
     Both sessions should remain UP as long as IXIA host responds to ICMP requests.
     """
@@ -1037,9 +1040,11 @@ def test_icmp_orchestrator_tx_interval_values(
     logger.info("IXIA host configured successfully")
 
     # Test tx_interval values
+    mellanox = is_mellanox_device(duthost)
     tx_interval_tests = [
         {"value": "3", "description": "3ms (fast)"},
-        {"value": "1200", "description": "1200ms (slow)"}
+        {"value": "40" if mellanox else "1200",
+         "description": "40ms (slow)" if mellanox else "1200ms (slow)"}
     ]
 
     for test_config in tx_interval_tests:
@@ -1055,7 +1060,7 @@ def test_icmp_orchestrator_tx_interval_values(
 
         session_config = {
             "tx_interval": tx_interval,
-            "rx_interval": "1500",
+            "rx_interval": "125" if mellanox else "1500",
             "session_cookie": ICMP_SESSION_COOKIE,
             "src_ip": dut_ip,
             "dst_ip": remote_ip,
@@ -1221,9 +1226,11 @@ def test_icmp_orchestrator_rx_interval_with_fps(
     pytest_assert(icmp_host, "Failed to configure IXIA host")
 
     # Test cases: (rx_interval_ms, fps, expected_state)
+    mellanox = is_mellanox_device(duthost)
     test_cases = [
         {"rx_interval": "9", "fps": 111, "expected": "Up", "description": "rx_interval=9ms, fps=111"},
-        {"rx_interval": "500", "fps": 2, "expected": "Up", "description": "rx_interval=500ms, fps=2"},
+        {"rx_interval": "120" if mellanox else "500", "fps": 9 if mellanox else 2, "expected": "Up",
+         "description": "rx_interval=120ms, fps=9" if mellanox else "rx_interval=500ms, fps=2"},
     ]
 
     test_index = 0
