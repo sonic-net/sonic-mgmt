@@ -8,6 +8,7 @@
 | 2   | 2nd April 2026   | Shreyansh Jain | Add certificate-based authentication test cases                                                                                                                    |
 | 3   | 8th October 2026 | Chinmoy Dey    | Align with the sonic-mgmt test code: ComputerSystem, Chassis leak detection, event subscriptions, Rack Manager alert, pmon interaction, concurrency and restart recovery |
 | 4   | 28th October 2026 | Shreyansh Jain | Align the certificate section with `test_redfish_certificates.py` and the Redfish certificate provisioning HLD |
+| 5   | 18th November 2026 | Chinmoy Dey   | Add leak sensor fault, late leak sensor, unknown switch-host power state, reset queue limit and bridge-unavailable reset cases (\#93 to \#100); four-field MessageIds; `Retry-After` on 503; service root Chassis link; owning D-Bus bus names (sonic-mgmt issue 28186); inventory source precedence; fixture scopes and `LEAK_CONTROL_POLICY` database corrected |
 
 # Related documents
 
@@ -17,6 +18,8 @@
 | sonic-redfish HLD            | [https://github.com/sonic-net/sonic-redfish/pull/2](https://github.com/sonic-net/sonic-redfish/pull/2) |
 | sonic-redfish Implementation | [https://github.com/sonic-net/sonic-redfish/pull/1](https://github.com/sonic-net/sonic-redfish/pull/1) |
 | Redfish Certificate Provisioning HLD | [https://github.com/sonic-net/SONiC/pull/2461](https://github.com/sonic-net/SONiC/pull/2461) |
+| SONiC Redfish with D-Bus Bridge design | [doc/sonic-redfish/HLD.md](https://github.com/sonic-net/SONiC/blob/master/doc/sonic-redfish/HLD.md) |
+| sonic-redfish inventory unit tests | [tests/unit-tests/inventory_model_test.cpp](https://github.com/sonic-net/sonic-redfish/blob/master/tests/unit-tests/inventory_model_test.cpp) |
 
 # Definitions/Abbreviation
 
@@ -42,7 +45,7 @@
 The sonic-redfish project provides Redfish API support for SONiC BMC platforms. It consists of two components packaged in a single Docker container named `redfish` (built from `docker-redfish`):
 
 1. **bmcweb** — The upstream OpenBMC Redfish HTTP server, with the SONiC OEM Rack Manager extension and the rmc-events leak/host-power monitors.
-2. **sonic-dbus-bridge** — A systemd daemon that reads SONiC data sources (Redis CONFIG\_DB/STATE\_DB, FRU EEPROMs, platform.json), exposes OpenBMC-compatible D-Bus objects (`xyz.openbmc_project.*`) for bmcweb, and forwards Rack Manager actions and reset requests into STATE\_DB.
+2. **sonic-dbus-bridge** — A daemon, run by supervisord in the `redfish` container next to bmcweb, that reads SONiC data sources (Redis CONFIG\_DB/STATE\_DB, FRU EEPROMs, platform.json), exposes OpenBMC-compatible D-Bus objects (`xyz.openbmc_project.*`) for bmcweb, and forwards Rack Manager actions and reset requests into STATE\_DB.
 
 The end-to-end data flow is:
 
@@ -77,13 +80,17 @@ This test plan covers:
 - Firmware inventory (`/redfish/v1/UpdateService/FirmwareInventory`)
 - Rack Manager alert and telemetry persistence to STATE\_DB (`SONiC.SubmitAlert`, `SONiC.SubmitTelemetry`)
 - Event service, push subscriptions, leak events and switch-host power events (`/redfish/v1/EventService`)
+- Faulted leak sensors, leak sensors published after sonic-dbus-bridge started, and the unknown switch-host power state before bmcctld publishes `HOST_STATE`
+- Refusal of requests the bridge cannot take: `409` beyond the reset command queue, `503` with `Retry-After` while the bridge is off the bus
 - Redfish to pmon (bmcctld) interaction over STATE\_DB, including the CRITICAL alert power-on interlock
 - Behaviour under concurrent rack manager requests
 - Recovery after restarting sonic-dbus-bridge, bmcweb, bmcctld and the `redfish` container
 
 # Scale and Performance
 
-No scale and performance testing is involved in this test plan. The concurrency tests issue a handful of parallel requests to prove functional correctness, not throughput. Each Redfish endpoint is tested with a single BMC DUT.
+This test plan is functional. Each Redfish endpoint is tested with a single BMC DUT. The concurrency tests (Section 10) issue a handful of parallel requests and the restart tests (Section 11) restart one service at a time; both prove functional correctness, not throughput or endurance. The reset queue case (\#93) checks the one documented limit, 10 queued commands.
+
+Not measured here, and listed under Open Items: response time of the read endpoints, the propagation latency from STATE_DB to Redfish, and the maximum number of concurrent EventService subscriptions or HTTPS sessions.
 
 # Test Infrastructure
 
@@ -110,9 +117,9 @@ STATE\_DB on the BMC is the observable boundary for every write path: the tests 
 
 Tests use the `requests` Python library for REST API validation (no PTF/scapy needed, as these are management-plane API tests, not data-plane packet tests).
 
-- `redfish_utils.py` — `RedfishClient` (mTLS session), field/status/member assertion helpers, `assert_redfish_error` for registry message checks, and the `HOST_FINAL_POWER_STATES` map used to decide when the switch host is settled.
+- `redfish_utils.py` — `RedfishClient` (mTLS session), field/status/member assertion helpers, `assert_redfish_error` for registry message checks, `assert_retry_after` for the `Retry-After` header of a `503`, and the `HOST_FINAL_POWER_STATES` map used to decide when the switch host is settled.
 - `redfish_event_listener.py` — the webhook receiver described above; runs in-process or as a standalone script.
-- `conftest.py` session fixtures — `bmc_duthost` (requires a BMC DUT), `redfish_feature_enabled`, `bmc_clock_in_sync`, `bmc_tls_certs` (provisions certificates through `REDFISH|certs` the way a provisioning agent does and restores the original state at teardown, see Section 12) and `redfish_client`.
+- `conftest.py` fixtures. Session-scoped: `bmc_duthost` (requires a BMC DUT), `bmc_ip`, `bmc_exec` and `bmc_clock_in_sync`. Module-scoped, so each test module provisions and restores for itself: `redfish_feature_enabled`, `redfish_port`, `bmc_tls_certs` (provisions certificates through `REDFISH|certs` the way a provisioning agent does and restores the original state at teardown, see Section 12), `redfish_base_url` and `redfish_client`.
 
 Per-module fixtures snapshot and restore the STATE\_DB tables they touch, remove subscriptions before and after each test, and power the switch host back on if a power test leaves it off.
 
@@ -172,27 +179,29 @@ Tests whose prerequisites are absent skip rather than fail: no OEM Rack Manager 
 
 ## D-Bus Objects
 
-| D-Bus Interface                                | Object Path                                   | Purpose                                              |
-| :--------------------------------------------- | :-------------------------------------------- | :--------------------------------------------------- |
-| `xyz.openbmc_project.ObjectMapper`             | `/xyz/openbmc_project/object_mapper`          | Object discovery for bmcweb (GetSubTree, GetObject)  |
-| `xyz.openbmc_project.Inventory.Item.Chassis`   | `/xyz/openbmc_project/inventory/system/chassis` | Chassis identity                                   |
-| `xyz.openbmc_project.Inventory.Item.LeakDetector` | `/xyz/openbmc_project/sensors/leak/<sensor>` | `DetectorState` driving leak events and LeakDetector resources |
-| `xyz.openbmc_project.State.Host`               | `/xyz/openbmc_project/state/host0`            | `CurrentHostState` (PowerState) and `RequestedHostTransition` (reset) |
-| `com.sonic.RackManager`                        | (bridge-owned)                                | `SubmitAlert` / `SubmitTelemetry` forwarding         |
+All of these are owned by sonic-dbus-bridge. `busctl` addresses an object by the owning bus name, which is not always the interface name.
+
+| Owning bus name                         | D-Bus Interface                                | Object Path                                   | Purpose                                              |
+| :-------------------------------------- | :--------------------------------------------- | :-------------------------------------------- | :--------------------------------------------------- |
+| `xyz.openbmc_project.ObjectMapper`      | `xyz.openbmc_project.ObjectMapper`             | `/xyz/openbmc_project/object_mapper`          | Object discovery for bmcweb (GetSubTree, GetObject)  |
+| `xyz.openbmc_project.Inventory.Manager` | `xyz.openbmc_project.Inventory.Item.Chassis`, `xyz.openbmc_project.Inventory.Decorator.Asset` | `/xyz/openbmc_project/inventory/system/chassis` | Chassis identity |
+| `xyz.openbmc_project.Inventory.Manager` | `xyz.openbmc_project.Inventory.Item.LeakDetector` | `/xyz/openbmc_project/sensors/leak/<sensor>` | `DetectorState` driving leak events and LeakDetector resources |
+| `xyz.openbmc_project.State.Host`        | `xyz.openbmc_project.State.Host`               | `/xyz/openbmc_project/state/host0`            | `CurrentHostState` (PowerState) and `RequestedHostTransition` (reset) |
+| `com.sonic.RackManager`                 | `com.sonic.RackManager`                        | (bridge-owned)                                | `SubmitAlert` / `SubmitTelemetry` forwarding         |
 
 ## Redis Tables
 
 | Database  | Key                                | Written by                      | Checked for                                        |
 | :-------- | :--------------------------------- | :------------------------------ | :------------------------------------------------- |
 | CONFIG_DB | `DEVICE_METADATA\|localhost`       | platform                        | Chassis identity source                            |
-| CONFIG_DB | `FEATURE\|redfish`                 | suite                           | Redfish feature enabled for the session            |
+| CONFIG_DB | `FEATURE\|redfish`                 | suite                           | Redfish feature enabled for each test module       |
 | STATE_DB  | `HOST_STATE\|switch-host`          | bmcctld                         | `device_power_state`, `device_status` vs PowerState |
 | STATE_DB  | `CHASSIS_MODULE_TABLE\|SWITCH-HOST`| bmcctld                         | `oper_status` agrees with `HOST_STATE`             |
 | STATE_DB  | `RACK_MANAGER_COMMAND\|CMD_*`      | sonic-dbus-bridge, bmcctld      | One row per reset: `command`, `status`, `result`   |
 | STATE_DB  | `RACK_MANAGER_ALERT\|<sensor>`     | sonic-dbus-bridge               | Alert records; CRITICAL gates bmcctld POWER_ON     |
 | STATE_DB  | `RACK_MANAGER_DATA\|<sensor>`      | sonic-dbus-bridge               | Telemetry records                                  |
-| STATE_DB  | `LIQUID_COOLING_INFO\|<sensor>`    | thermalctld (seeded by suite)   | Leak sensor state mirrored to D-Bus                |
-| STATE_DB  | `LEAK_CONTROL_POLICY`              | platform                        | Whether a CRITICAL alert is enforced and what it does |
+| STATE_DB  | `LIQUID_COOLING_INFO\|<sensor>`    | thermalctld (seeded by suite)   | Leak and fault state (`leaking`, `leak_severity`, `leak_sensor_status`) mirrored to D-Bus, for rows present at bridge start and rows added later |
+| CONFIG_DB | `LEAK_CONTROL_POLICY`              | platform                        | Whether a CRITICAL alert is enforced and what it does; unset fields take the bmcctld defaults |
 | CONFIG_DB | `REDFISH\|certs`                   | suite (`bmc_tls_certs`)         | Delivery paths (`server_crt`, `server_key`, `ca_crt`) and trusted common names (`client_crt_cname`) |
 | CONFIG_DB | `REDFISH\|config`                  | suite (port cases)              | Listening `port` |
 | STATE_DB  | `REDFISH_CERT_STATUS\|global`      | `stage-credentials.sh` watcher  | `in_sync`, `mtls_enforced`, `served_serial`, `last_error`, `last_update` |
@@ -201,15 +210,20 @@ Tests whose prerequisites are absent skip rather than fail: no OEM Rack Manager 
 
 ## Pre-Test Preparation
 
-Performed by session fixtures before the first test:
+Performed once per session, before the first test:
 
 - Verify the DUT is a BMC (`bmc_duthost`); skip the suite otherwise
-- Enable the `redfish` feature if the image ships it disabled and wait for the container (`redfish_feature_enabled`)
-- Verify the BMC clock is not behind the certificate `NotBefore` time (`bmc_clock_in_sync`)
-- Generate CA, server and client certificates, deliver them through `REDFISH|certs` and wait for STATE_DB to report them staged (`bmc_tls_certs`, see Section 12)
-- Build the mTLS `redfish_client` used by every test
+- Verify the BMC clock is within 60 seconds of the sonic-mgmt container clock, in either direction (`bmc_clock_in_sync`, `MAX_BMC_CLOCK_SKEW_SECONDS`); a BMC behind the certificate `NotBefore` time would otherwise fail the TLS handshake
 
-Priorities are assigned in this plan; the test code carries no priority markers. Parametrized tests give their case count next to the test ID. The steps of each test are taken from the test code.
+Performed once per test module, and undone when the module finishes:
+
+- Enable the `redfish` feature if the image ships it disabled and wait for the container (`redfish_feature_enabled`)
+- Generate CA, server and client certificates, deliver them through `REDFISH|certs` and wait for STATE_DB to report them staged (`bmc_tls_certs`, see Section 12)
+- Build the mTLS `redfish_client` used by every test of the module
+
+The `redfish` container's critical processes are `bmcweb` and `sonic-dbus-bridge`, both run by supervisord inside the container. Test Case \#56 checks both are `RUNNING` after provisioning.
+
+Priorities are assigned in this plan; the test code carries no priority markers. Parametrized tests give their case count next to the test ID. The steps of each test are taken from the test code. Cases \#93 to \#100 were added in revision 5 and sit in the section of their test module; the numbers of the earlier cases are unchanged.
 
 ---
 
@@ -243,7 +257,7 @@ Module: `test_redfish_service_root.py` — `GET /redfish/v1`
 1. Send `GET /redfish/v1` with the mTLS client and validate the status is `200`.
 2. Validate the body has `@odata.type`, `@odata.id`, `RedfishVersion`, `UUID` and `Links`, with `@odata.id` equal to `/redfish/v1`, `@odata.type` containing `ServiceRoot`, and `RedfishVersion` and `UUID` non-empty strings.
 3. Read `mac` from CONFIG_DB `DEVICE_METADATA|localhost` on the BMC and validate `Product` equals `SONiCBMC-<mac>` (lowercased), or `SONiCBMC` when no MAC is set.
-4. Validate `UpdateService.@odata.id` is `/redfish/v1/UpdateService`, `Systems.@odata.id` is `/redfish/v1/Systems`, and `Links` contains `Sessions`.
+4. Validate `UpdateService.@odata.id` is `/redfish/v1/UpdateService`, `Systems.@odata.id` is `/redfish/v1/Systems`, `Chassis.@odata.id` is `/redfish/v1/Chassis`, and `Links` contains `Sessions`.
 
 ---
 
@@ -252,6 +266,8 @@ Module: `test_redfish_service_root.py` — `GET /redfish/v1`
 Module: `test_redfish_chassis.py` — `GET /redfish/v1/Chassis`, `/Chassis/chassis`, `/Chassis/chassis/LeakDetectors`, `/Chassis/chassis/ThermalSubsystem/LeakDetection`
 
 The single Chassis is the switch, built from the chassis object sonic-dbus-bridge exports. Leak detectors hang off it at the DMTF canonical `Chassis/<id>/LeakDetectors` collection and at the deprecated `ThermalSubsystem/LeakDetection/LeakDetectors` collection that leak events name in `OriginOfCondition`. These tests work with whatever detectors the platform exposes.
+
+**Source precedence:** chassis identity fields come from CONFIG_DB `DEVICE_METADATA` > FRU > platform.json > `Unknown` (sonic-redfish design, section 6.3). This is the reverse of the order for System identity fields (Section 3). Test Case \#4 only checks that each served value is non-empty and equals its CONFIG_DB source when that is set. Setting up a field that is present in one source and absent in another would mean rewriting the FRU EEPROM or removing platform.json, which cannot be undone safely within a test run. The order itself is verified by the sonic-redfish gtests `RedisBeatsFruForSerialNumber`, `FruUsedWhenRedisFieldsMissing`, `ModelFallsBackToPlatformWhenModelAbsent`, `PartNumberPrefersRedisPartNumberOverHwsku`, `PartNumberFallsBackToHwsku` and `DefaultsWhenAllSourcesAbsent` in `tests/unit-tests/inventory_model_test.cpp`.
 
 ### Test Case \#3: The Chassis collection lists the switch as `/redfish/v1/Chassis/chassis`
 
@@ -348,6 +364,10 @@ The single Chassis is the switch, built from the chassis object sonic-dbus-bridg
 Module: `test_redfish_computer_system.py` — `GET /redfish/v1/Systems`, `/Systems/system`, `/Systems/system/ResetActionInfo`
 
 The ComputerSystem is the switch host, built from the `State.Host` object the bridge mirrors from bmcctld's `HOST_STATE|switch-host` row. Nothing here changes the switch host's power state.
+
+**Source precedence:** System identity fields come from FRU > CONFIG_DB > `Unknown` (sonic-redfish design, section 6.3), the reverse of the Chassis order (Section 2). As there, the order is verified by the sonic-redfish gtests `SystemSerialPrefersFruOverRedis` and `SystemHostnameFromConfigDb` in `tests/unit-tests/inventory_model_test.cpp`, not on hardware.
+
+**Unknown power state:** until bmcctld has published `HOST_STATE|switch-host`, the bridge reports the switch-host state as unknown and `Systems/system` and `Chassis/chassis` omit `PowerState` and report `Status.State` `UnavailableOffline`. The cases in this section run with bmcctld up and the row published; the unknown state is covered by Test Case \#100.
 
 ### Test Case \#9: The Systems collection lists the switch host as `/redfish/v1/Systems/system`
 
@@ -495,7 +515,9 @@ Module: `test_redfish_firmware_inventory.py` — `GET /redfish/v1/UpdateService/
 
 Module: `test_redfish_computer_reset.py` — `POST /redfish/v1/Systems/system/Actions/ComputerSystem.Reset`
 
-**These tests change the switch host's power state.** The CPU reset state is read through the SWITCH-HOST module's hardware reset pin, independent of Redfish, and each test restores the CPU to running afterwards.
+**These tests change the switch host's power state.** The CPU reset state is read through the SWITCH-HOST module's hardware reset pin, independent of Redfish, and each test restores the CPU to running afterwards. The two error-path cases (\#93, \#94) only send `ResetType=On` to a switch host that is already on, so whatever reaches bmcctld leaves the host as it was.
+
+The bridge keeps one host power command in flight and queues at most 10 behind it. A reset beyond that is refused with `xyz.openbmc_project.Common.Error.Unavailable`, which bmcweb reports as `409`. With the bridge off the bus bmcweb answers `503` with `Retry-After` (sonic-redfish design, section 7.4).
 
 ### Test Case \#18: ResetType=On when the CPU is already running is a no-op
 
@@ -586,6 +608,40 @@ Module: `test_redfish_computer_reset.py` — `POST /redfish/v1/Systems/system/Ac
 
 1. Send `POST /redfish/v1/Systems/system/Actions/ComputerSystem.Reset` with `{"ResetType": "InvalidType"}`.
 2. Validate the status is `400` with `MessageId` ending in `.ActionParameterUnknown` and `MessageArgs` `["Reset", "InvalidType"]`.
+
+### Test Case \#93: A reset beyond the bridge command queue is refused with 409 and never published
+
+| Field        | Value |
+| :----------- | :---- |
+| **Test ID**  | `test_reset_queue_full_returns_409` |
+| **Priority** | P1 |
+| **Endpoint** | `POST /redfish/v1/Systems/system/Actions/ComputerSystem.Reset` |
+
+**Steps:**
+
+1. Skip unless `bmcctld` is RUNNING in the `pmon` container and STATE_DB `HOST_STATE|switch-host` shows the host settled on; record the existing `RACK_MANAGER_COMMAND|*` keys.
+2. Stop `bmcctld` so the command in flight never completes, then run `supervisorctl restart sonic-dbus-bridge` so no earlier command holds the slot, and wait up to 60s for `GET /redfish/v1/Systems/system` to answer `200` with a `PowerState`.
+3. Send `POST .../ComputerSystem.Reset` with `{"ResetType": "On"}` 12 times, stopping at the first status other than `204`.
+4. Validate the first 11 are answered `204` (one command in flight, 10 queued) and the 12th is answered `409`.
+5. Validate a new `RACK_MANAGER_COMMAND|*` row appears within 30s and, after a 3s settle, exactly one new row exists, with `command=POWER_ON`.
+6. Teardown restarts `sonic-dbus-bridge` to drop the queue, deletes the rows the test created and starts `bmcctld`, validating it is RUNNING within 120s.
+
+### Test Case \#94: A reset with sonic-dbus-bridge off the bus is refused as retryable and recovers
+
+| Field        | Value |
+| :----------- | :---- |
+| **Test ID**  | `test_reset_bridge_unavailable` |
+| **Priority** | P1 |
+| **Endpoint** | `POST /redfish/v1/Systems/system/Actions/ComputerSystem.Reset` |
+
+**Steps:**
+
+1. Ensure the switch host CPU is running and record the STATE_DB `RACK_MANAGER_COMMAND|*` keys.
+2. Stop the bridge with `supervisorctl stop sonic-dbus-bridge` in the `redfish` container and validate it reaches `STOPPED` within 30s.
+3. Send `POST .../ComputerSystem.Reset` with `{"ResetType": "On"}`; validate bmcweb answers (no connection error) with HTTP `503`, or `500`/`401` when the mTLS user lookup through the bridge fails first.
+4. If the status is `503`, validate the `Retry-After` header is present and is delay-seconds or an HTTP-date (RFC 9110).
+5. Validate after a 3s settle that no new `RACK_MANAGER_COMMAND|*` row was created.
+6. Start `sonic-dbus-bridge` (also in a `finally`), validate it reaches `RUNNING` within 30s, then repeat the POST every 2s until it returns `204`, within 60s; the command rows it created are removed afterwards.
 
 ---
 
@@ -770,7 +826,7 @@ Telemetry is persisted to `RACK_MANAGER_DATA|<sensor>` and consumed by nothing o
 
 1. Resolve the `SubmitTelemetry` target and start from an empty `RACK_MANAGER_DATA` table.
 2. Stop the bridge with `docker exec redfish supervisorctl stop sonic-dbus-bridge` and validate it reaches `STOPPED` within 30s.
-3. Send `POST .../SONiC.SubmitTelemetry` with the reference payload; validate bmcweb answers (no connection error or client timeout) with HTTP 401, 500 or 503, and after a 3s settle `RACK_MANAGER_DATA` is still empty.
+3. Send `POST .../SONiC.SubmitTelemetry` with the reference payload; validate bmcweb answers (no connection error or client timeout) with HTTP 503, or 500/401 when the mTLS user lookup through the bridge fails first. If the status is 503, validate the `Retry-After` header is present and is delay-seconds or an HTTP-date (RFC 9110; sonic-redfish design, section 7.5). Validate after a 3s settle that `RACK_MANAGER_DATA` is still empty.
 4. Start `sonic-dbus-bridge` again (also in a `finally`) and validate it reaches `RUNNING` within 30s.
 5. Repeat the reference POST every 2s until it returns 204, within 60s.
 6. Validate the four records from #30 are persisted with exact fields and no stray keys.
@@ -781,7 +837,13 @@ Telemetry is persisted to `RACK_MANAGER_DATA|<sensor>` and consumed by nothing o
 
 Module: `test_redfish_event_subscription.py` — `GET /redfish/v1/EventService`, `GET/POST/DELETE /redfish/v1/EventService/Subscriptions[/{id}]`
 
-The test plays the rack manager: it subscribes with the PTF webhook URL, raises events on the BMC and checks what the webhook received. Leak events come from a synthetic `LIQUID_COOLING_INFO|<sensor>` row the test flips (standing in for thermalctld), mirrored by the bridge as a `LeakDetector` and turned into `Environmental.1.1.0.LeakDetected*` events by bmcweb. Switch-host power events come from real `ComputerSystem.Reset` transitions and bmcctld's `HOST_STATE` row, turned into `ResourceEvent.1.3.0.ResourcePower*` events. `SubmitTestEvent`, SSE, PATCH and retry policies are out of scope.
+The test plays the rack manager: it subscribes with the PTF webhook URL, raises events on the BMC and checks what the webhook received. Leak events come from a synthetic `LIQUID_COOLING_INFO|<sensor>` row the test flips (standing in for thermalctld), mirrored by the bridge as a `LeakDetector` and turned into `Environmental.1.1.LeakDetected*` events by bmcweb. Switch-host power events come from real `ComputerSystem.Reset` transitions and bmcctld's `HOST_STATE` row, turned into `ResourceEvent.1.3.ResourcePower*` events. `SubmitTestEvent`, SSE, PATCH and retry policies are out of scope.
+
+A `MessageId` has the Redfish form `<Registry>.<Major>.<Minor>.<Key>`, for example `ResourceEvent.1.3.ResourcePoweredOn`. A subscription can be unfiltered, or filtered on `RegistryPrefixes` (`Environmental`, `ResourceEvent`) or `ResourceTypes` (`LeakDetector`, `ComputerSystem`). bmcweb also accepts `MessageIds` and `OriginResources` filters, but no SONiC event matches them, so the tests subscribe without them and match on `MessageId`.
+
+**Leak sensor faults.** A sensor thermalctld reports with `leak_sensor_status=Fault` cannot vouch for its leak state, whether `leaking` reads `N/A` or still reads `No`. The bridge maps both to `DetectorState` `Unavailable`, served with `Status.State` `UnavailableOffline` and `Status.Health` `Warning`. Entering the fault raises `ResourceEvent.1.3.ResourceStatusChangedWarning`; leaving it raises the `ResourceStatusChanged` event for the health the detector comes back with, then the leak event (sonic-redfish design, section 7.6).
+
+**Leak sensor discovery.** The bridge exports one LeakDetector per `LIQUID_COOLING_INFO|*` row, both for rows present when it starts and for rows written later, as after a cold boot where thermalctld starts after the bridge (sonic-redfish issue 40). The `leak_sensor` module fixture seeds `rmc_test_leak` and restarts the bridge once so that most cases start from a detector exported at startup; that restart is a test mechanic, not a product requirement. Cases \#98 and \#99 write a second row, `rmc_test_leak_late`, with the bridge running and no restart.
 
 ### Test Case \#35: EventService is enabled and advertises what a rack manager needs to subscribe
 
@@ -855,8 +917,8 @@ The test plays the rack manager: it subscribes with the PTF webhook URL, raises 
 
 1. Require `EventService` to list the `Environmental` registry and `LeakDetector` resource type; seed STATE_DB `LIQUID_COOLING_INFO|rmc_test_leak` (`leaking`/`leak_status` No, `leak_severity` None, `leak_sensor_status` Good, `type` leak), restart `sonic-dbus-bridge` and wait for the D-Bus `LeakDetector` `DetectorState` to read OK; start the PTF webhook listener with no subscriptions.
 2. Send `POST /redfish/v1/EventService/Subscriptions` with `Destination` `.../events`, `Protocol` `Redfish`, `Context` `ctx-events`; validate HTTP 201.
-3. Set the sensor row to Critical (`leaking`/`leak_status` Yes, `leak_severity` CRITICAL) and validate within 30s one POST at the listener with `@odata.type` `#Event.v1_4_0.Event`, numeric `Id` and exactly one event: `MessageId` `Environmental.1.1.0.LeakDetectedCritical`, `Severity` Critical, `Message` "Leak detector 'rmc_test_leak' reports a critical level leak.", `MessageArgs` `["rmc_test_leak"]`, `MemberId` 0, `OriginOfCondition` `/redfish/v1/Chassis/chassis/ThermalSubsystem/LeakDetection/LeakDetectors/rmc_test_leak`, non-empty `EventTimestamp`, numeric `EventId`.
-4. Set the sensor row back to OK and validate exactly two deliveries in total, the second carrying `Environmental.1.1.0.LeakDetectedNormal` with `Severity` OK and "has returned to normal." message, and a payload `Id` greater than the first.
+3. Set the sensor row to Critical (`leaking`/`leak_status` Yes, `leak_severity` CRITICAL) and validate within 30s one POST at the listener with `@odata.type` `#Event.v1_4_0.Event`, numeric `Id` and exactly one event: `MessageId` `Environmental.1.1.LeakDetectedCritical`, `Severity` Critical, `Message` "Leak detector 'rmc_test_leak' reports a critical level leak.", `MessageArgs` `["rmc_test_leak"]`, `MemberId` 0, `OriginOfCondition` `/redfish/v1/Chassis/chassis/ThermalSubsystem/LeakDetection/LeakDetectors/rmc_test_leak`, non-empty `EventTimestamp`, numeric `EventId`.
+4. Set the sensor row back to OK and validate exactly two deliveries in total, the second carrying `Environmental.1.1.LeakDetectedNormal` with `Severity` OK and "has returned to normal." message, and a payload `Id` greater than the first.
 
 ### Test Case \#40: A MINOR leak is reported as LeakDetectedWarning with Severity Warning
 
@@ -871,7 +933,7 @@ The test plays the rack manager: it subscribes with the PTF webhook URL, raises 
 1. Use the seeded `rmc_test_leak` sensor reset to OK, the PTF webhook listener and no existing subscriptions (as in #39).
 2. Send `POST /redfish/v1/EventService/Subscriptions` with `Destination` `.../warning`, `Context` `ctx-warning`; validate HTTP 201.
 3. Set the sensor row to Warning (`leaking`/`leak_status` Yes, `leak_severity` MINOR).
-4. Validate within 30s a delivered `#Event.v1_4_0.Event` whose first event has `MessageId` `Environmental.1.1.0.LeakDetectedWarning`, `Severity` Warning, the "reports a warning level leak." message, `MessageArgs` `["rmc_test_leak"]`, `MemberId` 0, the LeakDetector `OriginOfCondition`, and non-empty timestamp and numeric `EventId`.
+4. Validate within 30s a delivered `#Event.v1_4_0.Event` whose first event has `MessageId` `Environmental.1.1.LeakDetectedWarning`, `Severity` Warning, the "reports a warning level leak." message, `MessageArgs` `["rmc_test_leak"]`, `MemberId` 0, the LeakDetector `OriginOfCondition`, and non-empty timestamp and numeric `EventId`.
 
 ### Test Case \#41: ResourceTypes and RegistryPrefixes limit what a subscriber is sent
 
@@ -884,9 +946,9 @@ The test plays the rack manager: it subscribes with the PTF webhook URL, raises 
 **Steps:**
 
 1. Use the seeded `rmc_test_leak` sensor reset to OK, the PTF webhook listener and no existing subscriptions.
-2. Create four subscriptions (each 201): `.../all` unfiltered, `.../leak` with `ResourceTypes` `["LeakDetector"]`, `.../task` with `ResourceTypes` `["Task"]`, `.../base` with `RegistryPrefixes` `["Base"]`.
+2. Create five subscriptions (each 201): `.../all` unfiltered, `.../leak` with `ResourceTypes` `["LeakDetector"]`, `.../environmental` with `RegistryPrefixes` `["Environmental"]`, `.../task` with `ResourceTypes` `["Task"]`, `.../base` with `RegistryPrefixes` `["Base"]`.
 3. Set the sensor row to Critical.
-4. Validate within 30s that `all` and `leak` each receive a delivery whose first event is the full `LeakDetectedCritical` record (as in #39).
+4. Validate within 30s that `all`, `leak` and `environmental` each receive a delivery whose first event is the full `LeakDetectedCritical` record (as in #39).
 5. Wait 8s and validate `task` and `base` received no deliveries.
 
 ### Test Case \#42: A subscription survives a bmcweb restart and keeps delivering
@@ -945,11 +1007,11 @@ The test plays the rack manager: it subscribes with the PTF webhook URL, raises 
 **Steps:**
 
 1. Require STATE_DB `HOST_STATE|switch-host` to show the host settled on (`device_power_state` POWERED_ON or POWER_CYCLE with `device_status` ONLINE); start the PTF webhook listener with no subscriptions.
-2. Create two subscriptions (each 201): `.../power` with `ResourceTypes` `["ComputerSystem"]` and `.../leak-only` with `ResourceTypes` `["LeakDetector"]`.
-3. Send `POST /redfish/v1/Systems/system/Actions/ComputerSystem.Reset` with `ResetType` `GracefulShutdown`, validate 204, and wait up to 240s for `ResourceEvent.1.3.0.ResourcePoweredOff` at `.../power`.
+2. Create three subscriptions (each 201): `.../power` with `ResourceTypes` `["ComputerSystem"]`, `.../power-registry` with `RegistryPrefixes` `["ResourceEvent"]` and `.../leak-only` with `ResourceTypes` `["LeakDetector"]`.
+3. Send `POST /redfish/v1/Systems/system/Actions/ComputerSystem.Reset` with `ResetType` `GracefulShutdown`, validate 204, and wait up to 240s for `ResourceEvent.1.3.ResourcePoweredOff` at `.../power`.
 4. Send `ComputerSystem.Reset` with `ResetType` `On`, validate 204, wait up to 120s for `ResourcePoweredOn`, and validate `HOST_STATE|switch-host` settles on within 120s.
 5. Validate the delivered MessageIds, with consecutive repeats collapsed, are exactly `ResourcePoweringOff`, `ResourcePoweredOff`, `ResourcePoweringOn`, `ResourcePoweredOn`; each delivery is a `#Event.v1_4_0.Event` with one event having `Severity` OK, the matching "The resource `system` is ..." message, `MessageArgs` `["system"]`, `MemberId` 0, `OriginOfCondition` `/redfish/v1/Systems/system` and a non-empty `EventTimestamp`; payload `Id`s strictly increase.
-6. Wait 8s and validate `.../leak-only` received nothing; teardown powers the host back on with `ResetType` `On` if it is not settled on.
+6. Validate `.../power-registry` received the same four MessageIds in the same order, then wait 8s and validate `.../leak-only` received nothing; teardown powers the host back on with `ResetType` `On` if it is not settled on.
 
 ### Test Case \#46: A host power-off event lets the rack manager power the host back on
 
@@ -962,10 +1024,109 @@ The test plays the rack manager: it subscribes with the PTF webhook URL, raises 
 **Steps:**
 
 1. Require `HOST_STATE|switch-host` settled on; start the PTF webhook listener with no subscriptions; subscribe `.../rm` with `ResourceTypes` `["ComputerSystem"]` (201).
-2. Send `POST /redfish/v1/Systems/system/Actions/ComputerSystem.Reset` with `ResetType` `ForceOff`, validate 204, and validate within 240s a delivered `ResourceEvent.1.3.0.ResourcePoweredOff` event (Severity OK, `MessageArgs` `["system"]`, `OriginOfCondition` `/redfish/v1/Systems/system`).
+2. Send `POST /redfish/v1/Systems/system/Actions/ComputerSystem.Reset` with `ResetType` `ForceOff`, validate 204, and validate within 240s a delivered `ResourceEvent.1.3.ResourcePoweredOff` event (Severity OK, `MessageArgs` `["system"]`, `OriginOfCondition` `/redfish/v1/Systems/system`).
 3. Record existing STATE_DB `RACK_MANAGER_COMMAND|*` keys, then send `ComputerSystem.Reset` with `ResetType` `On` and validate 204.
 4. Validate exactly one new `RACK_MANAGER_COMMAND|*` row appears within 30s and bmcctld completes it within 60s with `command=POWER_ON`, `status=DONE`, `result=SUCCESS`.
-5. Validate `HOST_STATE|switch-host` settles on within 120s and the subscriber receives a well-formed `ResourceEvent.1.3.0.ResourcePoweredOn` event within 120s.
+5. Validate `HOST_STATE|switch-host` settles on within 120s and the subscriber receives a well-formed `ResourceEvent.1.3.ResourcePoweredOn` event within 120s.
+
+### Test Case \#95: A faulted leak sensor is reported unavailable, not healthy
+
+| Field        | Value |
+| :----------- | :---- |
+| **Test ID**  | `test_leak_detector_fault_reported_unavailable` (2 cases) |
+| **Priority** | P0 |
+| **Endpoint** | `GET /redfish/v1/Chassis/chassis/LeakDetectors/{id}`<br>`GET /redfish/v1/Chassis/chassis/ThermalSubsystem/LeakDetection/LeakDetectors/{id}` |
+
+**Steps:**
+
+1. Use the seeded `rmc_test_leak` sensor reset to OK. Run once per fault form: `leaking`/`leak_status` `N/A` with `leak_sensor_status=Fault` (as thermalctld writes it), and `leaking`/`leak_status` `No` with `leak_sensor_status=Fault`.
+2. Write the fault to `LIQUID_COOLING_INFO|rmc_test_leak`.
+3. Validate within 30s that both LeakDetector URIs report `DetectorState` `Unavailable`, `Status.State` `UnavailableOffline` and `Status.Health` `Warning`.
+4. Write the row back to OK (`leaking` No, `leak_sensor_status` Good).
+5. Validate within 30s that both URIs report `DetectorState` `OK` with `Status` `Enabled` / `OK`.
+
+### Test Case \#96: A leak sensor fault and its recovery raise ResourceStatusChanged events
+
+| Field        | Value |
+| :----------- | :---- |
+| **Test ID**  | `test_leak_detector_fault_events_delivered` (2 cases) |
+| **Priority** | P0 |
+| **Endpoint** | `POST /redfish/v1/EventService/Subscriptions` |
+
+**Steps:**
+
+1. Use the seeded sensor reset to OK, the PTF webhook listener and no existing subscriptions. Run once per fault form of #95.
+2. Create an unfiltered subscription and one with `ResourceTypes` `["LeakDetector"]` (each 201).
+3. Fault the sensor and validate each subscriber receives one delivery with exactly one event: `MessageId` `ResourceEvent.1.3.ResourceStatusChangedWarning`, `Severity` Warning, `MessageArgs` `["rmc_test_leak", "Warning"]`, `OriginOfCondition` the deprecated-form LeakDetector URI and a non-empty `EventTimestamp`.
+4. Wait 8s and validate the unfiltered subscriber received nothing else: a fault is not a leak, so no `LeakDetected*` event accompanies it.
+5. Write the row back to OK and validate within 30s that each subscriber receives `ResourceEvent.1.3.ResourceStatusChangedOK` (`MessageArgs` `["rmc_test_leak", "OK"]`) and `Environmental.1.1.LeakDetectedNormal`.
+
+### Test Case \#97: A leak sensor recovering from a fault into a leak is never reported healthy
+
+| Field        | Value |
+| :----------- | :---- |
+| **Test ID**  | `test_leak_detector_fault_recovery_into_leak` (2 cases) |
+| **Priority** | P0 |
+| **Endpoint** | `POST /redfish/v1/EventService/Subscriptions`<br>`GET /redfish/v1/Chassis/chassis/LeakDetectors/{id}`<br>`GET /redfish/v1/Chassis/chassis/ThermalSubsystem/LeakDetection/LeakDetectors/{id}` |
+
+**Steps:**
+
+1. Use the seeded sensor reset to OK, the PTF webhook listener and no existing subscriptions. Run once for a CRITICAL leak and once for a MINOR leak.
+2. Create an unfiltered subscription (201), write the `N/A` fault form and validate `ResourceStatusChangedWarning` is delivered.
+3. Write the row to `leak_sensor_status=Good` with `leaking=Yes` and `leak_severity` `CRITICAL` or `MINOR`.
+4. For CRITICAL, validate the deliveries after an 8s settle are exactly `ResourceStatusChangedWarning`, `ResourceEvent.1.3.ResourceStatusChangedCritical` and `Environmental.1.1.LeakDetectedCritical`.
+5. For MINOR, validate they are exactly `ResourceStatusChangedWarning` and `Environmental.1.1.LeakDetectedWarning`: `Unavailable` is already reported as Warning, so the health did not change.
+6. Validate no `ResourceStatusChangedOK` was delivered in either case, and both LeakDetector URIs report `DetectorState` `Critical` (or `Warning`) with `Status.State` `Enabled` and the matching `Status.Health`.
+
+### Test Case \#98: A leak sensor published after the bridge started gets its LeakDetector
+
+| Field        | Value |
+| :----------- | :---- |
+| **Test ID**  | `test_leak_detector_published_after_bridge_start` |
+| **Priority** | P0 |
+| **Endpoint** | `GET /redfish/v1/Chassis/chassis/LeakDetectors`<br>`GET /redfish/v1/Chassis/chassis/ThermalSubsystem/LeakDetection/LeakDetectors` |
+
+**Steps:**
+
+1. With `sonic-dbus-bridge` running and the seeded sensor at OK, write a new row `LIQUID_COOLING_INFO|rmc_test_leak_late` in the OK state.
+2. Validate within 60s, without a bridge or container restart, that both LeakDetectors collections list the new member.
+3. Validate `GET` on the new member at both URIs returns its own `@odata.id`, `Id` `rmc_test_leak_late`, `DetectorState` `OK` and `Status` `Enabled` / `OK`.
+4. Validate the canonical collection lists exactly one detector per `LIQUID_COOLING_INFO|*` key in STATE_DB.
+5. Teardown deletes the row and restarts the bridge so it no longer exports the detector.
+
+### Test Case \#99: A leak sensor published after the bridge started announces its first state once
+
+| Field        | Value |
+| :----------- | :---- |
+| **Test ID**  | `test_late_leak_detector_first_state_announced_once` (2 cases) |
+| **Priority** | P0 |
+| **Endpoint** | `POST /redfish/v1/EventService/Subscriptions` |
+
+**Steps:**
+
+1. Use the PTF webhook listener with no existing subscriptions and create an unfiltered subscription (201). Run once with the new row first written Critical and once first written OK.
+2. With `sonic-dbus-bridge` running, write `LIQUID_COOLING_INFO|rmc_test_leak_late` in that state.
+3. Validate within 60s that the canonical LeakDetector URI of the new sensor reports the matching `DetectorState`.
+4. For Critical, validate after an 8s settle that exactly one event names the new sensor: `Environmental.1.1.LeakDetectedCritical`, `Severity` Critical, `OriginOfCondition` its deprecated-form LeakDetector URI.
+5. For OK, validate after an 8s settle that no event names the new sensor.
+
+### Test Case \#100: The switch-host power state is unknown until bmcctld publishes it
+
+| Field        | Value |
+| :----------- | :---- |
+| **Test ID**  | `test_host_state_unknown_until_bmcctld_publishes` (2 cases) |
+| **Priority** | P0 |
+| **Endpoint** | `GET /redfish/v1/Systems/system`<br>`GET /redfish/v1/Chassis/chassis`<br>`POST /redfish/v1/Systems/system/Actions/ComputerSystem.Reset` |
+
+**Steps:**
+
+1. Skip unless `bmcctld` is RUNNING in the `pmon` container. Run once with `HOST_STATE|switch-host` absent and once with it present but carrying unrecognised `device_power_state` and `device_status` values.
+2. Subscribe with `ResourceTypes` `["ComputerSystem"]` (201), stop `bmcctld`, delete `HOST_STATE|switch-host` (and write the unrecognised row for that case), and restart `sonic-dbus-bridge`.
+3. Validate within 60s that `Systems/system` and `Chassis/chassis` omit `PowerState` and report `Status.State` `UnavailableOffline`.
+4. Send `ComputerSystem.Reset` with `ResetType` `On` (204) and validate exactly one new `RACK_MANAGER_COMMAND|*` row with `command=POWER_ON` appears within 30s: a reset is still forwarded in the unknown state.
+5. Wait 8s and validate no event was delivered.
+6. Start `bmcctld`, validate it republishes `HOST_STATE|switch-host` within 120s and the host settles on, then validate both resources report `PowerState` `On` with `Status.State` `Enabled` and the subscriber receives `ResourceEvent.1.3.ResourcePoweredOn`.
+7. Teardown removes any command row bmcctld did not consume, starts `bmcctld` if the test did not, and powers the host back on if it is not settled on.
 
 ---
 
@@ -1017,7 +1178,7 @@ bmcweb never touches the switch host itself: a reset becomes a `RACK_MANAGER_COM
 
 1. Require the host settled on and `bmcctld` RUNNING; resolve the `#SONiC.SubmitAlert` target from `GET /redfish/v1/Managers/bmc` (`Oem.SONiC.RackManager.Actions`); skip unless CONFIG_DB `LEAK_CONTROL_POLICY` (defaults `enabled`/`syslog_only`) has `rack_mgr_leak_policy` not `disabled` and `rack_mgr_critical_alert_action=syslog_only`; snapshot and clear all STATE_DB `RACK_MANAGER_ALERT|*` keys (restored after the test).
 2. Send `POST <SubmitAlert target>` with `{"redfish_alert_data": {"LeakDetected": {"Severity": "Critical"}}}`, validate HTTP 204 with empty body, and validate `RACK_MANAGER_ALERT|Rack_level_leak` `leak=CRITICAL` within 20s.
-3. Send `POST .../ComputerSystem.Reset` `{"ResetType": "On"}` (HTTP 204), validate one new `RACK_MANAGER_COMMAND` row within 30s and that it reaches a terminal status within 60s with `command=POWER_ON`, `status=FAILED`, `result=CRITICAL_LEAK_PRESENT` and a `last_change_timestamp`.
+3. Send `POST .../ComputerSystem.Reset` `{"ResetType": "On"}` (HTTP 204), validate one new `RACK_MANAGER_COMMAND` row within 30s and that it reaches a terminal status within 60s with `command=POWER_ON`, `status=FAILED`, `result=POWER_DOWN_POLICY_CONFIGURED_EVENT_ACTIVE` and a `last_change_timestamp`.
 4. Validate `HOST_STATE|switch-host` `device_power_state` is unchanged while the alert is active.
 5. Send the SubmitAlert POST with `Severity` `Normal` (HTTP 204) and validate `leak=NORMAL` within 20s.
 6. Send another `ResetType=On` and validate its new row ends `command=POWER_ON`, `status=DONE`, `result=SUCCESS` with a `last_change_timestamp`.
@@ -1096,7 +1257,7 @@ Module: `test_redfish_concurrency.py` — inventory GETs, `ComputerSystem.Reset`
 
 ## Section 11: Restart Recovery
 
-Module: `test_redfish_restart_recovery.py` — `systemctl restart sonic-dbus-bridge`, `systemctl restart redfish`
+Module: `test_redfish_restart_recovery.py` — `supervisorctl restart sonic-dbus-bridge` inside the `redfish` container, `systemctl restart redfish` on the host
 
 bmcweb owns no inventory; everything is assembled per request from the bridge's D-Bus objects and ObjectMapper. Each test snapshots the Redfish view and the ObjectMapper view, restarts, and checks both come back identical.
 
@@ -1153,11 +1314,11 @@ The `bmc_tls_certs` fixture plays the provisioning agent. It records the `REDFIS
 
 **Steps:**
 
-1. Provision through the session `bmc_tls_certs` fixture: set CONFIG_DB `REDFISH|certs` `server_crt`/`server_key`/`ca_crt` to `/etc/sonic/credentials/restapiserver.crt`, `restapiserver.key`, `restapica.crt`, set `client_crt_cname=bmcweb` with a `sonic-dbus-bridge` restart, deliver the generated CA, server certificate and key to those paths, and wait up to 150s for STATE_DB `REDFISH_CERT_STATUS|global` `in_sync=true`.
+1. Provision through the module-scoped `bmc_tls_certs` fixture: set CONFIG_DB `REDFISH|certs` `server_crt`/`server_key`/`ca_crt` to `/etc/sonic/credentials/restapiserver.crt`, `restapiserver.key`, `restapica.crt`, set `client_crt_cname=bmcweb` with a `sonic-dbus-bridge` restart, deliver the generated CA, server certificate and key to those paths, and wait up to 150s for STATE_DB `REDFISH_CERT_STATUS|global` `in_sync=true`.
 2. Validate `/etc/ssl/certs/https/server.pem` inside the `redfish` container holds 2 PEM blocks (certificate and key).
 3. Validate the staged certificate serial equals the delivered server certificate serial and its issuer differs from its subject (not self-signed).
 4. Validate the hash symlink `/etc/ssl/certs/authority/<hash>.0` exists for the staged `CA-cert.pem`.
-5. Validate `supervisorctl status bmcweb` reports RUNNING.
+5. Validate `supervisorctl status` reports both critical processes of the `redfish` container, `sonic-dbus-bridge` and `bmcweb`, as RUNNING.
 
 ### Test Case \#57: Provisioning writes the marker and the staging stamp on the host mount
 
@@ -1729,19 +1890,26 @@ Counts are test functions; parametrized cases expand to the collected total in t
 | Chassis Inventory and Leak Detection | 6        | 10        | P0/P1    | NA     |
 | Computer System                      | 5        | 8         | P0/P1    | NA     |
 | Firmware Inventory                   | 4        | 4         | P1       | NA     |
-| Computer System Reset                | 6        | 6         | P0/P1    | NA     |
+| Computer System Reset                | 8        | 8         | P0/P1    | NA     |
 | Rack Manager Alert                   | 5        | 10        | P0/P1    | NA     |
 | Rack Manager Telemetry               | 6        | 16        | P0/P1    | NA     |
-| Event Service and Subscriptions      | 12       | 18        | P0/P1    | NA     |
+| Event Service and Subscriptions      | 18       | 29        | P0/P1    | NA     |
 | Redfish to pmon Interaction          | 4        | 4         | P0/P1    | NA     |
 | Concurrency                          | 3        | 3         | P1       | NA     |
 | Restart Recovery                     | 2        | 2         | P1       | NA     |
 | Certificates and Client Authentication | 37     | 37        | P0/P1    | NA     |
-| **Total**                            | **92**   | **120**   |          |        |
+| **Total**                            | **100**  | **133**   |          |        |
 
 # Open Items
 
-1. Standalone D-Bus health and graceful degradation tests from revision 2 are not implemented. Their intent is partly covered by the restart recovery tests (ObjectMapper re-registration) and by the telemetry bridge-unavailable test (bridge stopped).
-2. Standalone error handling tests (404 on an unknown resource, 405 on an unsupported method) are covered inside the leak detection unknown-id cases and the alert/telemetry bad-request cases rather than as separate tests.
-3. `SubmitTestEvent`, SSE, subscription PATCH and delivery retry policies of the EventService are not exercised.
-4. The `bios` firmware entry reports `Version: N/A` in the current BMC build, so only its schema shape is asserted.
+1. Graceful degradation (Section 10 of revision 2: Redis unavailable, FRU EEPROM unreadable) has no case in this plan. The restart recovery cases restart a healthy bridge against a populated Redis and the bridge-unavailable cases stop the bridge entirely, so neither runs the bridge against a degraded data source. The robust-startup behaviour of the sonic-redfish design (sections 5.2 and 7.7: precedence fallback, firmware `N/A`, empty `LeakDetectors`, `Product=SONiCBMC`) is delegated to the sonic-redfish gtests in `tests/unit-tests/inventory_model_test.cpp` (`DefaultsWhenAllSourcesAbsent`, `BaseMacEmptyWhenConfigDbMissing` and the precedence tests named in Sections 2 and 3), because FRU and platform.json cannot be safely manipulated on a live BMC. The missing `HOST_STATE` source is covered on hardware by Test Case \#100.
+2. Standalone D-Bus health tests from revision 2 are not implemented. ObjectMapper and the bridge's objects are checked through the restart recovery cases (\#54, \#55) and the concurrency cases.
+3. Standalone error handling tests (404 on an unknown resource, 405 on an unsupported method) are covered inside the leak detection unknown-id cases and the alert/telemetry bad-request cases rather than as separate tests.
+4. `SubmitTestEvent`, SSE, subscription PATCH and delivery retry policies of the EventService are not exercised.
+5. The `bios` firmware entry reports `Version: N/A` in the current BMC build, so only its schema shape is asserted.
+6. The sub-second propagation latency of the sonic-redfish design (section 5.2) is not asserted; every timing check here is a settling upper bound. No read endpoint has a response-time bound, and the maximum number of concurrent subscriptions or HTTPS sessions is neither stated nor tested (sonic-mgmt issues 29009, 27291).
+7. Test Case \#46 waits for `ResourcePoweredOff` straight after the `ForceOff` `204`, without checking the `RACK_MANAGER_COMMAND` row or `HOST_STATE` in between as \#21 does, so a failure cannot be localised to command execution, state publication or event delivery (sonic-mgmt issue 29198).
+8. No case disables and re-enables `FEATURE|redfish` to prove the toggle stops and starts the container; the `redfish_feature_enabled` fixture only enables it.
+9. No case proves the provisioned certificate state survives `config reload` or a BMC reboot; Section 12 restarts bmcweb or recreates the container only.
+10. `POST /redfish/v1/TelemetryService/MetricReports` is not covered; telemetry is tested through the OEM `SONiC.SubmitTelemetry` action only. Refusal of plaintext HTTP is not covered either.
+11. Removal of bmcweb MutualTLS sessions with their connection, and the 60 second idle timeout of HTTP/1 keep-alive and HTTP/2 connections (sonic-redfish issue 44), have no case. They need many short-lived mTLS connections and a view of bmcweb's session table or memory, which this suite does not have.
