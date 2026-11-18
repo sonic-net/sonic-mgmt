@@ -400,6 +400,10 @@ class TestbedInfo(object):
             else:
                 topo_dir = os.path.join(os.path.dirname(self.testbed_filename), self.TOPOLOGY_FILEPATH)
                 topo_file = os.path.join(topo_dir, "topo_{}.yml".format(topo))
+                if topo == "generic":
+                    generated = os.path.join(topo_dir, "topo_generic_{}.yml".format(tb_name))
+                    if os.path.isfile(generated):
+                        topo_file = generated
 
             cache_key = os.path.realpath(topo_file)
             if cache_key not in topology_cache:

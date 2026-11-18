@@ -1,2 +1,6 @@
-# Dynamic ports and PTF mappings come from the frozen manifest, not a static layout.
-topology: {}
+# add-topo fills host_interfaces from the calculated DUT ports and existing lab VLANs.
+topology:
+  host_interfaces: []
+configuration_properties:
+  common:
+    dut_type: ToRRouter

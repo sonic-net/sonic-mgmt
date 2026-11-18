@@ -69,14 +69,14 @@
 
   - name: Check that topo is a known topology
     fail: msg="Unknown topology {{ topo }} in {{ topologies }}"
-    when: base_topo not in topologies
+    when: base_topo not in topologies and topo != 'generic'
 
   - name: Check that variable ptf_imagename is defined
     fail: msg="Define ptf_imagename variable with -e ptf_imagename=something"
     when: ptf_imagename is not defined
 
   - name: Load topo variables
-    include_vars: "vars/topo_{{ topo }}.yml"
+    include_vars: "vars/topo_{{ topo }}{{ '_' ~ testbed_name if topo == 'generic' else '' }}.yml"
 
   - name: Read dut minigraph
     conn_graph_facts:
@@ -89,6 +89,11 @@
       hosts: "{{ duts_name.split(',') }}"
     delegate_to: localhost
     when: duts_name.split(',')|length > 1
+
+  - name: Use the generated Generic PTF VLAN mapping
+    set_fact:
+      device_vlan_map_list: "{{ device_vlan_map_list | combine({duts_name: topology.DUT.port_config.port_vlan_map}) }}"
+    when: topo == 'generic'
 
   - name: Determine if the testbed is a VS testbed
     set_fact:

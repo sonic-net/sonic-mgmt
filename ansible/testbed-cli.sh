@@ -117,8 +117,7 @@ function usage
   echo
   echo "You should define your topology in testbed YAML file"
   echo "For Generic HWSKU, add a separate named entry in that file with topo: generic."
-  echo "Its generic_hwsku configuration identifies the unchanged original testbed and controlled peers."
-  echo "The normal add-topo, deploy-mg and remove-topo commands select it by testbed name."
+  echo "Use the normal add-topo, deploy-mg and remove-topo commands with that testbed name."
   echo
   exit
 }
@@ -161,7 +160,7 @@ function read_csv
 
 function read_yaml
 {
-  content=$(python -c "from __future__ import print_function; import yaml; print('+'.join(str({key: value for key, value in tb.items() if key != 'generic_hwsku'}) for tb in yaml.safe_load(open('$tbfile')) if '$1'==tb['conf-name']))")
+  content=$(python -c "from __future__ import print_function; import yaml; print('+'.join(str(tb) for tb in yaml.safe_load(open('$tbfile')) if '$1'==tb['conf-name']))")
 
   IFS=$'+' read -r -a tb_lines <<< $content
   linecount=${#tb_lines[@]}
@@ -497,40 +496,6 @@ function wait_parallel_processes() {
   return "$result"
 }
 
-function select_generic_testbed
-{
-  if [[ -z "${SONIC_GENERIC_TESTBED:-}" ]]; then
-    return 0
-  fi
-  testbed_name=$(python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); from generic_hwsku_lifecycle import resolve_scheduler_testbed; print(resolve_scheduler_testbed(*sys.argv[2:]))' \
-    "$(dirname "${BASH_SOURCE[0]}")/scripts" "$tbfile" "$testbed_name" "$SONIC_GENERIC_TESTBED") || return $?
-}
-
-function run_generic
-{
-  local action=$1
-  local inventory=$2
-  local vault=$3
-  shift 3
-  local verbosity=0
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      -v|-vv|-vvv|-vvvv)
-        verbosity=$((${#1} - 1))
-        shift
-        ;;
-      *)
-        echo "Unsupported option on the named Generic testbed path: $1" >&2
-        return 2
-        ;;
-    esac
-  done
-  python3 "$(dirname "${BASH_SOURCE[0]}")/scripts/generic_hwsku_lifecycle.py" \
-    --action "$action" --testbed "$testbed_name" --testbed-file "$tbfile" \
-    --inventory "$inventory" --vm-inventory "$vmfile" --vm-type "$vm_type" \
-    --vault-password-file "$vault" --verbosity "$verbosity"
-}
-
 function add_topo
 {
   testbed_name=$1
@@ -542,13 +507,7 @@ function add_topo
   # Parse parallel execution arguments
   parse_parallel_args "$@"
 
-  select_generic_testbed || return $?
   read_file ${testbed_name}
-
-  if [[ "$topo" == "generic" ]]; then
-    run_generic add-topo "$inv_name" "$passwd" "$@"
-    return
-  fi
 
   echo "$dut" "$duts"
 
@@ -594,12 +553,12 @@ function add_topo
       pids[$i]=$!
     else
       # Serial execution: run synchronously
-      eval "$ansible_cmd"
+      eval "$ansible_cmd" || return $?
     fi
   done
 
   # Wait for all parallel processes to complete
-  wait_parallel_processes "add" pids "$server_count" "$log_timestamp"
+  wait_parallel_processes "add" pids "$server_count" "$log_timestamp" || return $?
 
   # Execute fanout connection and cleanup steps
   for i in $(seq 0 $(($server_count-1)))
@@ -615,7 +574,7 @@ function add_topo
     fi
 
     if [[ "$ptf_imagename" != "docker-keysight-api-server" ]]; then
-      ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $fanout_options "$@"
+      ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $fanout_options "$@" || return $?
     fi
 
     if [[ $topo == *"t2"* ]]; then
@@ -642,13 +601,7 @@ function remove_topo
   shift
   echo "Removing topology for testbed '${testbed_name}'"
 
-  select_generic_testbed || return $?
   read_file ${testbed_name}
-
-  if [[ "$topo" == "generic" ]]; then
-    run_generic remove-topo "$inv_name" "$passwd" "$@"
-    return
-  fi
 
   remove_keysight_api_server=0
   for i in "$@"
@@ -896,13 +849,7 @@ function deploy_minigraph
 
   echo "Deploying minigraph to testbed '$testbed_name'"
 
-  select_generic_testbed || return $?
   read_file $testbed_name
-
-  if [[ "$topo" == "generic" ]]; then
-    run_generic deploy-mg "$inventory" "$passfile" "$@"
-    return
-  fi
 
   # Parse --ipv6-only-mgmt flag
   ipv6_mgmt_flag=""

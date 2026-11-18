@@ -100,7 +100,7 @@
 
   - name: Check that topo is a known topology
     fail: msg="Unknown topology {{ topo }}"
-    when: base_topo not in topologies
+    when: base_topo not in topologies and topo != 'generic'
 
   - name: Check that variable ptf_imagename is defined
     fail: msg="Define ptf_imagename variable with -e ptf_imagename=something"
@@ -123,6 +123,34 @@
       hosts: "{{ duts_name.split(',') }}"
     delegate_to: localhost
     when: duts_name.split(',')|length > 1
+
+  - name: Generate DUT ports and PTF mapping for Generic topology
+    block:
+    - name: Calculate canonical port configuration using existing lab connections
+      port_alias:
+        hwsku: "{{ hostvars[duts_name].hwsku }}"
+        generate_config: true
+        device_conn: "{{ device_conn[duts_name] }}"
+        vlan_map: "{{ device_vlan_map_list[duts_name] }}"
+        min_subports: "{{ generic_min_subports | default(0) }}"
+      delegate_to: "{{ duts_name }}"
+
+    - name: Use calculated PTF interfaces in the standard vm_set role
+      set_fact:
+        topology:
+          host_interfaces: "{{ port_config.port_vlan_map.keys() | map('int') | sort | list }}"
+          DUT:
+            port_config: "{{ port_config }}"
+        device_vlan_map_list: "{{ device_vlan_map_list | combine({duts_name: port_config.port_vlan_map}) }}"
+
+    - name: Save generated topology for deploy-mg and pytest
+      copy:
+        content: "{{ {'topology': topology, 'configuration_properties': configuration_properties} | to_nice_yaml }}"
+        dest: "{{ playbook_dir }}/vars/topo_generic_{{ testbed_name }}.yml"
+        mode: "0600"
+      delegate_to: localhost
+      become: false
+    when: topo == 'generic'
 
   - name: Determine if the testbed is a VS testbed
     set_fact:

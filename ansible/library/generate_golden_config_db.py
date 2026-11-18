@@ -177,6 +177,7 @@ class GenerateGoldenConfigDBModule(object):
     def __init__(self):
         self.module = AnsibleModule(argument_spec=dict(topo_name=dict(required=True, type='str'),
                                     port_index_map=dict(required=False, type='dict', default=None),
+                                    port_config=dict(required=False, type='dict', default={}),
                                     port_speeds=dict(required=False, type='dict', default=None),
                                     port_override_from_links=dict(required=False, type='bool', default=False),
                                     macsec_profile=dict(required=False, type='str', default=None),
@@ -199,6 +200,7 @@ class GenerateGoldenConfigDBModule(object):
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
+        self.port_config = self.module.params['port_config']
         self.port_speeds = self.module.params['port_speeds']
         self.port_override_from_links = self.module.params['port_override_from_links']
         self.macsec_profile = self.module.params['macsec_profile']
@@ -1528,6 +1530,11 @@ class GenerateGoldenConfigDBModule(object):
             module_msg = module_msg + " for c0"
         else:
             config = self.generate_default_init_config_db()
+
+        if self.port_config:
+            config_dict = json.loads(config)
+            config_dict.update(self.port_config)
+            config = json.dumps(config_dict, indent=4)
 
         # set switch-host admin_up by default for BMC
         if "bmc" in self.topo_name:

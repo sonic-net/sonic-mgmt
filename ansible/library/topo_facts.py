@@ -269,6 +269,8 @@ class ParseTestbedTopoinfo():
             topo_name = 't1-64'
         topo_name = re.sub(CLET_SUFFIX + "$", "", topo_name)
         topo_filename = VARS_PATH + 'topo_' + topo_name + '.yml'
+        if topo_name == 'generic':
+            topo_filename = os.path.join(VARS_PATH, 'topo_generic_{}.yml'.format(testbed_name))
 
         asic_topo_file_candidate_list = []
 

@@ -272,9 +272,54 @@
       sort_by_index: false
     when: switch_type is defined and switch_type == "voq" and type == "kvm"
 
+  - name: Use the generated Generic DUT configuration
+    set_fact:
+      port_config: "{{ vm_topo_config['DUT']['port_config'] }}"
+      hwsku: "{{ vm_topo_config['DUT']['port_config']['hwsku'] }}"
+      sort_by_index: false
+      neighbor_eosvm_mgmt: {}
+    when: topo == 'generic' and init_cfg_profile is not defined
+
+  - name: Install generated Generic port configuration
+    block:
+    - name: Create generated HWSKU directory
+      file:
+        path: "/usr/share/sonic/device/{{ port_config.platform }}/{{ hwsku }}"
+        state: directory
+        mode: "0755"
+
+    - name: Find the installed base HWSKU assets
+      find:
+        paths: "/usr/share/sonic/device/{{ port_config.platform }}/{{ port_config.base_hwsku }}"
+        file_type: any
+        hidden: true
+      register: base_hwsku_assets
+
+    - name: Reuse base HWSKU platform assets
+      file:
+        src: "{{ item.path }}"
+        dest: "/usr/share/sonic/device/{{ port_config.platform }}/{{ hwsku }}/{{ item.path | basename }}"
+        state: link
+      loop: "{{ base_hwsku_assets.files }}"
+      when: item.path | basename not in ['hwsku.json', 'port_config.ini']
+
+    - name: Use generated INI rather than an alternate JSON port definition
+      file:
+        path: "/usr/share/sonic/device/{{ port_config.platform }}/{{ hwsku }}/hwsku.json"
+        state: absent
+
+    - name: Write the canonical port map
+      copy:
+        content: "{{ port_config.port_config_ini }}"
+        dest: "/usr/share/sonic/device/{{ port_config.platform }}/{{ hwsku }}/port_config.ini"
+        mode: "0644"
+    become: true
+    when: topo == 'generic' and init_cfg_profile is not defined and deploy | default(false) | bool
+
   - name: find interface name mapping and individual interface speed if defined from dut
     port_alias:
       hwsku: "{{ hwsku }}"
+      port_config: "{{ port_config.config.PORT if port_config is defined and topo == 'generic' else omit }}"
       card_type: "{{ card_type | default('fixed') }}"
       hostname: "{{ inventory_hostname | default('') }}"
       switchids: "{{ switchids | default([]) }}"
@@ -285,6 +330,7 @@
   - name: find interface name mapping and individual interface speed if defined with local data
     port_alias:
       hwsku: "{{ hwsku }}"
+      port_config: "{{ port_config.config.PORT if port_config is defined and topo == 'generic' else omit }}"
       num_asic: "{{ num_asics }}"
       card_type: "{{ card_type | default('fixed') }}"
       hostname: "{{ inventory_hostname | default('') }}"
@@ -406,7 +452,7 @@
     when: vm_file is not defined
 
   - set_fact:
-      VM_topo: "{% if 'ptf' in topo %}False{% else %}True{% endif %}"
+      VM_topo: "{% if 'ptf' in topo or topo == 'generic' %}False{% else %}True{% endif %}"
       remote_dut: "{{ ansible_ssh_host }}"
 
   - name: gather testbed VM information
@@ -950,6 +996,7 @@
       - name: Generate golden_config_db.json
         generate_golden_config_db:
           topo_name: "{{ topo }}"
+          port_config: "{{ port_config.config if topo == 'generic' else omit }}"
           port_index_map: "{{ port_index_map | default({}) }}"
           port_speeds: "{{ (lab_csv_result.stdout | from_json).port_speeds if (port_override_from_links | default(false) | bool) and lab_csv_result is defined and lab_csv_result.rc == 0 else omit }}"
           port_override_from_links: "{{ port_override_from_links | default(false) | bool }}"
@@ -1071,6 +1118,11 @@
           delay: 10
           timeout: 600
         changed_when: false
+
+      - name: Generate native QoS and buffers for the selected Generic ports and cable lengths
+        command: config qos reload --no-dynamic-buffer --no-delay
+        become: true
+        when: topo == 'generic' and init_cfg_profile is not defined
 
       - name: Validate breakout config params
         assert:
