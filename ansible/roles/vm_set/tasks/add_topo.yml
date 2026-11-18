@@ -300,7 +300,7 @@
     # network, so bind is skipped. On servers with a Linux mgmt bridge (default), bind must run so
     # add_mgmt_port_to_docker attaches a veth from the bridge into the PTF netns (vms_exists is
     # False here, so all VM/port binding inside bind is skipped — only mgmt setup happens).
-    when: not enable_async and ("bmc" not in topo or not (ptf_use_docker_network | default(false)))
+    when: (not enable_async or VM_targets | length == 0) and ("bmc" not in topo or not (ptf_use_docker_network | default(false)))
 
   - name: Bind topology {{ topo }} to VMs. base vm = {{ VM_base }} (async mode)
     loop: "{{ VM_targets|flatten(levels=1) }}"

@@ -66,7 +66,7 @@
       multi_vrf: "{{ topo_is_multi_vrf }}"
       multi_vrf_data: "{{ convergence_data|default({}) }}"
     become: yes
-    when: not enable_async and "bmc" not in topo
+    when: (not enable_async or VM_hosts | length == 0) and "bmc" not in topo
 
   - name: Unbind topology {{ topo }} to VMs. base vm = {{ VM_base }} (async mode)
     loop: "{{ VM_hosts | flatten(levels=1) }}"
