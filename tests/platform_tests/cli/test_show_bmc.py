@@ -11,6 +11,7 @@ Tests cover CLI commands:
 
 import logging
 import re
+import shlex
 
 import pytest
 
@@ -19,12 +20,13 @@ from tests.common.platform.bmc_utils import (
     CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC,
     CAUSE_POWER_DOWN_FROM_BMC,
     get_host_uptime,
+    read_bmc_hash,
     get_switch_host_or_skip_test,
     verify_bmc_initiated_reboot,
     wait_host_off,
     wait_host_on,
 )
-from tests.common.helpers.sonic_db import CONFIG_DB, redis_hget
+from tests.common.helpers.sonic_db import CONFIG_DB
 from tests.common.utilities import get_inventory_files, get_host_visible_vars, wait_until
 
 logger = logging.getLogger(__name__)
@@ -327,7 +329,7 @@ class TestBmcCliCommands:
         logger.info(f"Original LEAK_CONTROL_POLICY snapshot: {original}")
 
         applied_changes = []  # list of (target, severity, original_action) to restore
-        threshold_restore = None  # original value, '__DELETE__', or None (nothing to restore)
+        threshold_restore = None  # Full raw row; None means no threshold write attempted
 
         try:
             # --- leak-action functional round-trip ---
@@ -412,38 +414,37 @@ class TestBmcCliCommands:
                     (v for k, v in original.items() if threshold_field in k.lower()),
                     None
                 )
-                db_threshold = redis_hget(self.duthost, CONFIG_DB, 'LEAK_CONTROL_POLICY|policy',
-                                          threshold_field)
+                threshold_restore = read_bmc_hash(self.duthost, CONFIG_DB, 'LEAK_CONTROL_POLICY|policy')
                 # New value must be a valid (2..4294967295) value that differs from the current one.
                 new_threshold = '3'
                 if shown_threshold is not None and shown_threshold.isdigit():
                     new_threshold = str(int(shown_threshold) - 1 if int(shown_threshold) >= 4294967295
-                                        else int(shown_threshold) + 1)
+                                        else max(2, int(shown_threshold) + 1))
                 cmd = f"config liquid-cool major-leak-threshold {new_threshold}"
                 result = self.duthost.shell(cmd, module_ignore_errors=True)
                 pytest_assert(result['rc'] == 0,
                               f"{cmd!r} failed rc={result['rc']} stderr={result['stderr']!r}")
-                # Restore the CONFIG_DB override if there was one, else remove the field
-                # (the CLI has no unset; delete the CONFIG_DB field directly on cleanup).
-                threshold_restore = db_threshold if db_threshold else '__DELETE__'
                 pytest_assert(policy_has(threshold_field, new_threshold),
                               f"After {cmd!r}, show platform leak control-policy does not "
                               f"reflect {threshold_field}={new_threshold}")
                 logger.info(f"Verified via show: {threshold_field}={new_threshold}")
 
         finally:
-            # Restore major-leak-threshold
-            if threshold_restore == '__DELETE__':
-                self.duthost.shell(
-                    "sonic-db-cli CONFIG_DB HDEL 'LEAK_CONTROL_POLICY|policy' "
-                    "system_major_leak_num_min_sensors",
-                    module_ignore_errors=True
-                )
-            elif threshold_restore is not None:
-                self.duthost.shell(
-                    f"config liquid-cool major-leak-threshold {threshold_restore}",
-                    module_ignore_errors=True
-                )
+            # Restore exact raw presence/value, including 0/1 rejected by the CLI.
+            if threshold_restore is not None:
+                threshold_field = 'system_major_leak_num_min_sensors'
+                raw_value = threshold_restore.get(threshold_field)
+                if raw_value is None:
+                    restore_cmd = "sonic-db-cli CONFIG_DB HDEL 'LEAK_CONTROL_POLICY|policy' {}".format(
+                        threshold_field)
+                else:
+                    restore_cmd = "sonic-db-cli CONFIG_DB HSET 'LEAK_CONTROL_POLICY|policy' {} {}".format(
+                        threshold_field, shlex.quote(raw_value))
+                restored = self.duthost.shell(restore_cmd, module_ignore_errors=True)
+                pytest_assert(restored.get('rc') == 0, "Failed raw threshold restoration: {}".format(restored))
+                restored_row = read_bmc_hash(self.duthost, CONFIG_DB, 'LEAK_CONTROL_POLICY|policy')
+                pytest_assert(restored_row.get(threshold_field) == raw_value,
+                              "Raw threshold presence/value was not restored")
             # Restore all leak-action changes
             for target, severity, orig_action in applied_changes:
                 self.duthost.shell(

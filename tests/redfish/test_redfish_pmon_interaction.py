@@ -29,7 +29,6 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.sonic_db import (
-    CONFIG_DB,
     STATE_DB,
     redis_del,
     redis_hgetall,
@@ -37,6 +36,7 @@ from tests.common.helpers.sonic_db import (
     redis_keys,
 )
 from tests.common.utilities import wait_until
+from tests.common.platform.bmc_utils import get_effective_leak_policy, get_power_on_block_reason
 from tests.redfish.redfish_utils import (
     HOST_FINAL_POWER_STATES,
     assert_no_content,
@@ -63,10 +63,6 @@ MODULE_INFO_KEY = "CHASSIS_MODULE_TABLE|SWITCH-HOST"
 ALERT_TABLE = "RACK_MANAGER_ALERT"
 ALERT_KEY_GLOB = "{}|*".format(ALERT_TABLE)
 LEAK_KEY = "{}|Rack_level_leak".format(ALERT_TABLE)
-LEAK_CONTROL_POLICY_KEY = "LEAK_CONTROL_POLICY"
-# bmcctld defaults when LEAK_CONTROL_POLICY is absent (pmon-bmc-design.md 2.3.1).
-DEFAULT_RACK_MGR_LEAK_POLICY = "enabled"
-DEFAULT_RACK_MGR_CRITICAL_ALERT_ACTION = "syslog_only"
 
 BMCCTLD = "bmcctld"
 PMON_CONTAINER = "pmon"
@@ -79,7 +75,6 @@ CMD_DONE = "DONE"
 CMD_FAILED = "FAILED"
 TERMINAL_STATUSES = (CMD_DONE, CMD_FAILED)
 RESULT_SUCCESS = "SUCCESS"
-RESULT_CRITICAL = "POWER_DOWN_POLICY_CONFIGURED_EVENT_ACTIVE"
 
 COMMAND_ROW_TIMEOUT = 30
 COMMAND_DONE_TIMEOUT = 60
@@ -155,16 +150,6 @@ def _leak_alert_is(bmc_duthost, severity):
     return redis_hgetall(bmc_duthost, STATE_DB, LEAK_KEY).get("leak") == severity
 
 
-def _rack_mgr_policy(bmc_duthost):
-    """Effective rack manager alert policy: CONFIG_DB LEAK_CONTROL_POLICY over bmcctld defaults."""
-    policy = {
-        "rack_mgr_leak_policy": DEFAULT_RACK_MGR_LEAK_POLICY,
-        "rack_mgr_critical_alert_action": DEFAULT_RACK_MGR_CRITICAL_ALERT_ACTION,
-    }
-    policy.update(redis_hgetall(bmc_duthost, CONFIG_DB, LEAK_CONTROL_POLICY_KEY))
-    return policy
-
-
 def _bmcctld_pid(bmc_duthost):
     status, pid = bmc_duthost.get_pmon_daemon_status(BMCCTLD)
     return pid if status == "RUNNING" else -1
@@ -204,7 +189,7 @@ def alert_target(redfish_client):
 
 
 @pytest.fixture(scope="function")
-def clean_rack_manager_alerts(bmc_duthost):
+def clean_rack_manager_alerts(bmc_duthost, power_on_block_reason, critical_alert_blocks_power_on):
     """Start from an empty RACK_MANAGER_ALERT table and restore the prior contents afterwards.
 
     A CRITICAL entry left behind would make bmcctld refuse every later POWER_ON.
@@ -234,9 +219,9 @@ def critical_alert_blocks_power_on(bmc_duthost):
     interlock is observable without a power change only when that action is
     syslog_only.
     """
-    policy = _rack_mgr_policy(bmc_duthost)
+    policy = get_effective_leak_policy(bmc_duthost)
     logger.info("Effective rack manager alert policy: {}".format(policy))
-    pyrequire(policy["rack_mgr_leak_policy"] != "disabled",
+    pyrequire(policy["rack_mgr_leak_policy"] == "enabled",
               "LEAK_CONTROL_POLICY rack_mgr_leak_policy=disabled, bmcctld ignores rack manager alerts")
     pyrequire(policy["rack_mgr_critical_alert_action"] == "syslog_only",
               "LEAK_CONTROL_POLICY rack_mgr_critical_alert_action={!r} would act on the switch host; "
@@ -244,12 +229,17 @@ def critical_alert_blocks_power_on(bmc_duthost):
 
 
 @pytest.fixture(scope="function")
-def ignore_refused_power_on_logs(bmc_duthost, loganalyzer):
+def power_on_block_reason(bmc_duthost):
+    return get_power_on_block_reason(bmc_duthost)
+
+
+@pytest.fixture(scope="function")
+def ignore_refused_power_on_logs(bmc_duthost, loganalyzer, power_on_block_reason):
     """The refused POWER_ON is logged at ERR by the bridge and bmcctld; that is the behaviour under test."""
     if loganalyzer:
         loganalyzer[bmc_duthost.hostname].ignore_regex.extend([
-            r".*sonic-dbus-bridge.*Rack manager command .* \(POWER_ON\) failed: {}.*".format(RESULT_CRITICAL),
-            r".*bmcctld.*RACK_MGR_CMD FAILED.*reason={}.*".format(RESULT_CRITICAL),
+            r".*sonic-dbus-bridge.*Rack manager command .* \(POWER_ON\) failed: {}.*".format(power_on_block_reason),
+            r".*bmcctld.*RACK_MGR_CMD FAILED.*reason={}.*".format(power_on_block_reason),
         ])
 
 
@@ -313,7 +303,8 @@ class TestRedfishPmonInteraction:
 
     def test_critical_alert_blocks_power_on_command(self, redfish_client, bmc_duthost, alert_target,
                                                     system_is_on, bmcctld_running, clean_rack_manager_alerts,
-                                                    critical_alert_blocks_power_on, ignore_refused_power_on_logs):
+                                                    critical_alert_blocks_power_on, ignore_refused_power_on_logs,
+                                                    power_on_block_reason):
         """
         A CRITICAL rack manager alert makes bmcctld refuse POWER_ON until it is cleared.
 
@@ -329,7 +320,7 @@ class TestRedfishPmonInteraction:
                       "{} did not reach leak=CRITICAL within {}s".format(LEAK_KEY, ALERT_TIMEOUT))
 
         key, fields = _run_reset_to_completion(redfish_client, bmc_duthost)
-        _assert_command_outcome(key, fields, CMD_FAILED, RESULT_CRITICAL)
+        _assert_command_outcome(key, fields, CMD_FAILED, power_on_block_reason)
         pytest_assert(_device_power_state(bmc_duthost) == system_is_on,
                       "{} must stay {} while the alert is active".format(HOST_STATE_KEY, system_is_on))
 
