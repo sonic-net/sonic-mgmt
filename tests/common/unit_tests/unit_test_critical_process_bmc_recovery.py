@@ -1,12 +1,11 @@
 """Exercise BMC critical-process recovery without testbed dependencies."""
 
 import ast
-import logging
 import os
 from pathlib import Path
 import shlex
 import unittest
-from unittest.mock import Mock, call
+from unittest.mock import Mock, call, patch
 
 
 MODULE_PATH = Path(__file__).resolve().parents[2] / 'process_monitoring' / 'test_critical_process_monitoring.py'
@@ -32,12 +31,14 @@ class TestBmcSystemCycle(unittest.TestCase):
     def setUp(self):
         self.bmc = Mock(hostname='bmc-dut')
         self.switch_host = Mock(hostname='inventory-switch-cpu')
+        self.switch_host.shell.side_effect = [{'stdout': 'switch-before'}, {'stdout': 'switch-after'}]
         self.bmc.get_bmc_host.return_value = self.switch_host
         self.bmc.shell.side_effect = [{}, {'stdout': 'before'}, {}, {'stdout': 'after'}]
         self.localhost = Mock()
-        self.namespace = dict(shlex=shlex, logger=logging.getLogger(__name__), pytest_assert=_assert,
+        self.namespace = dict(shlex=shlex, logger=Mock(), pytest_assert=_assert,
                               wait_for_shutdown=Mock(), wait_for_startup=Mock(),
                               wait_until=lambda timeout, interval, delay, check: check())
+        _load_function('check_bmc_chassis_power_cycle_support', self.namespace, BMC_HELPER_PATH)
         self.helper = _load_function('power_cycle_via_bmc', self.namespace, BMC_HELPER_PATH)
 
     def recover(self):
@@ -46,7 +47,7 @@ class TestBmcSystemCycle(unittest.TestCase):
     def test_cycle_and_restart(self):
         """Call the system cycle once and verify shutdown and startup."""
         self.recover()
-        self.assertIn('do_system_power_cycle()', self.bmc.shell.call_args_list[2].args[0])
+        self.assertIn('Chassis().do_chassis_power_cycle()', self.bmc.shell.call_args_list[2].args[0])
         self.namespace['wait_for_shutdown'].assert_called_once_with(
             self.bmc, self.localhost, delay=0, timeout=180)
         self.bmc.get_bmc_host.assert_called_once_with()
@@ -94,6 +95,30 @@ class TestBmcSystemCycle(unittest.TestCase):
             self.recover()
         self.assertEqual(self.bmc.shell.call_count, 2)
 
+    def test_missing_switch_boot_id(self):
+        """Do not cycle without a baseline for both devices."""
+        self.switch_host.shell.side_effect = [{'stdout': ''}]
+        with self.assertRaisesRegex(AssertionError, 'Could not read boot ID'):
+            self.recover()
+        self.assertEqual(self.bmc.shell.call_count, 2)
+
+    def test_unchanged_switch_boot_id(self):
+        """A BMC reboot alone is not a full-chassis power cycle."""
+        self.switch_host.shell.side_effect = [{'stdout': 'switch-before'}, {'stdout': 'switch-before'}]
+        with self.assertRaisesRegex(AssertionError, 'Switch host .* boot ID did not change'):
+            self.recover()
+
+    def test_transient_boot_id_read_failure(self):
+        """Retry transient SSH failures while collecting restart evidence."""
+        self.bmc.shell.side_effect = [
+            {}, {'stdout': 'before'}, {}, RuntimeError('SSH not ready'), {'stdout': 'after'}]
+
+        def retry(timeout, interval, delay, check):
+            return check() or check()
+
+        self.namespace['wait_until'] = retry
+        self.recover()
+
     def test_shutdown_and_startup_failures(self):
         """Propagate a failure to observe either edge of the restart."""
         for operation in ('wait_for_shutdown', 'wait_for_startup'):
@@ -104,6 +129,37 @@ class TestBmcSystemCycle(unittest.TestCase):
                     self.recover()
 
 
+class TestChassisPowerCycleSupport(unittest.TestCase):
+    """Execute the actual remote probe against supported and older packages."""
+
+    def test_capability_contract(self):
+        """Require an explicit capability and operation without invoking the cycle."""
+        for capability, operation, supported in (
+                (True, True, True), (False, True, False), (None, True, False),
+                (True, False, False)):
+            with self.subTest(capability=capability, operation=operation):
+                chassis = Mock(spec=[])
+                if capability is not None:
+                    chassis.is_chassis_power_cycle_supported = Mock(return_value=capability)
+                if operation:
+                    chassis.do_chassis_power_cycle = Mock()
+                bmc = Mock()
+                namespace = dict(shlex=shlex)
+                check = _load_function('check_bmc_chassis_power_cycle_support', namespace, BMC_HELPER_PATH)
+                check(bmc)
+                command = shlex.split(bmc.shell.call_args.args[0])[-1]
+                with patch.dict('sys.modules', {
+                        'sonic_platform': Mock(),
+                        'sonic_platform.chassis': Mock(Chassis=Mock(return_value=chassis))}):
+                    if supported:
+                        exec(command, {})
+                    else:
+                        with self.assertRaisesRegex(AssertionError, 'does not support full-chassis'):
+                            exec(command, {})
+                if operation:
+                    chassis.do_chassis_power_cycle.assert_not_called()
+
+
 class TestRecoveryRouting(unittest.TestCase):
     """Run the production fixture teardown until its startup wait."""
 
@@ -111,9 +167,10 @@ class TestRecoveryRouting(unittest.TestCase):
         self.duthost = Mock(hostname='dut', facts={})
         self.localhost = Mock()
         self.namespace = dict(
-            logger=logging.getLogger(__name__), os=os, pytest=Mock(),
+            logger=Mock(), os=os, pytest=Mock(),
             get_skip_containers=Mock(return_value=[]), get_containers_namespace_ids=Mock(return_value={}),
             is_vs_device=Mock(return_value=False), power_cycle_via_bmc=Mock(),
+            check_bmc_chassis_power_cycle_support=Mock(),
             get_pdu_controller=Mock(return_value=None), pdu_reboot=Mock(return_value=True), pytest_assert=_assert,
             wait_for_shutdown=Mock(), wait_for_startup=Mock(side_effect=RuntimeError('startup boundary')),
             REBOOT_SHUTDOWN_TIMEOUT_SEC=300, REBOOT_TYPE_COLD='cold',
@@ -131,6 +188,7 @@ class TestRecoveryRouting(unittest.TestCase):
         """The exact BMC topology uses system power cycling without a PDU."""
         self.recover({'topo': {'name': 'bmc-dual-mgmt'}})
         self.namespace['get_pdu_controller'].assert_called_once_with(self.duthost)
+        self.namespace['check_bmc_chassis_power_cycle_support'].assert_called_once_with(self.duthost)
         self.namespace['pdu_reboot'].assert_not_called()
         self.namespace['power_cycle_via_bmc'].assert_called_once_with(
             self.duthost, self.localhost, startup_timeout=1200)
@@ -144,8 +202,31 @@ class TestRecoveryRouting(unittest.TestCase):
         self.recover({'topo': {'name': 'bmc-dual-mgmt'}})
         self.namespace['pdu_reboot'].assert_called_once_with(controller)
         self.namespace['power_cycle_via_bmc'].assert_not_called()
+        self.namespace['check_bmc_chassis_power_cycle_support'].assert_not_called()
         self.duthost.shell.assert_not_called()
         self.assertEqual(self.namespace['wait_for_startup'].call_args.kwargs['timeout'], 300)
+
+    def test_unsupported_platform_fails_before_test(self):
+        """Reject unsupported recovery before yielding to the destructive test."""
+        self.namespace['check_bmc_chassis_power_cycle_support'].side_effect = RuntimeError('unsupported API')
+        generator = self.fixture(
+            {'dut': self.duthost}, 'dut', {'topo': {'name': 'bmc-dual-mgmt'}}, [], self.localhost,
+            self.namespace['get_pdu_controller'])
+        with self.assertRaisesRegex(RuntimeError, 'unsupported API'):
+            next(generator)
+        self.namespace['power_cycle_via_bmc'].assert_not_called()
+        self.duthost.shell.assert_not_called()
+
+    def test_database_skipped_needs_no_power_cycle(self):
+        """Do not require power-cycle support when database is excluded."""
+        self.namespace['get_skip_containers'].return_value = ['database']
+        generator = self.fixture(
+            {'dut': self.duthost}, 'dut', {'topo': {'name': 'bmc-dual-mgmt'}}, [], self.localhost,
+            self.namespace['get_pdu_controller'])
+        next(generator)
+        self.namespace['check_bmc_chassis_power_cycle_support'].assert_not_called()
+        self.namespace['get_pdu_controller'].assert_not_called()
+        generator.close()
 
     def test_pdu_failure_stops_recovery(self):
         """A failed PDU cycle must not fall through to BMC cycling or startup."""
@@ -193,10 +274,13 @@ class TestRecoveryRouting(unittest.TestCase):
             with self.subTest(platform_timeout=platform_timeout):
                 self.setUp()
                 self.namespace['get_plt_reboot_ctrl'].return_value = {'timeout': platform_timeout}
-                self.duthost.shell.side_effect = [{}, {'stdout': 'before'}, {}, {'stdout': 'after'}]
+                self.duthost.shell.side_effect = [{}, {}, {'stdout': 'before'}, {}, {'stdout': 'after'}]
                 self.namespace.update(
                     shlex=shlex, pytest_assert=_assert,
                     wait_until=lambda timeout, interval, delay, check: check())
+                switch_host = self.duthost.get_bmc_host.return_value
+                switch_host.shell.side_effect = [{'stdout': 'switch-before'}, {'stdout': 'switch-after'}]
+                _load_function('check_bmc_chassis_power_cycle_support', self.namespace, BMC_HELPER_PATH)
                 self.namespace['power_cycle_via_bmc'] = _load_function(
                     'power_cycle_via_bmc', self.namespace, BMC_HELPER_PATH)
                 self.namespace['wait_for_startup'].side_effect = [None, None, RuntimeError('startup boundary')]

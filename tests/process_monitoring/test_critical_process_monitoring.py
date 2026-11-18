@@ -15,7 +15,7 @@ from tests.common import config_reload
 from tests.common.vs_data import is_vs_device
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
-from tests.common.platform.bmc_utils import power_cycle_via_bmc
+from tests.common.platform.bmc_utils import check_bmc_chassis_power_cycle_support, power_cycle_via_bmc
 from tests.common.reboot import REBOOT_TYPE_COLD, reboot_ctrl_dict, wait_for_shutdown, wait_for_startup
 from tests.common.utilities import get_plt_reboot_ctrl, pdu_reboot, wait_until, kill_process_by_pid
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, NAMESPACE_PREFIX
@@ -640,6 +640,11 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
 
     # Check if database container is being tested
     is_testing_database = "database" not in skip_containers
+    is_bmc_topology = tbinfo.get('topo', {}).get('name') == 'bmc-dual-mgmt'
+    pdu_ctrl = get_pdu_controller(duthost) if is_testing_database and is_bmc_topology else None
+    use_bmc_power_cycle = is_bmc_topology and pdu_ctrl is None
+    if is_testing_database and use_bmc_power_cycle:
+        check_bmc_chassis_power_cycle_support(duthost)
 
     # add log to indicate start of yield
     logger.info("Starting test to monitor critical processes...")
@@ -651,9 +656,6 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
     # Special handling for database container - reboot the DUT
     if is_testing_database:
         logger.info("Database container was tested - rebooting the DUT...")
-        is_bmc_topology = tbinfo.get('topo', {}).get('name') == 'bmc-dual-mgmt'
-        pdu_ctrl = get_pdu_controller(duthost) if is_bmc_topology else None
-        use_bmc_power_cycle = is_bmc_topology and pdu_ctrl is None
         tc_name = os.environ.get("PYTEST_CURRENT_TEST", "").split(" ")[0]
         plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, tc_name, REBOOT_TYPE_COLD)
         timeout = plt_reboot_ctrl.get("timeout", reboot_ctrl_dict[REBOOT_TYPE_COLD]["timeout"])
