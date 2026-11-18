@@ -81,7 +81,8 @@
     when: ptf_imagename is not defined
 
   - name: Load topo variables
-    include_vars: "vars/topo_{{ topo }}{{ '_' ~ testbed_name if topo == 'generic' else '' }}.yml"
+    include_vars:
+      file: "vars/topo_{{ topo }}{{ '_' ~ testbed_name if topo == 'generic' else '' }}.yml"
 
   - name: Read dut minigraph
     conn_graph_facts:
