@@ -251,7 +251,11 @@ class DirectRebootControls(unittest.TestCase):
             self.boot = BEFORE if boundary == 'unchanged' else AFTER
             with self.assertRaises((Failed, TimeoutError, RuntimeError)) as caught:
                 next(generator)
-            self.assertIs(caught.exception.__cause__, disconnect)
+            if boundary in ['shutdown', 'startup', 'unchanged']:
+                self.assertIs(caught.exception.__cause__, disconnect)
+            else:
+                self.assertIsNone(caught.exception.__cause__)
+                self.assertTrue(caught.exception.reboot_dispatch_diagnostic['authenticated_changed_boot_verified'])
             self.assertEqual([call.args[0] for call in self.dut.command.call_args_list].count('/sbin/reboot'), 1)
 
     def test_known_connection_error_outside_dispatch_is_not_reclassified(self):
@@ -308,11 +312,116 @@ class DirectRebootControls(unittest.TestCase):
         pool.terminate.assert_not_called()
 
     def test_submission_result_uses_remaining_shutdown_deadline(self):
-        self.ns['monotonic'] = Mock(side_effect=[0, 5, 299])
+        self.ns['monotonic'] = Mock(side_effect=[0.25, 5.75, 299.5])
         self.assertIsNone(self.ns['_submit_os_reboot_and_wait_for_shutdown'](self.dut, Mock()))
-        self.assertEqual(self.pools[0].future.collected, [1])
+        self.assertEqual(self.pools[0].future.collected, [0.75])
         self.assertTrue(self.pools[0].closed)
-        self.assertEqual(self.ns['wait_for_shutdown'].call_args.kwargs['timeout'], 295)
+        self.assertEqual(self.ns['wait_for_shutdown'].call_args.kwargs['timeout'], 294)
+        self.assertIs(type(self.ns['wait_for_shutdown'].call_args.kwargs['timeout']), int)
+        self.assertEqual(self.ns['wait_for_shutdown'].call_args.kwargs['delay'], 0)
+
+    def test_subsecond_or_expired_shutdown_budget_never_calls_ansible_with_zero(self):
+        for elapsed in [299.5, 300.0, 300.5]:
+            self.setUp()
+            self.ns['monotonic'] = Mock(side_effect=[0.0, elapsed, elapsed])
+            with self.assertRaisesRegex(TimeoutError, 'positive integer timeout'):
+                self.ns['_submit_os_reboot_and_wait_for_shutdown'](self.dut, Mock())
+            self.ns['wait_for_shutdown'].assert_not_called()
+            self.assertEqual(self.pools[0].future.collected, [max(0, 300.0 - elapsed)])
+            self.assertTrue(self.pools[0].closed)
+            self.assertEqual([call.args[0] for call in self.dut.command.call_args_list], ['/sbin/reboot'])
+
+    def test_expired_integer_shutdown_budget_still_collects_disconnect_cause(self):
+        disconnect = AnsibleConnectionFailure('original dispatch error')
+        self.reboot_error = disconnect
+        self.ns['monotonic'] = Mock(side_effect=[0.0, 299.5, 299.75])
+        with self.assertRaises(TimeoutError) as caught:
+            self.ns['_submit_os_reboot_and_wait_for_shutdown'](self.dut, Mock())
+        self.assertIs(caught.exception.__cause__, disconnect)
+        self.assertEqual(self.pools[0].future.collected, [0.25])
+        self.ns['wait_for_shutdown'].assert_not_called()
+
+    def test_expired_shutdown_and_pending_result_preserve_both_failures_and_owner(self):
+        future = Mock()
+        future.ready.return_value = False
+        pending = TimeoutError('submission still pending')
+        future.get.side_effect = pending
+        pool = Mock()
+        pool.apply_async.return_value = future
+        self.ns['ThreadPool'] = Mock(return_value=pool)
+        self.ns['monotonic'] = Mock(side_effect=[0.0, 300.5, 300.75])
+        with self.assertRaisesRegex(TimeoutError, 'positive integer timeout') as caught:
+            self.ns['_submit_os_reboot_and_wait_for_shutdown'](self.dut, Mock())
+        self.assertIs(caught.exception.__cause__, pending)
+        self.assertIs(caught.exception.reboot_dispatch_future, future)
+        future.get.assert_called_once_with(timeout=0)
+        self.ns['wait_for_shutdown'].assert_not_called()
+        pool.close.assert_called_once()
+
+    def classifier(self):
+        path = SOURCE.parents[1] / 'common' / 'helpers' / 'host_failure_utils.py'
+        tree = ast.parse(path.read_text())
+        functions = {'_iter_exception_chain', '_get_dark_hosts', '_get_message', '_is_unreachable_failure',
+                     'is_testbed_unreachable_exception'}
+        constants = {'MAX_INSPECTED_MESSAGE_LENGTH', 'UNREACHABLE_MARKERS', 'CONNECTIVITY_FAILURE_MARKERS'}
+        nodes = []
+        for node in tree.body:
+            if isinstance(node, ast.FunctionDef) and node.name in functions:
+                nodes.append(node)
+            elif isinstance(node, ast.Assign) and any(
+                    isinstance(target, ast.Name) and target.id in constants for target in node.targets):
+                nodes.append(node)
+        namespace = {}
+        exec(compile(ast.Module(body=nodes, type_ignores=[]), str(path), 'exec'), namespace)
+        return namespace['is_testbed_unreachable_exception']
+
+    def test_recovered_disconnect_does_not_classify_later_functional_failure_as_unreachable(self):
+        classify = self.classifier()
+        for boundary in ['database', 'critical', 'postcheck']:
+            self.setUp()
+            generator = self.fixture()
+            next(generator)
+            disconnect = AnsibleConnectionFailure('Host unreachable in the inventory')
+            disconnect.dark = {'dut': {'unreachable': True}}
+            self.reboot_error = disconnect
+            self.boot = AFTER
+            if boundary == 'database':
+                self.failed_ping = 'sonic-db-cli PING'
+            elif boundary == 'critical':
+                self.ns['ensure_all_critical_processes_running'].side_effect = RuntimeError(
+                    'critical process not ready')
+            else:
+                self.ns['postcheck_critical_processes_status'].return_value = False
+            with self.assertRaises((Failed, RuntimeError)) as caught:
+                next(generator)
+            self.assertFalse(classify(caught.exception, (AnsibleConnectionFailure,)))
+            self.assertEqual(caught.exception.reboot_dispatch_diagnostic,
+                             {'submission_connection_lost': True, 'authenticated_changed_boot_verified': True})
+            self.assertIsNone(caught.exception.__cause__)
+            self.assertIsNone(caught.exception.__context__)
+
+    def test_still_unreachable_or_new_connection_failure_remains_classified(self):
+        classify = self.classifier()
+        for boundary in ['startup', 'after_verified_boot']:
+            self.setUp()
+            generator = self.fixture()
+            next(generator)
+            disconnect = AnsibleConnectionFailure('Host unreachable in the inventory')
+            disconnect.dark = {'dut': {}}
+            self.reboot_error = disconnect
+            self.boot = AFTER
+            actual = AnsibleConnectionFailure('Host unreachable in the inventory')
+            actual.dark = {'dut': {}}
+            if boundary == 'startup':
+                self.ns['wait_for_startup'].side_effect = actual
+            else:
+                self.ns['config_reload'].side_effect = actual
+            with self.assertRaises(AnsibleConnectionFailure) as caught:
+                next(generator)
+            self.assertIs(caught.exception, actual)
+            self.assertTrue(classify(caught.exception, (AnsibleConnectionFailure,)))
+            if boundary == 'startup':
+                self.assertIs(caught.exception.__cause__, disconnect)
 
     def test_boot_poll_retries_specific_failed_outcomes_and_eventually_changes(self):
         responses = [{'rc': 1}, {'rc': 0, 'stdout': 'malformed'}, {'rc': 0, 'stdout': BEFORE},

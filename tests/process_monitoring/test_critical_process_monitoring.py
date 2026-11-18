@@ -113,8 +113,12 @@ def _submit_os_reboot_and_wait_for_shutdown(duthost, localhost):
         future = pool.apply_async(duthost.command, ("/sbin/reboot",), {"module_ignore_errors": True})
         shutdown_error = None
         try:
-            wait_for_shutdown(duthost, localhost, delay=1,
-                              timeout=max(0, deadline - monotonic()))
+            # Ansible wait_for requires integer seconds; never pass zero
+            # (special wait_for semantics) or round up beyond this deadline.
+            shutdown_timeout = int(deadline - monotonic())
+            if shutdown_timeout < 1:
+                raise TimeoutError("Shutdown observation budget expired before a positive integer timeout remained")
+            wait_for_shutdown(duthost, localhost, delay=0, timeout=shutdown_timeout)
         except (Exception, pytest.fail.Exception) as error:
             shutdown_error = error
         disconnect = None
@@ -122,6 +126,10 @@ def _submit_os_reboot_and_wait_for_shutdown(duthost, localhost):
             result = future.get(timeout=max(0, deadline - monotonic()))
         except AnsibleConnectionFailure as error:
             disconnect = error  # Indeterminate submission, never success alone.
+        except (Exception, pytest.fail.Exception) as submission_error:
+            if shutdown_error is not None:
+                raise shutdown_error from submission_error
+            raise
         else:
             pytest_assert(result.get("rc") == 0 and not result.get("failed") and not result.get("unreachable"),
                           "Normal /sbin/reboot was not accepted; no automatic retry or forced fallback")
@@ -742,6 +750,7 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
     yield
 
     dispatch_disconnect = None
+    authenticated_reboot_verified = False
     try:
         # add log to indicate end of yield
         logger.info("Test to monitor critical processes is done, starting recovery...")
@@ -792,6 +801,7 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
             wait_for_startup(duthost, localhost, delay=10, timeout=timeout)
             pytest_assert(wait_until(120, 5, 0, _boot_id_changed, duthost, recovery.boot_id),
                           "DUT boot ID did not change after database recovery")
+            authenticated_reboot_verified = True
             logger.info("Authenticated access and changed boot ID verified, waiting for database recovery...")
 
             # After a reboot with redis killed, /var/run/redis/sonic-db/database_config.json
@@ -870,9 +880,18 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
         logger.info("Post-checking status of critical processes and BGP sessions was done!")
     except (Exception, pytest.fail.Exception) as verification_error:
         if dispatch_disconnect is not None:
-            # Keep the failing verification type/traceback AND original
-            # submission error, without dumping its dark/contacted payload.
-            raise verification_error from dispatch_disconnect
+            if not authenticated_reboot_verified:
+                # Connectivity/boot recovery remains unverified: retain the
+                # original transport cause for normal unreachable handling.
+                raise verification_error from dispatch_disconnect
+            # Startup plus changed authenticated boot ID resolved the old
+            # transport event. Do not make a later functional failure's cause
+            # falsely report a still-unreachable testbed. Preserve safe evidence
+            # only; any NEW transport exception remains classified normally.
+            verification_error.reboot_dispatch_diagnostic = {
+                "submission_connection_lost": True,
+                "authenticated_changed_boot_verified": True,
+            }
         raise
 
 
