@@ -33,21 +33,31 @@ done
 """
 
 PORT_DATABASES = """
-redis-cli -n 2 HGETALL COUNTERS_PORT_NAME_MAP
-for p in /sys/class/net/Ethernet*; do
-    test -d "$p" || continue
-    p="${p##*/}"
-    printf "\\nPORT %s\\n" "$p"
-    redis-cli -n 4 HGET "PORT|$p" admin_status
-    redis-cli -n 0 HGETALL "PORT_TABLE:$p"
-    redis-cli -n 6 HGETALL "PORT_TABLE|$p"
+redis-cli -e --raw -n 2 HGETALL COUNTERS_PORT_NAME_MAP
+ports=$(redis-cli -e --raw -n 4 --scan --pattern 'PORT|*' | sed 's/^PORT|//')
+if test -z "$ports"; then
+    printf "No configured PORT entries found\\n" >&2
+    exit 1
+fi
+for db in 4 0 6; do
+    printf "\\nDATABASE %s\\n" "$db"
+    {
+        for p in $ports; do
+            printf 'ECHO "PORT %s"\\n' "$p"
+            case "$db" in
+                4) printf 'HGET "PORT|%s" admin_status\\n' "$p" ;;
+                0) printf 'HGETALL "PORT_TABLE:%s"\\n' "$p" ;;
+                6) printf 'HGETALL "PORT_TABLE|%s"\\n' "$p" ;;
+            esac
+        done
+    } | redis-cli -e --raw -n "$db"
 done
 for kind in PORT HOSTIF; do
-    redis-cli -n 1 --scan --pattern "ASIC_STATE:SAI_OBJECT_TYPE_$kind:*" |
+    printf "\\nASIC %s\\n" "$kind"
+    redis-cli -e --raw -n 1 --scan --pattern "ASIC_STATE:SAI_OBJECT_TYPE_$kind:*" |
     while IFS= read -r key; do
-        printf "\\n%s\\n" "$key"
-        redis-cli -n 1 HGETALL "$key"
-    done
+        printf 'ECHO "%s"\\nHGETALL "%s"\\n' "$key" "$key"
+    done | redis-cli -e --raw -n 1
 done
 """
 
