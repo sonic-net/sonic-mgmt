@@ -209,6 +209,9 @@ def patch_touched_entries(patch_data):
     complete expected ACL_TABLE entry, so that a patch which clobbers 'type' or
     drops a pre-existing binding is caught.
 
+    Whole-table operations include every entry key in their value. Operations
+    without a mapping value still mark the table, with no entry keys.
+
     A leading 'localhost' namespace segment is skipped. 'localhost' is matched by
     name rather than guessed at, because guessing from capitalisation would
     misclassify any table that is not spelled in upper case.
@@ -218,9 +221,13 @@ def patch_touched_entries(patch_data):
         segments = [s for s in operation.get('path', '').split('/') if s != '']
         if segments and segments[0] == 'localhost':
             segments = segments[1:]
-        if len(segments) < 2:
+        if not segments:
             continue
         table = unescape_json_pointer(segments[0])
+        if len(segments) == 1:
+            value = operation.get('value')
+            touched.setdefault(table, set()).update(value if isinstance(value, dict) else ())
+            continue
         key = unescape_json_pointer(segments[1])
         touched.setdefault(table, set()).add(key)
 
@@ -229,6 +236,9 @@ def patch_touched_entries(patch_data):
 
 def compare_touched_entries(baseline_config, actual_config, patch_data, ignore_fields=None):
     """Compare every entry the patch touched against the baseline configuration.
+
+    Whole-table operations also compare all baseline and actual keys, so missing
+    or unexpected entries cannot escape verification.
 
     Args:
         baseline_config: Known-good configuration, captured while the neighbor was present
@@ -243,16 +253,21 @@ def compare_touched_entries(baseline_config, actual_config, patch_data, ignore_f
     ignored = set(ignore_fields or ())
     baseline = normalize_config(baseline_config)
     actual = normalize_config(actual_config)
+    touched = patch_touched_entries(patch_data)
+    for operation in patch_data:
+        segments = _path_segments(operation.get('path', ''))
+        if len(segments) == 1:
+            table = segments[0]
+            touched[table].update(baseline.get(table, {}))
+            touched[table].update(actual.get(table, {}))
 
     differences = []
-    for table, keys in sorted(patch_touched_entries(patch_data).items()):
+    for table, keys in sorted(touched.items()):
         baseline_table = baseline.get(table, {})
         actual_table = actual.get(table, {})
 
         for key in sorted(keys):
             if key not in baseline_table:
-                # The patch adds something the baseline never had. That points at patch
-                # generation rather than at the applied result.
                 differences.append(
                     "{}|{}: touched by the patch but absent from the baseline "
                     "configuration".format(table, key))

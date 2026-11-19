@@ -986,6 +986,10 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
         profiles_missing = {}
         for port, expected in sorted(expected_profiles.items()):
             found = get_lossless_pg_entries(duthost, port, AUTOGEN_BUFFER_PG_PROFILE_PREFIX)
+            pytest_assert(
+                found,
+                "No lossless BUFFER_PG entries found for port {} during final verification "
+                "(expected {}).".format(port, expected))
             for pg_key, profile in sorted(found.items()):
                 if profile != expected:
                     wrong_profile[pg_key] = "{} (expected {})".format(profile, expected)
