@@ -258,7 +258,7 @@ def vlan_setup_teardown(rand_selected_dut, vlan_setup_info, ptfhost):
         ptfhost.ptf_nn_agent()
         # Wait for lag sync
         time.sleep(10)
-        config_reload(rand_selected_dut, safe_reload=True, check_intf_up_ports=True)
+        config_reload(rand_selected_dut, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
 
 def send_and_verify_traffic(ptfadapter, pkt, exp_pkt, src_port_list, dst_port_list, pkt_action=ACTION_FORWARD):
