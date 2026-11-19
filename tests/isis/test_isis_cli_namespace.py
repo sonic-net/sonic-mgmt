@@ -29,7 +29,8 @@ def _installed(node, container):
     return bool(re.search(r"(?m)^router isis ISIS_NS_TEST\n(?:[ \t].*\n)*[ \t]+lsp-mtu 1380(?:\n|$)", output))
 
 
-def test_isis_cli_namespace_isolation(rand_selected_dut):
+@pytest.fixture
+def isis_namespace(rand_selected_dut, request):
     node = rand_selected_dut
     if not node.is_multi_asic:
         pytest.skip("IS-IS namespace device coverage requires a multi-ASIC testbed")
@@ -38,12 +39,44 @@ def test_isis_cli_namespace_isolation(rand_selected_dut):
         pytest.skip("IS-IS namespace isolation requires two frontend ASIC namespaces")
     namespace = namespaces[0]
     pytest_assert(re.fullmatch(r"asic[0-9]+", namespace), "Unexpected ASIC namespace: " + namespace)
-    container = "bgp" + namespace[4:]
+    asic = node.asic_instance_from_namespace(namespace)
     before = {name: _snapshot(node, name) for name in namespaces}
-    pytest_assert(before[namespace].get("DEVICE_METADATA", {}).get("localhost", {}).get(
-        "frr_mgmt_framework_config") == "true", "FRR management framework is disabled")
     pytest_assert("default|ISIS_NS_TEST" not in before[namespace].get("ISIS_GLOBALS", {}),
                   "Temporary namespace instance already exists")
+    original = before[namespace]["DEVICE_METADATA"]["localhost"].get("frr_mgmt_framework_config")
+
+    def restart_bgp():
+        asic.restart_service("bgp")
+        pytest_assert(wait_until(100, 10, 0, node.sonichost.is_service_fully_started,
+                                 asic.get_docker_name("bgp")), "BGP not started.")
+
+    def restore():
+        if original != "true":
+            if original is None:
+                asic.run_sonic_db_cli_cmd(
+                    'CONFIG_DB HDEL "DEVICE_METADATA|localhost" "frr_mgmt_framework_config"')
+            else:
+                asic.run_sonic_db_cli_cmd(
+                    'CONFIG_DB HSET "DEVICE_METADATA|localhost" "frr_mgmt_framework_config" {}'.format(
+                        shlex.quote(original)))
+            restart_bgp()
+        for name in namespaces:
+            pytest_assert(_snapshot(node, name) == before[name], "Namespace cleanup changed existing ConfigDB")
+
+    # Register before setup so a failed restart also restores the original mode.
+    request.addfinalizer(restore)
+    if original != "true":
+        asic.run_sonic_db_cli_cmd(
+            'CONFIG_DB HSET "DEVICE_METADATA|localhost" "frr_mgmt_framework_config" "true"')
+        restart_bgp()
+    return node, namespaces, asic
+
+
+def test_isis_cli_namespace_isolation(isis_namespace):
+    node, namespaces, asic = isis_namespace
+    namespace = asic.namespace
+    container = asic.get_docker_name("bgp")
+    before = {name: _snapshot(node, name) for name in namespaces}
     other_neighbors = {
         name: json.loads(_run(node, "sudo docker exec bgp{} vtysh -c 'show isis neighbor json'".format(name[4:])))
         for name in namespaces[1:]
