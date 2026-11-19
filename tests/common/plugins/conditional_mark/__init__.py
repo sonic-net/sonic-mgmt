@@ -99,7 +99,7 @@ def load_conditions(session):
     conditions_list = list()
 
     conditions_files = session.config.option.mark_conditions_files
-    for condition_file in conditions_files:
+    for condition_file in list(conditions_files):
         if '*' in condition_file:
             conditions_files.remove(condition_file)
             files = glob.glob(condition_file)

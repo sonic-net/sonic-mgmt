@@ -32,7 +32,7 @@ from tests.common.helpers.dut_utils import get_program_info
 from tests.common.platform.interface_utils import wait_ports_oper_status
 from tests.common.platform.processes_utils import get_docker_started_at
 from tests.common.reboot import reboot
-from tests.transceiver.common import cli_helpers
+from tests.transceiver.common import cli_helpers, db_helpers
 from tests.transceiver.common.health_checks import DEFAULT_MONITORED_PROCESSES
 
 logger = logging.getLogger(__name__)
@@ -343,20 +343,41 @@ def perform_sfputil_reset(duthost, reset_ports, toggle_ports, shutdown_wait_sec,
     return failures
 
 
-def perform_ports_shutdown(duthost, ports, wait_sec):
-    """Admin-down all ``ports`` (one bulk config) then wait until each is oper-down.
+def _set_ports_admin_status(duthost, ports, up):
+    """Admin-up (or down) ``ports`` with one bulk ``config interface [-n <ns>]
+    startup|shutdown <p1>,<p2>,...`` per ASIC namespace.
 
-    Uses the canonical ``SonicHost.shutdown_multiple`` (single ``config interface
-    shutdown <p1>,<p2>,...``). Returns a list of per-port failure strings, one per
-    port that did not reach oper-down within ``wait_sec``; empty when all did.
+    ``config interface`` requires the namespace on a multi-ASIC DUT, so the
+    ports are grouped by namespace; a single-ASIC DUT gets one command without
+    ``-n``. Returns the error of each command that failed.
+    """
+    set_admin_status = cli_helpers.config_interface_startup if up else cli_helpers.config_interface_shutdown
+    errors = []
+    for namespace, namespace_ports in db_helpers.group_ports_by_namespace(duthost, ports).items():
+        logger.info("%s %s%s", "Starting up" if up else "Shutting down", ",".join(namespace_ports),
+                    f" in namespace {namespace}" if namespace else "")
+        err = set_admin_status(duthost, ",".join(namespace_ports), namespace=namespace)
+        if err:
+            errors.append(err)
+    return errors
+
+
+def perform_ports_shutdown(duthost, ports, wait_sec):
+    """Admin-down all ``ports`` (one bulk config per ASIC namespace) then wait
+    until each is oper-down.
+
+    Issues ``config interface [-n <ns>] shutdown <p1>,<p2>,...`` through
+    :func:`cli_helpers.config_interface_shutdown`. Returns a list of failure
+    strings: the error of any command that failed, then one per port that did
+    not reach oper-down within ``wait_sec``; empty when all did.
     """
     if not ports:
         logger.debug("perform_ports_shutdown called with no ports; nothing to do")
         return []
-    duthost.shutdown_multiple(ports)
+    failures = _set_ports_admin_status(duthost, ports, up=False)
     logger.info("Admin-down issued for %d port(s); waiting up to %ss for oper-down",
                 len(ports), wait_sec)
-    failures = wait_ports_oper_status(duthost, ports, "down", wait_sec)
+    failures += wait_ports_oper_status(duthost, ports, "down", wait_sec)
     if failures:
         for failure in failures:
             logger.warning("%s", failure)
@@ -366,20 +387,21 @@ def perform_ports_shutdown(duthost, ports, wait_sec):
 
 
 def perform_ports_startup(duthost, ports, wait_sec):
-    """Admin-up all ``ports`` (one bulk config) then wait until each is oper-up.
+    """Admin-up all ``ports`` (one bulk config per ASIC namespace) then wait
+    until each is oper-up.
 
-    Uses the canonical ``SonicHost.no_shutdown_multiple`` (single ``config
-    interface startup <p1>,<p2>,...``). Returns a list of per-port failure
-    strings, one per port that did not reach oper-up within ``wait_sec``; empty
-    when all did.
+    Issues ``config interface [-n <ns>] startup <p1>,<p2>,...`` through
+    :func:`cli_helpers.config_interface_startup`. Returns a list of failure
+    strings: the error of any command that failed, then one per port that did
+    not reach oper-up within ``wait_sec``; empty when all did.
     """
     if not ports:
         logger.debug("perform_ports_startup called with no ports; nothing to do")
         return []
-    duthost.no_shutdown_multiple(ports)
+    failures = _set_ports_admin_status(duthost, ports, up=True)
     logger.info("Admin-up issued for %d port(s); waiting up to %ss for oper-up",
                 len(ports), wait_sec)
-    failures = wait_ports_oper_status(duthost, ports, "up", wait_sec)
+    failures += wait_ports_oper_status(duthost, ports, "up", wait_sec)
     if failures:
         for failure in failures:
             logger.warning("%s", failure)
