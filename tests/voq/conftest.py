@@ -74,6 +74,7 @@ def nbr_macs(nbrhosts):
 
     return results
 
+
 @pytest.fixture(autouse=True)
 def ignore_voq_platform_init_errors(loganalyzer, duthosts):
     if not loganalyzer:
