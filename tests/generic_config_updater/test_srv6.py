@@ -67,7 +67,7 @@ def test_srv6_config_update(duthosts, rand_one_dut_hostname, enum_frontend_asic_
         }
     ]
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
-                                                 is_asic_specific=True, asic_namespaces=asic_namespace)
+                                                 is_asic_specific=True, asic_namespaces=[asic_namespace])
 
     logger.info("json patch {}".format(json_patch))
 
@@ -113,7 +113,7 @@ def test_srv6_config_remove(duthosts, rand_one_dut_hostname, enum_frontend_asic_
         }
     ]
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
-                                                 is_asic_specific=True, asic_namespaces=asic_namespace)
+                                                 is_asic_specific=True, asic_namespaces=[asic_namespace])
 
     logger.info("json patch {}".format(json_patch))
 
