@@ -92,7 +92,7 @@ def fdb_has_mac(duthost, mac):
     logger.info(f"Checking if FDB has MAC address {mac}")
     mac_lines = [line for line in duthost.command("show mac")["stdout_lines"] if mac in line.lower()]
     logger.info("Matched MAC entries:\n{}".format("\n".join(mac_lines) if mac_lines else "<none>"))
-    return any(mac in line.lower() for line in duthost.command("show mac")["stdout_lines"])
+    return bool(mac_lines)
 
 
 def get_vlan_last_ipv4(config_facts):
