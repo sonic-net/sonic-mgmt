@@ -185,28 +185,30 @@ def setup_vlan(rand_selected_dut, vlan_setup_info, ptfhost):
     logger.info("Creating Vlan for testing")
     vlan_setup, test_ports, _, portchannel_setup = vlan_setup_info
     default_vlan_id = vlan_setup['default_vlan'].replace("Vlan", "")
+    # Configure the ASIC owning the selected ports. The option is empty on single-ASIC DUTs.
+    ns = rand_selected_dut.get_port_asic_instance(next(iter(test_ports))).cli_ns_option
     # Remove interface from default Vlan
     cmds = []
     for port in list(test_ports.keys()):
-        cmds.append('config vlan member del {} {}'.format(default_vlan_id, port))
+        cmds.append('config vlan {} member del {} {}'.format(ns, default_vlan_id, port))
     rand_selected_dut.shell_cmds(cmds=cmds)
     time.sleep(10)
 
     # Create new vlan
     cmds = []
     for new_vlan in TEST_VLAN_LIST:
-        cmds.append('config vlan add {}'.format(new_vlan))
+        cmds.append('config vlan {} add {}'.format(ns, new_vlan))
     rand_selected_dut.shell_cmds(cmds=cmds)
     time.sleep(10)
 
     # Create portchannel
     # Port in acl table can't be added to port channel, and acl table can only be updated by json file
-    rand_selected_dut.remove_acl_table("EVERFLOW")
-    rand_selected_dut.remove_acl_table("EVERFLOWV6")
-    rand_selected_dut.shell_cmds(cmds=["config portchannel add {}".format(DUT_LAG_NAME)])
+    rand_selected_dut.command("config acl remove table {} EVERFLOW".format(ns))
+    rand_selected_dut.command("config acl remove table {} EVERFLOWV6".format(ns))
+    rand_selected_dut.shell_cmds(cmds=["config portchannel {} add {}".format(ns, DUT_LAG_NAME)])
     cmds = []
     for port_name in portchannel_setup[DUT_LAG_NAME]['member']:
-        cmds.append("config portchannel member add {} {}".format(DUT_LAG_NAME, port_name))
+        cmds.append("config portchannel {} member add {} {}".format(ns, DUT_LAG_NAME, port_name))
     rand_selected_dut.shell_cmds(cmds=cmds)
 
     # Add ptf lag
@@ -221,8 +223,8 @@ def setup_vlan(rand_selected_dut, vlan_setup_info, ptfhost):
     # Assign IP to Vlan interface
     cmds = []
     for new_vlan in TEST_VLAN_LIST:
-        cmds.append('config interface ip add Vlan{} {}'.format(new_vlan, vlan_setup[new_vlan]['vlan_ip'][IPV4]))
-        cmds.append('config interface ip add Vlan{} {}'.format(new_vlan, vlan_setup[new_vlan]['vlan_ip'][IPV6]))
+        cmds.append('config interface {} ip add Vlan{} {}'.format(ns, new_vlan, vlan_setup[new_vlan]['vlan_ip'][IPV4]))
+        cmds.append('config interface {} ip add Vlan{} {}'.format(ns, new_vlan, vlan_setup[new_vlan]['vlan_ip'][IPV6]))
     rand_selected_dut.shell_cmds(cmds=cmds)
     time.sleep(10)
 
@@ -232,9 +234,9 @@ def setup_vlan(rand_selected_dut, vlan_setup_info, ptfhost):
         tagged_port = vlan_setup[new_vlan].get('tagged_ports', None)
         untagged_port = vlan_setup[new_vlan].get('untagged_ports', None)
         if tagged_port:
-            cmds.append("config vlan member add {} {}".format(new_vlan, tagged_port[0]))
+            cmds.append("config vlan {} member add {} {}".format(ns, new_vlan, tagged_port[0]))
         if untagged_port:
-            cmds.append("config vlan member add {} {} --untagged".format(new_vlan, untagged_port[0]))
+            cmds.append("config vlan {} member add {} {} --untagged".format(ns, new_vlan, untagged_port[0]))
     rand_selected_dut.shell_cmds(cmds=cmds)
     time.sleep(10)
 
