@@ -2649,6 +2649,12 @@ generic_config_updater/test_apply_patch_perf.py:
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/24984"
 
+generic_config_updater/test_apply_patch_perf.py::test_perf_ntp_server:
+  xfail:
+    reason: "NTP server apply-patch intermittently exceeds its single-sample time budget on SN2700 (A0), tracked by https://github.com/sonic-net/sonic-mgmt/issues/29379"
+    conditions:
+      - "platform in ['x86_64-mlnx_msn2700-r0'] and https://github.com/sonic-net/sonic-mgmt/issues/29379"
+
 generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite:
   skip:
     reason: "Cisco 8122 backend compute ai platform is not supported. Skip on VS platform due to low success rate."
