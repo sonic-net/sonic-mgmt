@@ -39,6 +39,11 @@ resources:
       name: sonic-net/sonic-mgmt
       ref: master
       endpoint: sonic-net
+    - repository: buildimage
+      type: github
+      name: sonic-net/sonic-buildimage
+      ref: refs/pull/28789/head
+      endpoint: sonic-net
 
 
 stages:
@@ -225,9 +230,62 @@ stages:
       displayName: "Run GoBGP shim and speaker manager unit tests"
 
 
-- stage: Test
+# Temporary companion image for IS-IS PR #28767. Remove this stage and the
+# buildimage resource once the backend and CLI are present in the default image.
+- stage: Build_ISIS_VS
+  displayName: "Build paired IS-IS multi-ASIC VS image"
   dependsOn: Pre_test
-  condition: and(succeeded(), not(canceled()), in(dependencies.Pre_test.result, 'Succeeded'), not(startsWith(variables['Build.SourceBranch'], 'refs/heads/gh-readonly-queue/')))
+  condition: and(not(canceled()), eq(dependencies.Pre_test.result, 'Succeeded'), eq(variables['System.PullRequest.PullRequestNumber'], '28767'))
+  pool: sonicso1ES-amd64
+  variables:
+  - template: .azure-pipelines/template-variables.yml@buildimage
+  - template: .azure-pipelines/azure-pipelines-repd-build-variables.yml@buildimage
+  - name: CACHE_MODE
+    value: rcache
+  - name: SKIP_CHECKOUT
+    value: y
+  jobs:
+  - template: .azure-pipelines/azure-pipelines-image-template.yml@buildimage
+    parameters:
+      SUBMODULE: sonic-utilities
+      COMMIT_ID: 47ad0714cca3810a9487c47c9d9afb8fc8bc8907
+      jobGroups:
+      - name: vs
+      jobVariables:
+        PLATFORM_AZP: $(GROUP_NAME)
+        PLATFORM_ARCH: amd64
+        BUILD_NUMBER: $(Build.BuildId)
+        BUILD_OPTIONS: USERNAME=admin SONIC_BUILD_JOBS=$(nproc) BUILD_MULTIASIC_KVM=y INCLUDE_DHCP_SERVER=y $(VERSION_CONTROL_OPTIONS)
+        DOCKER_DATA_ROOT_FOR_MULTIARCH: /data/march/docker
+      preSteps:
+      - checkout: buildimage
+        path: s
+        submodules: recursive
+        fetchDepth: 0
+      - bash: |
+          set -e
+          git checkout 312a562e2b629dda8b9e147699c469ee44adde5a
+          git submodule update --init --recursive
+          git -C src/sonic-utilities fetch origin refs/pull/4738/head
+        displayName: "Fetch matching backend and CLI commits"
+      buildSteps:
+      - bash: |
+          set -e
+          make $(BUILD_OPTIONS) target/sonic-vs.img.gz
+        displayName: "Build multi-ASIC SONiC image"
+      - template: .azure-pipelines/check-dirty-version.yml@buildimage
+      postSteps:
+      - bash: |
+          echo "##vso[task.setvariable variable=BUILD_ID;isOutput=true]$(Build.BuildId)"
+          echo "##vso[task.setvariable variable=PIPELINE_ID;isOutput=true]$(System.DefinitionId)"
+        name: PairedImage
+        displayName: "Export paired image artifact coordinates"
+
+- stage: Test
+  dependsOn:
+  - Pre_test
+  - Build_ISIS_VS
+  condition: and(not(canceled()), eq(dependencies.Pre_test.result, 'Succeeded'), in(dependencies.Build_ISIS_VS.result, 'Succeeded', 'Skipped'), not(startsWith(variables['Build.SourceBranch'], 'refs/heads/gh-readonly-queue/')))
   variables:
   - group: SONiC-Elastictest
   - name: BUILD_BRANCH
@@ -235,6 +293,14 @@ stages:
       value: $(System.PullRequest.TargetBranch)
     ${{ else }}:
       value: $(Build.SourceBranchName)
+  - name: ISIS_KVM_BUILD_ID
+    value: $[ coalesce(stageDependencies.Build_ISIS_VS.vs.outputs['PairedImage.BUILD_ID'], '') ]
+  - name: ISIS_KVM_PIPELINE_ID
+    value: $[ coalesce(stageDependencies.Build_ISIS_VS.vs.outputs['PairedImage.PIPELINE_ID'], '') ]
 
   jobs:
     - template: .azure-pipelines/pr_test_template.yml
+      parameters:
+        KVM_BUILD_ID: $(ISIS_KVM_BUILD_ID)
+        OVERRIDE_PARAMS:
+          KVM_IMAGE_BUILD_PIPELINE_ID: $(ISIS_KVM_PIPELINE_ID)
