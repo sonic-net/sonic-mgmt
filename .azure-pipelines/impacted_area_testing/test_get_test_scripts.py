@@ -659,7 +659,8 @@ class TestDedupIncludeJobs:
 
     @pytest.mark.parametrize("include_jobs", [
         "t1_job",
-        "t1_job,t1_multi_asic_job,t2_job",
+        "t1_csonic_job",
+        "t1_job,t1_csonic_job,t1_multi_asic_job,t2_job",
         "t0_2vlans_job,t0_sonic_job,t0_vpp_job,t1_job",
         "",
     ])
@@ -675,6 +676,7 @@ class TestDedupIncludeJobs:
         "all",
         "ALL",
         "t0_job",
+        "t0_csonic_job",
         "t0_job,t1_job,t1_multi_asic_job",
         "T1_JOB, T0_JOB",
     ])
@@ -787,6 +789,30 @@ class TestPrCheckerJobs:
             )
         )
         assert step["parameters"]["CHECKER"] == MULTI_ASIC_T1_CHECKER
+
+    def test_optional_csonic_t1_lag_reuses_t1_checker(self, template_jobs):
+        job = next(
+            j for j in template_jobs
+            if j.get("job") == "impacted_area_t1_lag_csonic_elastictest"
+        )
+        assert job["continueOnError"] is True
+        assert "'t1_checker'" in job["condition"]
+        assert "'t1_csonic_job'" in job["variables"]["RUN_BY_INCLUDE_JOBS"]
+
+        run_test = next(
+            s for s in job["steps"]
+            if s.get("template", "").endswith(
+                "run-test-elastictest-template.yml"
+            )
+        )["parameters"]
+        assert run_test["TOPOLOGY"] == "t1-lag"
+        assert run_test["VM_TYPE"] == "csonic"
+        assert run_test["SETUP_CONTAINER_PARAMS"] == (
+            "-e SONIC_MGMT_CSONIC_LAG_BACKEND=userspace_ovs"
+        )
+        assert run_test["COMMON_EXTRA_PARAMS"].split().count(
+            "--neighbor_type=csonic"
+        ) == 1
 
     def test_every_keep_in_checker_has_a_job(self):
         for keep_in, _ in CONTROL_PLANE_DEDUP_RULES:
