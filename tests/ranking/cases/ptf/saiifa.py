@@ -515,7 +515,7 @@ class IFAv2TransitSingleMSIPv6Test(IFAv2TransitNode):
                                     max_length=42,
                                     current_length=metadata1_num+len(metadata2)//8, 
                                     metadata=metadata2+metadata1))
-        pkt_transit.set_do_not_care(552,256)
+        pkt_transit.set_do_not_care(560,256)
         send_packet(self, self.dev_port0, pkt_initiator)
         verify_packet(self, pkt_transit, self.dev_port1)
         time.sleep(1)
@@ -567,7 +567,7 @@ class IFAv2TransitMultiMSIPv6Test(IFAv2TransitNode):
                                     max_length=127,
                                     current_length=metadata1_num+len(metadata2)//8, 
                                     metadata=metadata2+metadata1))
-        pkt_transit.set_do_not_care(552,256)
+        pkt_transit.set_do_not_care(560,256)
         send_packet(self, self.dev_port0, pkt_initiator)
         verify_packet(self, pkt_transit, self.dev_port1)
         time.sleep(1)
@@ -1021,7 +1021,7 @@ class IFAv2TransitMultiAclEntryTest(IFAv2TransitNodeMultiSession):
                                                 max_length=42,
                                                 current_length=15, 
                                                 metadata=metadata2+metadata1))
-                    pkt_transit.set_do_not_care(552,256)
+                    pkt_transit.set_do_not_care(560,256)
                     send_packet(self, self.dev_port0, pkt_initiator)
                     verify_packet(self, pkt_transit, self.dev_port1)
             time.sleep(1)
@@ -1073,7 +1073,7 @@ class IFAv2TransitMultiAclEntryTest(IFAv2TransitNodeMultiSession):
                                                 max_length=42,
                                                 current_length=8, 
                                                 metadata=metadata2))
-                    pkt_transit.set_do_not_care(552,256)
+                    pkt_transit.set_do_not_care(560,256)
                     send_packet(self, self.dev_port0, pkt_initiator)
                     verify_packet(self, pkt_transit, self.dev_port1)
             time.sleep(1)
@@ -1329,7 +1329,7 @@ class IFAv2TransitMultiAclEntryStressTest(IFAv2TransitNodeMultiSession):
                                                     max_length=42,
                                                     current_length=15, 
                                                     metadata=metadata2+metadata1))
-                        pkt_transit.set_do_not_care(552,256)
+                        pkt_transit.set_do_not_care(560,256)
                     else:
                         pkt_transit = ifa2_udpv6_packet(eth_dst=self.dmac,
                                                     eth_src=ROUTER_MAC,
@@ -1397,7 +1397,7 @@ class IFAv2TransitMultiAclEntryStressTest(IFAv2TransitNodeMultiSession):
                                                     max_length=42,
                                                     current_length=8, 
                                                     metadata=metadata2))
-                        pkt_transit.set_do_not_care(552,256)
+                        pkt_transit.set_do_not_care(560,256)
                     else:                          
                         pkt_transit = ifa2_udpv6_packet(eth_dst=self.dmac,
                                                     eth_src=ROUTER_MAC,

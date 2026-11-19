@@ -995,7 +995,7 @@ class L3DirBcastRouteTestHelper(PlatformSaiHelper):
         self.dmac2 = '22:11:22:33:44:55'
         self.mac_action = SAI_PACKET_ACTION_FORWARD
 
-        if get_platform() == 'brcm':
+        if get_platform() in ['brcm', 'clx']:
             self.port24_bp = sai_thrift_create_bridge_port(
                 self.client, bridge_id=self.default_1q_bridge, port_id=self.port24,
                 type=SAI_BRIDGE_PORT_TYPE_PORT, admin_state=True)

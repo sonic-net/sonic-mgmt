@@ -591,10 +591,10 @@ class sviTunnelTest(NhopTunnelEncapDecapTestHelper):
         try:
             port24_bp = sai_thrift_create_bridge_port(
                 self.client, bridge_id=self.default_1q_bridge,
-                port_id=self.port24, type=SAI_BRIDGE_PORT_TYPE_PORT)
+                port_id=self.port24, type=SAI_BRIDGE_PORT_TYPE_PORT, admin_state=True)
             port26_bp = sai_thrift_create_bridge_port(
                 self.client, bridge_id=self.default_1q_bridge,
-                port_id=self.port26, type=SAI_BRIDGE_PORT_TYPE_PORT)
+                port_id=self.port26, type=SAI_BRIDGE_PORT_TYPE_PORT, admin_state=True)
 
             # vlan100 with members port24 and port26
             vlan100 = sai_thrift_create_vlan(self.client, vlan_id=100)

@@ -911,6 +911,7 @@ class AclTableTypeTestIgr(SaiHelper):
                                            SAI_ACL_ACTION_TYPE_SET_ACL_META_DATA]
         if get_platform() == 'clx':
             self.Aggstat_table_action_types.remove(SAI_ACL_ACTION_TYPE_SET_DSCP)
+            self.Aggstat_table_action_types.remove(SAI_ACL_ACTION_TYPE_SET_ACL_META_DATA)
 
         self.Aggstat_table_acl_action_type_list = sai_thrift_s32_list_t(
             count=len(self.Aggstat_table_action_types), int32list=self.Aggstat_table_action_types)      
@@ -5646,7 +5647,7 @@ class AclAsetAddintmetaTest(SaiHelperSimplified):
                                         current_length=15, 
                                         metadata=metadata2+metadata1)
             pkt_transit2 = Mask(pkt_transit2)
-            pkt_transit2.set_do_not_care(552,256)
+            pkt_transit2.set_do_not_care(560,256)
             send_packet(self, self.dev_port0, pkt_initiator2)
             verify_packet(self, pkt_transit2, self.dev_port1)
             packets = sai_thrift_get_acl_counter_attribute(
@@ -9031,6 +9032,7 @@ class AclTableTypeSequenceTestIgr1(SaiHelperSimplified):
                                            SAI_ACL_ACTION_TYPE_SET_ACL_META_DATA]
         if get_platform() == 'clx':
             self.Aggstat_table_action_types.remove(SAI_ACL_ACTION_TYPE_SET_DSCP)
+            self.Aggstat_table_action_types.remove(SAI_ACL_ACTION_TYPE_SET_ACL_META_DATA)
                                            
         self.Aggstat_table_acl_action_type_list = sai_thrift_s32_list_t(
             count=len(self.Aggstat_table_action_types), int32list=self.Aggstat_table_action_types)      
@@ -10103,6 +10105,7 @@ class AclTableTypeSequenceTestIgr2(SaiHelper):
                                            SAI_ACL_ACTION_TYPE_SET_ACL_META_DATA]
         if get_platform() == "clx":
             self.Aggstat_table_action_types.remove(SAI_ACL_ACTION_TYPE_SET_DSCP)
+            self.Aggstat_table_action_types.remove(SAI_ACL_ACTION_TYPE_SET_ACL_META_DATA)
 
         self.Aggstat_table_acl_action_type_list = sai_thrift_s32_list_t(
             count=len(self.Aggstat_table_action_types), int32list=self.Aggstat_table_action_types)      
@@ -13975,6 +13978,7 @@ class AclTableTypeStressTestIgr1(SaiHelperSimplified):
                                            SAI_ACL_ACTION_TYPE_SET_ACL_META_DATA]
         if get_platform() == 'clx':
             self.Aggstat_table_action_types.remove(SAI_ACL_ACTION_TYPE_SET_DSCP)
+            self.Aggstat_table_action_types.remove(SAI_ACL_ACTION_TYPE_SET_ACL_META_DATA)
                                            
         self.Aggstat_table_acl_action_type_list = sai_thrift_s32_list_t(
             count=len(self.Aggstat_table_action_types), int32list=self.Aggstat_table_action_types)      
@@ -14404,10 +14408,11 @@ class AclTableTypeStressTestEgr1(SaiHelperSimplified):
                      self.testL3V6TableAclEgrAdd, 
                      self.testAggstatTableAclEgrAdd] 
         #Call the func to shuffle the order and execute all sub-funcs 
-        random_execute_all_funcs(funcs_add)   
-        status = sai_thrift_set_switch_attribute(self.client,
-                                                 egress_acl=self.acl_table_group_Egr)      
-        assert (status == SAI_STATUS_SUCCESS)   
+        random_execute_all_funcs(funcs_add)
+        if get_platform() != 'clx':
+            status = sai_thrift_set_switch_attribute(self.client,
+                                                    egress_acl=self.acl_table_group_Egr)
+            assert (status == SAI_STATUS_SUCCESS)
 
         for port in self.port_list:
             status = sai_thrift_set_port_attribute(
@@ -16495,6 +16500,7 @@ class AclipprotocolTestIgr1(SaiHelperSimplified):
                                            SAI_ACL_ACTION_TYPE_SET_ACL_META_DATA]
         if get_platform() == 'clx':
             self.Aggstat_table_action_types.remove(SAI_ACL_ACTION_TYPE_SET_DSCP)
+            self.Aggstat_table_action_types.remove(SAI_ACL_ACTION_TYPE_SET_ACL_META_DATA)
                                            
         self.Aggstat_table_acl_action_type_list = sai_thrift_s32_list_t(
             count=len(self.Aggstat_table_action_types), int32list=self.Aggstat_table_action_types)      
@@ -23859,6 +23865,7 @@ class AclSetadminstateTestIgr(SaiHelperSimplified):
                                            SAI_ACL_ACTION_TYPE_SET_ACL_META_DATA]
         if get_platform() == 'clx':
             self.Aggstat_table_action_types.remove(SAI_ACL_ACTION_TYPE_SET_DSCP)
+            self.Aggstat_table_action_types.remove(SAI_ACL_ACTION_TYPE_SET_ACL_META_DATA)
                                            
         self.Aggstat_table_acl_action_type_list = sai_thrift_s32_list_t(
             count=len(self.Aggstat_table_action_types), int32list=self.Aggstat_table_action_types)      

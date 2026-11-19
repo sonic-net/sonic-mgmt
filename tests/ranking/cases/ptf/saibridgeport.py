@@ -322,7 +322,7 @@ class BridgePortStateTest(SaiHelper):
             flood_port_list = [[chck_dev_port],
                                [self.dev_port4, self.dev_port5,
                                 self.dev_port6]]
-            if get_platform() == 'brcm':
+            if get_platform() in ['brcm', 'clx']:
                 send_packet(self, test_dev_port, self.pkt)
                 print("Sending packet on port %d will not flood" % test_dev_port)
                 verify_no_packet_any(self, self.pkt, flood_port_list)
@@ -361,7 +361,7 @@ class BridgePortStateTest(SaiHelper):
                 self.client, entry_type=SAI_FDB_FLUSH_ENTRY_TYPE_ALL)
 
             admin_state_flag = False
-            if get_platform() == 'brcm':
+            if get_platform() in ['brcm', 'clx']:
                 admin_state_flag = True
 
             # create new bridge port with admin state down
@@ -392,7 +392,7 @@ class BridgePortStateTest(SaiHelper):
                 self, flood_pkt_list, flood_port_list)
             print("\tOK")
 
-            if get_platform() == 'brcm':
+            if get_platform() in ['brcm', 'clx']:
                 print("Setting bridge port state to down")
                 status = sai_thrift_set_bridge_port_attribute(
                     self.client, test_bp, admin_state=False)

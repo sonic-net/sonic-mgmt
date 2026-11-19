@@ -1834,9 +1834,6 @@ class L3RouteScaleTestBase(SaiHelperScaleL3):
 
     def setUp(self):
         super(L3RouteScaleTestBase, self).setUp()
-        self._l3_scale_stats_thread_enabled = (
-            str(self.test_params.get('l3_scale_stats_thread', 'TRUE')).upper()
-            == 'TRUE')
         if self._l3_scale_stats_thread_enabled:
             self.start_stats_thread()
 

@@ -159,6 +159,21 @@ def num_lanes_to_lane_list_brcm(num_lanes):
                                 uint32list=[185, 186, 187, 188])
     return lane_list
 
+def num_lanes_to_lane_list_clx(num_lanes):
+    '''
+    Return lane list depending on the lanes number value
+    '''
+    if num_lanes == 1:
+        lane_list = sai_thrift_u32_list_t(count=num_lanes,
+                                          uint32list=[22])
+    elif num_lanes == 2:
+        lane_list = sai_thrift_u32_list_t(count=num_lanes,
+                                          uint32list=[22, 23])
+    elif num_lanes == 4:
+        lane_list = sai_thrift_u32_list_t(count=num_lanes,
+                                          uint32list=[22, 23, 24, 25])
+    return lane_list
+
 def acl_test_case(name, add_remove_bind=None, use_acl_group=None):
     '''
     Print test case name
@@ -190,6 +205,8 @@ class PortAttributeTest(SaiHelper):
         self.port = 0
         if get_platform() == 'brcm':
             sai_list = sai_thrift_u32_list_t(count=1, uint32list=[185])
+        elif get_platform() == 'clx':
+            sai_list = sai_thrift_u32_list_t(count=1, uint32list=[22])
         else:
             sai_list = sai_thrift_u32_list_t(count=1, uint32list=[34])
         if get_platform() == 'ctc':
@@ -197,8 +214,8 @@ class PortAttributeTest(SaiHelper):
         elif get_platform() == 'brcm':
             self.client.sai_thrift_remove_port(getattr(self,'port%d' %(self.port_lane_map_list[185]['port'])))
         elif get_platform() == 'clx':
-            if 34 in self.port_lane_map_list and 'port' in self.port_lane_map_list[34]:
-                self.client.sai_thrift_remove_port(self.port_lane_map_list[34]['port'])
+            if 22 in self.port_lane_map_list and 'port' in self.port_lane_map_list[22]:
+                self.client.sai_thrift_remove_port(self.port_lane_map_list[22]['port'])
 
         if get_platform() == 'brcm':
             self.port = sai_thrift_create_port(
@@ -359,6 +376,8 @@ class PortAttributeTest(SaiHelper):
         self.assertEqual(attr['hw_lane_list'].count, 1)
         if get_platform() == 'brcm':
             self.assertEqual(attr['hw_lane_list'].uint32list[0], 185)
+        elif get_platform() == 'clx':
+            self.assertEqual(attr['hw_lane_list'].uint32list[0], 22)
         else:
             self.assertEqual(attr['hw_lane_list'].uint32list[0], 34)
         attr = sai_thrift_get_port_attribute(
@@ -493,8 +512,8 @@ class ListPortAttributesTest(SaiHelperBase):
             elif get_platform() == 'brcm':
                 self.client.sai_thrift_remove_port(getattr(self,'port%d' %(self.port_lane_map_list[185]['port'])))
             elif get_platform() == 'clx':
-                if 34 in self.port_lane_map_list and 'port' in self.port_lane_map_list[34]:
-                    self.client.sai_thrift_remove_port(self.port_lane_map_list[34]['port'])
+                if 22 in self.port_lane_map_list and 'port' in self.port_lane_map_list[22]:
+                    self.client.sai_thrift_remove_port(self.port_lane_map_list[22]['port'])
 
             for scenario in self.test_scenario:
                 # Set all test attributes from the test_scenario list to 'None'
@@ -507,6 +526,8 @@ class ListPortAttributesTest(SaiHelperBase):
                 sai_list = None
                 if get_platform() == 'brcm':
                     sai_list = sai_thrift_u32_list_t(count=1, uint32list=[185])
+                elif get_platform() == 'clx':
+                    sai_list = sai_thrift_u32_list_t(count=1, uint32list=[22])
                 else:
                     sai_list = sai_thrift_u32_list_t(count=1, uint32list=[34])
 
@@ -608,14 +629,16 @@ class PortQOSAttributeTest(SaiHelperBase):
             sai_list = sai_thrift_u32_list_t(count=1, uint32list=[lane])
             if lane in self.port_lane_map_list:
                 self.client.sai_thrift_remove_port(getattr(self,'port%d' %(self.port_lane_map_list[lane]['port'])))
+        elif get_platform() == 'clx':
+            sai_list = sai_thrift_u32_list_t(count=1, uint32list=[22])
         else:
             sai_list = sai_thrift_u32_list_t(count=1, uint32list=[34])
 
         if get_platform() =='ctc':
                 self.client.sai_thrift_remove_port(getattr(self,'port%d' %(self.port_lane_map_list[34]['port'])))
         elif get_platform() == 'clx':
-            if 34 in self.port_lane_map_list and 'port' in self.port_lane_map_list[34]:
-                self.client.sai_thrift_remove_port(self.port_lane_map_list[34]['port'])
+            if 22 in self.port_lane_map_list and 'port' in self.port_lane_map_list[22]:
+                self.client.sai_thrift_remove_port(self.port_lane_map_list[22]['port'])
         if get_platform() == 'brcm':
             # attr SAI_PORT_ATTR_QOS_DEFAULT_TC not supported
             self.portx = sai_thrift_create_port(
@@ -759,8 +782,8 @@ class PortQosMapAttributeTest(SaiHelperBase):
         if get_platform() =='ctc':
                 self.client.sai_thrift_remove_port(getattr(self,'port%d' %(self.port_lane_map_list[34]['port'])))
         elif get_platform() == 'clx':
-            if 34 in self.port_lane_map_list and 'port' in self.port_lane_map_list[34]:
-                self.client.sai_thrift_remove_port(self.port_lane_map_list[34]['port'])
+            if 22 in self.port_lane_map_list and 'port' in self.port_lane_map_list[22]:
+                self.client.sai_thrift_remove_port(self.port_lane_map_list[22]['port'])
 
     def runTest(self):
         print("PortQosMapAttributeTest")
@@ -809,6 +832,8 @@ class PortQosMapAttributeTest(SaiHelperBase):
                 sai_list = sai_thrift_u32_list_t(count=1, uint32list=[lane])
                 if lane in self.port_lane_map_list:
                     self.client.sai_thrift_remove_port(getattr(self,'port%d' %(self.port_lane_map_list[lane]['port'])))
+            elif get_platform() == 'clx':
+                sai_list = sai_thrift_u32_list_t(count=1, uint32list=[22])
             else:
                 sai_list = sai_thrift_u32_list_t(count=1, uint32list=[34])
             if get_platform() == 'brcm':
@@ -890,6 +915,8 @@ class PortQosMapAttributeTest(SaiHelperBase):
                 sai_list = sai_thrift_u32_list_t(count=1, uint32list=[lane])
                 if lane in self.port_lane_map_list:
                     self.client.sai_thrift_remove_port(getattr(self,'port%d' %(self.port_lane_map_list[lane]['port'])))
+            elif get_platform() == 'clx':
+                sai_list = sai_thrift_u32_list_t(count=1, uint32list=[22])
             else:
                 sai_list = sai_thrift_u32_list_t(count=1, uint32list=[34])
 
@@ -973,6 +1000,8 @@ class PortQosMapAttributeTest(SaiHelperBase):
                 sai_list = sai_thrift_u32_list_t(count=1, uint32list=[lane])
                 if lane in self.port_lane_map_list:
                     self.client.sai_thrift_remove_port(getattr(self,'port%d' %(self.port_lane_map_list[lane]['port'])))
+            elif get_platform() == 'clx':
+                sai_list = sai_thrift_u32_list_t(count=1, uint32list=[22])
             else:
                 sai_list = sai_thrift_u32_list_t(count=1, uint32list=[34])
 
@@ -1058,6 +1087,8 @@ class PortQosMapAttributeTest(SaiHelperBase):
                 sai_list = sai_thrift_u32_list_t(count=1, uint32list=[lane])
                 if lane in self.port_lane_map_list:
                     self.client.sai_thrift_remove_port(getattr(self,'port%d' %(self.port_lane_map_list[lane]['port'])))
+            elif get_platform() == 'clx':
+                sai_list = sai_thrift_u32_list_t(count=1, uint32list=[22])
             else:
                 sai_list = sai_thrift_u32_list_t(count=1, uint32list=[34])
 
@@ -1135,6 +1166,8 @@ class PortQosMapAttributeTest(SaiHelperBase):
                 sai_list = sai_thrift_u32_list_t(count=1, uint32list=[lane])
                 if lane in self.port_lane_map_list:
                     self.client.sai_thrift_remove_port(getattr(self,'port%d' %(self.port_lane_map_list[lane]['port'])))
+            elif get_platform() == 'clx':
+                sai_list = sai_thrift_u32_list_t(count=1, uint32list=[22])
             else:
                 sai_list = sai_thrift_u32_list_t(count=1, uint32list=[34])
             if get_platform() == 'brcm':
@@ -1216,6 +1249,8 @@ class PortQosMapAttributeTest(SaiHelperBase):
                 sai_list = sai_thrift_u32_list_t(count=1, uint32list=[lane])
                 if lane in self.port_lane_map_list:
                     self.client.sai_thrift_remove_port(getattr(self,'port%d' %(self.port_lane_map_list[lane]['port'])))
+            elif get_platform() == 'clx':
+                sai_list = sai_thrift_u32_list_t(count=1, uint32list=[22])
             else:
                 sai_list = sai_thrift_u32_list_t(count=1, uint32list=[34])
             if get_platform() == 'brcm':
@@ -1297,6 +1332,8 @@ class PortQosMapAttributeTest(SaiHelperBase):
                 sai_list = sai_thrift_u32_list_t(count=1, uint32list=[lane])
                 if lane in self.port_lane_map_list:
                     self.client.sai_thrift_remove_port(getattr(self,'port%d' %(self.port_lane_map_list[lane]['port'])))
+            elif get_platform() == 'clx':
+                sai_list = sai_thrift_u32_list_t(count=1, uint32list=[22])
             else:
                 sai_list = sai_thrift_u32_list_t(count=1, uint32list=[34])
             if get_platform() == 'brcm':
@@ -1378,6 +1415,8 @@ class PortQosMapAttributeTest(SaiHelperBase):
                 sai_list = sai_thrift_u32_list_t(count=1, uint32list=[lane])
                 if lane in self.port_lane_map_list:
                     self.client.sai_thrift_remove_port(getattr(self,'port%d' %(self.port_lane_map_list[lane]['port'])))
+            elif get_platform() == 'clx':
+                sai_list = sai_thrift_u32_list_t(count=1, uint32list=[22])
             else:
                 sai_list = sai_thrift_u32_list_t(count=1, uint32list=[34])
             if get_platform() == 'brcm':
@@ -1463,6 +1502,8 @@ class PortQosMapAttributeTest(SaiHelperBase):
                 sai_list = sai_thrift_u32_list_t(count=1, uint32list=[lane])
                 if lane in self.port_lane_map_list:
                     self.client.sai_thrift_remove_port(getattr(self,'port%d' %(self.port_lane_map_list[lane]['port'])))
+            elif get_platform() == 'clx':
+                sai_list = sai_thrift_u32_list_t(count=1, uint32list=[22])
             else:
                 sai_list = sai_thrift_u32_list_t(count=1, uint32list=[34])
             if get_platform() =='brcm':
@@ -1541,7 +1582,10 @@ class PortQosMapAttributeTest(SaiHelperBase):
             if TEST_QOS_MAP_ON_CREATE_PORT is True:
                 initial_qos_map_id = qos_map_id
 
-            sai_list = sai_thrift_u32_list_t(count=1, uint32list=[34])
+            if get_platform() == 'clx':
+                sai_list = sai_thrift_u32_list_t(count=1, uint32list=[22])
+            else:
+                sai_list = sai_thrift_u32_list_t(count=1, uint32list=[34])
             self.portx = sai_thrift_create_port(
                 self.client,
                 hw_lane_list=sai_list,
@@ -1651,10 +1695,10 @@ class PortFecModeAttributeTest(SaiHelper):
         elif get_platform() == 'brcm':
             self.client.sai_thrift_remove_port(getattr(self,'port%d' %(self.port_lane_map_list[185]['port'])))
         elif get_platform() == 'clx':
-            if 34 in self.port_lane_map_list and 'port' in self.port_lane_map_list[34]:
-                self.client.sai_thrift_remove_port(self.port_lane_map_list[34]['port'])
-            if 35 in self.port_lane_map_list and 'port' in self.port_lane_map_list[35]:
-                self.client.sai_thrift_remove_port(self.port_lane_map_list[35]['port'])
+            if 22 in self.port_lane_map_list and 'port' in self.port_lane_map_list[22]:
+                self.client.sai_thrift_remove_port(self.port_lane_map_list[22]['port'])
+            if 24 in self.port_lane_map_list and 'port' in self.port_lane_map_list[24]:
+                self.client.sai_thrift_remove_port(self.port_lane_map_list[24]['port'])
     def runTest(self):
         print("PortFecModeAttributeTest")
         try:
@@ -1744,6 +1788,18 @@ class PortFecModeAttributeTest(SaiHelper):
                         lane_list = sai_thrift_u32_list_t(
                             count=num_lanes,
                             uint32list=[185, 186, 187, 188])
+                elif get_platform() == 'clx':
+                    num_lanes = speed_to_num_lanes(test['speed'])
+                    if num_lanes == 1:
+                        lane_list = sai_thrift_u32_list_t(count=num_lanes,
+                                                      uint32list=[22])
+                    elif num_lanes == 2:
+                        lane_list = sai_thrift_u32_list_t(count=num_lanes,
+                                                      uint32list=[22, 23])
+                    elif num_lanes == 4:
+                        lane_list = sai_thrift_u32_list_t(
+                            count=num_lanes,
+                            uint32list=[22, 23, 24, 25])
                 else:
                     num_lanes = speed_to_num_lanes(test['speed'])
                     if num_lanes == 1:
@@ -1847,8 +1903,8 @@ class PortSpeedAttributeTest(SaiHelperBase):
         if get_platform() =='ctc':
                 self.client.sai_thrift_remove_port(getattr(self,'port%d' %(self.port_lane_map_list[34]['port'])))
         elif get_platform() == 'clx':
-            if 34 in self.port_lane_map_list and 'port' in self.port_lane_map_list[34]:
-                self.client.sai_thrift_remove_port(self.port_lane_map_list[34]['port'])
+            if 22 in self.port_lane_map_list and 'port' in self.port_lane_map_list[22]:
+                self.client.sai_thrift_remove_port(self.port_lane_map_list[22]['port'])
 
     def runTest(self):
         print("PortSpeedAttributeTest")
@@ -1874,7 +1930,10 @@ class PortSpeedAttributeTest(SaiHelperBase):
                     print("Verify speed: %d(lanes=%d)"
                           % (test['speed'], test['speed_lanes']))
                 num_lanes = test['speed_lanes']
-                lane_list = num_lanes_to_lane_list(num_lanes)
+                if get_platform() == 'clx':
+                    lane_list = num_lanes_to_lane_list_clx(num_lanes)
+                else:
+                    lane_list = num_lanes_to_lane_list(num_lanes)
                 control_mode = SAI_PORT_FLOW_CONTROL_MODE_RX_ONLY
                 self.portx = sai_thrift_create_port(
                     self.client,
@@ -1897,7 +1956,18 @@ class PortSpeedAttributeTest(SaiHelperBase):
 
                 if test['transit_speed'] is not None:
                     num_lanes = speed_to_num_lanes(test['transit_speed'])
-                    lane_list = num_lanes_to_lane_list(num_lanes)
+                    if get_platform() == 'clx':
+                        if num_lanes == 1:
+                            lane_list = sai_thrift_u32_list_t(count=1, uint32list=[22])
+                        elif num_lanes == 2:
+                            lane_list = sai_thrift_u32_list_t(count=2, uint32list=[22, 23])
+                        elif num_lanes == 4:
+                            lane_list = sai_thrift_u32_list_t(
+                                count=4, uint32list=[22, 23, 24, 25])
+                        else:
+                            lane_list = num_lanes_to_lane_list(num_lanes)
+                    else:
+                        lane_list = num_lanes_to_lane_list(num_lanes)
                     sai_thrift_set_port_attribute(
                         self.client, self.portx,
                         speed=test['transit_speed'])
@@ -1958,8 +2028,8 @@ class PortAutoNegAttributeTest(SaiHelperBase):
                 self.client.sai_thrift_remove_port(
                     getattr(self, 'port%d' % (self.port_lane_map_list[34]['port'])))
             elif platform == 'clx':
-                if 34 in self.port_lane_map_list and 'port' in self.port_lane_map_list[34]:
-                    self.client.sai_thrift_remove_port(self.port_lane_map_list[34]['port'])
+                if 22 in self.port_lane_map_list and 'port' in self.port_lane_map_list[22]:
+                    self.client.sai_thrift_remove_port(self.port_lane_map_list[22]['port'])
             elif platform == 'brcm':
                 self.portx = self.port30
                 self._broadcom_host_control.exec_command(
@@ -2018,7 +2088,10 @@ class PortAutoNegAttributeTest(SaiHelperBase):
 
                 if get_platform() != 'brcm':
                     num_lanes = speed_to_num_lanes(test['speed'])
-                    lane_list = num_lanes_to_lane_list(num_lanes)
+                    if get_platform() == 'clx':
+                        lane_list = num_lanes_to_lane_list_clx(num_lanes)
+                    else:
+                        lane_list = num_lanes_to_lane_list(num_lanes)
                     flow_mode = SAI_PORT_FLOW_CONTROL_MODE_RX_ONLY
                     loopback_mode = SAI_PORT_INTERNAL_LOOPBACK_MODE_MAC
                     self.portx = sai_thrift_create_port(
@@ -2972,14 +3045,16 @@ class PortEgressMirrorSessionTest(PortFloodClass):
             sai_list = None
             if get_platform() == 'brcm':
                 sai_list = sai_thrift_u32_list_t(count=1, uint32list=[185])
+            elif get_platform() == 'clx':
+                sai_list = sai_thrift_u32_list_t(count=1, uint32list=[22])
             else:
                 sai_list = sai_thrift_u32_list_t(count=1, uint32list=[34])
 
             if get_platform() == 'ctc':
                 self.client.sai_thrift_remove_port(getattr(self,'port%d' %(self.port_lane_map_list[34]['port'])))
             elif get_platform() == 'clx':
-                if 34 in self.port_lane_map_list and 'port' in self.port_lane_map_list[34]:
-                    self.client.sai_thrift_remove_port(self.port_lane_map_list[34]['port'])
+                if 22 in self.port_lane_map_list and 'port' in self.port_lane_map_list[22]:
+                    self.client.sai_thrift_remove_port(self.port_lane_map_list[22]['port'])
             elif get_platform() == 'brcm':
                 self.client.sai_thrift_remove_port(getattr(self,'port%d' %(self.port_lane_map_list[185]['port'])))
 
@@ -3116,6 +3191,8 @@ class PortIngressMirrorSessionTest(PortFloodClass):
             sai_list = None
             if get_platform() == 'brcm':
                 sai_list = sai_thrift_u32_list_t(count=1, uint32list=[185])
+            elif get_platform() == 'clx':
+                sai_list = sai_thrift_u32_list_t(count=1, uint32list=[22])
             else:
                 sai_list = sai_thrift_u32_list_t(count=1, uint32list=[34])
 
@@ -3124,8 +3201,8 @@ class PortIngressMirrorSessionTest(PortFloodClass):
             elif get_platform() == 'brcm':
                 self.client.sai_thrift_remove_port(getattr(self,'port%d' %(self.port_lane_map_list[185]['port'])))
             elif get_platform() == 'clx':
-                if 34 in self.port_lane_map_list and 'port' in self.port_lane_map_list[34]:
-                    self.client.sai_thrift_remove_port(self.port_lane_map_list[34]['port'])
+                if 22 in self.port_lane_map_list and 'port' in self.port_lane_map_list[22]:
+                    self.client.sai_thrift_remove_port(self.port_lane_map_list[22]['port'])
             self.portx = sai_thrift_create_port(
                 self.client,
                 hw_lane_list=sai_list,

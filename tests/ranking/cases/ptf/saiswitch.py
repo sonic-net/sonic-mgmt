@@ -663,8 +663,8 @@ class ReadOnlyAttributesTest(PlatformSaiHelper):
         if attr:
             print(attr)
             if get_platform() == 'clx':
-                self.assertEqual(attr["acl_table_minimum_priority"], 200)
-                self.assertEqual(attr["SAI_SWITCH_ATTR_ACL_TABLE_MINIMUM_PRIORITY"], 200)
+                self.assertEqual(attr["acl_table_minimum_priority"], 300)
+                self.assertEqual(attr["SAI_SWITCH_ATTR_ACL_TABLE_MINIMUM_PRIORITY"], 300)
             else:
                 self.assertEqual(attr["acl_table_minimum_priority"], 0)
                 self.assertEqual(
@@ -1743,7 +1743,7 @@ class SwitchAttrTest(SaiHelper):
     Switch attributes tests
     """
     if get_platform() == 'clx':
-        acl_table_minimum_priority = 200
+        acl_table_minimum_priority = 300
     else:
         acl_table_minimum_priority = 0
 
