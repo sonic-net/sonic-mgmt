@@ -1309,6 +1309,19 @@ def stop_platform_api_server(duthost):
         duthost.command('docker exec -i pmon supervisorctl update')
 
 
+@pytest.fixture(scope='module', autouse=True)
+def stop_platform_api_service(duthosts):
+    """Stop the platform API server and close port 8000 once the module is done with them.
+
+    Import this fixture into any test module or conftest that starts the server via platform_api_conn.
+    """
+    try:
+        yield
+    finally:
+        for duthost in duthosts:
+            stop_platform_api_server(duthost)
+
+
 @pytest.fixture(scope='function')
 def platform_api_conn(duthosts, enum_rand_one_per_hwsku_hostname, start_platform_api_service):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]

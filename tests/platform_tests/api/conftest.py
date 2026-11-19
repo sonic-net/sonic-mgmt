@@ -1,7 +1,7 @@
 import pytest
 
 from tests.common.helpers.platform_api import psu
-from tests.common.platform.device_utils import stop_platform_api_server
+from tests.common.platform.device_utils import stop_platform_api_service  # noqa: F401
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 
@@ -11,15 +11,6 @@ def skip_absent_psu(psu_num, platform_api_conn, psu_skip_list, logger):    # noq
         logger.info("Skipping PSU {} since it is part of psu_skip_list".format(name))
         return True
     return False
-
-
-@pytest.fixture(scope='module', autouse=True)
-def stop_platform_api_service(duthosts):
-    try:
-        yield
-    finally:
-        for duthost in duthosts:
-            stop_platform_api_server(duthost)
 
 
 @pytest.fixture(autouse=True)

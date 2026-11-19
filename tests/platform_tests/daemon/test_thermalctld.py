@@ -20,7 +20,7 @@ from tests.common.platform.bmc_utils import recover_switch_host_after_power_off
 from tests.common.platform.device_utils import (  # noqa: F401
     platform_api_conn,
     start_platform_api_service,
-    stop_platform_api_server,
+    stop_platform_api_service,
 )
 from tests.common.helpers.bmc_liquid_leakage_control_test_helper import LeakTestApiInjector
 
@@ -171,16 +171,6 @@ def _wait_for_system_leak_status(leak_mocker, expected_status, timeout_sec, poll
         return leak_mocker.get_device_leak_status() == expected_status
 
     return wait_until(timeout_sec, poll_interval_sec, 0, status_matches)
-
-
-@pytest.fixture(scope='module', autouse=True)
-def stop_platform_api_service(duthosts):
-    """Stop the platform API server and close port 8000 once the module is done with them."""
-    try:
-        yield
-    finally:
-        for duthost in duthosts:
-            stop_platform_api_server(duthost)
 
 
 def _skip_if_real_leak_present(duthost):
