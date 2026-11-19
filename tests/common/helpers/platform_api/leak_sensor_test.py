@@ -92,13 +92,22 @@ def _probe_test_leak_severities(conn, sensor_name):
             except Exception as e:
                 logger.warning("set_test_leak({}, severity={}) failed: {!r}".format(sensor_name, severity, e))
                 result[severity] = False
-            finally:
-                try:
-                    set_test_leak(conn, sensor_name, False)
-                except Exception as e:
-                    logger.warning("Withdrawing the probe on {} failed: {!r}".format(sensor_name, e))
+            _withdraw_probe(conn, sensor_name)
         _supported_severities_cache[key] = result
     return _supported_severities_cache[key]
+
+
+def _withdraw_probe(conn, sensor_name):
+    """Withdraw a probe injection. Fall back to a bulk clear, and raise if the test leak cannot be removed,
+    so that capability discovery never leaves a test leak active or caches a result for it."""
+    try:
+        if set_test_leak(conn, sensor_name, False) is True:
+            return
+        logger.warning("Withdrawing the probe on {} did not return True, clearing all test leaks".format(sensor_name))
+    except Exception as e:
+        logger.warning("Withdrawing the probe on {} failed: {!r}, clearing all test leaks".format(sensor_name, e))
+    if clear_test_leaks(conn) is not True or is_test_leak_enabled(conn, sensor_name) is not False:
+        raise RuntimeError("Failed to withdraw the probe test leak on {}".format(sensor_name))
 
 
 def get_supported_test_leak_severities(conn, sensor_name):

@@ -130,7 +130,12 @@ def _select_leak_sensor_indices(leak_mocker, severities, max_minor_duration_sec_
                 return [index] + rest
         return None
 
-    selected_indices = _assign(0, frozenset())
+    # Probing injects test leaks; never leave one behind if a probe fails
+    try:
+        selected_indices = _assign(0, frozenset())
+    except BaseException:
+        leak_mocker.restore_all_sensors()
+        raise
     if selected_indices is None:
         pytest.skip(
             "No assignment of distinct leak sensors with max_minor_duration_sec in bounds [{}, {}] "
