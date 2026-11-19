@@ -72,15 +72,19 @@ HFT Phase 1 supports key AI data center statistics across four object types:
 
 ### Prerequisites
 - DUT must have the `swss` container running and stable (uptime ≥ 10 seconds).
-- The DUT must provide the standalone `hft` feature. A module temporarily enables it
-  if it was disabled, or restarts its supervisor-managed `countersyncd` if it was enabled.
+- The DUT must provide the locally managed standalone `hft` feature. A module temporarily enables it
+  if it was disabled.
   Images without this feature (including older images running `countersyncd` in `swss`),
   or with `hft` always disabled, are skipped.
-- The fixture configures `--enable-otel --otel-endpoint=http://localhost:4317` in
-  `/etc/sonic/hft/hft.env` for the module, then restores the settings and feature state.
-  The Queue case also restarts `countersyncd` after its STATE_DB session is removed.
-- The fixture rewrites `hft.env` and `/etc/sonic/otel_config.yml`. When present, they
-  must be regular files with a single hard link; the tests refuse to replace managed links.
+- The fixture creates a temporary `hft` container with the managed container's image, mounts,
+  network and capabilities. Its Docker `Cmd` is `["--enable-otel", "--otel-endpoint=http://localhost:4317"]`.
+  SONiC starts this container through `hft.service`; the original is stopped first and restored
+  afterwards. `/etc/sonic/hft/hft.env` is never modified. The Queue case restarts just
+  `countersyncd`, then checks both arguments on the new supervisor-owned process.
+  If restoration fails, the fixture retains its recovery record under `/run/lock/sonic-mgmt-hft/`
+  and prevents a new run from replacing the container again.
+- The fixture temporarily rewrites `/etc/sonic/otel_config.yml`; when present it must be a regular
+  file with a single hard link.
 - The DUT must provide the `otel` container image.
 - InfluxDB 3 Core (`influxdb3`) must be installed on the PTF host.
 - HFT CLI commands (`config hft add/del/enable/disable`) must be available on the DUT.

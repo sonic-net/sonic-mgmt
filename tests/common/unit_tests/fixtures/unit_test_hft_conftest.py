@@ -7,6 +7,7 @@ Run with::
 """
 
 import importlib.util
+import json
 import sys
 import types
 from enum import Enum
@@ -39,6 +40,7 @@ def _load_target_module():
     counter_profiles.get_support_counter_list = lambda *args, **kwargs: ()
 
     utilities = types.ModuleType("tests.high_frequency_telemetry.utilities")
+    utilities.HFT_OTEL_ARGS = ("--enable-otel", "--otel-endpoint=http://localhost:4317")
     utilities.InfluxDbSink = object
     for name in (
         "cleanup_hft_config",
@@ -85,6 +87,74 @@ def _load_target_module():
 @pytest.fixture(scope="module")
 def hft_conftest():
     return _load_target_module()
+
+
+@pytest.fixture(scope="module")
+def hft_container_helper():
+    path = MODULE_PATH.parent / "files" / "hft_container.py"
+    spec = importlib.util.spec_from_file_location("hft_container_helper", path)
+    helper = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(helper)
+    return helper
+
+
+@pytest.mark.parametrize("original", ["original-id", None])
+def test_hft_restore_refuses_unrelated_container(tmp_path, monkeypatch, hft_container_helper, original):
+    # A service or operator may have replaced hft between setup and teardown.
+    # Never remove that container, or lose the record identifying the original.
+    helper = hft_container_helper
+    record = tmp_path / "before.json"
+    record.write_text(json.dumps({"state": "disabled", "original": original}))
+    other = MagicMock(id="a-different-id", labels={}, attrs={"Config": {"Image": "docker-hft:latest"}})
+    monkeypatch.setattr(helper, "lookup", lambda client, name: other)
+    client = MagicMock()
+    with pytest.raises(RuntimeError, match="Unexpected hft container"):
+        helper.restore(client, tmp_path)
+    other.remove.assert_not_called()
+    client.containers.list.assert_not_called()
+    assert json.loads(record.read_text())["original"] == original
+
+
+def test_hft_stale_hwsku_rejected_before_service_changes(tmp_path, monkeypatch, hft_container_helper):
+    helper = hft_container_helper
+    old = MagicMock(status="exited", labels={}, attrs={"HostConfig": {"AutoRemove": False}, "Mounts": [
+        {"Source": "/usr/share/sonic/device/platform/old-sku", "Destination": "/usr/share/sonic/hwsku"}]})
+    monkeypatch.setattr(helper, "lookup", lambda client, name: old)
+    reads = {"set_owner": "local", "state": "disabled", "DEVICE_METADATA.localhost.platform": "platform",
+             'DEVICE_METADATA["localhost"]["hwsku"]': "new-sku"}
+    monkeypatch.setattr(helper, "command", lambda *cmd: reads[cmd[-1]])
+    with pytest.raises(RuntimeError, match="HwSKU mount"):
+        helper.install(MagicMock(), tmp_path, "disabled", [])
+    assert not (tmp_path / "before.json").exists()
+    old.rename.assert_not_called()
+
+
+def test_hft_does_not_claim_foreign_bootstrap(tmp_path, monkeypatch, hft_container_helper):
+    helper = hft_container_helper
+    other = MagicMock(id="foreign-id", status="running", labels={helper.OWNER_LABEL: "another-run"})
+    monkeypatch.setattr(helper, "command", lambda *cmd: {"set_owner": "local", "state": "disabled"}[cmd[-1]])
+    monkeypatch.setattr(helper, "enable_feature", lambda client: other)
+    monkeypatch.setattr(helper, "lookup", MagicMock(side_effect=[None, other]))
+    client = MagicMock()
+    with pytest.raises(RuntimeError, match="test-owned"):
+        helper.install(client, tmp_path, "disabled", [])
+    assert not (tmp_path / "source").exists()
+    with pytest.raises(RuntimeError, match="Unexpected hft container"):
+        helper.restore(client, tmp_path)
+    other.rename.assert_not_called()
+    other.remove.assert_not_called()
+    assert (tmp_path / "before.json").exists()
+
+
+def test_hft_failed_restore_retains_recovery_record(hft_conftest):
+    host = MagicMock()
+    host.tempfile.return_value = {"path": "/tmp/sonic-mgmt-hft-test"}
+    host.command.side_effect = [{}, RuntimeError("install failed"), RuntimeError("restore failed")]
+    with pytest.raises(RuntimeError, match="restore failed"):
+        with hft_conftest._countersyncd_otel_export(host, "disabled"):
+            pytest.fail("must not run the test after a setup failure")
+    assert host.command.call_args.kwargs["argv"][2:] == ["restore", "/tmp/sonic-mgmt-hft-test"]
+    host.file.assert_not_called()
 
 
 @pytest.mark.parametrize("state,rc", [

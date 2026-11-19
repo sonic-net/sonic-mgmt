@@ -1,5 +1,6 @@
 """Utilities for validating high frequency telemetry through InfluxDB."""
 
+import base64
 import itertools
 import json
 import logging
@@ -21,6 +22,8 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
+
+HFT_OTEL_ARGS = ("--enable-otel", "--otel-endpoint=http://localhost:4317")
 
 # countersyncd names every OTEL gauge after the canonical SAI stat and tags each
 # data point with object_name / sai_type / sai_stat. The InfluxDB exporter turns
@@ -452,25 +455,14 @@ def cleanup_hft_config(duthost, profile_name, group_names=None):
 
 
 def ensure_countersyncd_daemon(duthost):
-    """Verify the supervisor-owned countersyncd daemon is OTEL-enabled."""
-    status = duthost.shell(
-        "docker exec hft supervisorctl status countersyncd",
-        module_ignore_errors=True,
-    )
+    """Check complete argv tokens of the process that supervisor is monitoring."""
+    pid = _get_running_countersyncd_pid(duthost)
+    pytest_assert(pid is not None, "Expected supervisor-owned countersyncd to be RUNNING in hft")
+    encoded = duthost.command(argv=["docker", "exec", "hft", "base64", "-w0", f"/proc/{pid}/cmdline"], verbose=False)
+    argv = base64.b64decode(encoded["stdout"]).rstrip(b"\0").split(b"\0")
     pytest_assert(
-        status.get("rc") == 0 and "RUNNING" in status.get("stdout", ""),
-        "Expected supervisor-owned countersyncd to be RUNNING, got: "
-        f"{status.get('stdout', '')} {status.get('stderr', '')}",
-    )
-    command = duthost.shell(
-        "docker exec hft sh -c 'pid=$(supervisorctl pid countersyncd) && "
-        "xargs -0 echo < /proc/$pid/cmdline'",
-        module_ignore_errors=True,
-    )
-    pytest_assert(
-        command.get("rc") == 0 and "--enable-otel" in command.get("stdout", ""),
-        "The supervisor countersyncd must use --enable-otel, got: "
-        f"{command.get('stdout', '')} {command.get('stderr', '')}",
+        argv[0].rsplit(b"/", 1)[-1] == b"countersyncd" and all(arg.encode() in argv[1:] for arg in HFT_OTEL_ARGS),
+        f"Supervisor PID {pid} must be countersyncd with {' '.join(HFT_OTEL_ARGS)}",
     )
     return True
 
