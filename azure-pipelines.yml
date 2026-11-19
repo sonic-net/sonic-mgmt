@@ -271,7 +271,7 @@ stages:
       buildSteps:
       - bash: |
           set -e
-          make $(BUILD_OPTIONS) target/sonic-vs.img.gz
+          make $(BUILD_OPTIONS) target/docker-sonic-vs.gz target/sonic-vs.img.gz
         displayName: "Build multi-ASIC SONiC image"
       - template: /.azure-pipelines/check-dirty-version.yml@buildimage
       postSteps:
@@ -302,5 +302,4 @@ stages:
     - template: .azure-pipelines/pr_test_template.yml
       parameters:
         KVM_BUILD_ID: $(ISIS_KVM_BUILD_ID)
-        OVERRIDE_PARAMS:
-          KVM_IMAGE_BUILD_PIPELINE_ID: $(ISIS_KVM_PIPELINE_ID)
+        KVM_IMAGE_BUILD_PIPELINE_ID: $(ISIS_KVM_PIPELINE_ID)
