@@ -5937,6 +5937,15 @@ test_vs_chassis_setup.py:
       - *lossyTopos
 
 #######################################
+#####         transceiver         #####
+#######################################
+transceiver/dom:
+  skip:
+    reason: "DOM tests need hand-maintained module values in the inventory, see https://github.com/sonic-net/sonic-mgmt/issues/29259"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/29259 and 'nvidia' in platform"
+
+#######################################
 #####         upgrade_path        #####
 #######################################
 upgrade_path:
