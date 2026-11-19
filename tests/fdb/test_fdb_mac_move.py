@@ -47,6 +47,11 @@ MAC_MOVE_GUARD_THRESHOLD = 100
 # Keep the threshold attainable on dataplanes that publish FDB moves through
 # a rate-limited notification path rather than directly from packet learning.
 MAC_MOVE_GUARD_DETECT_INTERVAL = 20
+# VPP reports a MAC's moves from a periodic L2 FIB scan, at most once per
+# scan, and on a loaded KVM DUT the scans can be a second apart: on VPP,
+# test_fdb_mac_move_guard_disable_port trips the guard at one move per second.
+VPP_MAC_MOVE_GUARD_THRESHOLD = 60
+VPP_MAC_MOVE_GUARD_DETECT_INTERVAL = 60
 MAC_MOVE_GUARD_ACTION_INTERVAL = 60
 # Rate limit applied to the storm sender. The guard trips when a single MAC
 # moves MAC_MOVE_GUARD_THRESHOLD times inside MAC_MOVE_GUARD_DETECT_INTERVAL,
@@ -58,10 +63,17 @@ MAC_MOVE_GUARD_ACTION_INTERVAL = 60
 # guard still trips within the detection window while the punted copies stay
 # below the CoPP arp_req policer.
 STORM_MOVE_RATE_MARGIN = 5
-STORM_MOVES_PER_SEC_PER_MAC = STORM_MOVE_RATE_MARGIN * int(math.ceil(
-    float(MAC_MOVE_GUARD_THRESHOLD) / MAC_MOVE_GUARD_DETECT_INTERVAL))
-# Each move costs two frames: one on each of the two storm interfaces.
-STORM_PPS = STORM_MOVES_PER_SEC_PER_MAC * STORM_NUM_MACS * 2
+
+
+def _storm_pps(threshold, detect_interval):
+    moves_per_sec_per_mac = STORM_MOVE_RATE_MARGIN * int(math.ceil(
+        float(threshold) / detect_interval))
+    # Each move costs two frames: one on each of the two storm interfaces.
+    return moves_per_sec_per_mac * STORM_NUM_MACS * 2
+
+
+STORM_PPS = _storm_pps(MAC_MOVE_GUARD_THRESHOLD, MAC_MOVE_GUARD_DETECT_INTERVAL)
+VPP_STORM_PPS = _storm_pps(VPP_MAC_MOVE_GUARD_THRESHOLD, VPP_MAC_MOVE_GUARD_DETECT_INTERVAL)
 # VPP reports L2 MAC moves from a periodic FDB scan. Keep each side visible
 # across multiple scan intervals instead of sending both sides back-to-back.
 VPP_STORM_SIDE_DWELL_SECONDS = 0.02
@@ -75,13 +87,15 @@ DISABLE_LEARN_ON_MAC_ACTION_INTERVAL = 600
 DISABLE_LEARN_ON_MAC_CLEANUP_ACTION_INTERVAL = 30
 
 
-def _build_mmg_config(action, action_interval):
+def _build_mmg_config(action, action_interval,
+                      threshold=MAC_MOVE_GUARD_THRESHOLD,
+                      detect_interval=MAC_MOVE_GUARD_DETECT_INTERVAL):
     return {
         "MAC_MOVE_GUARD": {
             "GLOBAL": {
                 "enabled": "true",
-                "threshold": str(MAC_MOVE_GUARD_THRESHOLD),
-                "detect_interval": str(MAC_MOVE_GUARD_DETECT_INTERVAL),
+                "threshold": str(threshold),
+                "detect_interval": str(detect_interval),
                 "action": action,
                 "action_interval": str(action_interval),
             }
@@ -90,6 +104,10 @@ def _build_mmg_config(action, action_interval):
 
 
 MAC_MOVE_GUARD_CONFIG = _build_mmg_config("DISABLE_PORT", MAC_MOVE_GUARD_ACTION_INTERVAL)
+VPP_MAC_MOVE_GUARD_CONFIG = _build_mmg_config(
+    "DISABLE_PORT", MAC_MOVE_GUARD_ACTION_INTERVAL,
+    threshold=VPP_MAC_MOVE_GUARD_THRESHOLD,
+    detect_interval=VPP_MAC_MOVE_GUARD_DETECT_INTERVAL)
 DISABLE_LEARN_ON_MAC_GUARD_CONFIG = _build_mmg_config(
     "DISABLE_LEARN_ON_MAC_WITH_ACL", DISABLE_LEARN_ON_MAC_ACTION_INTERVAL)
 DISABLE_LEARN_ON_MAC_CLEANUP_GUARD_CONFIG = _build_mmg_config(
@@ -397,7 +415,8 @@ def test_fdb_mac_move_guard_disable_port(duthosts, fanouthosts, rand_one_dut_hos
     Validate the MAC_MOVE_GUARD feature end-to-end:
 
       1. Configure MAC_MOVE_GUARD (GLOBAL) with action=DISABLE_PORT,
-         threshold=100, detect_interval=20s, action_interval=60s.
+         threshold=100, detect_interval=20s (60 and 60s on VPP),
+         action_interval=60s.
       2. Drive a MAC-move storm from PTF on two VLAN-member ports so the
          per-MAC move count crosses the configured threshold.
       3. Verify that one of the two DUT ports is disabled by the guard.
@@ -420,15 +439,17 @@ def test_fdb_mac_move_guard_disable_port(duthosts, fanouthosts, rand_one_dut_hos
                 "PTF {} ({}) <-> DUT {}"
                 .format(vlan_id, ptf_a, iface_a, dut_a, ptf_b, iface_b, dut_b))
 
-    _apply_mac_move_guard_config(duthost, MAC_MOVE_GUARD_CONFIG)
-    logger.info("Applied MAC_MOVE_GUARD config: {}".format(MAC_MOVE_GUARD_CONFIG))
+    is_vpp = duthost.facts.get("asic_type") == "vpp"
+    mmg_config = VPP_MAC_MOVE_GUARD_CONFIG if is_vpp else MAC_MOVE_GUARD_CONFIG
+    _apply_mac_move_guard_config(duthost, mmg_config)
+    logger.info("Applied MAC_MOVE_GUARD config: {}".format(mmg_config))
 
     pid = None
     try:
-        side_dwell = (VPP_STORM_SIDE_DWELL_SECONDS
-                      if duthost.facts.get("asic_type") == "vpp" else 0.0)
         pid = _start_storm_sender(
-            ptfhost, iface_a, iface_b, router_mac, side_dwell=side_dwell)
+            ptfhost, iface_a, iface_b, router_mac,
+            pps=VPP_STORM_PPS if is_vpp else STORM_PPS,
+            side_dwell=VPP_STORM_SIDE_DWELL_SECONDS if is_vpp else 0.0)
         logger.info("MAC-move storm sender started on ptfhost (pid={})".format(pid))
 
         # Phase 1: wait for the guard to disable one of the two ports.
