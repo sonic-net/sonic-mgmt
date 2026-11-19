@@ -14,6 +14,7 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+from tests.common.helpers.logger_row import save_logger_row, set_log_level, restore_logger_row
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ TEST_ROUTE_PREFIX = "10.100.0.0/24"
 CRM_POLL_WAIT = 15
 FEC_LOG_POLL_TIMEOUT = 90
 FEC_LOG_POLL_INTERVAL = 5
-NHG_LOGGER = "LOGGER|SAI_API_NEXT_HOP_GROUP"
+NHG_LOGGER = "SAI_API_NEXT_HOP_GROUP"
 SAI_LOG_LEVEL_APPLY_WAIT = 2
 
 pytestmark = [
@@ -64,16 +65,16 @@ def wait_for_fec_value(duthost, syncd_name, marker, expected):
 
 
 def set_sai_nhg_loglevel(duthost, asichost, level):
-    """Set the SAI NEXT_HOP_GROUP log level in this ASIC's CONFIG_DB; return the previous level.
+    """Set the SAI NEXT_HOP_GROUP log level in this ASIC's CONFIG_DB; return what
+    restore_logger_row needs to put the row back.
 
     syncd of a multi-ASIC DUT only watches the CONFIG_DB of its own namespace,
     so the LOGGER entry must be written through asichost.sonic_db_cli.
     """
-    prev = duthost.command('{} CONFIG_DB HGET "{}" LOGLEVEL'.format(
-        asichost.sonic_db_cli, NHG_LOGGER), module_ignore_errors=True).get("stdout", "").strip()
-    duthost.command('{} CONFIG_DB HSET "{}" LOGLEVEL {}'.format(
-        asichost.sonic_db_cli, NHG_LOGGER, level))
-    return prev or "SAI_LOG_LEVEL_NOTICE"
+    saved = save_logger_row(duthost, NHG_LOGGER, db_cli=asichost.sonic_db_cli, loglevel_cli=None,
+                            default="SAI_LOG_LEVEL_NOTICE")
+    set_log_level(duthost, NHG_LOGGER, level, db_cli=asichost.sonic_db_cli)
+    return saved
 
 
 def get_crm_nhg_member_used(asichost):
@@ -232,7 +233,7 @@ def test_ecmp_increment_fec_lifecycle(duthosts, enum_rand_one_per_hwsku_frontend
 
         # syncd does not log num_fec(N) at the default NOTICE level
         orig_nhg_loglevel = set_sai_nhg_loglevel(duthost, asichost, "SAI_LOG_LEVEL_DEBUG")
-        logger.info("SAI NEXT_HOP_GROUP log level: %s -> SAI_LOG_LEVEL_DEBUG", orig_nhg_loglevel)
+        logger.info("SAI NEXT_HOP_GROUP log level: %s -> SAI_LOG_LEVEL_DEBUG", orig_nhg_loglevel["level"])
         time.sleep(SAI_LOG_LEVEL_APPLY_WAIT)
 
         # Phase 1: 2-NH route
@@ -297,7 +298,7 @@ def test_ecmp_increment_fec_lifecycle(duthosts, enum_rand_one_per_hwsku_frontend
     finally:
         # Cleanup regardless of pass/fail
         if orig_nhg_loglevel:
-            set_sai_nhg_loglevel(duthost, asichost, orig_nhg_loglevel)
+            restore_logger_row(duthost, orig_nhg_loglevel)
         duthost.command("{} route del {}".format(asichost.ip_cmd, TEST_ROUTE_PREFIX),
                         module_ignore_errors=True)
         for ip in nhop_ips:
