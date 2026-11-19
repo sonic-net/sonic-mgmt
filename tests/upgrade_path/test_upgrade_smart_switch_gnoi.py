@@ -46,6 +46,7 @@ SmartSwitchUpgradeParams = namedtuple("SmartSwitchUpgradeParams", [
     "npu_to_version",
     "dut_image_path",
     "ss_target_index",
+    "ss_target_index_explicit",
     "dpu_indices",
     "reboot_ready_timeout",
     "max_workers",
@@ -61,7 +62,9 @@ def smartswitch_upgrade_params(request, duthost):
     DPU(S) table (parsed from the actual DPU identities).
     """
     ss_target_index = request.config.getoption("ss_target_index")
-    if ss_target_index in (None, ""):
+    # Track whether the operator explicitly chose a single DPU index (vs. auto-picking one).
+    ss_target_index_explicit = ss_target_index not in (None, "")
+    if not ss_target_index_explicit:
         ss_target_index = 3
 
     ss_max_workers = request.config.getoption("ss_max_workers")
@@ -80,6 +83,7 @@ def smartswitch_upgrade_params(request, duthost):
         npu_to_version=request.config.getoption("ss_npu_target_version"),
         dut_image_path="/var/tmp/sonic_image.bin",
         ss_target_index=int(ss_target_index),
+        ss_target_index_explicit=ss_target_index_explicit,
         dpu_indices=dpu_indices,
         reboot_ready_timeout=600,
         max_workers=int(ss_max_workers) if ss_max_workers else None,
@@ -103,8 +107,21 @@ def test_upgrade_one_dpu_via_gnoi(
     to_image = p.dpu_to_image
     to_version = p.dpu_to_version
     dut_image_path = p.dut_image_path
-    dpu_index = p.ss_target_index
+    dpu_indices = p.dpu_indices
     reboot_ready_timeout = p.reboot_ready_timeout
+
+    # Skip cleanly when discovery found no admin-up DPUs (same behavior as the parallel/all-DPU tests).
+    if not dpu_indices:
+        pytest.skip("No admin-up DPUs discovered; skipping single-DPU gNOI upgrade")
+
+    if p.ss_target_index_explicit:
+        # Operator picked a specific DPU: honor it, but skip if that DPU is not admin-up.
+        dpu_index = p.ss_target_index
+        if dpu_index not in dpu_indices:
+            pytest.skip("DPU{} is not admin-up; skipping single-DPU gNOI upgrade".format(dpu_index))
+    else:
+        # No explicit target: upgrade the first admin-up DPU instead of a hardcoded index.
+        dpu_index = dpu_indices[0]
 
     assert to_image, "target_image_list must be set (used as TransferToRemote remote_download.path)"
     if not to_version:

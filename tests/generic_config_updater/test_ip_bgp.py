@@ -13,7 +13,7 @@ from tests.common.utilities import is_ipv6_only_topology
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 'm0', 'mx', 'm1'),
+    pytest.mark.topology('t0', 't1', 'm0', 'mx', 'm1', 'uma', 'lma'),
 ]
 
 

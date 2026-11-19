@@ -39,6 +39,53 @@ GOLDEN_CONFIG_TEMPLATE = os.path.join(TEMPLATE_DIR, 'golden_config_db.j2')
 DEFAULT_GOLDEN_CONFIG_PATH = '/etc/sonic/golden_config_db.json'
 
 
+def log_system_checks_state(duthost, stage=""):
+    """Log a snapshot of the DUT's systemd state for debugging.
+
+    Off by default — callers invoke this explicitly when they want a
+    one-shot picture of what systemd is doing on the DUT (e.g. after a
+    wait_until on config_system_checks_passed times out). Works on any
+    SONiC DUT, not BMC-specific.
+    """
+    stage_label = " ({})".format(stage) if stage else ""
+    try:
+        state = duthost.shell(
+            "systemctl is-system-running", module_ignore_errors=True
+        )
+        logging.info(
+            "system-checks diag%s: is-system-running=%s",
+            stage_label, (state.get("stdout") or "").strip(),
+        )
+        failed = duthost.shell(
+            "systemctl list-units --state=failed --no-legend",
+            module_ignore_errors=True,
+        )
+        logging.info(
+            "system-checks diag%s: failed units: %s",
+            stage_label, failed.get("stdout_lines"),
+        )
+        jobs = duthost.shell(
+            "systemctl list-jobs --no-legend", module_ignore_errors=True
+        )
+        logging.info(
+            "system-checks diag%s: pending jobs: %s",
+            stage_label, jobs.get("stdout_lines"),
+        )
+        activating = duthost.shell(
+            "systemctl list-units --state=activating --no-legend",
+            module_ignore_errors=True,
+        )
+        logging.info(
+            "system-checks diag%s: activating units: %s",
+            stage_label, activating.get("stdout_lines"),
+        )
+    except Exception as e:  # noqa: BLE001
+        logging.warning(
+            "system-checks diag%s: failed to collect systemd state: %s",
+            stage_label, e,
+        )
+
+
 def config_system_checks_passed(duthost, delayed_services=[]):
     logging.info("Checking if system is running")
     out = duthost.shell("systemctl is-system-running", module_ignore_errors=True)
@@ -348,6 +395,13 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         # Extend ignore fabric port msgs for T2 chassis with DNX chipset on Linecards
         ignore_t2_syslog_msgs(sonic_host)
 
+    # This command fails if executed when config-reload is happening. So lets store
+    # this away before config reload and reuse the variable later.
+    is_smartswitch_host = False
+    if is_dut:
+        is_smartswitch_host = sonic_host.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get(
+            'is_smartswitch', False)
+
     # Retrieve the enable_macsec passed by user for this test run
     # If macsec is enabled, use the override option to get macsec profile from golden config
     macsec_en = False
@@ -416,7 +470,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
     # On smartswitch, wait for DPUs to reach expected state after config reload.
     # This prevents consecutive config reloads from triggering DPU admin state
     # changes before the previous transitions have completed.
-    if is_dut and sonic_host.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
+    if is_dut and is_smartswitch_host:
         _wait_for_smartswitch_dpu_states(sonic_host)
 
     if safe_reload:

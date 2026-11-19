@@ -18,5 +18,6 @@ group = netadmin {
 
 user = {{ dut_host_user }} {
     login = des {{ tacacs_user_passwd }}
+    pap = des {{ tacacs_user_passwd }}
     member = netadmin
 }

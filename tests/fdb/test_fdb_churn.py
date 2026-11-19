@@ -45,6 +45,26 @@ COUNTERS_DB = 2
 # -- Fixtures ----------------------------------------------------------
 
 
+def _fanout_cleanup_ready(fanouthost):
+    fanouthost.shell(
+        "redis-cli PING | grep -qx PONG && "
+        "docker exec swss supervisorctl status neighsyncd | grep -q '^neighsyncd.*RUNNING' && "
+        "docker exec swss supervisorctl status orchagent | grep -q '^orchagent.*RUNNING' && "
+        "docker exec syncd supervisorctl status syncd | grep -q '^syncd.*RUNNING'"
+    )
+    return True
+
+
+def wait_for_fanout_cleanup(fanouthosts):
+    for fanouthost in filter(lambda fanouthost: fanouthost.os == "sonic", fanouthosts.values()):
+        pytest_assert(
+            wait_until(180, 5, 0, _fanout_cleanup_ready, fanouthost),
+            "Fanout {} did not become ready after FDB cleanup".format(
+                fanouthost.hostname
+            ),
+        )
+
+
 @pytest.fixture(scope="module", autouse=True)
 def require_notification_consumer_stats(duthosts, rand_one_dut_hostname):
     """
@@ -73,6 +93,21 @@ def require_notification_consumer_stats(duthosts, rand_one_dut_hostname):
         )
 
 
+@pytest.fixture(scope="module", autouse=True)
+def flush_fdb_before_tests(duthosts, rand_one_dut_hostname,
+                           require_notification_consumer_stats):
+    """
+    Flush the DUT's FDB once, before the tests: a frame from a MAC the DUT
+    already has on that port raises no FDB event, and an earlier module can
+    leave one (on a dual ToR, test_fdb_mac_expire clears only the ToR it
+    selected).  Let the FdbOrch stats settle so that the flush's own events
+    are in the first test's baseline.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    duthost.command("sonic-clear fdb all")
+    wait_for_stat_stable(duthost, FDBORCH_STATS_KEY, "lru_pushed")
+
+
 @pytest.fixture(scope="function")
 def clean_fdb(duthosts, rand_one_dut_hostname, fanouthosts):
     """
@@ -80,8 +115,10 @@ def clean_fdb(duthosts, rand_one_dut_hostname, fanouthosts):
     measured against a known starting point.
     """
     fdb_cleanup(duthosts, rand_one_dut_hostname, fanouthosts)
+    wait_for_fanout_cleanup(fanouthosts)
     yield
     fdb_cleanup(duthosts, rand_one_dut_hostname, fanouthosts)
+    wait_for_fanout_cleanup(fanouthosts)
 
 
 @pytest.fixture(scope="module")
@@ -534,8 +571,14 @@ def test_fdb_mac_ping_pong(
     # construction.
     # A proportional lower bound (cycles // 10) accepts up
     # to ~90 % silicon suppression while still catching total pipeline
-    # outages.
-    min_pushed = max(1, cycles // 10)
+    # outages.  VPP reports a MAC's moves from a periodic L2 FIB scan, at
+    # most once per scan, so on a loaded DUT the 50 moves can reach
+    # orchagent as a single notification: there, require one, to show the
+    # notification path works.  STATE_DB above is the functional check.
+    if duthost.facts.get("asic_type") == "vpp":
+        min_pushed = 1
+    else:
+        min_pushed = max(1, cycles // 10)
     pytest_assert(
         pushed >= min_pushed,
         "Expected at least {} LRU pushes; got pushed={}, hits={}".format(
@@ -589,6 +632,7 @@ def test_fdb_distinct_macs_bulk_learn(
             inject_learn_frames(
                 ptfadapter, topo["ptf_port_a"], mac, topo["inject_vlan_a"]
             )
+            time.sleep(0.01)
 
     # Sample a handful of the MACs we injected and verify their
     # presence -- checking all 1000 individually would be slow.
