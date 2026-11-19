@@ -354,6 +354,23 @@ def expected_lossless_profile_name(speed, cable_length):
     return 'pg_lossless_{}_{}_profile'.format(speed, cable_length)
 
 
+def buffer_pg_priorities(entries):
+    """Expand a port's BUFFER_PG keys into their non-overlapping priority coverage."""
+    priorities = set()
+    for key in entries:
+        bounds = key.rsplit('|', 1)[-1].split('-')
+        if len(bounds) not in (1, 2) or not all(value.isdigit() for value in bounds):
+            raise ValueError("Invalid BUFFER_PG priority range: {}".format(key))
+        first, last = int(bounds[0]), int(bounds[-1])
+        if first > last:
+            raise ValueError("Reversed BUFFER_PG priority range: {}".format(key))
+        covered = set(range(first, last + 1))
+        if priorities & covered:
+            raise ValueError("Overlapping BUFFER_PG priorities: {}".format(key))
+        priorities.update(covered)
+    return priorities
+
+
 def get_lossless_pg_entries(duthost, port, profile_prefix):
     """Return {buffer_pg_key: profile_name} for the port's lossless BUFFER_PG entries.
 
