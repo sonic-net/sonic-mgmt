@@ -84,6 +84,11 @@ def ignore_voq_platform_init_errors(loganalyzer, duthosts):
         r".* ERR syncd\d*#syncd:.*sai_query_stats_capability:\d+ Get count failed for type \d+.*",
         r".* ERR swss\d*#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute (ecmp|lag)_hash_offset.*",
         r".* ERR monit\[\d+\]: 'chrony' process is not running.*",
+        # ignore error capture during boot window
+        r".* NOTICE kernel:.*Kernel command line:.*crashkernel=.*",
+        r".* ERR rsyslogd: imrelp\[\d+\]: error 'error while binding relp tcp socket on port '\d+''.*",
+        r".* ERR rsyslogd: imrelp: could not activate relp listener, code \d+.*",
+        r".* ERR kernel:.*pci [0-9a-f:.]+: BAR \d+: error updating.*",
     ]
     for duthost in duthosts:
         if duthost.hostname in loganalyzer:
