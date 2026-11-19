@@ -3,6 +3,7 @@ import pytest
 import re
 
 from netaddr import IPNetwork
+from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.generators import generate_ip_through_default_route
 from tests.common.gu_utils import apply_patch, expect_op_success
@@ -50,6 +51,7 @@ def setup_env(duthosts, rand_one_dut_front_end_hostname, enum_rand_one_frontend_
     try:
         logger.info("Rolled back to original checkpoint")
         rollback_or_reload(duthost)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
         current_bgp_listener_config = get_bgp_monitor_runningconfig(duthost, cli_namespace_prefix)
         pytest_assert(
             set(original_bgp_listener_config) == set(current_bgp_listener_config),
