@@ -8,6 +8,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.bgp import get_asic_config_facts, map_bgp_neighbor_to_interfaces
 from tests.common.reboot import reboot
+from tests.common.mellanox_data import is_mellanox_device, is_issu_enabled
 
 logger = logging.getLogger(__name__)
 vrfname = 'default'
@@ -318,13 +319,16 @@ def test_bgp_session_interface_down(duthosts, enum_frontend_dut_hostname, fanout
     elif test_type == "swss_docker":
         duthost.shell("sudo systemctl restart {}".format(asichost.get_service_name("swss")))
     elif test_type == "reboot":
-        # Use warm reboot for t0, cold reboot for others
+        # Use warm reboot for t0 when it's supported, cold reboot for others
         topo_name = tbinfo["topo"]["name"]
         logger.info("Rebooting DUT {} with type {}".format(duthost.hostname, topo_name))
         if topo_name.startswith("t0"):
             reboot_type = "warm"
+            if is_mellanox_device(duthost) and not is_issu_enabled(duthost):
+                reboot_type = "cold"
         else:
             reboot_type = "cold"
+        logger.info("Rebooting DUT {} with type {}".format(duthost.hostname, reboot_type))
         reboot(duthost, localhost, reboot_type=reboot_type, wait_warmboot_finalizer=True,
                warmboot_finalizer_timeout=360)
 

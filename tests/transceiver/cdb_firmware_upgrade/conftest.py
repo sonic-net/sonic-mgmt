@@ -111,26 +111,34 @@ def cdb_firmware_qualifying_ports(
 ):
     """CMIS active-optical first-subport ports the CDB firmware tests run on.
 
-    Selection is the CDB attribute category gated by the EEPROM ``cmis_active_optical``
-    flag and restricted to any configured ``ports_under_test``.
+    Selection requires both the EEPROM ``cmis_active_optical`` flag and a
+    non-empty CDB ``firmware_versions`` value, and is restricted to any
+    configured ``ports_under_test``.
     """
     explicit_ports = resolve_ports_under_test(
         get_lport_to_pport_mapping, port_attributes_dict, CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY
     )
+    if explicit_ports is None:
+        pytest.skip(
+            "CDB firmware test suite skipped because "
+            "'ports_under_test' is not defined or is empty"
+        )
+
     qualifying_ports = select_attribute_ports(
         port_attributes_dict,
         CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY,
         lport_to_first_subport_mapping=lport_to_first_subport_mapping,
         explicit_ports=explicit_ports,
-        predicate=lambda port, attrs: is_cmis_active_optical(attrs.get(EEPROM_ATTRIBUTES_KEY, {})),
+        predicate=lambda port, attrs: (
+            is_cmis_active_optical(attrs.get(EEPROM_ATTRIBUTES_KEY, {}))
+            and bool(attrs.get(CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY, {}).get("firmware_versions"))
+        ),
     ).primary_ports
     if not qualifying_ports:
-        if explicit_ports is not None:
-            pytest.fail(
-                "ports_under_test configured but resolved to no qualifying "
-                "CMIS active-optical ports"
-            )
-        pytest.skip("No CMIS active-optical first-subport ports found for CDB firmware tests")
+        pytest.fail(
+            "ports_under_test configured but resolved to no CMIS active-optical "
+            "first-subport ports with firmware_versions inventory"
+        )
     return qualifying_ports
 
 

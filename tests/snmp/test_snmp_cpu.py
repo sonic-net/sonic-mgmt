@@ -12,6 +12,16 @@ pytestmark = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthosts, enum_rand_one_per_hwsku_hostname, loganalyzer):
+    """Ignore the emulated management-NIC reset observed during VS CPU stress."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if loganalyzer and duthost.facts["asic_type"] == "vs":
+        loganalyzer[duthost.hostname].ignore_regex.append(
+            r".*ERR kernel:.* e1000 \S+ eth0: Reset adapter\s*$"
+        )
+
+
 @pytest.mark.bsl
 def test_snmp_cpu(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts):
     """

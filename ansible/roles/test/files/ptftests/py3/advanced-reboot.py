@@ -65,6 +65,7 @@ import multiprocessing
 import itertools
 import ast
 import socket
+import shlex
 
 import ptf
 import ptf.testutils as testutils
@@ -133,6 +134,45 @@ class StateMachine():
         return flooding
 
 
+def get_max_allowed_lacp_session_wait(test_params):
+    lacp_period_sec = 30
+    if test_params['csonic_neighbor'] and test_params.get('csonic_lag_backend') == 'userspace_ovs':
+        # The userspace OVS backend requests one-second LACP heartbeats.
+        lacp_period_sec = 1
+        lacp_multiplier = test_params['csonic_neighbor_lacp_multiplier']
+    elif test_params['neighbor_type'] == "eos":
+        lacp_multiplier = test_params.get('ceos_neighbor_lacp_multiplier') or 3
+    elif test_params['neighbor_type'] == "sonic":
+        lacp_multiplier = 5  # SONiC negotiates multiplier 5 with SONiC peer
+    else:
+        lacp_multiplier = 3
+    return lacp_multiplier * lacp_period_sec
+
+
+def get_max_lacp_packet_gap(lacp_pdu_times):
+    member_times = lacp_pdu_times.get("lacp_by_member", {})
+    if member_times:
+        reboot_boundary = lacp_pdu_times.get("reboot_boundary")
+        capture_end = lacp_pdu_times.get("capture_end")
+        if reboot_boundary is None or capture_end is None:
+            return None
+
+        gaps = []
+        for timestamps in member_times.values():
+            timestamps = sorted(timestamps)
+            if not any(timestamp > reboot_boundary for timestamp in timestamps):
+                return None
+            gaps.extend(new - old for old, new in zip(timestamps, timestamps[1:]))
+            gaps.append(capture_end - timestamps[-1])
+        return max(gaps) if gaps else None
+
+    # Non-SONiC monitors retain the legacy flat timestamp list.
+    timestamps = sorted(lacp_pdu_times.get("lacp_all", []))
+    if len(timestamps) > 1:
+        return max(new - old for old, new in zip(timestamps, timestamps[1:]))
+    return None
+
+
 class ReloadTest(BaseTest):
     TIMEOUT = 0.5
     PKT_TOUT = 1
@@ -197,11 +237,32 @@ class ReloadTest(BaseTest):
         self.check_param('logfile_suffix', None, required=False)
         self.check_param('neighbor_type', 'eos', required=False)
         self.check_param('ceos_neighbor_lacp_multiplier', 3, required=False)
+        self.check_param('csonic_neighbor', False, required=False)
+        self.check_param('csonic_neighbor_credentials_file', '', required=False)
+        self.check_param('csonic_lag_backend', 'unknown', required=False)
+        self.check_param('csonic_neighbor_lacp_multiplier', 3, required=False)
         self.check_param('port_channel_intf_idx', [], required=False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
             self.test_params['preboot_oper'] = None
         if not self.test_params['inboot_oper'] or self.test_params['inboot_oper'] == 'None':
             self.test_params['inboot_oper'] = None
+
+        self.csonic_neighbor_login = 'admin'
+        self.csonic_neighbor_password = 'password'
+        if self.test_params['csonic_neighbor']:
+            credentials_path = self.test_params['csonic_neighbor_credentials_file']
+            if not credentials_path:
+                raise RuntimeError("cSONiC neighbor credentials file is required")
+            try:
+                with open(credentials_path) as credentials_file:
+                    credentials = json.load(credentials_file)
+            finally:
+                if os.path.exists(credentials_path):
+                    os.remove(credentials_path)
+            if credentials.get('login') != 'admin' or not credentials.get('password'):
+                raise RuntimeError("Invalid cSONiC neighbor credentials file")
+            self.csonic_neighbor_login = credentials['login']
+            self.csonic_neighbor_password = credentials['password']
 
         self.dataplane_loss_checked_successfully = False
 
@@ -1466,6 +1527,20 @@ class ReloadTest(BaseTest):
 
         self.assertTrue(is_good, errors)
 
+    def _get_neighbor_handle(self, ip, queue=None, connect_timeout=None, test_params=None):
+        test_params = test_params or self.test_params
+        kwargs = {
+            "log_cb": self.log,
+            "connect_timeout": connect_timeout,
+        }
+        if self.test_params['csonic_neighbor']:
+            kwargs.update({
+                "login": self.csonic_neighbor_login,
+                "password": self.csonic_neighbor_password,
+            })
+        return HostDevice.getHostDeviceInstance(
+            self.test_params['neighbor_type'], ip, queue, test_params, **kwargs)
+
     def _verify_neighbors_reachable(self, connect_timeout=15):
         """Pre-flight: confirm every neighbor in ssh_targets is SSH-reachable.
 
@@ -1476,10 +1551,8 @@ class ReloadTest(BaseTest):
         bad = []
         for ip in self.ssh_targets:
             try:
-                handle = HostDevice.getHostDeviceInstance(
-                    self.test_params['neighbor_type'], ip, None,
-                    self.test_params, log_cb=self.log,
-                    connect_timeout=connect_timeout)
+                handle = self._get_neighbor_handle(
+                    ip, connect_timeout=connect_timeout)
                 handle.connect()
                 handle.disconnect()
                 self.log("Neighbor SSH probe ok for {}".format(ip))
@@ -1492,15 +1565,66 @@ class ReloadTest(BaseTest):
             self.fails['infrastructure'].add(msg)
             raise RuntimeError(msg)
 
+    def _detect_csonic_lag_backend(self, connect_timeout=15):
+        if not self.test_params['csonic_neighbor']:
+            return None
+
+        detected = set()
+        for ip in self.ssh_targets:
+            handle = self._get_neighbor_handle(ip, connect_timeout=connect_timeout)
+            try:
+                handle.connect()
+                raw_bonds = handle.do_cmd(
+                    "sudo ovs-vsctl --data=bare --no-heading --columns=name "
+                    "find Port lacp=active")
+                teamd_pids = handle.do_cmd("pgrep -x teamd || true")
+                teamd_supervisor = handle.do_cmd(
+                    "supervisorctl status teammgrd tlm_teamd 2>/dev/null || true")
+                teamd_running = bool(teamd_pids.strip()) or "RUNNING" in teamd_supervisor
+                if raw_bonds.strip() and not teamd_running:
+                    backend = "userspace_ovs"
+                elif not raw_bonds.strip() and teamd_running:
+                    backend = "teamd"
+                else:
+                    backend = "unknown"
+                detected.add(backend)
+                self.log("Detected cSONiC LAG backend {} on {}".format(backend, ip))
+            finally:
+                handle.disconnect()
+
+        if len(detected) != 1 or "unknown" in detected:
+            raise RuntimeError("Inconsistent or unknown cSONiC LAG backends: {}".format(sorted(detected)))
+        backend = detected.pop()
+        if self.test_params['csonic_neighbor_lacp_multiplier'] != 3 and backend != "userspace_ovs":
+            raise RuntimeError(
+                "cSONiC LACP multiplier {} requires the userspace_ovs backend; detected {}".format(
+                    self.test_params['csonic_neighbor_lacp_multiplier'], backend))
+        self.test_params['csonic_lag_backend'] = backend
+        return backend
+
     def runTest(self):
         self._verify_neighbors_reachable()
+        self._detect_csonic_lag_backend()
 
-        # Set LACP timer multiplier for cEOS peers when it is not default (3)
-        if self.test_params['neighbor_type'] == "eos" and self.test_params['ceos_neighbor_lacp_multiplier'] != 3:
-            self.ceos_set_lacp_all_neighs(self.test_params['ceos_neighbor_lacp_multiplier'])
-
-        self.pre_reboot_test_setup()
+        restore_ceos_multiplier = (
+            self.test_params['neighbor_type'] == "eos"
+            and self.test_params['ceos_neighbor_lacp_multiplier'] != 3)
+        restore_csonic_multiplier = (
+            self.test_params['csonic_neighbor']
+            and self.test_params['csonic_lag_backend'] == 'userspace_ovs'
+            and self.test_params['csonic_neighbor_lacp_multiplier'] != 3)
+        setup_complete = False
         try:
+            # Extend the neighbor receive window across the DUT's LACP silence.
+            # Restoration is armed before each change so partial setup failures
+            # are still cleaned up.
+            if restore_ceos_multiplier:
+                self.ceos_set_lacp_all_neighs(self.test_params['ceos_neighbor_lacp_multiplier'])
+            if restore_csonic_multiplier:
+                self.csonic_set_lacp_all_neighs(self.test_params['csonic_neighbor_lacp_multiplier'])
+
+            self.pre_reboot_test_setup()
+            setup_complete = True
             self.log("Check that device is alive and pinging")
             self.fails['dut'].add("DUT is not ready for test")
             self.wait_dut_to_warm_up()
@@ -1549,14 +1673,29 @@ class ReloadTest(BaseTest):
             # Check sonic version after reboot
             self.check_sonic_version_after_reboot()
         except Exception:
+            if not setup_complete:
+                raise
             traceback_msg = traceback.format_exc()
             self.fails['dut'].add(traceback_msg)
         finally:
-            # Restore cEOS LACP timer multiplier to default (3)
-            if self.test_params['neighbor_type'] == "eos" and self.test_params['ceos_neighbor_lacp_multiplier'] != 3:
-                self.ceos_set_lacp_all_neighs(3)
+            # Restore neighbor LACP receive multipliers to their default (3).
+            # Cleanup failures are recorded independently so every configured
+            # backend and every cSONiC neighbor still gets a restore attempt.
+            if restore_ceos_multiplier:
+                try:
+                    self.ceos_set_lacp_all_neighs(3)
+                except Exception:
+                    self.fails['dut'].add("Failed to restore cEOS LACP multiplier:\n{}".format(
+                        traceback.format_exc()))
+            if restore_csonic_multiplier:
+                try:
+                    self.csonic_set_lacp_all_neighs(3, continue_on_error=True)
+                except Exception:
+                    self.fails['dut'].add("Failed to restore cSONiC LACP multiplier:\n{}".format(
+                        traceback.format_exc()))
 
-            self.handle_post_reboot_test_reports()
+            if setup_complete:
+                self.handle_post_reboot_test_reports()
 
     def ceos_set_lacp_all_neighs(self, multiplier):
         for neigh in self.ssh_targets:
@@ -1575,6 +1714,65 @@ class ReloadTest(BaseTest):
 
             self.neigh_handle.disconnect()
 
+    def csonic_set_lacp_all_neighs(self, multiplier, continue_on_error=False):
+        self.log("cSONiC LACP receive multiplier update started: requested={}".format(multiplier))
+        errors = []
+        for neigh in self.ssh_targets:
+            neigh_handle = None
+            try:
+                neigh_handle = self._get_neighbor_handle(neigh, connect_timeout=15)
+                neigh_handle.connect()
+                raw_bonds = neigh_handle.do_cmd(
+                    "sudo ovs-vsctl --data=bare --no-heading --columns=name "
+                    "find Port lacp=active")
+                bonds = [bond.strip() for bond in raw_bonds.splitlines() if bond.strip()]
+                if not bonds:
+                    raise RuntimeError("No active userspace OVS LACP bonds found on {}".format(neigh))
+                for bond in bonds:
+                    try:
+                        quoted_bond = shlex.quote(bond)
+                        neigh_handle.do_cmd(
+                            "sudo ovs-vsctl set Port {} "
+                            "other_config:lacp-rx-multiplier={}".format(
+                                quoted_bond, multiplier))
+                        actual = neigh_handle.do_cmd(
+                            "sudo ovs-vsctl get Port {} "
+                            "other_config:lacp-rx-multiplier".format(quoted_bond))
+                        actual = actual.strip().strip('"')
+                        if actual != str(multiplier):
+                            raise RuntimeError(
+                                "Failed to set LACP receive multiplier {} on {}:{}; got {!r}".format(
+                                    multiplier, neigh, bond, actual))
+                        self.log(
+                            "cSONiC LACP receive multiplier verified: neighbor={} bond={} "
+                            "requested={} actual={}".format(neigh, bond, multiplier, actual))
+                    except Exception as error:
+                        if not continue_on_error:
+                            raise
+                        errors.append("{}:{}: {}".format(neigh, bond, error))
+                        self.log("cSONiC LACP receive multiplier update failed: neighbor={} bond={} "
+                                 "requested={} error={}".format(neigh, bond, multiplier, error))
+            except Exception as error:
+                if not continue_on_error:
+                    raise
+                errors.append("{}: {}".format(neigh, error))
+                self.log("cSONiC LACP receive multiplier update failed: neighbor={} "
+                         "requested={} error={}".format(neigh, multiplier, error))
+            finally:
+                if neigh_handle is not None:
+                    try:
+                        neigh_handle.disconnect()
+                    except Exception as error:
+                        if not continue_on_error:
+                            raise
+                        errors.append("{} disconnect: {}".format(neigh, error))
+                        self.log("cSONiC LACP receive multiplier disconnect failed: neighbor={} "
+                                 "error={}".format(neigh, error))
+        if errors:
+            raise RuntimeError("Failed to set cSONiC LACP receive multiplier {}: {}".format(
+                multiplier, errors))
+        self.log("cSONiC LACP receive multiplier update completed: requested={}".format(multiplier))
+
     def neigh_lag_status_check(self):
         """
         Ensure there are no interface flaps after warm-boot
@@ -1586,8 +1784,7 @@ class ReloadTest(BaseTest):
             else:
                 self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map.values()
                                                              if x['mgmt_addr'] == neigh]
-                self.neigh_handle = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], neigh,
-                                                                     None, self.test_params)
+                self.neigh_handle = self._get_neighbor_handle(neigh, connect_timeout=15)
                 self.neigh_handle.connect()
                 fails, flap_cnt = self.neigh_handle.verify_neigh_lag_no_flap()
                 self.neigh_handle.disconnect()
@@ -1809,10 +2006,12 @@ class ReloadTest(BaseTest):
 
     def peer_state_check(self, ip, queue):
         self.log('SSH thread for VM {} started with queue {}'.format(ip, queue))
-        self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map.values()
-                                                     if x['mgmt_addr'] == ip]
-        ssh = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], ip, queue,
-                                               self.test_params, log_cb=self.log)
+        neighbor_test_params = dict(self.test_params)
+        neighbor_test_params['port_channel_intf_idx'] = [
+            x['ptf_ports'][0] for x in self.vm_dut_map.values()
+            if x['mgmt_addr'] == ip]
+        ssh = self._get_neighbor_handle(
+            ip, queue=queue, connect_timeout=15, test_params=neighbor_test_params)
         try:
             self.fails[ip], self.info[ip], self.cli_info[ip], self.logs_info[ip], self.lacp_pdu_times[ip] = ssh.run()
         except Exception:
@@ -1834,47 +2033,27 @@ class ReloadTest(BaseTest):
         self.log('SSH thread for VM {} finished'.format(ip))
 
         lacp_pdu_times = self.lacp_pdu_times[ip]
-        lacp_pdu_all_times = lacp_pdu_times.get("lacp_all")
+        self.log('lacp_pdu_times: IP:{}: {}'.format(ip, lacp_pdu_times))
 
-        self.log('lacp_pdu_all_times: IP:{}: {}'.format(ip, lacp_pdu_all_times))
+        # Compare actual consecutive LACP packets on each monitored member.
+        # Lifecycle snapshots can be many seconds apart even when LACP is healthy.
+        max_lacp_session_wait = get_max_lacp_packet_gap(lacp_pdu_times)
 
-        # in the list of all LACPDUs received by T1, find the largest time gap between two consecutive LACPDUs
-        max_lacp_session_wait = None
-
-        # Initialize max_allowed_lacp_session_wait
-        LACP_SLOW_PERIOD_SEC = 30
-
-        if self.test_params['neighbor_type'] == "eos":
-            if 'ceos_neighbor_lacp_multiplier' in self.test_params \
-                    and self.test_params['ceos_neighbor_lacp_multiplier']:
-                lacp_multiplier = self.test_params['ceos_neighbor_lacp_multiplier']
-            else:
-                lacp_multiplier = 3
-        elif self.test_params['neighbor_type'] == "sonic":
-            lacp_multiplier = 5  # SONiC negotiates multiplier 5 with SONiC peer
-        else:
-            lacp_multiplier = 3
-
-        max_allowed_lacp_session_wait = lacp_multiplier * LACP_SLOW_PERIOD_SEC
+        max_allowed_lacp_session_wait = get_max_allowed_lacp_session_wait(self.test_params)
         self.log('max_allowed_lacp_session_wait is set to {} sec for neighbor {}, neighbor_type {}'.format(
             max_allowed_lacp_session_wait, ip, self.test_params['neighbor_type']))
 
-        if lacp_pdu_all_times and len(lacp_pdu_all_times) > 1:
-            lacp_pdu_all_times.sort()
-            max_lacp_session_wait = 0
-            prev_time = lacp_pdu_all_times[0]
-            for new_time in lacp_pdu_all_times[1:]:
-                lacp_session_wait = new_time - prev_time
-                if lacp_session_wait > max_lacp_session_wait:
-                    max_lacp_session_wait = lacp_session_wait
-                prev_time = new_time
-
-        if 'warm-reboot' in self.reboot_type:
-            if max_lacp_session_wait and max_lacp_session_wait >= max_allowed_lacp_session_wait and not self.kvm_test:
+        enforce_lacp_gap = (
+            not self.kvm_test
+            or (self.test_params['csonic_neighbor']
+                and self.test_params['csonic_lag_backend'] == 'userspace_ovs'))
+        if 'warm-reboot' in self.reboot_type and enforce_lacp_gap:
+            if max_lacp_session_wait is not None \
+                    and max_lacp_session_wait >= max_allowed_lacp_session_wait:
                 self.fails['dut'].add("LACP session likely terminated by neighbor ({})".format(ip) +
-                                      " post-reboot lacpdu came after {}s of lacpdu pre-boot"
+                                      " consecutive LACPDUs were {}s apart"
                                       .format(max_lacp_session_wait))
-            elif not max_lacp_session_wait and not self.kvm_test:
+            elif max_lacp_session_wait is None:
                 self.fails['dut'].add("LACP session timing not captured")
 
         self.lacp_session_pause[ip] = max_lacp_session_wait

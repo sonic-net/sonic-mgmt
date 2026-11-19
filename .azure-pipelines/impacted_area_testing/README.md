@@ -54,6 +54,9 @@ As files in other feature folders remain unaffected and do not require testing.
 - If the changes affect the common components, we cannot narrow the testing scope and must run all test scripts to ensure comprehensive coverage, as they are commonly used by other features.
 
 We can determine the impcated area using command `git diff`.
+In a PR build, the diff is taken against the first parent of the PR's merge commit, which is the target branch tip.
+The diff uses `--no-renames`, so it lists both the old path and the new path of a moved file.
+Files excluded from the PR trigger in `azure-pipelines.yml` (`.github`, `docs`, `sdn_tests`, `LICENSE` and `*.md`) cannot affect test results, so they are left out of the impacted area.
 
 ### Distribute scripts to PR checkers
 In our new PR test, we will have multiple PR checkers classified by topology type.
@@ -94,6 +97,10 @@ ensuring that the workload is balanced of each instance.
 Ideally, each instance will run its assigned scripts in approximately 1.5 hours,
 leaving additional time for tasks such as testbed preparation and clean-up and keeping the total runtime within 2 hours.
 
+`calculate-instance-numbers.yml` reuses `jq` when it is already available on the agent.
+Otherwise it installs `jq` with the existing APT lock timeout and fails the step immediately if installation fails.
+Preinstalling `jq` on agents avoids per-job APT operations and contention with background updates.
+
 ## Advantages
 Impacted area based PR testing runs test scripts on demand, reducing the overall scale of the PR test and saving execution time.
 And instances will be allocated as needed, resulting in more cost-efficient resource usage.
@@ -103,4 +110,7 @@ Additionally, the PR testing will be more flexible as we can collect test script
 As impacted area based PR testing would not cover all test scripts, we need a safeguard to run all test scripts daily to prevent any unforeseen issues.
 Fortunately, we have Baseline testing to do so.
 Baseline testing involves running all test scripts in the test plan daily to ensure the overall stability of the system and identify potential issues.
+For the same reason, the control-plane dedup in `CONTROL_PLANE_DEDUP_RULES` only applies to PR builds, so baseline testing still runs every script on every topology.
+Within a PR build, a dedup rule only applies when `INCLUDE_JOBS` enables a job that runs the checker keeping the script (see `PR_CHECKER_JOBS`).
+The dedup also only affects the t1-lag job: the multi-asic-t1 job keeps the original `t1_checker` list, which is passed as `multi-asic-t1-lag_checker` when the dedup changes `t1_checker`.
 We conduct five rounds of baseline testing each day, and if any issues are detected, an ADO is automatically created, and email alerts are sent to notify the relevant teams.
