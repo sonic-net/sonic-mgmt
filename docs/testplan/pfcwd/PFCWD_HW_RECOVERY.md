@@ -88,9 +88,9 @@ The HLD is not consistent about the capability table: section 5.1 names `PFC_WD_
 
 The SAI defines the recovery timer this way (`SAI_PORT_ATTR_PFC_TC_DLR_INTERVAL` in `saiport.h`): recovery runs for `restoration_time` R, then normal state resumes, and if the queue is still deadlocked, detection and recovery start again after `detection_time` D. So a storm longer than D + R gives a DETECTED and RECOVERED pair every D + R or so, and a RECOVERED marks the end of R, not the end of the pause.
 
-A SAI can instead end recovery when the pause stops, and not use R. The Broadcom SDK's PFC-state recovery mode does this, when the SAI configuration selects it. Then a storm gives one pair, and the RECOVERED comes after the pause stops, at the next scan of the recovery process.
+A SAI can instead end recovery when the pause stops, and not use R. The Broadcom XGS SDK's PFC-state recovery mode does this, when the SAI build selects it, by default or through its configuration file. Then a storm gives one pair, and the RECOVERED comes after the pause stops, at the next scan of the recovery process.
 
-Which model applies depends on the SAI and its configuration, not only on the ASIC. No SAI attribute tells the two apart, so the suite keeps a per-platform table (see [Platform values](#platform-values)). Every case that counts events, or waits for a RECOVERED, uses the model the table gives.
+Which model applies depends on the SAI and its configuration, not only on the ASIC. No SAI attribute tells the two apart, so the suite keeps a table keyed by HWSKU and SAI package version (see [Platform values](#platform-values)). Every case that counts events, or waits for a RECOVERED, uses the model the table gives.
 
 ## Test setup
 
@@ -125,7 +125,9 @@ A platform that cannot change mechanism runs only its own phase. No platform can
 
 ### Platform values
 
-Some expectations depend on platform behaviour that neither the SAI nor STATE_DB reports. The suite keeps them in one file in the repository, under `tests/pfcwd/files/`, keyed by platform and, where it matters, by SAI configuration. Nothing is probed at run time, because nothing on the DUT reports these values. A case that needs a value the file does not have for the DUT skips, and the skip message names the missing entry.
+Some expectations depend on platform behaviour that neither the SAI nor STATE_DB reports. The suite keeps them in one file in the repository, under `tests/pfcwd/files/`. An entry is keyed by HWSKU and, where a value depends on it, by the version of the vendor SAI package installed in the syncd container (read with `dpkg-query` there), because a SAI build can change a default and the HWSKU's SAI configuration file can change a setting. An entry can go stale if a new image changes the HWSKU's SAI configuration file without changing the SAI version. For these values, the suite does not read the SAI configuration file: a setting there has no effect on a SAI build that does not know it. The values themselves are not probed at run time, because no SAI attribute or STATE_DB field reports them. A case that needs a value the file does not have for the DUT skips, and the skip message names the missing entry.
+
+The recovery model applies only to the hardware watchdog. In software mode on every platform, and in hybrid DLR mode, orchagent's restore script (`pfc_restore.lua`, or `pfc_restore_cisco-8000.lua` on Cisco 8000) ends recovery `restoration_time` after the pause stops, when the row sets `restoration_time`.
 
 | Value | Used by |
 |---|---|
@@ -311,7 +313,7 @@ Two parts.
 
 ### 11. Ports that share a detection timer
 
-Take two ports that share a detection timer, from the platform table. Configure different detection times, then stop the watchdog on one port.
+Take two ports that share a detection timer, from the Platform values file. Configure different detection times, then stop the watchdog on one port.
 
 - **Hardware:** each port detects inside the platform's detection window for its own detection time (see [Platform values](#platform-values)). The remaining port still detects after the other port stops.
 - **Software:** each port detects at its own time.
