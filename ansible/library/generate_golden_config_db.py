@@ -1276,8 +1276,8 @@ class GenerateGoldenConfigDBModule(object):
         if 'macsec' in feature_table:
             feature_table['macsec']['state'] = 'enabled'
         else:
-            # init_cfg.json on this image has no macsec entry — fall back to
-            # the canonical schema observed on humm-class T2 images.
+            # init_cfg.json on this image has no macsec entry; fall back to the
+            # FEATURE.macsec row init_cfg.json emits on T2 images that carry one.
             feature_table['macsec'] = {
                 'state': 'enabled',
                 'auto_restart': 'enabled',
