@@ -29,6 +29,17 @@ def _installed(node, container):
     return bool(re.search(r"(?m)^router isis ISIS_NS_TEST\n(?:[ \t].*\n)*[ \t]+lsp-mtu 1380(?:\n|$)", output))
 
 
+def _neighbors(node, container):
+    command = "sudo docker exec {} pgrep -x isisd".format(container)
+    result = node.shell(command, module_ignore_errors=True)
+    # Native pgrep returns 1 with no diagnostic when no process matches.
+    absent = result.get("rc") == 1 and not result.get("stdout", "").strip() and not result.get("stderr", "").strip()
+    pytest_assert(result.get("rc") == 0 or absent, "Command failed: {}: {}".format(command, result))
+    if absent:
+        return None
+    return json.loads(_run(node, "sudo docker exec {} vtysh -c 'show isis neighbor json'".format(container)))
+
+
 @pytest.fixture
 def isis_namespace(rand_selected_dut, request):
     node = rand_selected_dut
@@ -78,7 +89,7 @@ def test_isis_cli_namespace_isolation(isis_namespace):
     container = asic.get_docker_name("bgp")
     before = {name: _snapshot(node, name) for name in namespaces}
     other_neighbors = {
-        name: json.loads(_run(node, "sudo docker exec bgp{} vtysh -c 'show isis neighbor json'".format(name[4:])))
+        name: _neighbors(node, "bgp" + name[4:])
         for name in namespaces[1:]
     }
     try:
@@ -93,11 +104,10 @@ def test_isis_cli_namespace_isolation(isis_namespace):
         pytest_assert(actual == native, "Namespace show wrapper selected the wrong daemon")
         for name in namespaces[1:]:
             pytest_assert(_snapshot(node, name) == before[name], "IS-IS changed another ASIC's ConfigDB")
-            current = json.loads(_run(
-                node, "sudo docker exec bgp{} vtysh -c 'show isis neighbor json'".format(name[4:])))
+            current = _neighbors(node, "bgp" + name[4:])
             # Neighbor JSON has live uptime/hold timers. Compare identities and states.
             pytest_assert(_neighbor_states(current) == _neighbor_states(other_neighbors[name]),
-                          "IS-IS changed another ASIC's neighbors")
+                          "IS-IS changed another ASIC's daemon or neighbors")
     finally:
         _run(node, "sudo config isis -n {} del ISIS_NS_TEST".format(namespace))
     pytest_assert(_snapshot(node, namespace) == before[namespace], "Namespace cleanup changed existing ConfigDB")
