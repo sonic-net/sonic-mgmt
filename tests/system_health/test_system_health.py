@@ -42,6 +42,7 @@ IGNORE_ASIC_CHECK_CONFIG_FILE = 'ignore_asic_check.json'
 IGNORE_FAN_CHECK_CONFIG_FILE = 'ignore_fan_check.json'
 IGNORE_PSU_CHECK_CONFIG_FILE = 'ignore_psu_check.json'
 IGNORE_DEVICE_CHECK_CONFIG_FILE = 'ignore_device_check.json'
+IGNORE_DEVICE_CHECK_CFG_PL = 'ignore_device_check_{}.json'
 EXTERNAL_CHECKER_MOCK_FILE = 'mock_valid_external_checker.txt'
 
 DEFAULT_BOOT_TIMEOUT = 300
@@ -184,6 +185,19 @@ def test_service_checker(duthosts, enum_rand_one_per_hwsku_hostname):
 def test_service_checker_with_process_exit(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     wait_system_health_boot_up(duthost)
+
+    platform = duthost.facts["platform"]
+    platform_cfg_name = IGNORE_DEVICE_CHECK_CFG_PL.format(platform)
+    platform_cfg_local_path = os.path.join(FILES_DIR, platform_cfg_name)
+    default_cfg_local_path = os.path.join(FILES_DIR, IGNORE_DEVICE_CHECK_CONFIG_FILE)
+
+    if os.path.isfile(platform_cfg_local_path):
+        use_local_cfg_path = platform_cfg_local_path
+        logging.info(f"Found platform specific ignore config: {platform_cfg_name}, use it.")
+    else:
+        use_local_cfg_path = default_cfg_local_path
+        logging.info(f"No {platform_cfg_name}, fallback to {IGNORE_DEVICE_CHECK_CONFIG_FILE}")
+
     # On BMC platforms healthd polls every 300s, so derive a longer wait from the configured
     # polling_interval to cross a poll loop boundary. Other platforms keep the original WAIT_TIMEOUT.
     polling_interval = get_system_health_config(duthost, 'polling_interval', FAST_INTERVAL)
@@ -192,7 +206,7 @@ def test_service_checker_with_process_exit(duthosts, enum_rand_one_per_hwsku_hos
         if duthost.is_bmc()
         else WAIT_TIMEOUT
     )
-    with ConfigFileContext(duthost, os.path.join(FILES_DIR, IGNORE_DEVICE_CHECK_CONFIG_FILE)):
+    with ConfigFileContext(duthost, use_local_cfg_path):
         processes_status = duthost.all_critical_process_status()
         containers = [x for x in list(processes_status.keys()) if "syncd" not in x and "database" not in x and
                       "bgp" not in x and "swss" not in x]
