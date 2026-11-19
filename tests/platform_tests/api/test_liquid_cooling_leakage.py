@@ -124,13 +124,13 @@ class TestLiquidCoolingLeakage(PlatformApiTestBase):
                     "clear_test_leaks() should return True when nothing is injected")
 
         names = [leak_sensor.get_name(platform_api_conn, i) for i in range(self.num_leak_sensors)]
-        # Some platforms fix the severity per sensor, so try the default and then CRITICAL
+        # Some platforms fix the severity per sensor, so inject with one the sensor accepts
         injected = []
         for name in names:
-            for severity in (None, 'CRITICAL'):
-                if leak_sensor_test.set_test_leak(platform_api_conn, name, True, severity=severity) is True:
-                    injected.append(name)
-                    break
+            severities = leak_sensor_test.get_supported_test_leak_severities(platform_api_conn, name)
+            if severities and leak_sensor_test.set_test_leak(
+                    platform_api_conn, name, True, severity=severities[0]) is True:
+                injected.append(name)
         if not injected:
             pytest.skip("No leak sensor accepted a test leak injection")
         for name in injected:

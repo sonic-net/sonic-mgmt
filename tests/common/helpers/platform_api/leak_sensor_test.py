@@ -14,6 +14,10 @@ logger = logging.getLogger(__name__)
 
 # DUT management address -> whether the platform supports leak test injection
 _leak_test_supported_cache = {}
+# (DUT management address, sensor name) -> {severity or None for the platform default: accepted}
+_supported_severities_cache = {}
+
+TEST_LEAK_SEVERITIES = ('MINOR', 'CRITICAL')
 
 
 def leak_sensor_test_api(conn, name, args=None, kwargs=None):
@@ -68,6 +72,44 @@ def set_test_leak(conn, sensor_name, enable, severity=None):
     (MINOR) is used when omitted."""
     kwargs = {'severity': severity} if severity else None
     return leak_sensor_test_api(conn, 'set_test_leak', [sensor_name, enable], kwargs)
+
+
+def _probe_test_leak_severities(conn, sensor_name):
+    """Return {severity: accepted} for the platform default (None) and each explicit severity.
+
+    LeakageSensorTestBase has no query for this, so each one is probed by injecting and then withdrawing
+    a test leak. The default is probed on its own because it is platform defined and may differ from
+    the explicit severities. The result is cached per DUT and sensor. This is the single place to change
+    if the platform API gains a way to report the supported severities.
+    """
+    key = (conn.host, sensor_name)
+    if key not in _supported_severities_cache:
+        result = {}
+        for severity in (None,) + TEST_LEAK_SEVERITIES:
+            # A sensor that does not respond or rejects the severity is treated as unsupported
+            try:
+                result[severity] = set_test_leak(conn, sensor_name, True, severity=severity) is True
+            except Exception as e:
+                logger.warning("set_test_leak({}, severity={}) failed: {!r}".format(sensor_name, severity, e))
+                result[severity] = False
+            finally:
+                try:
+                    set_test_leak(conn, sensor_name, False)
+                except Exception as e:
+                    logger.warning("Withdrawing the probe on {} failed: {!r}".format(sensor_name, e))
+        _supported_severities_cache[key] = result
+    return _supported_severities_cache[key]
+
+
+def get_supported_test_leak_severities(conn, sensor_name):
+    """Return the explicit test leak severities the sensor accepts, for example ['MINOR'] or ['CRITICAL']."""
+    probed = _probe_test_leak_severities(conn, sensor_name)
+    return [severity for severity in TEST_LEAK_SEVERITIES if probed[severity]]
+
+
+def supports_test_leak_severity(conn, sensor_name, severity=None):
+    """True if the sensor accepts the severity. None checks the platform default severity itself."""
+    return _probe_test_leak_severities(conn, sensor_name)[severity]
 
 
 def is_test_leak_enabled(conn, sensor_name):

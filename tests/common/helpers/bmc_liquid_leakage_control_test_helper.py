@@ -199,27 +199,21 @@ class LeakTestApiInjector(LiquidLeakageMockerBMC):
             raise RuntimeError("Failed to clear test leaks on sensor(s): {}".format(still_enabled))
 
     def supports_sensor_state(self, index, state):
-        """Probe by injecting then withdrawing; some platforms accept only a fixed severity per sensor."""
+        """Some platforms accept only a fixed severity per sensor; ask the common platform API helper."""
         if state == 'None':
             return True
-        key = (index, state)
-        if key in self._probe_cache:
-            return self._probe_cache[key]
         name = self.get_sensor_name(index)
-        try:
-            accepted = leak_sensor_test.set_test_leak(self.conn, name, True, severity=state) is True
-        finally:
-            leak_sensor_test.set_test_leak(self.conn, name, False)
-        if accepted:
-            # Let thermalctld observe the withdrawal so the probe is not mistaken for the real injection.
-            # The poll interval comes from the DUT's pmon_daemon_control.json.
-            poll_interval = get_liquid_cooling_update_interval(self.dut) or DEFAULT_POLL_INTERVAL_SEC
-            settled = wait_until(2 * poll_interval + 10, poll_interval, 0,
-                                 lambda: not self.get_sensor_status(index)[0])
-            if not settled:
-                logger.warning("Sensor %s still reports a leak after the probe was withdrawn", name)
-        self._probe_cache[key] = accepted
-        return accepted
+        if name not in self._probe_cache:
+            self._probe_cache[name] = leak_sensor_test.get_supported_test_leak_severities(self.conn, name)
+            if self._probe_cache[name]:
+                # Let thermalctld observe the probe withdrawal so it is not mistaken for the real injection.
+                # The poll interval comes from the DUT's pmon_daemon_control.json.
+                poll_interval = get_liquid_cooling_update_interval(self.dut) or DEFAULT_POLL_INTERVAL_SEC
+                settled = wait_until(2 * poll_interval + 10, poll_interval, 0,
+                                     lambda: not self.get_sensor_status(index)[0])
+                if not settled:
+                    logger.warning("Sensor %s still reports a leak after the probe was withdrawn", name)
+        return state in self._probe_cache[name]
 
     def set_sensor_state(self, index, state):
         """

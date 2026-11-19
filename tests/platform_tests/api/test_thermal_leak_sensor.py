@@ -166,11 +166,11 @@ class TestLeakSensorApi(PlatformApiTestBase):
         for sensor_index in range(self.num_leak_sensors):
             name = leak_sensor.get_name(platform_api_conn, sensor_index)
 
-            ret = leak_sensor_test.set_test_leak(platform_api_conn, name, True, severity=severity)
-            if ret is not True and leak_sensor_test.is_test_leak_enabled(platform_api_conn, name) is not True:
-                # Some platforms support only a fixed severity per sensor and reject others
-                logger.info(f"Sensor {name} did not accept test leak severity {severity!r} (got {ret!r}); skipping")
+            # Some platforms support only a fixed severity per sensor
+            if not leak_sensor_test.supports_test_leak_severity(platform_api_conn, name, severity):
+                logger.info(f"Sensor {name} does not support test leak severity {severity!r}; skipping")
                 continue
+            ret = leak_sensor_test.set_test_leak(platform_api_conn, name, True, severity=severity)
             tested += 1
             self.expect(ret is True, f"set_test_leak({name}, True) should return True, got {ret!r}")
             self.expect(leak_sensor_test.is_test_leak_enabled(platform_api_conn, name) is True,
