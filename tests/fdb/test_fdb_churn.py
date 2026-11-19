@@ -571,8 +571,14 @@ def test_fdb_mac_ping_pong(
     # construction.
     # A proportional lower bound (cycles // 10) accepts up
     # to ~90 % silicon suppression while still catching total pipeline
-    # outages.
-    min_pushed = max(1, cycles // 10)
+    # outages.  VPP reports a MAC's moves from a periodic L2 FIB scan, at
+    # most once per scan, so on a loaded DUT the 50 moves can reach
+    # orchagent as a single notification: there, require one, to show the
+    # notification path works.  STATE_DB above is the functional check.
+    if duthost.facts.get("asic_type") == "vpp":
+        min_pushed = 1
+    else:
+        min_pushed = max(1, cycles // 10)
     pytest_assert(
         pushed >= min_pushed,
         "Expected at least {} LRU pushes; got pushed={}, hits={}".format(
