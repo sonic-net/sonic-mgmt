@@ -621,11 +621,14 @@ def test_po_update_inter_asic_swss_restart(
             and wait_until(120, 10, 0, out_asichost.check_bgp_statistic, 'ipv4_idle', 0)
             or wait_until(10, 10, 0, pc_active, out_asichost, pc))
 
+
 def _get_lag_id_free_list(duthost):
     out = duthost.shell(
         "sonic-db-cli CHASSIS_APP_DB lindex 'SYSTEM_LAG_IDS_FREE_LIST' 0; "
         "sonic-db-cli CHASSIS_APP_DB llen 'SYSTEM_LAG_IDS_FREE_LIST'")['stdout_lines']
     return int(out[0]), int(out[1])
+
+
 def increment_lag_id(duthost, upper_lagid_start):
     tmp_pc = "PortChannel999"
     asic = duthost.asics[0]
@@ -649,7 +652,6 @@ def increment_lag_id(duthost, upper_lagid_start):
         logging.info("iteration {}: current_free_lagid {}".format(iteration, current_free_lagid))
     pytest_assert(current_free_lagid >= upper_lagid_start,
                   "Increment Lag ID Current:{},> Upper:{}".format(current_free_lagid, upper_lagid_start))
-
 
     # Retrieve the current free LAG ID again after the modifications
     current_free_lagid = int(
