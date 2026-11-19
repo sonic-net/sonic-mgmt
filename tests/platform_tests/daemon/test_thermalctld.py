@@ -38,6 +38,7 @@ from tests.common.platform.bmc_utils import (
     bmc_log_zgrep,
     get_major_leak_min_sensors,
     is_major_leak_supported,
+    power_down_action_configured,
     get_switch_host_or_skip_test,
     get_system_leak_status,
     is_real_leak_present,
@@ -115,19 +116,26 @@ def _select_leak_sensor_indices(leak_mocker, severities, max_minor_duration_sec_
             leak_mocker.sensors[name]['max_minor_duration_sec'], max_minor_duration_sec_lb, max_minor_duration_sec_ub)
     ]
 
-    selected_indices = []
-    remaining = list(candidates)
-    for severity in severities:
-        random.shuffle(remaining)
-        match = next((i for i in remaining if leak_mocker.supports_sensor_state(i, severity)), None)
-        if match is None:
-            pytest.skip(
-                "No unused leak sensor with max_minor_duration_sec in bounds [{}, {}] supports severity {} "
-                "(requested {}, {} candidate(s))".format(
-                    max_minor_duration_sec_lb, max_minor_duration_sec_ub, severity, list(severities),
-                    len(candidates)))
-        remaining.remove(match)
-        selected_indices.append(match)
+    # Backtracking assignment so a flexible sensor is not used up by an earlier severity
+    random.shuffle(candidates)
+
+    def _assign(position, used):
+        if position == len(severities):
+            return []
+        for index in candidates:
+            if index in used or not leak_mocker.supports_sensor_state(index, severities[position]):
+                continue
+            rest = _assign(position + 1, used | {index})
+            if rest is not None:
+                return [index] + rest
+        return None
+
+    selected_indices = _assign(0, frozenset())
+    if selected_indices is None:
+        pytest.skip(
+            "No assignment of distinct leak sensors with max_minor_duration_sec in bounds [{}, {}] "
+            "supports severities {} ({} candidate(s))".format(
+                max_minor_duration_sec_lb, max_minor_duration_sec_ub, list(severities), len(candidates)))
 
     selected_sensors = []
     for index in selected_indices:
@@ -553,8 +561,12 @@ class TestThermalctldDaemon:
                 finally:
                     leak_mocker.restore_all_sensors()
             _wait_for_system_leak_status(leak_mocker, 'None', 2 * poll_interval + 10, poll_interval)
-            # Only a vendor mocker injecting a real CRITICAL leak powers the switch-host off
-            if not isinstance(leak_mocker, LeakTestApiInjector) and 'CRITICAL' in leak_severities:
+            # Only a vendor mocker injecting a real leak can power the switch-host off: CRITICAL,
+            # or MAJOR when system_major_leak_action is a power-down action
+            if (not isinstance(leak_mocker, LeakTestApiInjector)
+                    and (expected_system_leak_status == 'CRITICAL'
+                         or (expected_system_leak_status == 'MAJOR'
+                             and power_down_action_configured(self.duthost, 'system_major_leak_action')))):
                 recover_switch_host_after_power_off(self.duthost, host)
 
             recovery_syslog_la = la._get_syslog_analyzer()
