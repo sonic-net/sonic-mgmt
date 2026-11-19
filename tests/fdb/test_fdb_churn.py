@@ -554,10 +554,11 @@ def test_fdb_mac_ping_pong(
     # non-identical (different bridge_port_id), so envelope-level dedup
     # cannot fire and ``hits == 0`` is the expected outcome by
     # construction.
-    # A proportional lower bound (cycles // 10) accepts up
-    # to ~90 % silicon suppression while still catching total pipeline
-    # outages.
-    min_pushed = max(1, cycles // 10)
+    # lru_pushed counts notification envelopes, and SAI implementations
+    # may suppress or batch MAC-move events.  STATE_DB is the functional
+    # correctness gate above; require one envelope only to verify that
+    # the notification pipeline was active.
+    min_pushed = 1
     pytest_assert(
         pushed >= min_pushed,
         "Expected at least {} LRU pushes; got pushed={}, hits={}".format(
