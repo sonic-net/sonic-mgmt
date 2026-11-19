@@ -47,7 +47,7 @@ Out of scope: multi-ASIC DUTs (the checks read one DB namespace), the gNMI telem
 | [sonic-swss#5091](https://github.com/sonic-net/sonic-swss/pull/5091) | Retry a start with a new action while the stop is still tearing down | Open |
 | [sonic-swss#5092](https://github.com/sonic-net/sonic-swss/pull/5092) | Stop rewriting a deferred port's state on every retry | Open |
 | [sonic-swss#5100](https://github.com/sonic-net/sonic-swss/pull/5100) | Storm history in STATE_DB (`PFC_WD_STATE`, `PFC_WD_STORM_HISTORY`). Builds on [sonic-swss#4854](https://github.com/sonic-net/sonic-swss/pull/4854) | Open |
-| [sonic-utilities#4384](https://github.com/sonic-net/sonic-utilities/pull/4384) | Hardware mode in `show pfcwd config` and `show pfcwd config --json`, range checks in `pfcwd start`, refuses `pfcwd interval` and `pfcwd big_red_switch` in hardware mode | Open |
+| [sonic-utilities#4384](https://github.com/sonic-net/sonic-utilities/pull/4384) | Hardware mode in `show pfcwd config` and `show pfcwd config --json`, range checks in `pfcwd start`, refuses `pfcwd interval` and `pfcwd big_red_switch` in hardware mode | Merged |
 | [sonic-utilities#5002](https://github.com/sonic-net/sonic-utilities/pull/5002) | `show pfcwd stats --history` | Open |
 | [sonic-mgmt#29060](https://github.com/sonic-net/sonic-mgmt/pull/29060) | Runs `tests/pfcwd/` in software mode on a hardware platform, when `--pfcwd-recovery-modes` asks for it | Open |
 | [sonic-mgmt#23430](https://github.com/sonic-net/sonic-mgmt/pull/23430) | Hardware mode in the existing modules. Needs [sonic-swss#4854](https://github.com/sonic-net/sonic-swss/pull/4854) at run time | Merged |
@@ -160,9 +160,15 @@ A follow-up PR adds the [sonic-swss#4854](https://github.com/sonic-net/sonic-sws
 | `test_pfcwd_cli.py` | The same changes as `test_pfcwd_function.py` |
 | `test_pfcwd_all_port_storm.py` | Do not run `pfcwd interval 200`, which [sonic-utilities#4384](https://github.com/sonic-net/sonic-utilities/pull/4384) refuses in hardware mode. In software mode, also check that the `PFC_WD` poll finishes within its interval with every port stormed; no PR has this check yet |
 | `test_pfcwd_timer_accuracy.py` | Keep the timers inside the hardware range. Judging detection against the platform's detection window is in no PR yet |
-| `test_pfcwd_warm_reboot.py` | Turn off the fake storm (`DEBUG_STORM`) in hardware mode, through the `fake_storm` fixture. The hardware watchdog does not read it |
+| `test_pfcwd_warm_reboot.py` | Turn off the fake storm (`DEBUG_STORM`) in hardware mode, through the `fake_storm` fixture. The hardware watchdog does not read it. Its `storm` and `async_storm` variants also need changes; see below the table |
 | `test_pfcwd_stat_history.py` | Skip in hardware mode; no PR has this yet. The module starts the watchdog with `action="alert"`, which the hardware watchdog rejects, and tests `pfc_stat_history`, which only the software Lua plugin computes. The skip conditions on master cover other ASICs, older releases and some topologies, not hardware mode |
 | `test_pfc_config.py` | In hardware mode, clamp the template timers to the hardware range, push only the timer under test outside it, and expect the "is outside the supported range" log. In software mode, expect the "Failed to parse PFC Watchdog" log |
+
+`test_pfcwd_warm_reboot.py` also needs these changes. No PR has them yet.
+
+- The `storm` variant warm-reboots with the storm still on. Since [sonic-utilities#3969](https://github.com/sonic-net/sonic-utilities/pull/3969), `warm-reboot` refuses that, as case 10 expects. So the variant fails in software mode, and in hardware mode with [sonic-swss#4854](https://github.com/sonic-net/sonic-swss/pull/4854). It must expect the refusal of case 10, then stop the storm and check the restore.
+- In the `async_storm` variant, each queue's storm starts after its own random delay of 0 to 119 s, counted from before the reboot. A short delay can end before the storm check, and the reboot is then refused, in the same modes as the `storm` variant. The variant must start its storm only after the script has paused the old orchagent, as case 10 does. A random delay cannot ensure that.
+- On master the module is skipped on Broadcom and Mellanox while [sonic-mgmt issue 15942](https://github.com/sonic-net/sonic-mgmt/issues/15942) is open, so it does not run in hardware mode.
 
 `test_xon_not_counted.py` does not start the watchdog and runs on `lt2` and `ft2`, so it is outside this plan.
 
@@ -205,12 +211,12 @@ Try timers just inside and just outside each range through `pfcwd start`, a `PFC
 
   | Entry point | Checks | Expected for a value outside |
   |---|---|---|
-  | `pfcwd start` | The YANG range (`click.IntRange`), then the usable range ([sonic-utilities#4384](https://github.com/sonic-net/sonic-utilities/pull/4384)). It should not apply the `POLL_INTERVAL` check, which has no meaning in hardware mode | Refused, nothing written. Both bounds of the usable range are accepted |
+  | `pfcwd start` | The YANG range (`click.IntRange`), then the usable range ([sonic-utilities#4384](https://github.com/sonic-net/sonic-utilities/pull/4384)). It does not apply the `POLL_INTERVAL` check, which has no meaning in hardware mode | Refused, nothing written. Both bounds of the usable range are accepted |
   | GCU | YANG, including the `POLL_INTERVAL` rule when `PFC_WD\|GLOBAL` exists | Refused, nothing written |
   | CONFIG_DB row, or the configuration at boot | orchagent checks the SAI range only | Outside the SAI range: logged and dropped, nothing programmed, no `PFC_WD_HW_STATE` row. Inside the SAI range but outside YANG (for example 15 ms): accepted and programmed |
 
   - When the SAI reports no range: the CLI checks only YANG, and orchagent programs the value it is given.
-  - Since [sonic-utilities#4898](https://github.com/sonic-net/sonic-utilities/pull/4898), `pfcwd start` refuses a detection or restoration time below the configured `POLL_INTERVAL`, in either mode, and GCU refuses the same through the YANG `must` rules. So in both modes the case runs its bound steps with no `POLL_INTERVAL`, or one at or below the lower bound of 100 ms, and restores the recorded value afterwards (see [Rules for every case](#rules-for-every-case)). In hardware mode the CLI cannot set `POLL_INTERVAL`, so a value left from software mode would block the start; the table above expects hardware-mode `pfcwd start` to skip the check. That needs [sonic-utilities#4384](https://github.com/sonic-net/sonic-utilities/pull/4384) to keep it so when it is rebased on [sonic-utilities#4898](https://github.com/sonic-net/sonic-utilities/pull/4898).
+  - Since [sonic-utilities#4898](https://github.com/sonic-net/sonic-utilities/pull/4898), `pfcwd start` in software mode refuses a detection or restoration time below the configured `POLL_INTERVAL`, and GCU refuses the same in either mode through the YANG `must` rules. So in both modes the case runs its bound steps with no `POLL_INTERVAL`, or one at or below the lower bound of 100 ms, and restores the recorded value afterwards (see [Rules for every case](#rules-for-every-case)). In hardware mode the CLI cannot set `POLL_INTERVAL` and `pfcwd start` does not check it, so a value left from software mode blocks only GCU.
   - When the SAI refuses a value inside its advertised range: the port's `PFC_WD_HW_STATE` row shows `failed`, orchagent retries, and the port shows `configured` once the row is changed to a value the SAI accepts. The suite writes the row to CONFIG_DB directly for this check.
   - A SAI that advertises a range it does not accept is a DUT defect. One SAI is known to advertise 1–1500 ms and accept only up to 15 ms, so no value the CLI or GCU allows (100 ms and up) can be programmed. Every hardware case that starts the watchdog through the CLI or GCU is affected, not only this one. So the suite checks once per module, before the first case, that the SAI accepts both bounds of the usable range, and fails the module with that reason when it does not.
   - `pfcwd start` without `--restoration-time` uses twice the detection time, capped at the hardware maximum ([sonic-utilities#4384](https://github.com/sonic-net/sonic-utilities/pull/4384)). A CONFIG_DB row without `restoration_time` is accepted and keeps the restoration timer the hardware holds ([sonic-swss#4854](https://github.com/sonic-net/sonic-swss/pull/4854)). On master without that PR, the row is logged and dropped.
@@ -259,7 +265,7 @@ Change the port's `pfcwd_sw_enable` in PORT_QOS_MAP: drop one TC, clear it, and 
   - After the restart, a dropped TC is no longer watched, and an added TC is watched.
   - A port with no watched TC starts once a TC comes back.
 - **Software:** the dropped TC's ACL rules are removed. A port with no watched TC logs "No lossless TC found on port" and "Failed to start PFC Watchdog on port" on every retry, at least once a second. The expectation is that it waits quietly, as in hardware mode. Needs a software watchdog change; no PR proposes it yet.
-- **Hardware:** a released TC also has DLDR off. A port with no watched TC makes no SAI call while it waits. Its `PFC_WD_HW_STATE` row is written `failed` once and "No lossless TC found on port" is logged once, then nothing more while it waits (checked over 60 s). Needs [sonic-swss#5092](https://github.com/sonic-net/sonic-swss/pull/5092) for the single write and log.
+- **Hardware:** a released TC also has DLDR off. A port with no watched TC makes no SAI call while it waits. Its `PFC_WD_HW_STATE` row is written `failed` once and "No lossless TC found on port" is logged by the `pfcwd stop` and by the first start attempt, then not again while it waits (checked over 60 s). Needs [sonic-swss#5092](https://github.com/sonic-net/sonic-swss/pull/5092) for the single write and for the quiet wait.
 - **Without a restart:** a mask change applies while the watchdog runs, for added and dropped TCs alike. Needs an orchagent change that passes the new mask to the watchdog; no PR proposes it yet.
 
 ### 8. Changes made during a storm
@@ -293,9 +299,9 @@ Write `PFC_WD|GLOBAL`, run `pfcwd interval`, `pfcwd big_red_switch enable`, and 
 
 Two parts.
 
-- **Refusal:** with a queue stormed, `warm-reboot`, `fast-reboot` and `express-reboot` each refuse to start. The three run one script, and its `check_pfc_storm_active` runs `pfcwd show stats --check-storm`, which reads `PFC_WD_STATUS`. Each type is run, since a refused reboot costs no reboot time.
+- **Refusal:** with a queue stormed, `warm-reboot`, `fast-reboot` and `express-reboot` each refuse to start. The three run one script, and its `check_pfc_storm_active` runs `pfcwd show stats --check-storm`, which reads `PFC_WD_STATUS`. Each type the platform supports is run, since a refused reboot costs no reboot time. On other platforms the script exits before the storm check, so a refusal there proves nothing: `express-reboot` runs only on `cisco-8000`, `cisco` and `marvell-teralynx` (elsewhere it exits with "eXpress Boot is not supported"), and on NVIDIA `warm-reboot` exits with "NVIDIA warmboot is disabled" when the SAI configuration disables warm boot. Each refusal is checked by its reason: exit code 25 (`EXIT_PFC_STORM_DETECTED`) and the "PFC storm detected. Aborting" message.
   - **Both:** the reboot is refused and the DUT keeps running. Needs [sonic-swss#4854](https://github.com/sonic-net/sonic-swss/pull/4854) in hardware mode: before it, the hardware watchdog writes no `PFC_WD_STATUS`, `show pfcwd stats` lists no queue, and the reboot goes ahead during the storm.
-- **Storm during the reboot:** send traffic through a lossless queue, start a warm reboot, and have the fanout start a storm after the old orchagent has stopped. A storm that starts before that is refused by the first part.
+- **Storm during the reboot:** send traffic through a lossless queue, start a warm reboot, and have the fanout start a storm after the script has paused the old orchagent. The script checks for a storm once, near its start, and pauses orchagent much later, so a storm that starts in between is not refused. So the case starts the storm only after the script logs "Orchagent paused successfully", and fails if syslog shows the storm could have started earlier.
   - **Both:**
     - The new orchagent detects and reports the storm.
     - The storm is charged the traffic the queue counts from detection on, not the traffic sent before the reboot. In hardware mode the counters are read from SAI on detection and recovery ([sonic-swss#4854](https://github.com/sonic-net/sonic-swss/pull/4854)), not through FlexCounter, so the 60 s FlexCounter delay on warm start does not apply. In software mode the `PFC_WD` group is created enabled.
@@ -360,7 +366,6 @@ Read `show pfcwd config` and `show pfcwd config --json` with the watchdog runnin
 | Requiring `SOFTWARE` in the software phase | An orchagent change: the software watchdog writes `RECOVERY_MECHANISM=SOFTWARE` and clears the other watchdog's rows when it starts. No PR yet |
 | 3 (hardware), 6 (`PFC_WD_STATUS`), 8 (CLI stop), 10 (hardware, and the refusal), 13 | [sonic-swss#4854](https://github.com/sonic-net/sonic-swss/pull/4854) |
 | 4 (CLI), 5 (CLI refusal), 8 (CLI stop), 9 (`pfcwd interval`, `big_red_switch`), 15 | [sonic-utilities#4384](https://github.com/sonic-net/sonic-utilities/pull/4384) |
-| 4 (hardware `pfcwd start` without the `POLL_INTERVAL` check) | [sonic-utilities#4384](https://github.com/sonic-net/sonic-utilities/pull/4384), rebased on [sonic-utilities#4898](https://github.com/sonic-net/sonic-utilities/pull/4898) |
 | 4 (row without `restoration_time`) | [sonic-swss#4854](https://github.com/sonic-net/sonic-swss/pull/4854) |
 | 5 (stop then start with another action) | [sonic-swss#5091](https://github.com/sonic-net/sonic-swss/pull/5091) |
 | 6 (`config reload`, hardware row), 6 (stale state after a restart) | [sonic-swss#5090](https://github.com/sonic-net/sonic-swss/pull/5090) |
@@ -390,4 +395,4 @@ The other dependencies change behaviour and write nothing new at start, so they 
 - The orchagent change that writes `SOFTWARE`. A probe would read the value the phase's read-back asserts, so the requirement for `SOFTWARE` is gated by image version. Until the change has a PR and an image version, the read-back accepts an absent value, and no case is marked.
 - The changes with no PR yet.
 
-These use a conditional mark, limited by branch or image version, that names the PR or the missing change. A mark for a change with no PR yet is a strict expected failure: when the change lands, the case passes, the run reports it, and the mark is removed.
+The cases that need the other dependencies in this list use non-strict expected failures, so a pass shows as XPASS and does not fail the run. A change in an open PR gets a mark that names the PR. A change with no PR gets an issue, opened when the case that needs it is implemented, and the mark links the issue. Once the change merges, its mark is limited by branch or image version.
