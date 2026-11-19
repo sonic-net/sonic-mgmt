@@ -8,6 +8,36 @@ from tests.common.utilities import wait_until
 
 pytestmark = [pytest.mark.topology("t0")]
 
+_BFD_FIREWALL_RULE = "! -i eth0 -p udp -m multiport --dports 3784,4784 -j ACCEPT"
+
+
+def _allow_bfd_in_host_firewall(duthost):
+    """Open the same FRR BFD ports that caclmgrd opens for SAI-backed sessions."""
+    inserted = []
+    for command in ("iptables", "ip6tables"):
+        check = duthost.shell(
+            "sudo {} -C INPUT {}".format(command, _BFD_FIREWALL_RULE),
+            module_ignore_errors=True,
+        )
+        if check.get("rc") == 0:
+            continue
+        result = duthost.shell(
+            "sudo {} -I INPUT 2 {}".format(command, _BFD_FIREWALL_RULE),
+            module_ignore_errors=True,
+        )
+        assert result.get("rc") == 0, result.get("stderr", result)
+        inserted.append(command)
+    return inserted
+
+
+def _restore_bfd_host_firewall(duthost, inserted):
+    for command in reversed(inserted):
+        result = duthost.shell(
+            "sudo {} -D INPUT {}".format(command, _BFD_FIREWALL_RULE),
+            module_ignore_errors=True,
+        )
+        assert result.get("rc") == 0, result.get("stderr", result)
+
 
 def _start_daemon(duthost, daemon, container):
     command = (
@@ -29,9 +59,18 @@ def start_ospfd(duthosts, rand_one_dut_hostname):
 @pytest.fixture(scope="module")
 def start_bfdd(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
-    for asic in duthost.asics:
-        container = "bgp{}".format(asic.asic_index) if duthost.is_multi_asic else "bgp"
-        _start_daemon(duthost, "bfdd", container)
+    # caclmgrd opens UDP/3784 and UDP/4784 only after a SAI-backed
+    # BFD_SESSION_TABLE event. This qualification uses FRR BFD directly and
+    # intentionally creates no SAI BFD object, so mirror caclmgrd's rules for
+    # the lifetime of the module and remove only rules inserted here.
+    inserted = _allow_bfd_in_host_firewall(duthost)
+    try:
+        for asic in duthost.asics:
+            container = "bgp{}".format(asic.asic_index) if duthost.is_multi_asic else "bgp"
+            _start_daemon(duthost, "bfdd", container)
+        yield
+    finally:
+        _restore_bfd_host_firewall(duthost, inserted)
 
 
 def _ospf_interface(asic, peer_ip):
@@ -76,15 +115,47 @@ def _vtysh(commands):
     return "vtysh {}".format(" ".join("-c {}".format(shlex.quote(command)) for command in commands))
 
 
-def _set_remote_bfd(peer, shutdown):
+def _set_remote_bfd_drop(peer, enabled):
+    """Silently drop cEOS BFD output without changing OSPF or link state."""
     host = peer["host"]
     assert isinstance(host, EosHost), "SONiC-VPP OSPF/BFD qualification requires cEOS neighbors"
-    result = host.config(
-        lines=["shutdown" if shutdown else "no shutdown"],
-        parents=["router bfd"],
-        module_ignore_errors=True,
-    )
+    acl_name = "OSPF_BFD_TEST_DROP"
+    interface = peer["ospf_interfaces"][0]
+    if enabled:
+        result = host.config(
+            lines=[
+                "10 deny udp any host {} eq 3784".format(peer["dut_ip"]),
+                "20 deny udp any host {} eq 4784".format(peer["dut_ip"]),
+                "30 permit ip any any",
+            ],
+            parents=["ip access-list {}".format(acl_name)],
+            module_ignore_errors=True,
+        )
+        assert not result.get("failed"), result
+        result = host.config(
+            lines=["ip access-group {} out".format(acl_name)],
+            parents=["interface {}".format(interface)],
+            module_ignore_errors=True,
+        )
+    else:
+        result = host.config(
+            lines=["no ip access-group {} out".format(acl_name)],
+            parents=["interface {}".format(interface)],
+            module_ignore_errors=True,
+        )
+        assert not result.get("failed"), result
+        result = host.config(
+            lines=["no ip access-list {}".format(acl_name)],
+            module_ignore_errors=True,
+        )
     assert not result.get("failed"), result
+
+
+def _remote_interface_up(peer):
+    interface = peer["ospf_interfaces"][0]
+    status = peer["host"].run_command_json("show interfaces {} status".format(interface))
+    interfaces = status.get("interfaceStatuses", {})
+    return bool(interfaces) and all(item.get("linkStatus") == "connected" for item in interfaces.values())
 
 
 def test_ospf_with_bfd(ospf_Bfd_setup, duthosts, rand_one_dut_hostname,
@@ -132,29 +203,30 @@ def test_ospf_with_bfd(ospf_Bfd_setup, duthosts, rand_one_dut_hostname,
     assert result["rc"] == 0, result.get("stderr", result)
 
     prefix = peer["loopback"]
-    remote_stopped = False
+    remote_dropped = False
     try:
         assert wait_until(60, 3, 0, lambda: _bfd_status(asic, peer_ip) == "up"), \
             "BFD peer {} did not reach Up".format(peer_ip)
         assert wait_until(60, 3, 0, _route_present, asic, prefix), \
             "OSPF route {} was not installed".format(prefix)
 
-        _set_remote_bfd(peer, True)
-        remote_stopped = True
+        _set_remote_bfd_drop(peer, True)
+        remote_dropped = True
         assert wait_until(30, 1, 0, lambda: _bfd_status(asic, peer_ip) != "up"), \
-            "BFD peer {} remained Up after remote BFD shutdown".format(peer_ip)
+            "BFD peer {} remained Up after remote packet loss".format(peer_ip)
         assert wait_until(30, 1, 0, lambda: not _route_present(asic, prefix)), \
             "OSPF route {} was not withdrawn after BFD failure".format(prefix)
+        assert _remote_interface_up(peer), "cEOS routed interface went down during the BFD-only fault"
 
-        _set_remote_bfd(peer, False)
-        remote_stopped = False
+        _set_remote_bfd_drop(peer, False)
+        remote_dropped = False
         assert wait_until(90, 3, 0, lambda: _bfd_status(asic, peer_ip) == "up"), \
             "BFD peer {} did not recover".format(peer_ip)
         assert wait_until(90, 3, 0, _route_present, asic, prefix), \
             "OSPF route {} did not recover".format(prefix)
     finally:
-        if remote_stopped:
-            _set_remote_bfd(peer, False)
+        if remote_dropped:
+            _set_remote_bfd_drop(peer, False)
         cleanup = [
             "configure terminal",
             "interface {}".format(interface_name),
