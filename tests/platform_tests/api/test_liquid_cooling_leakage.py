@@ -99,7 +99,8 @@ class TestLiquidCoolingLeakage(PlatformApiTestBase):
         if leak_sensor_test.is_real_leak_present(platform_api_conn):
             pytest.skip("A real leak is already present; cannot test with test leak injection")
         yield
-        leak_sensor_test.clear_test_leaks(platform_api_conn)
+        if leak_sensor_test.clear_test_leaks(platform_api_conn) is not True:
+            logger.warning("clear_test_leaks() did not return True, test leaks may still be present")
 
     def test_is_leak_test_supported(self, platform_api_conn, leak_test_injection):    # noqa: F811
         # The fixture skips unsupported platforms, so the API must report support here

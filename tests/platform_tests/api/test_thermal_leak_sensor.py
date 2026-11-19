@@ -156,7 +156,8 @@ class TestLeakSensorApi(PlatformApiTestBase):
         if leak_sensor_test.is_real_leak_present(platform_api_conn):
             pytest.skip("A real leak is already present; cannot test with test leak injection")
         yield
-        leak_sensor_test.clear_test_leaks(platform_api_conn)
+        if leak_sensor_test.clear_test_leaks(platform_api_conn) is not True:
+            logger.warning("clear_test_leaks() did not return True, test leaks may still be present")
 
     @pytest.mark.disable_loganalyzer
     @pytest.mark.parametrize("severity", [None, "MINOR", "CRITICAL"])
