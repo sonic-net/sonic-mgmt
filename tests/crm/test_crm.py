@@ -292,6 +292,7 @@ def disable_swss_syslog_rate_limit(duthost, asichost):
 
     def restart_rsyslog():
         rsyslogd_start = rf"{swss_container}#rsyslogd: \[.+\] start"
+        rsyslogd_restart_timeout_s = 40
         first_line_to_check = current_syslog_line_number(duthost)
 
         duthost.shell(
@@ -308,8 +309,9 @@ def disable_swss_syslog_rate_limit(duthost, asichost):
             )
 
         pytest_assert(
-            wait_until(40, 1, 0, has_rsyslog_restarted),
-            "SWSS rsyslogd did not restart"
+            wait_until(rsyslogd_restart_timeout_s, 1, 0, has_rsyslog_restarted),
+            f"rsyslogd in {swss_container} did not log its start "
+            f"message within {rsyslogd_restart_timeout_s}s"
         )
 
     rate_limit_syntaxes = [
