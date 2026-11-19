@@ -4,7 +4,7 @@ import logging
 import os
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.gnmi_server import (
+from tests.common.helpers.gnmi_server import (  # noqa: F401 - re-export for existing callers
     GNMI_SERVER_START_WAIT_TIME,
     apply_cert_config,
     check_gnmi_status,
