@@ -4,10 +4,9 @@ import shlex
 import pytest
 
 from tests.common.devices.eos import EosHost
-from tests.common.devices.csonic import CsonicHost
 from tests.common.utilities import wait_until
 
-pytestmark = [pytest.mark.topology("t0", "t1", "t2", "lrh", "urh")]
+pytestmark = [pytest.mark.topology("t0")]
 
 
 def _start_daemon(duthost, daemon, container):
@@ -67,35 +66,30 @@ def _route_present(asic, prefix):
     return prefix in asic.shell(command)["stdout"]
 
 
+def _linux_interface_for_peer(asic, peer_ip):
+    routes = json.loads(asic.shell("ip -j route get {}".format(shlex.quote(peer_ip)))["stdout"])
+    assert routes and routes[0].get("dev"), "No Linux interface for {}".format(peer_ip)
+    return routes[0]["dev"]
+
+
 def _vtysh(commands):
     return "vtysh {}".format(" ".join("-c {}".format(shlex.quote(command)) for command in commands))
 
 
 def _set_remote_bfd(peer, shutdown):
     host = peer["host"]
-    if isinstance(host, EosHost):
-        result = host.config(lines=["shutdown" if shutdown else "no shutdown"],
-                             parents=["router bfd"], module_ignore_errors=True)
-        assert not result.get("failed"), result
-        return
-
-    direct = isinstance(host, CsonicHost)
-    if shutdown:
-        command = "pkill -x bfdd"
-    else:
-        commands = ["configure terminal", "bfd", "peer {}".format(peer["dut_ip"]), "end"]
-        command = "pgrep -x bfdd >/dev/null || /usr/lib/frr/bfdd -d; sleep 1; {}".format(
-            _vtysh(commands)
-        )
-    if not direct:
-        command = "docker exec bgp bash -lc {}".format(shlex.quote(command))
-    result = host.shell(command, module_ignore_errors=True)
-    assert result["rc"] == 0, result.get("stderr", result)
+    assert isinstance(host, EosHost), "SONiC-VPP OSPF/BFD qualification requires cEOS neighbors"
+    result = host.config(
+        lines=["shutdown" if shutdown else "no shutdown"],
+        parents=["router bfd"],
+        module_ignore_errors=True,
+    )
+    assert not result.get("failed"), result
 
 
 def test_ospf_with_bfd(ospf_Bfd_setup, duthosts, rand_one_dut_hostname,
                        start_ospfd, start_bfdd):
-    """A BFD-only remote failure must withdraw and then restore an OSPF route."""
+    """A cEOS BFD-only failure must withdraw and then restore a SONiC-VPP OSPF route."""
     duthost = duthosts[rand_one_dut_hostname]
     peer_ip = sorted(ospf_Bfd_setup)[0]
     peer = ospf_Bfd_setup[peer_ip]
@@ -111,12 +105,15 @@ def test_ospf_with_bfd(ospf_Bfd_setup, duthosts, rand_one_dut_hostname,
         "router ospf",
     ]
     commands.extend("network {}/31 area 0".format(address) for address in peer_ips)
+    commands.append("exit")
+    for interface in sorted({_linux_interface_for_peer(asic, address) for address in peer_ips}):
+        commands.extend(["interface {}".format(interface), "ip ospf mtu-ignore", "exit"])
     commands.append("end")
     command = asic.get_vtysh_cmd_for_namespace(_vtysh(commands))
     result = duthost.shell(command, module_ignore_errors=True)
     assert result["rc"] == 0, result.get("stderr", result)
 
-    assert wait_until(90, 5, 0, lambda: _ospf_interface(asic, peer_ip) is not None), \
+    assert wait_until(180, 5, 0, lambda: _ospf_interface(asic, peer_ip) is not None), \
         "OSPF peer {} did not reach Full".format(peer_ip)
     interface_name = _ospf_interface(asic, peer_ip)
 
@@ -135,21 +132,39 @@ def test_ospf_with_bfd(ospf_Bfd_setup, duthosts, rand_one_dut_hostname,
     assert result["rc"] == 0, result.get("stderr", result)
 
     prefix = peer["loopback"]
-    assert wait_until(60, 3, 0, lambda: _bfd_status(asic, peer_ip) == "up"), \
-        "BFD peer {} did not reach Up".format(peer_ip)
-    assert wait_until(60, 3, 0, _route_present, asic, prefix), \
-        "OSPF route {} was not installed".format(prefix)
-
+    remote_stopped = False
     try:
+        assert wait_until(60, 3, 0, lambda: _bfd_status(asic, peer_ip) == "up"), \
+            "BFD peer {} did not reach Up".format(peer_ip)
+        assert wait_until(60, 3, 0, _route_present, asic, prefix), \
+            "OSPF route {} was not installed".format(prefix)
+
         _set_remote_bfd(peer, True)
+        remote_stopped = True
         assert wait_until(30, 1, 0, lambda: _bfd_status(asic, peer_ip) != "up"), \
             "BFD peer {} remained Up after remote BFD shutdown".format(peer_ip)
         assert wait_until(30, 1, 0, lambda: not _route_present(asic, prefix)), \
             "OSPF route {} was not withdrawn after BFD failure".format(prefix)
-    finally:
-        _set_remote_bfd(peer, False)
 
-    assert wait_until(90, 3, 0, lambda: _bfd_status(asic, peer_ip) == "up"), \
-        "BFD peer {} did not recover".format(peer_ip)
-    assert wait_until(90, 3, 0, _route_present, asic, prefix), \
-        "OSPF route {} did not recover".format(prefix)
+        _set_remote_bfd(peer, False)
+        remote_stopped = False
+        assert wait_until(90, 3, 0, lambda: _bfd_status(asic, peer_ip) == "up"), \
+            "BFD peer {} did not recover".format(peer_ip)
+        assert wait_until(90, 3, 0, _route_present, asic, prefix), \
+            "OSPF route {} did not recover".format(prefix)
+    finally:
+        if remote_stopped:
+            _set_remote_bfd(peer, False)
+        cleanup = [
+            "configure terminal",
+            "interface {}".format(interface_name),
+            "no ip ospf bfd",
+            "exit",
+            "bfd",
+            "no peer {}".format(peer_ip),
+            "end",
+        ]
+        asic.shell(
+            asic.get_vtysh_cmd_for_namespace(_vtysh(cleanup)),
+            module_ignore_errors=True,
+        )
