@@ -34,8 +34,9 @@ COHERENT_MEDIA_PATTERN = re.compile(r"ZR", re.IGNORECASE)
 
 # get_pm_all() reports exactly this when the module's PM counters are zero.
 PM_PLACEHOLDER_BER = 1.0
-# Above the 400ZR cFEC/oFEC correction limit the link could not be up.
-PREFEC_BER_LIMIT = 1.25e-2
+# Highest pre-FEC BER threshold of the ZR/ZR+ FEC modes (400ZR cFEC ~1.25e-2,
+# OpenZR+ oFEC ~2e-2); above it the link could not be up in any mode.
+PREFEC_BER_LIMIT = 2.0e-2
 PREFEC_BER_FIELDS = ("prefec_ber_min", "prefec_ber_avg", "prefec_ber_max")
 POSITIVE_PM_FIELDS = ("osnr_avg", "esnr_avg")
 # (TRANSCEIVER_PM field, TRANSCEIVER_DOM_SENSOR field)
@@ -147,10 +148,7 @@ def _read_pm_by_port(duthost, ports):
     return pm_by_port
 
 
-def _check_pm_values(pm_entry, dom_entry):
-    if not pm_entry:
-        return ["no TRANSCEIVER_PM entry"]
-
+def _check_prefec_ber(pm_entry):
     failures = []
     pm = _numeric_pm(pm_entry)
 
@@ -167,6 +165,16 @@ def _check_pm_values(pm_entry, dom_entry):
     ber = [pm.get(field) for field in PREFEC_BER_FIELDS]
     if None not in ber and not ber[0] <= ber[1] <= ber[2]:
         failures.append("pre-FEC BER not ordered min <= avg <= max: {}".format(ber))
+
+    return failures
+
+
+def _check_pm_values(pm_entry, dom_entry):
+    if not pm_entry:
+        return ["no TRANSCEIVER_PM entry"]
+
+    failures = _check_prefec_ber(pm_entry)
+    pm = _numeric_pm(pm_entry)
 
     for field in POSITIVE_PM_FIELDS:
         value = pm.get(field)
@@ -208,24 +216,35 @@ def test_coherent_pm_values(coherent_pm_ports):
     _fail_if_any(all_failures, "TRANSCEIVER_PM value check failed on {}".format(duthost.hostname))
 
 
+def _prefec_ber_sample(pm_entry):
+    return tuple(_parse_numeric(pm_entry.get(field)) for field in PREFEC_BER_FIELDS)
+
+
 def test_coherent_pm_refresh(coherent_pm_ports):
-    """PM of every ready coherent port changes between xcvrd polling cycles."""
+    """Every ready coherent port publishes a new, valid pre-FEC BER sample between xcvrd polling cycles.
+
+    TRANSCEIVER_PM carries no update timestamp, so a new PM window is detected by
+    its pre-FEC BER: a full-precision measurement over a fresh interval on a live
+    link, which does not repeat exactly from one window to the next.
+    """
     duthost, ports = coherent_pm_ports
-    baseline = {port: _numeric_pm(entry) for port, entry in _read_pm_by_port(duthost, ports).items()}
+    baseline = {port: _prefec_ber_sample(entry) for port, entry in _read_pm_by_port(duthost, ports).items()}
     stale = set(ports)
 
     def _all_refreshed():
         current = _read_pm_by_port(duthost, {port: ports[port] for port in stale})
         for port, entry in current.items():
-            if entry and _numeric_pm(entry) != baseline[port]:
-                logger.info("PM refreshed on %s", port)
+            if _prefec_ber_sample(entry) != baseline[port] and not _check_prefec_ber(entry):
+                logger.info("PM refreshed on %s: pre-FEC BER min/avg/max %s -> %s",
+                            port, baseline[port], _prefec_ber_sample(entry))
                 stale.discard(port)
         return not stale
 
     wait_until(PM_REFRESH_TIMEOUT_SEC, PM_REFRESH_INTERVAL_SEC, PM_REFRESH_INTERVAL_SEC, _all_refreshed)
 
     _fail_if_any(
-        ["{}: TRANSCEIVER_PM unchanged for {}s".format(port, PM_REFRESH_TIMEOUT_SEC) for port in natsorted(stale)],
+        ["{}: no new valid pre-FEC BER sample in {}s".format(port, PM_REFRESH_TIMEOUT_SEC)
+         for port in natsorted(stale)],
         "TRANSCEIVER_PM did not refresh on {}".format(duthost.hostname),
     )
 
