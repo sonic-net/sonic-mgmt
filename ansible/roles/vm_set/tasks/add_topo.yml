@@ -486,4 +486,4 @@
   - shell: rm -f {{ root_path }}/images/docker-ptf.tar
   run_once: yes
   become: yes
-  when: vm_type is defined and vm_type == "vsonic" and ptf_on_neighbor is defined and ptf_on_neighbor|bool == true
+  when: topo != 'generic' and vm_type is defined and vm_type == "vsonic" and ptf_on_neighbor is defined and ptf_on_neighbor|bool == true

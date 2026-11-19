@@ -12,6 +12,12 @@ HWSKU in the DUT inventory and supply the usual PTF, server and inventory fields
 No neighbor VM base, `generic_hwsku` policy section or separate request file is
 needed. The group-name and PTF fields identify existing PTF resources, not VMs.
 
+The shared `vm_set` role still provides the PTF container and interfaces.
+Generic clears its neighbor VM context and skips neighbor inventory, VM helper
+setup, libvirt discovery and VM-specific permissions on physical testbeds.
+Libvirt discovery needed by a virtual DUT itself is separate from neighbor VMs.
+Generic does not export a PTF image for deployment on a neighbor.
+
 ```bash
 ./testbed-cli.sh add-topo <testbed> <vault-password-file>
 ./testbed-cli.sh deploy-mg <testbed> <inventory> <vault-password-file>
@@ -23,6 +29,8 @@ SONiC breakout parser, base HWSKU and `pg_profile_lookup.ini`. It maps the selec
 ports onto existing lab VLANs, then uses the normal `vm_set` role to create the
 PTF container and interfaces. Generated configuration is stored in
 `ansible/vars/topo_generic_<testbed>.yml`, outside the Git diff.
+This is a controller-local generated artifact, not a topology to commit.
+Keep it in the same workspace for `deploy-mg`, `remove-topo` and pytest.
 
 `deploy-mg` creates a `<base-HWSKU>_Generic` directory containing the generated
 port map and links to the base HWSKU's other assets. It does not modify the base
