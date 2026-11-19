@@ -125,26 +125,35 @@ def _is_hft_container_stopped(duthost):
     return not _get_container_running(duthost, "hft")
 
 
+def _read_test_config(duthost, path):
+    """Return the file contents and mode before the tests overwrite it."""
+    info = duthost.stat(path=path, follow=False, get_checksum=False, get_mime=False)["stat"]
+    if not info["exists"]:
+        return None, "0644"
+    # Ansible copy replaces the destination inode. Do not break a managed link
+    # or apply a symlink's mode to the regular file that would replace it.
+    if not info["isreg"] or info["nlink"] != 1:
+        pytest.fail(f"Refusing to overwrite {path}: expected a regular file with one link")
+    contents = duthost.slurp(src=path, verbose=False)["content"]
+    return base64.b64decode(contents).decode("utf-8"), info["mode"]
+
+
 @contextmanager
-def _countersyncd_otel_export(duthost, original_hft_state):
+def _countersyncd_otel_export(duthost, original_hft_state, hft_settings):
     """Run countersyncd in hft with OTEL export, then restore hft.
 
     The hft feature is disabled by default, and countersyncd exports only when
     configured to. countersyncd.sh reads hft.env each time countersyncd starts.
     """
-    settings = duthost.stat(path=HFT_SETTINGS_PATH)["stat"]
-    original_settings = ""
-    if settings["exists"]:
-        original_settings = base64.b64decode(
-            duthost.slurp(src=HFT_SETTINGS_PATH)["content"]
-        ).decode("utf-8")
+    original_settings, mode = hft_settings
 
     def restore_settings():
-        if settings["exists"]:
+        if original_settings is not None:
             duthost.copy(
                 content=original_settings,
                 dest=HFT_SETTINGS_PATH,
-                mode=settings["mode"],
+                mode=mode,
+                verbose=False,
             )
         else:
             duthost.shell(
@@ -168,9 +177,10 @@ def _countersyncd_otel_export(duthost, original_hft_state):
 
     try:
         duthost.copy(
-            content=HFT_OTEL_SETTINGS + original_settings,
+            content=HFT_OTEL_SETTINGS + (original_settings or ""),
             dest=HFT_SETTINGS_PATH,
-            mode=settings.get("mode", "0644"),
+            mode=mode,
+            verbose=False,
         )
         if original_hft_state == "disabled":
             duthost.shell(
@@ -203,17 +213,18 @@ def skip_unsupported_hft_platform(
         duthosts, enum_rand_one_per_hwsku_hostname):
     """Validate shared HFT prerequisites without changing the DUT."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    config_exists = duthost.shell(
-        f"sudo test -f {OTEL_CONFIG_PATH}", module_ignore_errors=True
-    )
-    if config_exists.get("rc") not in {0, 1}:
-        pytest.fail(f"Failed to inspect {OTEL_CONFIG_PATH}: {config_exists}")
-    config_existed = config_exists.get("rc") == 0
-    original_config = ""
-    if config_existed:
-        original_config = base64.b64decode(
-            duthost.slurp(src=OTEL_CONFIG_PATH)["content"]
-        ).decode("utf-8")
+    enabled_states = {"enabled", "always_enabled"}
+    valid_states = enabled_states | {"disabled", "always_disabled"}
+    original_hft_state = duthost.shell(
+        "sonic-db-cli CONFIG_DB HGET 'FEATURE|hft' state",
+        module_ignore_errors=False,
+    ).get("stdout", "").strip()
+    if not original_hft_state:
+        pytest.skip("Standalone hft is not configured on this image (no FEATURE|hft state)")
+    if original_hft_state not in valid_states:
+        pytest.fail(f"Unexpected HFT feature state: {original_hft_state}")
+    if original_hft_state == "always_disabled":
+        pytest.skip("HFT feature is always disabled")
 
     feature_result = duthost.shell(
         "redis-cli -n 4 --raw HGETALL 'FEATURE|otel'",
@@ -224,8 +235,6 @@ def skip_unsupported_hft_platform(
         pytest.fail(f"Invalid FEATURE|otel response: {feature_result}")
     original_feature = dict(zip(feature_lines[0::2], feature_lines[1::2]))
     original_state = original_feature.get("state", "disabled")
-    enabled_states = {"enabled", "always_enabled"}
-    valid_states = enabled_states | {"disabled", "always_disabled"}
     if original_state not in valid_states:
         pytest.fail(f"Unexpected OTEL feature state: {original_state}")
     if original_state == "always_disabled":
@@ -247,22 +256,12 @@ def skip_unsupported_hft_platform(
             collector_status
         )
 
-    original_hft_state = duthost.shell(
-        "sonic-db-cli CONFIG_DB HGET 'FEATURE|hft' state",
-        module_ignore_errors=False,
-    ).get("stdout", "").strip()
-    if not original_hft_state:
-        pytest.skip("HFT feature is not available on this platform")
-    if original_hft_state not in valid_states:
-        pytest.fail(f"Unexpected HFT feature state: {original_hft_state}")
-    if original_hft_state == "always_disabled":
-        pytest.skip("HFT feature is always disabled")
     if original_hft_state in enabled_states \
             and not duthost.critical_processes_running("hft"):
         pytest.fail("HFT is enabled but countersyncd is not running")
     return {
-        "config_existed": config_existed,
-        "original_config": original_config,
+        "otel_config": _read_test_config(duthost, OTEL_CONFIG_PATH),
+        "hft_settings": _read_test_config(duthost, HFT_SETTINGS_PATH),
         "original_feature": original_feature,
         "original_state": original_state,
         "original_collector_running": original_collector_running,
@@ -348,8 +347,7 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname,
                        skip_unsupported_hft_platform):
     """Prepare OTEL for the module and restore its original state afterward."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    config_existed = skip_unsupported_hft_platform["config_existed"]
-    original_config = skip_unsupported_hft_platform["original_config"]
+    original_config, config_mode = skip_unsupported_hft_platform["otel_config"]
     original_feature = skip_unsupported_hft_platform["original_feature"]
     feature_existed = bool(original_feature)
     original_state = skip_unsupported_hft_platform["original_state"]
@@ -358,10 +356,11 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname,
         "original_collector_running"
     ]
     original_hft_state = skip_unsupported_hft_platform["original_hft_state"]
+    hft_settings = skip_unsupported_hft_platform["hft_settings"]
 
     def restore_config():
-        if config_existed:
-            duthost.copy(content=original_config, dest=OTEL_CONFIG_PATH)
+        if original_config is not None:
+            duthost.copy(content=original_config, dest=OTEL_CONFIG_PATH, mode=config_mode, verbose=False)
         else:
             duthost.shell(
                 f"sudo rm -f {OTEL_CONFIG_PATH}", module_ignore_errors=False
@@ -432,7 +431,7 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname,
     try:
         if original_state not in enabled_states:
             enable_otel_collector(duthost, check_image=False)
-        with _countersyncd_otel_export(duthost, original_hft_state):
+        with _countersyncd_otel_export(duthost, original_hft_state, hft_settings):
             yield
     finally:
         # Setup failures are active here; pytest reports call-phase failures

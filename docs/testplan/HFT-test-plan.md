@@ -29,7 +29,7 @@
 
 This test plan outlines the approach for validating the [High Frequency Telemetry (HFT)](https://github.com/sonic-net/SONiC/blob/master/doc/high-frequency-telemetry/high-frequency-telemetry-hld.md) feature in SONiC.
 
-HFT enables microsecond-level polling and streaming of network statistics (port counters, queue counters, ingress priority group counters, buffer pool counters) via the `countersyncd` daemon running inside the `swss` container. The tests verify that the system can accurately collect and report real-time telemetry data, respond correctly to dynamic configuration changes, and handle port state transitions gracefully.
+HFT enables microsecond-level polling and streaming of network statistics (port counters, queue counters, ingress priority group counters, buffer pool counters) via the `countersyncd` daemon running inside the `hft` container. The tests verify that the system can accurately collect and report real-time telemetry data, respond correctly to dynamic configuration changes, and handle port state transitions gracefully.
 
 ### Scope
 
@@ -72,10 +72,15 @@ HFT Phase 1 supports key AI data center statistics across four object types:
 
 ### Prerequisites
 - DUT must have the `swss` container running and stable (uptime ≥ 10 seconds).
-- The `countersyncd` daemon must be functional inside the `swss` container.
-- The supervisor-owned `countersyncd` daemon must be running with `--enable-otel`.
-  Tests keep it continuous except for one explicit restart after the exhaustive
-  Queue case, once that case's configuration and STATE_DB session are gone.
+- The DUT must provide the standalone `hft` feature. A module temporarily enables it
+  if it was disabled, or restarts its supervisor-managed `countersyncd` if it was enabled.
+  Images without this feature (including older images running `countersyncd` in `swss`),
+  or with `hft` always disabled, are skipped.
+- The fixture configures `--enable-otel --otel-endpoint=http://localhost:4317` in
+  `/etc/sonic/hft/hft.env` for the module, then restores the settings and feature state.
+  The Queue case also restarts `countersyncd` after its STATE_DB session is removed.
+- The fixture rewrites `hft.env` and `/etc/sonic/otel_config.yml`. When present, they
+  must be regular files with a single hard link; the tests refuse to replace managed links.
 - The DUT must provide the `otel` container image.
 - InfluxDB 3 Core (`influxdb3`) must be installed on the PTF host.
 - HFT CLI commands (`config hft add/del/enable/disable`) must be available on the DUT.
@@ -388,7 +393,7 @@ cadence validation to two port series.
 1. **Start isolated infrastructure**: Reuse the module's test-owned in-memory InfluxDB process on port 8181.
 2. **Isolate the case**: Stop the collector, create a unique empty database, and install an OTEL configuration targeting it.
 3. **Restart OTEL safely**: Restart the systemd-managed `otel.service` and require its critical collector process to become healthy.
-4. **Verify countersyncd**: Require the supervisor daemon to be running with `--enable-otel`; do not alter it.
+4. **Verify countersyncd**: Check that the module's supervisor-managed process is running in `hft` with `--enable-otel`.
 5. **Configure HFT**: Get available ports (desired: 2, minimum: 1). Atomically create HFT profile `e2e_port_profile` (poll interval 10ms, stream `enabled`) and its PORT group monitoring `IF_IN_OCTETS`.
 6. **Poll InfluxDB for metrics**: Query the exact expected measurements and object tags.
 7. **Verify data arrived**: Require complete series coverage, values, interval, and CPS within 5%.
