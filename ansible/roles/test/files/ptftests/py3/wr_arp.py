@@ -229,10 +229,11 @@ class ArpTest(BaseTest):
                 version=1
             )
             exp_pkt['ERSPAN II'].ver = 1
-            # The ERSPAN II helper enables the GRE sequence field by default.
-            # Match Ferret's assumed inner-frame offsets by clearing it for
-            # Barefoot (byte 46) and retaining it for Cisco (byte 50).
-            exp_pkt[scapy.GRE].seqnum_present = int(self.asic_type == 'cisco-8000')
+            if self.asic_type == 'barefoot':
+                # The helper defaults to seqnum_present=1. GRE's sequence field
+                # is optional per RFC 1701; clear it to match Ferret's assumed
+                # byte-46 inner-frame offset for Barefoot.
+                exp_pkt[scapy.GRE].seqnum_present = 0
         else:
             exp_pkt = testutils.simple_gre_packet(
                 pktlen=0,
