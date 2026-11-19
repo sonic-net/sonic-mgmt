@@ -264,7 +264,7 @@ stages:
         fetchDepth: 0
       - bash: |
           set -e
-          git checkout 312a562e2b629dda8b9e147699c469ee44adde5a
+          git checkout a318a796387191366ec2e71a2e651ebc06021463
           git submodule update --init --recursive
           git -C src/sonic-utilities fetch origin refs/pull/4738/head
         displayName: "Fetch matching backend and CLI commits"
@@ -273,7 +273,7 @@ stages:
           set -e
           make $(BUILD_OPTIONS) target/sonic-vs.img.gz
         displayName: "Build multi-ASIC SONiC image"
-      - template: .azure-pipelines/check-dirty-version.yml@buildimage
+      - template: /.azure-pipelines/check-dirty-version.yml@buildimage
       postSteps:
       - bash: |
           echo "##vso[task.setvariable variable=BUILD_ID;isOutput=true]$(Build.BuildId)"
