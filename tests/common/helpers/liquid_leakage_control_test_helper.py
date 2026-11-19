@@ -9,6 +9,7 @@ from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.dut_utils import check_container_state
 from tests.common.helpers.gnmi_utils import GNMIEnvironment, gnmi_container, \
     create_gnmi_certs, delete_gnmi_certs
+from tests.common.helpers.gnmi_server import apply_cert_config, recover_cert_config
 from tests.common.utilities import wait_until
 # The interval of EVENT_PUBLISHED is 60 seconds by default.
 # To left some buffer, the timeout for gnmi LD event is set to 90 seconds
@@ -271,9 +272,6 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     '''
     Setup GNMI server with mutual-TLS client certificate authentication.
     '''
-    # Imported lazily to avoid a module-level tests.common -> tests.gnmi dependency.
-    from tests.gnmi.helper import apply_cert_config, recover_cert_config
-
     duthost = duthosts[rand_one_dut_hostname]
 
     # Check if GNMI is enabled on the device
