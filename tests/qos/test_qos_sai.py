@@ -251,7 +251,7 @@ class TestQosSai(QosSaiBase):
 
     @pytest.fixture(scope='function')
     def change_port_speed(
-            self, request, ptfhost, duthosts, dutTestParams, fanouthosts, dutConfig, tbinfo,
+            self, request, ptfhost, duthosts, dutTestParams, dutConfig, tbinfo,
             get_src_dst_asic_and_duts, releaseAllPorts, handleFdbAging, lower_tor_host):
         """When port_target_speed is not None, change dut dst port speed and the corresponding port speed,
            and then recover them.
@@ -267,6 +267,7 @@ class TestQosSai(QosSaiBase):
             original_speed = dut_int_status[dut_dst_port]["speed"].replace("G", "000")
 
             if int(target_speed) < int(original_speed):
+                fanouthosts = request.getfixturevalue("fanouthosts")
                 fanout_port_list = []
 
                 def _get_dut_change_speed_port_list():

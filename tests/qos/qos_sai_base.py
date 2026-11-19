@@ -3273,7 +3273,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope="function", autouse=False)
     def permit_only_test_traffic_on_fanout(
             self, get_src_dst_asic_and_duts, tbinfo,
-            nbrhosts, dutConfig, dutQosConfig, fanouthosts,
+            nbrhosts, dutConfig, dutQosConfig,
             conn_graph_facts, request):
         """
         Block non-test L2 traffic from reaching DUT ingress ports during QoS
@@ -3337,6 +3337,7 @@ class QosSaiBase(QosBase):
             yield
             return
 
+        fanouthosts = request.getfixturevalue("fanouthosts")
         src_interfaces = [dutConfig['dutInterfaces'][idx]
                           for idx in sorted(protected_port_ids)
                           if idx in dutConfig.get('dutInterfaces', {})]
