@@ -97,21 +97,11 @@ def require_notification_consumer_stats(duthosts, rand_one_dut_hostname):
 def flush_fdb_before_tests(duthosts, rand_one_dut_hostname,
                            require_notification_consumer_stats):
     """
-    Flush the DUT's FDB once, before the tests.  They expect a frame from
-    a MAC they send to raise an FDB event, so the DUT must not have that
-    MAC on that port already: a frame from a MAC the DUT has on its port
-    raises none.  An earlier module can leave one.  On a dual ToR,
-    test_fdb_mac_expire sends 00:11:22:33:44:<PTF port index> to both ToRs
-    and clears the FDB of only the ToR it selected, so the other one has
-    test_fdb_repeated_learn_dedup's MAC on its port until it ages out.
-    clean_fdb doesn't remove it: fdb_cleanup() flushes only when the DUT
-    has a MAC with BASE_MAC_PREFIX.  The tests use distinct MACs, so a
-    flush per module is enough.
-
-    The flush, and the DUT relearning its other MACs, raise FDB events of
-    their own: let the FdbOrch stats settle so that they are in the first
-    test's baseline.  Runs after require_notification_consumer_stats,
-    which skips the module on an image without these stats.
+    Flush the DUT's FDB once, before the tests: a frame from a MAC the DUT
+    already has on that port raises no FDB event, and an earlier module can
+    leave one (on a dual ToR, test_fdb_mac_expire clears only the ToR it
+    selected).  Let the FdbOrch stats settle so that the flush's own events
+    are in the first test's baseline.
     """
     duthost = duthosts[rand_one_dut_hostname]
     duthost.command("sonic-clear fdb all")
