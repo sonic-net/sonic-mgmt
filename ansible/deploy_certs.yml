@@ -9,6 +9,7 @@
   command: openssl req \
       -x509 \
       -sha256 \
+      -days {{ cert_validity_days | default(365) | int }} \
       -nodes \
       -newkey rsa:2048 \
       -keyout "{{ server_key }}"
@@ -20,6 +21,7 @@
   command: openssl req \
       -x509 \
       -sha256 \
+      -days {{ cert_validity_days | default(365) | int }} \
       -nodes \
       -newkey rsa:2048 \
       -keyout "{{ dsmsroot_key }}"
