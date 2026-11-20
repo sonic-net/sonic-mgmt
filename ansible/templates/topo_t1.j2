@@ -16,7 +16,7 @@ configuration_properties:
     nhipv4: 10.10.246.254
     nhipv6: FC0A::FF
     podset_number: 200
-    tor_number: 16
+    tor_number: {{ ([16] + (vm_list | selectattr('role', 'equalto', 't0') | map(attribute='tornum') | list)) | max }}
     tor_subnet_number: 2
     max_tor_subnet_number: 16
     tor_subnet_size: 128
@@ -24,6 +24,10 @@ configuration_properties:
     swrole: spine
   tor:
     swrole: tor
+{%- if vm_list | selectattr('role', 'equalto', 'pt1') | list %}
+  pleaf:
+    swrole: pleaf
+{%- endif %}
 
 configuration:
 {%- for vm in vm_list %}
@@ -35,6 +39,8 @@ configuration:
     tornum: {{vm.tornum}}
     {%- elif vm.role == 't2' %}
     - spine
+    {%- elif vm.role == 'pt1' %}
+    - pleaf
     {%- endif %}
     bgp:
       asn: {{vm.asn}}

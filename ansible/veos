@@ -26,6 +26,7 @@ all:
           - t1-64-lag
           - t1-64-lag-clet
           - t1-backend
+          - t1-d22u8s2
           - t1-f2-d10u8
           - t1-f2-d10u8-32
           - t1-isolated-d128
