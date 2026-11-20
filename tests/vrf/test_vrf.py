@@ -1292,7 +1292,8 @@ class TestVrfWarmReboot:
         up_ports = [p for p, v in list(cfg_facts["PORT"].items()) if v.get("admin_status", None) == "up"]
         assert wait_until(300, 20, 0, check_interface_status, duthost, up_ports), "All interfaces should be up!"
 
-    def test_vrf_system_warm_reboot(self, duthosts, rand_one_dut_hostname, localhost, cfg_facts, partial_ptf_runner):
+    def test_vrf_system_warm_reboot(self, duthosts, rand_one_dut_hostname, localhost, cfg_facts, partial_ptf_runner,
+                                    skip_if_warm_reboot_unsupported):
         duthost = duthosts[rand_one_dut_hostname]
         exc_que = queue.Queue()
         params = {

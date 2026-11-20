@@ -164,13 +164,17 @@ def vlan_members(duthosts, rand_one_dut_hostname, tbinfo):
 
 
 @pytest.fixture
-def is_support_warm_fast_reboot(duthosts, rand_one_dut_hostname):
+def is_support_warm_fast_reboot(duthosts, rand_one_dut_hostname, is_warm_reboot_enabled):
     duthost = duthosts[rand_one_dut_hostname]
     support_warm_fast_reboot = True
     if 'isolated' in duthosts.tbinfo['topo']['name'] or \
-            duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
+            duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch") or \
+            not is_warm_reboot_enabled:
         support_warm_fast_reboot = False
-        logging.info("Skipping warm and fast reboot tests for isolated topology or smartswitch")
+        if not is_warm_reboot_enabled:
+            logging.info("Skipping warm and fast reboot tests because ISSU is disabled")
+        else:
+            logging.info("Skipping warm and fast reboot tests for isolated topology or smartswitch")
         logging.info("Applying cert config")
         apply_cert_config(duthost)
 

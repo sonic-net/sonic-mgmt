@@ -23,7 +23,7 @@ from tests.common.connections.base_console_conn import (
     CONSOLE_SSH_SONIC_CONFIG
 )
 import time
-from tests.common.mellanox_data import is_mellanox_device, is_issu_enabled
+from tests.common.mellanox_data import is_mellanox_device, is_issu_enabled, is_fast_reboot_supported
 import random
 
 CONTAINER_CHECK_INTERVAL_SECS = 1
@@ -1162,9 +1162,13 @@ def get_random_reload_type(duthost):
         # BMC does not support fast reboot and warm reboot
         logger.info("BMC does not support fast reboot and warm reboot, keep only reload and cold")
         reload_types = ["reload", "cold"]
-    elif is_mellanox_device(duthost) and not is_issu_enabled(duthost):
-        logger.info("ISSU is not enabled on the Mellanox device, remove warm reboot from the list")
-        reload_types.remove("warm")
+    else:
+        if is_mellanox_device(duthost) and not is_issu_enabled(duthost):
+            logger.info("ISSU is not enabled on the Mellanox device, remove warm reboot from the list")
+            reload_types.remove("warm")
+        if not is_fast_reboot_supported(duthost):
+            logger.info("Fast reboot is deprecated on Mellanox SPC4 and above, remove fast reboot from the list")
+            reload_types.remove("fast")
     reboot_type = random.choice(reload_types)
     logger.info(f"Selected reload type: {reboot_type}")
     return reboot_type

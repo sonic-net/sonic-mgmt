@@ -39,6 +39,7 @@ pytestmark = [
     pytest.mark.topology("t0", "t1"),
     # A warm reboot generates expected log noise, the SRv6 state is verified explicitly instead
     pytest.mark.disable_loganalyzer,
+    pytest.mark.usefixtures("skip_if_warm_reboot_unsupported"),
 ]
 
 

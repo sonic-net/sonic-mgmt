@@ -104,6 +104,7 @@ def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost, gnm
     pytest_assert(uptime_after > uptime_before, "Device did not reboot, uptime did not reset")
 
 
+@pytest.mark.usefixtures("skip_if_warm_reboot_unsupported")
 def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost, gnmi_tls):  # noqa: F811
     """
     Test gNOI System.Reboot API with WARM method.
