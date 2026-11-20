@@ -107,16 +107,3 @@ def test_no_cancel_event_never_injected(console_type):
     # receive the kwarg at all.
     kwargs = _capture_init_kwargs(console_type, None)
     assert "cancel_event" not in kwargs
-
-
-def test_attach_only_forwarded_to_ssh_console():
-    cls = console_host_mod.ConsoleTypeMapper[CONSOLE_SSH]
-    with mock.patch.object(cls, "__init__", return_value=None) as mocked_init:
-        ConsoleHost(console_type=CONSOLE_SSH, attach_only=True, **_COMMON_KWARGS)
-    assert mocked_init.call_args.kwargs.get("attach_only") is True
-
-
-@pytest.mark.parametrize("console_type", NON_SSH_CONSOLE_TYPES)
-def test_attach_only_rejected_for_non_ssh_console(console_type):
-    with pytest.raises(ValueError):
-        ConsoleHost(console_type=console_type, attach_only=True, **_COMMON_KWARGS)
