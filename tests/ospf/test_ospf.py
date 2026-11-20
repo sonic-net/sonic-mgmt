@@ -38,14 +38,16 @@ def test_ospf_neighborship(ospf_setup, duthosts, rand_one_dut_hostname):
     expected_neighbors = len(ospf_setup["nbr_addr"])
     expected_routes = ospf_setup["expected_routes"]
 
-    assert wait_until(180, 5, 0, lambda: _full_neighbor_count(duthost) == expected_neighbors), \
-        "Expected {} Full OSPF neighbors, found {}".format(
-            expected_neighbors, _full_neighbor_count(duthost)
-        )
-    assert wait_until(90, 5, 0, _routes_match, duthost, expected_routes), \
-        "OSPF routes {} do not contain cEOS loopbacks {}".format(
-            _route_prefixes(duthost), expected_routes
-        )
+    assert wait_until(
+        180, 5, 0, lambda: _full_neighbor_count(duthost) == expected_neighbors
+    ), "Expected {} Full OSPF neighbors, found {}".format(
+        expected_neighbors, _full_neighbor_count(duthost)
+    )
+    assert wait_until(
+        90, 5, 0, _routes_match, duthost, expected_routes
+    ), "OSPF routes {} do not contain cEOS loopbacks {}".format(
+        _route_prefixes(duthost), expected_routes
+    )
 
 
 def test_ospf_dynamic_routing(ospf_setup, duthosts, rand_one_dut_hostname):
@@ -63,7 +65,7 @@ def test_ospf_dynamic_routing(ospf_setup, duthosts, rand_one_dut_hostname):
         if host.bgp_vrf:
             lines.append("vrf {}".format(host.bgp_vrf))
         lines.append("ip address {}".format(prefix))
-        result = host.config(
+        result = host.eos_config(
             lines=lines,
             parents=["interface {}".format(loopback_name)],
             module_ignore_errors=True,
@@ -71,7 +73,7 @@ def test_ospf_dynamic_routing(ospf_setup, duthosts, rand_one_dut_hostname):
         assert not result.get("failed"), result
         loopback_added = True
 
-        result = host.config(
+        result = host.eos_config(
             lines=["ip ospf area 0.0.0.0"],
             parents=["interface {}".format(loopback_name)],
             module_ignore_errors=True,
@@ -81,7 +83,7 @@ def test_ospf_dynamic_routing(ospf_setup, duthosts, rand_one_dut_hostname):
         assert wait_until(60, 3, 0, _route_present, duthost, prefix, True), \
             "OSPF route {} was not installed".format(prefix)
 
-        result = host.config(
+        result = host.eos_config(
             lines=["no interface {}".format(loopback_name)],
             module_ignore_errors=True,
         )
@@ -92,7 +94,7 @@ def test_ospf_dynamic_routing(ospf_setup, duthosts, rand_one_dut_hostname):
             "OSPF route {} was not withdrawn".format(prefix)
     finally:
         if loopback_added:
-            host.config(
+            host.eos_config(
                 lines=["no interface {}".format(loopback_name)],
                 module_ignore_errors=True,
             )

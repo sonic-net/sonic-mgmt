@@ -14,19 +14,23 @@ _BFD_FIREWALL_RULE = "! -i eth0 -p udp -m multiport --dports 3784,4784 -j ACCEPT
 def _allow_bfd_in_host_firewall(duthost):
     """Open the same FRR BFD ports that caclmgrd opens for SAI-backed sessions."""
     inserted = []
-    for command in ("iptables", "ip6tables"):
-        check = duthost.shell(
-            "sudo {} -C INPUT {}".format(command, _BFD_FIREWALL_RULE),
-            module_ignore_errors=True,
-        )
-        if check.get("rc") == 0:
-            continue
-        result = duthost.shell(
-            "sudo {} -I INPUT 2 {}".format(command, _BFD_FIREWALL_RULE),
-            module_ignore_errors=True,
-        )
-        assert result.get("rc") == 0, result.get("stderr", result)
-        inserted.append(command)
+    try:
+        for command in ("iptables", "ip6tables"):
+            check = duthost.shell(
+                "sudo {} -C INPUT {}".format(command, _BFD_FIREWALL_RULE),
+                module_ignore_errors=True,
+            )
+            if check.get("rc") == 0:
+                continue
+            result = duthost.shell(
+                "sudo {} -I INPUT 2 {}".format(command, _BFD_FIREWALL_RULE),
+                module_ignore_errors=True,
+            )
+            assert result.get("rc") == 0, result.get("stderr", result)
+            inserted.append(command)
+    except Exception:
+        _restore_bfd_host_firewall(duthost, inserted)
+        raise
     return inserted
 
 
@@ -122,7 +126,7 @@ def _set_remote_bfd_drop(peer, enabled):
     acl_name = "OSPF_BFD_TEST_DROP"
     interface = peer["ospf_interfaces"][0]
     if enabled:
-        result = host.config(
+        result = host.eos_config(
             lines=[
                 "10 deny udp any host {} eq 3784".format(peer["dut_ip"]),
                 "20 deny udp any host {} eq 4784".format(peer["dut_ip"]),
@@ -132,19 +136,33 @@ def _set_remote_bfd_drop(peer, enabled):
             module_ignore_errors=True,
         )
         assert not result.get("failed"), result
-        result = host.config(
-            lines=["ip access-group {} out".format(acl_name)],
-            parents=["interface {}".format(interface)],
-            module_ignore_errors=True,
-        )
+        try:
+            result = host.eos_config(
+                lines=["ip access-group {} out".format(acl_name)],
+                parents=["interface {}".format(interface)],
+                module_ignore_errors=True,
+            )
+            assert not result.get("failed"), result
+        except Exception:
+            host.eos_config(
+                lines=["no ip access-group {} out".format(acl_name)],
+                parents=["interface {}".format(interface)],
+                module_ignore_errors=True,
+            )
+            host.eos_config(
+                lines=["no ip access-list {}".format(acl_name)],
+                module_ignore_errors=True,
+            )
+            raise
+        return
     else:
-        result = host.config(
+        result = host.eos_config(
             lines=["no ip access-group {} out".format(acl_name)],
             parents=["interface {}".format(interface)],
             module_ignore_errors=True,
         )
         assert not result.get("failed"), result
-        result = host.config(
+        result = host.eos_config(
             lines=["no ip access-list {}".format(acl_name)],
             module_ignore_errors=True,
         )
@@ -212,8 +230,8 @@ def test_ospf_with_bfd(ospf_Bfd_setup, duthosts, rand_one_dut_hostname,
 
         _set_remote_bfd_drop(peer, True)
         remote_dropped = True
-        assert wait_until(30, 1, 0, lambda: _bfd_status(asic, peer_ip) != "up"), \
-            "BFD peer {} remained Up after remote packet loss".format(peer_ip)
+        assert wait_until(30, 1, 0, lambda: _bfd_status(asic, peer_ip) == "down"), \
+            "BFD peer {} did not report Down after remote packet loss".format(peer_ip)
         assert wait_until(30, 1, 0, lambda: not _route_present(asic, prefix)), \
             "OSPF route {} was not withdrawn after BFD failure".format(prefix)
         assert _remote_interface_up(peer), "cEOS routed interface went down during the BFD-only fault"

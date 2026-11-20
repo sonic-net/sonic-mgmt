@@ -47,6 +47,20 @@ def _eos_ospf_parent(host):
     return "router ospf {} vrf {}".format(int(match.group(1)), host.bgp_vrf)
 
 
+def _eos_config_or_raise(host, description, **kwargs):
+    result = host.eos_config(module_ignore_errors=True, **kwargs)
+    if result.get("failed"):
+        raise AssertionError("{} failed: {}".format(description, result))
+    return result
+
+
+def _ceos_bfd_agent_is_shutdown(host):
+    result = host.run_command("show running-config | include ^agent Bfd")
+    stdout = result.get("stdout", [])
+    text = stdout if isinstance(stdout, str) else "\n".join(stdout)
+    return any(line.strip() == "agent Bfd shutdown" for line in text.splitlines())
+
+
 def _configure_ceos_ospf(nbr_info, enable_bfd=False):
     host = nbr_info["host"]
     assert isinstance(host, EosHost), "SONiC-VPP OSPF qualification requires cEOS neighbors"
@@ -55,48 +69,77 @@ def _configure_ceos_ospf(nbr_info, enable_bfd=False):
     loopback = nbr_info["conf"]["interfaces"]["Loopback0"]["ipv4"]
     assert ipv4, "No IPv4 DUT peer address for {}".format(host.hostname)
 
-    lines = ["router-id {}".format(loopback.split("/", 1)[0])]
-    if enable_bfd:
-        lines.extend(["bfd default", "bfd adjacency state any"])
-    result = host.config(lines=lines, parents=[_eos_ospf_parent(host)], module_ignore_errors=True)
-    if result.get("failed"):
-        pytest.fail("configuring OSPF on {} failed: {}".format(host.hostname, result))
-
     routed_interface = next(
         name for name in nbr_info["conf"]["interfaces"] if name.startswith("Port-Channel")
     )
-    ospf_interfaces = [routed_interface, "Loopback0"]
-    for interface in ospf_interfaces:
-        lines = ["ip ospf area 0.0.0.0"]
-        if interface.startswith("Port-Channel"):
-            lines.append("ip ospf mtu-ignore")
-        result = host.config(
-            lines=lines,
-            parents=["interface {}".format(interface)],
-            module_ignore_errors=True,
-        )
-        if result.get("failed"):
-            pytest.fail("enabling OSPF on {} {} failed: {}".format(host.hostname, interface, result))
-
-    return {
+    details = {
         "dut_ip": ipv4,
         "loopback": loopback,
-        "ospf_interfaces": ospf_interfaces,
+        "ospf_interfaces": [],
+        "ospf_process_changed": False,
+        "bfd_agent_changed": False,
     }
+
+    try:
+        if enable_bfd and _ceos_bfd_agent_is_shutdown(host):
+            # Record ownership before the write so even a partial module
+            # failure restores the administrative state observed above.
+            details["bfd_agent_changed"] = True
+            _eos_config_or_raise(
+                host,
+                "enabling the BFD agent on {}".format(host.hostname),
+                lines=["no agent Bfd shutdown"],
+            )
+
+        lines = ["router-id {}".format(loopback.split("/", 1)[0])]
+        if enable_bfd:
+            lines.extend(["bfd default", "bfd adjacency state any"])
+        details["ospf_process_changed"] = True
+        _eos_config_or_raise(
+            host,
+            "configuring OSPF on {}".format(host.hostname),
+            lines=lines,
+            parents=[_eos_ospf_parent(host)],
+        )
+
+        for interface in (routed_interface, "Loopback0"):
+            # Add the attempted interface before mutating it so the helper's
+            # exception path also rolls back a partially applied command.
+            details["ospf_interfaces"].append(interface)
+            lines = ["ip ospf area 0.0.0.0"]
+            if interface.startswith("Port-Channel"):
+                lines.append("ip ospf mtu-ignore")
+            _eos_config_or_raise(
+                host,
+                "enabling OSPF on {} {}".format(host.hostname, interface),
+                lines=lines,
+                parents=["interface {}".format(interface)],
+            )
+    except Exception:
+        _cleanup_ceos_ospf(host, details)
+        raise
+
+    return details
 
 
 def _cleanup_ceos_ospf(host, details):
     assert isinstance(host, EosHost)
-    for interface in details.get("ospf_interfaces", []):
+    for interface in reversed(details.get("ospf_interfaces", [])):
         lines = ["no ip ospf area 0.0.0.0"]
         if interface.startswith("Port-Channel"):
             lines.append("no ip ospf mtu-ignore")
-        host.config(
+        host.eos_config(
             lines=lines,
             parents=["interface {}".format(interface)],
             module_ignore_errors=True,
         )
-    host.config(lines=["no {}".format(_eos_ospf_parent(host))], module_ignore_errors=True)
+    if details.get("ospf_process_changed"):
+        host.eos_config(
+            lines=["no {}".format(_eos_ospf_parent(host))],
+            module_ignore_errors=True,
+        )
+    if details.get("bfd_agent_changed"):
+        host.eos_config(lines=["agent Bfd shutdown"], module_ignore_errors=True)
 
 
 def _linux_interface_for_peer(host, peer_ip):
@@ -106,17 +149,19 @@ def _linux_interface_for_peer(host, peer_ip):
     return routes[0]["dev"]
 
 
-def _require_vpp_ceos(duthost, request):
+def _require_vpp_ceos(duthost, tbinfo, request):
     if duthost.facts.get("asic_type") != "vpp":
         pytest.skip("This OSPF qualification is specific to SONiC-VPP")
     if request.config.getoption("neighbor_type") != "eos":
         pytest.skip("SONiC-VPP OSPF qualification uses cEOS neighbors")
+    if tbinfo["topo"]["name"] != "t0":
+        pytest.skip("SONiC-VPP OSPF qualification requires the standard t0 topology")
 
 
 @pytest.fixture(scope="module")
 def ospf_setup(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo, request):
     duthost = duthosts[rand_one_dut_hostname]
-    _require_vpp_ceos(duthost, request)
+    _require_vpp_ceos(duthost, tbinfo, request)
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     setup_info = {"nbr_addr": {}, "neighbors": {}, "expected_routes": []}
@@ -154,16 +199,18 @@ def ospf_setup(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo, request):
 
         yield setup_info
     finally:
-        for host, details in configured_hosts:
-            _cleanup_ceos_ospf(host, details)
-        config_reload(duthost, safe_reload=True)
-        time.sleep(10)
+        try:
+            for host, details in configured_hosts:
+                _cleanup_ceos_ospf(host, details)
+        finally:
+            config_reload(duthost, safe_reload=True)
+            time.sleep(10)
 
 
 @pytest.fixture(scope="module")
 def ospf_Bfd_setup(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo, request):
     duthost = duthosts[rand_one_dut_hostname]
-    _require_vpp_ceos(duthost, request)
+    _require_vpp_ceos(duthost, tbinfo, request)
 
     dut_asn = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_bgp_asn"]
     setup_info = {}
@@ -187,7 +234,9 @@ def ospf_Bfd_setup(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo, request):
             configured_hosts.append((nbr_info["host"], details))
         yield setup_info
     finally:
-        for host, details in configured_hosts:
-            _cleanup_ceos_ospf(host, details)
-        config_reload(duthost, config_source="config_db", safe_reload=True)
-        time.sleep(10)
+        try:
+            for host, details in configured_hosts:
+                _cleanup_ceos_ospf(host, details)
+        finally:
+            config_reload(duthost, config_source="config_db", safe_reload=True)
+            time.sleep(10)
