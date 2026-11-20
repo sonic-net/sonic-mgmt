@@ -112,7 +112,7 @@ def setup_faulted_y_cable_driver(
             logging.warning("Primary Y-cable cleanup command failed: %s", result)
 
         if not restore_ok or not _wait_for_recovery(
-                simulated_faulty_side, simulated_good_side, select_mux_port, active_standby_ports):
+                simulated_faulty_side, select_mux_port, active_standby_ports):
             logging.warning("Y-cable or mux health did not recover; recreating PMON on %s",
                             simulated_faulty_side.hostname)
             _remove_pmon_container(simulated_faulty_side)
@@ -124,8 +124,11 @@ def setup_faulted_y_cable_driver(
             pytest_assert(restarted, "Failed to start PMON on {}".format(simulated_faulty_side.hostname))
             logging.info("PMON is running.")
             pytest_assert(
-                _wait_for_recovery(simulated_faulty_side, simulated_good_side, select_mux_port, active_standby_ports),
+                _wait_for_recovery(simulated_faulty_side, select_mux_port, active_standby_ports),
                 "Failed to recover Y-cable state or mux health after PMON recovery")
+
+        pytest_assert(_wait_for_mux_ports_healthy(simulated_good_side, active_standby_ports),
+                      "Failed to recover mux health on {}".format(simulated_good_side.hostname))
 
 
 def get_tor_mux_status(duthost, mux_port):
@@ -150,7 +153,22 @@ def _wait_for_ycabled_startup(duthost):
     return wait_until(60, 5, 0, lambda: duthost.get_pmon_daemon_status("ycabled")[0] == "RUNNING")
 
 
-def _wait_for_recovery(faulty_side, good_side, mux_port, ports):
+def _wait_for_mux_ports_healthy(duthost, ports):
+    def _check_mux_ports_healthy():
+        mux_status = show_muxcable_status(duthost)
+        for port in ports:
+            if port not in mux_status:
+                logging.debug("MUX status is missing on %s %s", duthost.hostname, port)
+                return False
+            if mux_status[port]["health"] != "healthy" or mux_status[port]["hwstatus"] != "consistent":
+                logging.debug("MUX status has not recovered on %s %s: %s", duthost.hostname, port, mux_status[port])
+                return False
+        return True
+
+    return wait_until(120, 10, 0, _check_mux_ports_healthy)
+
+
+def _wait_for_recovery(faulty_side, mux_port, ports):
     if not _wait_for_ycabled_startup(faulty_side):
         logging.warning("ycabled did not reach RUNNING on %s", faulty_side.hostname)
         return False
@@ -159,22 +177,10 @@ def _wait_for_recovery(faulty_side, good_side, mux_port, ports):
         return (get_tor_mux_probe_state(faulty_side, mux_port) in ("active", "standby") and
                 get_tor_mux_cable_info(faulty_side, mux_port).get("link_status_peer") == "up")
 
-    def _check_mux_ports_healthy():
-        for duthost in (faulty_side, good_side):
-            mux_status = show_muxcable_status(duthost)
-            for port in ports:
-                if port not in mux_status:
-                    logging.debug("MUX status is missing on %s %s", duthost.hostname, port)
-                    return False
-                if mux_status[port]["health"] != "healthy" or mux_status[port]["hwstatus"] != "consistent":
-                    logging.debug("MUX status has not recovered on %s %s: %s", duthost.hostname, port, mux_status[port])
-                    return False
-        return True
-
     # ycabled is RUNNING, but as of 2026-11-17 its info worker waits 60s
     # after worker startup (following daemon initialization) before its first periodic refresh.
     return (wait_until(90, 10, 0, _check_fault_cleared) and
-            wait_until(120, 10, 0, _check_mux_ports_healthy))
+            _wait_for_mux_ports_healthy(faulty_side, ports))
 
 
 @pytest.mark.parametrize("simulate_probe_unknown, simulate_peer_link_down", [(True, False)])
