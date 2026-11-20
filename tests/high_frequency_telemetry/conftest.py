@@ -17,11 +17,11 @@ from tests.high_frequency_telemetry.utilities import (
     InfluxDbSink,
     cleanup_hft_config,
     enable_otel_collector,
-    ensure_countersyncd_daemon,
     get_available_ports,
     get_configured_buffer_pools,
     get_configured_buffer_queue_objects,
     get_configured_queue_objects,
+    get_running_countersyncd_pid,
     install_otel_collector_config,
     is_otel_image_available,
     render_otel_collector_config,
@@ -144,9 +144,9 @@ def _countersyncd_otel_export(duthost, original_hft_state):
         raise
     try:
         duthost.command(argv=["python3", helper, "install", work, original_hft_state, *HFT_OTEL_ARGS])
-        if not wait_until(60, 2, 0, duthost.critical_processes_running, "hft"):
+        if (not wait_until(60, 2, 0, duthost.critical_processes_running, "hft") or
+                get_running_countersyncd_pid(duthost) is None):
             pytest.fail("countersyncd did not start in the HFT container")
-        ensure_countersyncd_daemon(duthost)
         yield
     finally:
         # Leave the helper and recovery record on the DUT if restoration fails.
@@ -429,11 +429,12 @@ def hft_influxdb(request, ptfhost, skip_unsupported_hft_test,
     def cleanup_stop_collector():
         stop_otel_collector(duthost)
 
-    def cleanup_verify_countersyncd():
-        ensure_countersyncd_daemon(duthost)
+    def verify_countersyncd():
+        if get_running_countersyncd_pid(duthost) is None:
+            pytest.fail("Expected supervisor-owned countersyncd to be RUNNING in hft")
 
     try:
-        ensure_countersyncd_daemon(duthost)
+        verify_countersyncd()
         stop_otel_collector(duthost)
         setup_influxdb(ptfhost, port=INFLUXDB_PORT, bucket=bucket)
         database_created = True
@@ -476,7 +477,7 @@ def hft_influxdb(request, ptfhost, skip_unsupported_hft_test,
                 (f"drop InfluxDB database {bucket}", sink.drop)
             )
         cleanup_steps.append(
-            ("verify countersyncd daemon", cleanup_verify_countersyncd)
+            ("verify countersyncd daemon", verify_countersyncd)
         )
         cleanup_error = _run_cleanup_steps(cleanup_steps)
         if cleanup_error is not None and original_error is None:

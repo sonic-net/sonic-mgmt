@@ -451,14 +451,8 @@ def cleanup_hft_config(duthost, profile_name, group_names=None):
     logger.info("Cleaned HFT profile %s", profile_name)
 
 
-def ensure_countersyncd_daemon(duthost):
-    """Verify that supervisor reports a running countersyncd in hft."""
-    pid = _get_running_countersyncd_pid(duthost)
-    pytest_assert(pid is not None, "Expected supervisor-owned countersyncd to be RUNNING in hft")
-    return True
-
-
-def _get_running_countersyncd_pid(duthost):
+def get_running_countersyncd_pid(duthost):
+    """Return the PID if supervisor reports countersyncd as RUNNING in hft, otherwise None."""
     status = duthost.shell(
         "docker exec hft supervisorctl status countersyncd",
         module_ignore_errors=True,
@@ -480,7 +474,7 @@ def _get_running_countersyncd_pid(duthost):
 
 def restart_countersyncd_daemon(duthost, timeout=30):
     """Restart only countersyncd and verify its supervisor-owned process."""
-    old_pid = _get_running_countersyncd_pid(duthost)
+    old_pid = get_running_countersyncd_pid(duthost)
     pytest_assert(
         old_pid is not None,
         "Unable to determine the running countersyncd PID before restart",
@@ -498,7 +492,7 @@ def restart_countersyncd_daemon(duthost, timeout=30):
 
     def restarted():
         nonlocal new_pid
-        new_pid = _get_running_countersyncd_pid(duthost)
+        new_pid = get_running_countersyncd_pid(duthost)
         return new_pid is not None and new_pid != old_pid
 
     pytest_assert(
