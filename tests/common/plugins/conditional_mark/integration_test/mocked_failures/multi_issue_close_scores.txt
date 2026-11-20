@@ -1,0 +1,1 @@
+Route not found in routing table after redistribution. Expected prefix 10.0.0.0/24 in BGP RIB but it was missing after 60 seconds.

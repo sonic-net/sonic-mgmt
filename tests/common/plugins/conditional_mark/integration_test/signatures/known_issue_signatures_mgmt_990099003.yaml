@@ -1,0 +1,14 @@
+signatures:
+  - name: pfcwd_timer_middle_range
+    exception_type: Failed
+    message: |-
+      Failed: PFC watchdog timer accuracy test failed. Real detection time is greater than configured PFC storm detection time. Detected: 450ms, Expected max: 400ms.
+    stack_trace: |-
+      tests/pfcwd/test_pfcwd_timer_accuracy.py:345: in test_pfcwd_timer_accuracy
+          pytest.fail(msg)
+    failure_matching_rule: >-
+      If the failure is about PFC watchdog timer accuracy where the detection
+      time exceeds the configured threshold, it is the same issue.
+    xfail_similarity_high_th: "0.95"
+    xfail_similarity_low_th: "0.30"
+    xfail_ai_agent_timeout: "10"
