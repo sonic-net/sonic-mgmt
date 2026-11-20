@@ -325,7 +325,8 @@ def mtu_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
     yield MTUConfig
 
-    MTUConfig.restore_mtu()
+    if MTUConfig.iface is not None:
+        MTUConfig.restore_mtu()
 
 
 def check_if_skip():

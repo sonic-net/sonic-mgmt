@@ -68,13 +68,13 @@ def get_neighbor_portchannel_intf(neigh_host, neigh_ipv4):
 
 
 @pytest.fixture(scope='module')
-def setup_info(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
+def setup_info(request, duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
     """Gather setup information for the link-local BGP test."""
     # This test uses eos_command/eos_config on the neighbor host, so it
     # requires EOS/cEOS neighbors.  Skip gracefully for other neighbor types.
+    neighbor_type = request.config.getoption("neighbor_type")
     common_props = tbinfo.get('topo', {}).get('properties', {}).get(
         'configuration_properties', {}).get('common', {})
-    neighbor_type = common_props.get('neighbor_type', 'eos')
     if neighbor_type.lower() not in ('eos', 'ceos'):
         pytest.skip("BGP link-local test requires EOS neighbors; "
                     "current neighbor_type is '{}'".format(neighbor_type))
@@ -392,7 +392,10 @@ def configure_unnumbered_eos(neigh_host, neigh_asn, dut_asn,
     # Call 1: Enable IPv6 RAs + global RFC 5549
     logger.info("Enable IPv6 RAs on EOS %s + RFC 5549", eos_intf)
     neigh_host.eos_config(
-        lines=["no ipv6 nd ra disabled"],
+        lines=[
+            "no ipv6 nd ra disabled",
+            "ipv6 nd ra interval 10",
+        ],
         parents="interface {}".format(eos_intf))
     neigh_host.eos_config(lines=["ip routing ipv6 interfaces"])
 
@@ -612,6 +615,12 @@ def configure_unnumbered_bgp(request, setup_info):
         facts = duthost.bgp_facts()['ansible_facts']
         return neigh_ipv4 not in facts.get('bgp_neighbors', {})
     wait_until(30, 3, 0, old_neighbor_removed)
+
+    # Keep the SAI RIF when the last global address is removed. Without this,
+    # SONiC deletes the INTERFACE/PORTCHANNEL_INTERFACE entry and orchagent
+    # removes the RIF, so hardware stops receiving IPv6 RAs and FRR unnumbered
+    # peers stay in Idle state.
+    duthost.shell(f"sudo config interface ipv6 enable use-link-local-only {dut_intf}")
 
     # Remove IPv4/IPv6 addresses from DUT interface to prevent
     # FRR numbered fallback. Use the actual prefix length captured from

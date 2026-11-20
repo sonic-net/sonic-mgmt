@@ -41,3 +41,4 @@ acl_l2:
     - "x86_64-arista.*"
     - "x86_64-cel_seastone.*"
     - "x86_64-nokia.*"
+    - "x86_64-kvm_x86_64-r0"  # VPP

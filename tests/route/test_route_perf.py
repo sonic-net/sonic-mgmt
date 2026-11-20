@@ -155,7 +155,7 @@ def reload_dut(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request, log
     if hasattr(request.node, "rep_call") and request.node.rep_call.failed:
         # Issue a config_reload to clear statically added route table and ip addr
         logging.info("Reloading config..")
-        config_reload(duthost, ignore_loganalyzer=loganalyzer)
+        config_reload(duthost, ignore_loganalyzer=loganalyzer, wait_for_bgp=True)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -189,9 +189,11 @@ def exec_routes(
     # Calculate timeout as a function of the number of routes
     # Allow at least 1 second even when there is a limited number of routes
     asic_type = duthost.facts["asic_type"]
-    if asic_type == "vs":
-        # In vs, route entries need more time to be installed
+    if asic_type in ("vs", "vpp"):
+        # Virtual platforms need more time to install and withdraw route entries.
         route_timeout = max(len(prefixes) / 160, 1)
+    elif duthost.facts["hwsku"] == "Nokia-M0-7215":
+        route_timeout = max(len(prefixes) / 200, 1)
     else:
         route_timeout = max(len(prefixes) / 250, 1)
 

@@ -73,11 +73,22 @@ def capture_remote_syslog(dut, destination, vrf=None):
             "Host rsyslog did not configure UDP/514 forwarding",
         )
 
+        # Capture on the management device to avoid observing packets twice
+        # across layered interfaces.
+        mgmt_interfaces = dut.get_running_config_facts().get("MGMT_INTERFACE", {})
+        pytest_assert(
+            len(mgmt_interfaces) == 1,
+            "Expected one management interface for syslog capture, found: {}".format(
+                list(mgmt_interfaces)
+            ),
+        )
+        mgmt_interface = next(iter(mgmt_interfaces))
         capture_command = (
-            "sudo timeout {} tcpdump -i any -y LINUX_SLL -nn "
+            "sudo timeout {} tcpdump -i {} -nn "
             "-s0 -U -w {} {}"
         ).format(
             SYSLOG_CAPTURE_SECONDS,
+            shlex.quote(mgmt_interface),
             shlex.quote(capture_file),
             shlex.quote(
                 "udp and dst host {} and dst port 514".format(destination)

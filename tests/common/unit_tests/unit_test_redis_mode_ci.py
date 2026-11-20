@@ -34,10 +34,12 @@ def test_mode_suffix_retains_topology_defaults_and_override_contract():
             assert args.endswith('${{ parameters.EXTRA_COMMON_PARAMS }}')
             assert '${{ each param in parameters.OVERRIDE_PARAMS }}' in step['parameters']
             tested[job['job']] = args
-    assert len(tested) == 11
+    assert len(tested) == 13
     for name, args in tested.items():
         assert '--disable_sai_validation' in args
         if 'dualtor' in name or 'vpp' in name:
             assert '--disable_loganalyzer' in args
         if 't0_sonic' in name:
             assert '--neighbor_type=sonic' in args
+        if 't0_csonic' in name:
+            assert '--neighbor_type=csonic' in args

@@ -3422,7 +3422,7 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     # Get over_subscribe_ratio from config DB
     # Command: redis-cli -n 4 hget "DEFAULT_LOSSLESS_BUFFER_PARAMETER|AZURE" 'over_subscribe_ratio'
     default_lossless_param_keys = duthost.shell(
-        'sonic-db-cli -s CONFIG_DB keys DEFAULT_LOSSLESS_BUFFER_PARAMETER*')['stdout'][0]
+        'sonic-db-cli -s CONFIG_DB keys DEFAULT_LOSSLESS_BUFFER_PARAMETER*')['stdout'].splitlines()[0]
     over_subscribe_ratio_raw = duthost.shell(
         'sonic-db-cli -s CONFIG_DB hget "{}" "over_subscribe_ratio"'.format(default_lossless_param_keys))['stdout']
     if over_subscribe_ratio_raw:
@@ -3431,7 +3431,7 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
         over_subscribe_ratio = None
 
     shp_size_raw = duthost.shell(
-        'sonic-db-cli -s CONFIG_DB hget "BUFFER_POOL|ingress_lossless_pool", "xoff"')['stdout']
+        'sonic-db-cli -s CONFIG_DB hget "BUFFER_POOL|ingress_lossless_pool" "xoff"')['stdout']
     if shp_size_raw:
         shp_size = float(shp_size_raw)
     else:

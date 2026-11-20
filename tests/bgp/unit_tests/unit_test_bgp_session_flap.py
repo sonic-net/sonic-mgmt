@@ -1,10 +1,11 @@
-"""Regression tests for BGP session-flap worker and mark behavior."""
+"""Regression tests for BGP session-flap workers, memory and marks."""
 
 import ast
 import sys
 import threading
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import yaml
@@ -36,7 +37,12 @@ HELPERS = {
     "restore_neighbor_bgp",
     "stop_flap_workers",
     "start_flap_worker",
+    "get_flapped_neighbors",
+    "wait_for_all_neighbors_flapped",
+    "split_neighbors_for_workers",
     "assert_flap_workers_succeeded",
+    "pre_flap_stats",
+    "wait_for_peer_memory_recovery",
     "flap_neighbor_session",
     "test_bgp_single_session_flaps",
     "test_bgp_multiple_session_flaps",
@@ -45,6 +51,16 @@ HELPERS = {
 
 def _assert(condition, message="BGP session-flap check failed"):
     assert condition, message
+
+
+def _poll_until(timeout, interval, delay, condition):
+    """Polling wait_until for tests that run real worker threads."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if condition():
+            return True
+        time.sleep(0.01)
+    return condition()
 
 
 class CapturingThread(threading.Thread):
@@ -108,8 +124,15 @@ def flap_helpers():
         if isinstance(node, ast.FunctionDef) and node.name in HELPERS
     ]
     namespace = {
+        "BGP_POLL_INTERVAL": 10,
         "BGP_SESSION_TIMEOUT": 300,
         "FLAP_THREAD_STOP_TIMEOUT": 2,
+        "FLAP_COMPLETION_TIMEOUT": 2,
+        "KILL_BGPD_TRIES": 3,
+        "KILL_BGPD_RETRY_DELAY": 0,
+        "RunAnsibleModuleFail": Exception,
+        "retry_call": lambda func, **kwargs: func(),
+        "MAX_FLAP_WORKERS": 8,
         "InterruptableThread": CapturingThread,
         "cpuSpike": 10,
         "get_cpu_stats": lambda duthost: [0] * 9,
@@ -120,6 +143,7 @@ def flap_helpers():
         "threading": threading,
         "time": time,
         "traceback": __import__("traceback"),
+        "wait_until": lambda timeout, interval, delay, condition: condition(),
         "wait_time": 2,
     }
     module = compile(
@@ -134,13 +158,15 @@ def flap_helpers():
 def test_single_worker_performs_flap_and_stops_cleanly(flap_helpers):
     neighbor = FakeNeighbor()
     stop_event = threading.Event()
-    worker = flap_helpers["start_flap_worker"](neighbor, stop_event)
+    worker = flap_helpers["start_flap_worker"]([neighbor], stop_event)
 
-    assert worker[1].wait(1), "worker did not complete a flap"
+    flap_helpers["wait_until"] = _poll_until
+    flap_helpers["wait_for_all_neighbors_flapped"]([worker], [neighbor])
+    assert worker[1] == {neighbor.hostname}, "worker did not complete a flap"
     errors = flap_helpers["stop_flap_workers"](
         [worker], stop_event, [neighbor]
     )
-    flap_helpers["assert_flap_workers_succeeded"]([worker], errors)
+    flap_helpers["assert_flap_workers_succeeded"]([worker], [neighbor], errors)
 
     assert neighbor.kill_count >= 1
     assert neighbor.start_count >= neighbor.kill_count
@@ -150,13 +176,15 @@ def test_multiple_workers_receive_neighbor_objects(flap_helpers):
     neighbors = [FakeNeighbor(), FakeNeighbor(), FakeNeighbor()]
     stop_event = threading.Event()
     workers = [
-        flap_helpers["start_flap_worker"](neighbor, stop_event)
+        flap_helpers["start_flap_worker"]([neighbor], stop_event)
         for neighbor in neighbors
     ]
 
-    assert all(worker[1].wait(1) for worker in workers)
+    flap_helpers["wait_until"] = _poll_until
+    flap_helpers["wait_for_all_neighbors_flapped"](workers, neighbors)
+    assert all(worker[1] for worker in workers)
     errors = flap_helpers["stop_flap_workers"](workers, stop_event, neighbors)
-    flap_helpers["assert_flap_workers_succeeded"](workers, errors)
+    flap_helpers["assert_flap_workers_succeeded"](workers, neighbors, errors)
 
     assert all(neighbor.kill_count >= 1 for neighbor in neighbors)
 
@@ -236,11 +264,9 @@ def test_multiple_session_test_passes_neighbor_objects(flap_helpers):
     received_neighbors = []
     stopped_neighbors = []
 
-    def record_worker(neighbor, stop_event):
-        received_neighbors.append(neighbor)
-        completed = threading.Event()
-        completed.set()
-        return CapturingThread(), completed
+    def record_worker(worker_neighbors, stop_event):
+        received_neighbors.extend(worker_neighbors)
+        return CapturingThread(), {n.hostname for n in worker_neighbors}
 
     def record_stop(workers, stop_event, selected_neighbors):
         stopped_neighbors.extend(selected_neighbors)
@@ -248,10 +274,11 @@ def test_multiple_session_test_passes_neighbor_objects(flap_helpers):
 
     flap_helpers.update({
         "assert_flap_workers_succeeded": (
-            lambda workers, errors, test_exception=None: _assert(
+            lambda workers, neighbors, errors, test_exception=None: _assert(
                 not errors and test_exception is None
             )
         ),
+        "all_bgp_sessions_established": lambda *args: True,
         "get_cpu_stats": lambda duthost: [0] * 9,
         "start_flap_worker": record_worker,
         "stop_flap_workers": record_stop,
@@ -262,12 +289,131 @@ def test_multiple_session_test_passes_neighbor_objects(flap_helpers):
 
     flap_helpers["test_bgp_multiple_session_flaps"]({
         "duthost": object(),
+        "asic_index": 0,
+        "neighbor_ips": ["10.0.0.1"],
         "neighbors": neighbors,
         "pre_flap_stats": [0] * 9,
     })
 
     assert received_neighbors == neighbors
     assert stopped_neighbors == neighbors
+
+
+def _run_flap_with_stats(flap_helpers, samples):
+    baseline = samples[0]
+    samples = iter(samples)
+    flap_helpers.update({
+        "all_bgp_sessions_established": lambda *args: True,
+        "get_cpu_stats": lambda _: next(samples),
+        "start_flap_worker": lambda group, _: (
+            CapturingThread(), {n.hostname for n in group}
+        ),
+        "stop_flap_workers": lambda *args: [],
+        "wait_until": lambda timeout, interval, delay, condition: any(
+            condition() for _ in range(3)
+        ),
+        "time": type(
+            "NoWait", (), {"sleep": staticmethod(lambda _: None)}
+        ),
+    })
+    flap_helpers["test_bgp_single_session_flaps"]({
+        "duthost": object(),
+        "asic_index": 0,
+        "neighbor_ips": ["10.0.0.1"],
+        "neighhost": FakeNeighbor(),
+        "pre_flap_stats": baseline,
+    })
+
+
+def test_transient_peer_memory_growth_recovers_after_flap(flap_helpers):
+    baseline = [0, 0, 0, 1028480, 736704, 216, 1028160, 736704, 216]
+    spike = baseline.copy()
+    spike[4] = 982272
+
+    _run_flap_with_stats(
+        flap_helpers, [baseline, spike] + [baseline] * 9 + [spike, baseline]
+    )
+
+
+def test_persistent_peer_memory_growth_fails_after_flap(flap_helpers):
+    baseline = [0, 0, 0, 1028480, 736704, 216, 1028160, 736704, 216]
+    spike = baseline.copy()
+    spike[4] = 982272
+
+    with pytest.raises(
+        AssertionError, match="BGP sessions or peer memory did not recover"
+    ):
+        _run_flap_with_stats(flap_helpers, [baseline] * 11 + [spike] * 3)
+
+
+@pytest.mark.parametrize("test_name", [
+    "test_bgp_single_session_flaps",
+    "test_bgp_multiple_session_flaps",
+])
+@pytest.mark.parametrize("reconnects", [True, False])
+def test_peer_memory_waits_for_bgp_reconnection(
+    flap_helpers, test_name, reconnects
+):
+    baseline = [0, 0, 0, 1028480, 736704, 216, 1028160, 736704, 216]
+    spike = baseline.copy()
+    spike[4] = 982272
+
+    class ReconnectingDut:
+        def __init__(self):
+            self.polls = 0
+            self.established = False
+            self.memory_samples = 0
+
+        def bgp_facts(self, instance_id):
+            assert instance_id == 1
+            self.polls += 1
+            self.established = reconnects and self.polls >= 2
+            return {
+                "ansible_facts": {
+                    "bgp_neighbors": {
+                        "10.0.0.1": {
+                            "state": "established" if self.established else "active"
+                        }
+                    }
+                }
+            }
+
+    dut = ReconnectingDut()
+
+    def sample(_):
+        dut.memory_samples += 1
+        if dut.memory_samples <= 11:
+            return baseline
+        return spike if dut.established else baseline
+
+    flap_helpers.update({
+        "get_cpu_stats": sample,
+        "start_flap_worker": lambda group, _: (
+            CapturingThread(), {n.hostname for n in group}
+        ),
+        "stop_flap_workers": lambda *args: [],
+        "wait_until": lambda timeout, interval, delay, condition: any(
+            condition() for _ in range(3)
+        ),
+        "time": type(
+            "NoWait", (), {"sleep": staticmethod(lambda _: None)}
+        ),
+    })
+    neighbor = FakeNeighbor()
+    with pytest.raises(
+        AssertionError, match="BGP sessions or peer memory did not recover"
+    ):
+        flap_helpers[test_name]({
+            "duthost": dut,
+            "asic_index": 1,
+            "neighbor_ips": ["10.0.0.1"],
+            "neighhost": neighbor,
+            "neighbors": [neighbor],
+            "pre_flap_stats": baseline,
+        })
+
+    assert dut.polls == 3
+    assert dut.memory_samples == (13 if reconnects else 11)
 
 
 @pytest.mark.parametrize("test_name", [
@@ -278,7 +424,6 @@ def test_multiple_session_test_passes_neighbor_objects(flap_helpers):
     (None, None),
     (3, 22000000),
     (6, 12000000),
-    (4, 400000),
 ])
 def test_rib_relearning_uses_pre_flap_baseline(
     flap_helpers, test_name, spike_index, spike_value
@@ -289,13 +434,12 @@ def test_rib_relearning_uses_pre_flap_baseline(
     relearned = pre_flap.copy()
     if spike_index is not None:
         relearned[spike_index] = spike_value
-    samples = iter([depleted] * 6 + [relearned] * 5)
-    flap_completed = threading.Event()
-    flap_completed.set()
+    samples = iter([depleted] * 6 + [relearned] * 6)
     flap_helpers.update({
+        "all_bgp_sessions_established": lambda *args: True,
         "get_cpu_stats": lambda duthost: next(samples),
-        "start_flap_worker": lambda neigh, stop_event: (
-            CapturingThread(), flap_completed
+        "start_flap_worker": lambda group, stop_event: (
+            CapturingThread(), {n.hostname for n in group}
         ),
         "stop_flap_workers": lambda workers, stop_event, neighbors: [],
         "time": type(
@@ -305,6 +449,8 @@ def test_rib_relearning_uses_pre_flap_baseline(
     neighbor = FakeNeighbor()
     setup = {
         "duthost": object(),
+        "asic_index": 0,
+        "neighbor_ips": ["10.0.0.1"],
         "neighhost": neighbor,
         "neighbors": [neighbor],
         "pre_flap_stats": pre_flap,
@@ -318,6 +464,93 @@ def test_rib_relearning_uses_pre_flap_baseline(
         ) as exc_info:
             flap_helpers[test_name](setup)
         assert "stats[index][{}]".format(spike_index) in str(exc_info.value)
+
+
+def test_pre_flap_stats_capture_every_frontend_dut(flap_helpers):
+    duts = [
+        SimpleNamespace(hostname="linecard1"),
+        SimpleNamespace(hostname="linecard2"),
+    ]
+    sampled = []
+
+    def sample(dut):
+        sampled.append(dut.hostname)
+        return [len(sampled)] * 9
+
+    flap_helpers["get_cpu_stats"] = sample
+    snapshots = flap_helpers["pre_flap_stats"].__wrapped__(
+        SimpleNamespace(frontend_nodes=duts)
+    )
+
+    assert sampled == ["linecard1", "linecard2"]
+    assert snapshots == {"linecard1": [1] * 9, "linecard2": [2] * 9}
+
+    tree = ast.parse(MODULE_PATH.read_text())
+    fixture = next(
+        node for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "pre_flap_stats"
+    )
+    assert [arg.arg for arg in fixture.args.args] == ["duthosts"]
+    assert fixture.decorator_list[0].keywords[0].value.value == "module"
+
+
+@pytest.mark.parametrize("test_name", [
+    "test_bgp_single_session_flaps",
+    "test_bgp_multiple_session_flaps",
+])
+def test_later_linecard_keeps_baseline_from_before_first_flap(
+    flap_helpers, test_name
+):
+    full = [1, 1, 1, 16392000, 306960, 864, 16392000, 306960, 864]
+    depleted = full.copy()
+    depleted[3] = 130560
+    recovered = full.copy()
+    recovered[3] = 14342400
+    dut = SimpleNamespace(hostname="linecard2")
+
+    tree = ast.parse(MODULE_PATH.read_text())
+    setup_node = next(
+        node for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "setup"
+    )
+    snapshot_assignment = next(
+        node for node in setup_node.body
+        if isinstance(node, ast.Assign)
+        and isinstance(node.targets[0], ast.Subscript)
+        and isinstance(node.targets[0].value, ast.Name)
+        and node.targets[0].value.id == "setup_info"
+        and node.targets[0].slice.value == "pre_flap_stats"
+    )
+    namespace = {
+        "duthost": dut,
+        "get_cpu_stats": lambda _: depleted,
+        "pre_flap_stats": {dut.hostname: full},
+        "setup_info": {},
+    }
+    exec(compile(
+        ast.Module(body=[snapshot_assignment], type_ignores=[]),
+        str(MODULE_PATH), "exec"
+    ), namespace)
+
+    samples = iter([depleted] * 4 + [recovered] * 8)
+    completed = threading.Event()
+    completed.set()
+    flap_helpers.update({
+        "all_bgp_sessions_established": lambda *args: True,
+        "get_cpu_stats": lambda _: next(samples),
+        "start_flap_worker": lambda *_: (CapturingThread(), completed),
+        "stop_flap_workers": lambda *args: [],
+        "time": SimpleNamespace(sleep=lambda _: None),
+    })
+    neighbor = FakeNeighbor()
+    flap_helpers[test_name]({
+        "duthost": dut,
+        "asic_index": 0,
+        "neighbor_ips": ["10.0.0.13"],
+        "neighhost": neighbor,
+        "neighbors": [neighbor],
+        "pre_flap_stats": namespace["setup_info"]["pre_flap_stats"],
+    })
 
 
 def test_partial_start_reports_primary_and_worker_failures(flap_helpers):
@@ -351,7 +584,7 @@ def test_partial_start_reports_primary_and_worker_failures(flap_helpers):
 def test_worker_exception_fails_after_neighbor_restore(flap_helpers):
     neighbor = FakeNeighbor(fail_kill=True)
     stop_event = threading.Event()
-    worker = flap_helpers["start_flap_worker"](neighbor, stop_event)
+    worker = flap_helpers["start_flap_worker"]([neighbor], stop_event)
     worker[0].join(timeout=1, suppress_exception=True)
 
     errors = flap_helpers["stop_flap_workers"](
@@ -360,7 +593,9 @@ def test_worker_exception_fails_after_neighbor_restore(flap_helpers):
 
     assert neighbor.start_count == 1
     with pytest.raises(AssertionError, match="kill failed"):
-        flap_helpers["assert_flap_workers_succeeded"]([worker], errors)
+        flap_helpers["assert_flap_workers_succeeded"](
+            [worker], [neighbor], errors
+        )
 
 
 def test_worker_returned_failure_fails_after_neighbor_restore(flap_helpers):
@@ -368,7 +603,7 @@ def test_worker_returned_failure_fails_after_neighbor_restore(flap_helpers):
         kill_result={"rc": 1, "stderr": "supervisor stop failed"}
     )
     stop_event = threading.Event()
-    worker = flap_helpers["start_flap_worker"](neighbor, stop_event)
+    worker = flap_helpers["start_flap_worker"]([neighbor], stop_event)
     worker[0].join(timeout=1, suppress_exception=True)
 
     errors = flap_helpers["stop_flap_workers"](
@@ -380,7 +615,9 @@ def test_worker_returned_failure_fails_after_neighbor_restore(flap_helpers):
         AssertionError,
         match="Failed to stop BGP.*supervisor stop failed"
     ):
-        flap_helpers["assert_flap_workers_succeeded"]([worker], errors)
+        flap_helpers["assert_flap_workers_succeeded"](
+            [worker], [neighbor], errors
+        )
 
 
 def test_restore_attempts_every_neighbor_and_reports_failures(flap_helpers):

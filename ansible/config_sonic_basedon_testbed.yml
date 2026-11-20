@@ -92,14 +92,20 @@
         fail_msg: "IPv6-only deployment requested but no IPv6 management address is supplied for {{ inventory_hostname }}"
       when: use_ipv6_mgmt|default(false)|bool
 
-    # IPv6-only management network configuration loading
+    # IPv6 management network configuration loading
     - name: Load IPv6 management configuration
       include_vars: "group_vars/{{ ipv6_mgmt_config_group | default(group_names[1]) }}/ipv6.yml"
       when:
-        - use_ipv6_mgmt is defined
-        - use_ipv6_mgmt|bool == true
+        - (use_ipv6_mgmt | default(false) | bool) or ansible_hostv6 is defined
         - ipv6_mgmt_config_group is defined or (group_names | length > 1)
       ignore_errors: true
+
+    - name: Include IPv6 forced management routes for dual-stack management
+      set_fact:
+        forced_mgmt_routes: "{{ ((forced_mgmt_routes | default([])) + (forced_mgmt_routes_ipv6 | default([]))) | unique | list }}"
+      when:
+        - not (use_ipv6_mgmt | default(false) | bool)
+        - ansible_hostv6 is defined
 
     - name: Override management service configurations for IPv6-only mode
       set_fact:

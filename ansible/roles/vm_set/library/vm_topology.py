@@ -462,6 +462,9 @@ class VMTopology(object):
         """Create a network namespace."""
         self.delete_network_namespace()
         VMTopology.cmd("ip netns add %s" % self.netns)
+        # The simulated NIC is an endpoint. Forwarding downstream copies can
+        # send them back through both ToRs and create a packet amplification loop.
+        VMTopology.cmd("ip netns exec %s sysctl -w net.ipv4.ip_forward=0" % self.netns)
 
     def delete_network_namespace(self):
         """Delete a network namespace."""

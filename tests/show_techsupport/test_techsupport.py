@@ -10,7 +10,6 @@ from random import randint
 from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.platform_api import bmc
-from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa: F401
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError, get_bughandler_instance
 from tests.common.utilities import is_ipv6_only_topology, wait_until, check_msg_in_syslog
 from log_messages import LOG_EXPECT_ACL_RULE_CREATE_RE, LOG_EXPECT_ACL_RULE_REMOVE_RE, LOG_EXCEPT_MIRROR_SESSION_REMOVE
@@ -373,8 +372,7 @@ def gen_dump_file(duthost, since):
     return tar_file
 
 
-def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_hostname, skip_on_dpu,  # noqa F811
-                     platform_api_conn):     # noqa F811
+def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_hostname, skip_on_dpu):  # noqa F811
     """
     test the "show techsupport" command in a loop
     :param config: fixture to configure additional setups_list on dut.
