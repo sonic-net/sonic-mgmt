@@ -1213,9 +1213,6 @@ class ReloadTest(BaseTest):
                      "DUT hasn't shutdown in {} seconds".format(self.control_plane_down_timeout))
         if self.reboot_type == 'fast-reboot':
             self.light_probe = True
-        else:
-            # add or del routes during boot
-            self.do_inboot_oper()
         self.reboot_start = datetime.datetime.now()
         self.log("Dut reboots: reboot start %s" % str(self.reboot_start))
 
@@ -1650,6 +1647,12 @@ class ReloadTest(BaseTest):
                 thr.setDaemon(True)
                 thr.start()
                 self.warmboot_finalizer_thread = thr
+
+            # Inject routing changes during warm-reboot only after finalizer
+            # monitoring has started, so slow inboot SAD cannot race past the
+            # warmboot-finalizer "activating" window.
+            if 'warm-reboot' in self.reboot_type:
+                self.do_inboot_oper()
 
             if self.kvm_test:
                 self.handle_advanced_reboot_health_check_kvm()
