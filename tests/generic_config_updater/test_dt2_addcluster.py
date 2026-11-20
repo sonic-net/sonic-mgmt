@@ -68,6 +68,7 @@ from tests.generic_config_updater.util.verify_patch import (
     buffer_pg_priorities,
     normalize_config,
     normalize_profile_reference,
+    validate_lossless_pg_baseline,
 )
 
 from .util.process_minigraph import SingleAsicMinigraphRefactor as MinigraphRefactor
@@ -437,6 +438,12 @@ def setup_env(duthosts, rand_one_dut_hostname):
     if duthost.get_facts().get("modular_chassis"):
         pytest.skip("This test is for single-ASIC dt2 devices only; use test_multiasic_addcluster for modular chassis")
 
+    model = duthost.shell('sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" buffer_model',
+                          module_ignore_errors=True)
+    pytest_assert(model['rc'] == 0, "Unable to determine buffer model before configuration changes")
+    if model['stdout'].strip().lower() not in ('', 'traditional'):
+        pytest.skip("This testcase verifies traditional buffers only; other models need model-aware verification")
+
     for path in (MINIGRAPH_BACKUP, DUT_GOLDEN_OVERRIDE):
         pytest_assert(not duthost.stat(path=path)["stat"]["exists"],
                       f"Refusing to overwrite a leftover restoration artifact: {path}")
@@ -568,10 +575,33 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
     dut_config_path = os.path.join(dut_dir, "all.json")
     full_config_path = os.path.join(local_dir, "dt2-all.json")
     os.makedirs(os.path.dirname(full_config_path), exist_ok=True)
-    duthost.shell(f"show runningconfiguration all > {dut_config_path}")
-    duthost.fetch(src=dut_config_path, dest=full_config_path, flat=True)
+
+    def capture_config(dut_path, local_path):
+        duthost.shell(f"show runningconfiguration all > {dut_path}")
+        duthost.fetch(src=dut_path, dest=local_path, flat=True)
+        duthost.shell(f"rm -f {dut_path}")
+        with open(local_path) as f:
+            return normalize_config(json.load(f))
+
+    def baseline_buffers_ready():
+        config = capture_config(dut_config_path, full_config_path)
+        ports = set(neighbor_interfaces) | {
+            port for port, fields in config.get('PORT_QOS_MAP', {}).items()
+            if is_front_panel_port(port) and fields.get('pfc_enable')
+            and config.get('PORT', {}).get(port, {}).get('admin_status') == 'up'
+        }
+        try:
+            validate_lossless_pg_baseline(config, ports)
+            return True
+        except ValueError as error:
+            logger.info("Waiting for a complete with-T1 buffer baseline: %s", error)
+            return False
+
+    pytest_assert(wait_until(300, 20, 0, baseline_buffers_ready),
+                  "Incomplete with-T1 BUFFER_PG baseline; refusing to remove the neighbor")
+    with open(full_config_path) as f:
+        baseline_config = normalize_config(json.load(f))
     logger.info(f"Saved full configuration backup to {full_config_path}")
-    duthost.shell(f"rm -f {dut_config_path}")
 
     # Step 3: Modify minigraph to remove target T1 neighbor
     logger.info(f"Modifying minigraph to remove {target_t1}")
@@ -623,10 +653,17 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
     logger.info(f"Capturing running configuration without {target_t1}")
     dut_config_path = os.path.join(dut_dir, "all-without-t1.json")
     no_t1_config_path = os.path.join(local_dir, "dt2-all-without-t1.json")
-    duthost.shell(f"show runningconfiguration all > {dut_config_path}")
-    duthost.fetch(src=dut_config_path, dest=no_t1_config_path, flat=True)
+    needs_pg_table = any(
+        not normalize_profile_reference(fields.get('profile')).startswith(AUTOGEN_BUFFER_PG_PROFILE_PREFIX)
+        for fields in baseline_config.get('BUFFER_PG', {}).values())
+
+    def reduced_buffers_ready():
+        config = capture_config(dut_config_path, no_t1_config_path)
+        return not needs_pg_table or 'BUFFER_PG' in config
+
+    pytest_assert(wait_until(300, 20, 0, reduced_buffers_ready),
+                  "BUFFER_PG table is absent from the reduced snapshot; refusing a whole-table patch")
     logger.info(f"Saved configuration without {target_t1} to {no_t1_config_path}")
-    duthost.shell(f"rm -f {dut_config_path}")
 
     # Step 6: Generate GCU patch (diff between with-T1 and without-T1 configs)
     # For single-ASIC, the config structure is flat (no namespace nesting at top level)
@@ -793,10 +830,7 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
         key.rsplit('|', 1)[0] for key, fields in baseline_lossless_pgs.items()
         if fields != reduced_config.get('BUFFER_PG', {}).get(key)
     }
-    expected_pg_priorities = {
-        port: buffer_pg_priorities(key for key in baseline_lossless_pgs if key.startswith(port + '|'))
-        for port in pg_ports
-    }
+    expected_pg_priorities = validate_lossless_pg_baseline(baseline_config, pg_ports)
 
     # Everything here -- the patch paths, patch_cable_length_ports(), and the CONFIG_DB
     # key "CABLE_LENGTH|AZURE" -- assumes CABLE_LENGTH holds exactly one profile named
