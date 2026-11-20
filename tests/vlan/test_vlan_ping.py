@@ -70,7 +70,7 @@ def _select_vlan_asic(duthost):
         for vlan_name, members in cfg_facts.get('VLAN_MEMBER', {}).items():
             if len(members) >= 2 and vlan_name in cfg_facts.get('VLAN_INTERFACE', {}):
                 return asic, cfg_facts
-    py_assert(False, "No ASIC has a VLAN with 2 or more members")
+    pytest.fail("No ASIC has a VLAN with 2 or more members")
 
 
 @pytest.fixture(scope='module')
