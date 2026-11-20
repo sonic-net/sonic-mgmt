@@ -267,12 +267,13 @@ def setup_bgp_peers(
 '''
 
 
-def _get_injector_pfx_count(duthost, is_ipv6, injector_ip):
+def _get_injector_pfx_count(duthost, is_ipv6, injector_ip, namespace=DEFAULT_NAMESPACE):
     """Return the accepted-prefix count (pfxRcd) for *injector_ip* from the BGP summary."""
     if is_ipv6:
         cmd = "vtysh -c 'show bgp ipv6 summary json'"
     else:
         cmd = "vtysh -c 'show ip bgp summary json'"
+    cmd = duthost.get_vtysh_cmd_for_namespace(cmd, namespace)
     output = duthost.shell(cmd, module_ignore_errors=True)['stdout']
     try:
         data = json.loads(output)
@@ -282,14 +283,14 @@ def _get_injector_pfx_count(duthost, is_ipv6, injector_ip):
     return int(data.get(af_key, {}).get('peers', {}).get(injector_ip, {}).get('pfxRcd', -1))
 
 
-def _check_pfx_received(duthost, is_ipv6, injector_ip, expected_count):
+def _check_pfx_received(duthost, is_ipv6, injector_ip, expected_count, namespace=DEFAULT_NAMESPACE):
     """Return True when the injector's pfxRcd reaches *expected_count*."""
-    return _get_injector_pfx_count(duthost, is_ipv6, injector_ip) >= expected_count
+    return _get_injector_pfx_count(duthost, is_ipv6, injector_ip, namespace) >= expected_count
 
 
-def _check_pfx_withdrawn(duthost, is_ipv6, injector_ip):
+def _check_pfx_withdrawn(duthost, is_ipv6, injector_ip, namespace=DEFAULT_NAMESPACE):
     """Return True when the injector's pfxRcd drops to 0."""
-    return _get_injector_pfx_count(duthost, is_ipv6, injector_ip) == 0
+    return _get_injector_pfx_count(duthost, is_ipv6, injector_ip, namespace) == 0
 
 
 '''
@@ -328,6 +329,7 @@ def test_bgp_update_replication(
 
     results = [measure_stats(duthost, is_ipv6)]
     injector_ip = route_injector.ip
+    injector_ns = route_injector.namespace
 
     # Inject and withdraw routes with a specified interval in between iterations
     for interval in duthost_intervals:
@@ -341,13 +343,13 @@ def test_bgp_update_replication(
                 )
             )
             wait_until(ROUTE_WAIT_TIMEOUT, 2, 0,
-                       _check_pfx_received, duthost, is_ipv6, injector_ip, NUM_ROUTES)
+                       _check_pfx_received, duthost, is_ipv6, injector_ip, NUM_ROUTES, injector_ns)
 
             # Measure after injection
             results.append(measure_stats(duthost, is_ipv6))
 
             # Validate all routes have been received
-            curr_pfx = _get_injector_pfx_count(duthost, is_ipv6, injector_ip)
+            curr_pfx = _get_injector_pfx_count(duthost, is_ipv6, injector_ip, injector_ns)
             pytest_assert(
                 curr_pfx >= NUM_ROUTES,
                 f"All routes have not been received: pfxRcd '{curr_pfx}', expected: '{NUM_ROUTES}'"
@@ -361,13 +363,13 @@ def test_bgp_update_replication(
                 )
             )
             wait_until(ROUTE_WAIT_TIMEOUT, 2, 0,
-                       _check_pfx_withdrawn, duthost, is_ipv6, injector_ip)
+                       _check_pfx_withdrawn, duthost, is_ipv6, injector_ip, injector_ns)
 
             # Measure after removal
             results.append(measure_stats(duthost, is_ipv6))
 
             # Validate all routes have been withdrawn
-            curr_pfx = _get_injector_pfx_count(duthost, is_ipv6, injector_ip)
+            curr_pfx = _get_injector_pfx_count(duthost, is_ipv6, injector_ip, injector_ns)
             pytest_assert(
                 curr_pfx == 0,
                 f"All withdrawals have not been received: pfxRcd '{curr_pfx}', expected: '0'"
