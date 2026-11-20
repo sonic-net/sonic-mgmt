@@ -18,6 +18,7 @@ from _pytest.outcomes import OutcomeException
 from natsort import natsorted
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.dut_utils import wait_for_container_running
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -457,19 +458,10 @@ def get_running_countersyncd_pid(duthost):
         "docker exec hft supervisorctl status countersyncd",
         module_ignore_errors=True,
     )
-    fields = status.get("stdout", "").split()
-    if status.get("rc") != 0 or len(fields) < 2 \
-            or fields[0] != "countersyncd" or fields[1] != "RUNNING":
+    if status.get("rc") != 0:
         return None
-    pid = duthost.shell(
-        "docker exec hft supervisorctl pid countersyncd",
-        module_ignore_errors=True,
-    )
-    try:
-        value = int(pid.get("stdout", "").strip())
-    except (TypeError, ValueError):
-        return None
-    return value if pid.get("rc") == 0 and value > 0 else None
+    match = re.match(r"countersyncd\s+RUNNING\s+pid ([1-9]\d*),", status.get("stdout", "").strip())
+    return int(match.group(1)) if match else None
 
 
 def restart_countersyncd_daemon(duthost, timeout=30):
@@ -515,16 +507,8 @@ def render_otel_collector_config(template_path, **kwargs):
     return template.render(**kwargs)
 
 
-def install_otel_collector_config(duthost, rendered_config,
-                                  dest_path="/etc/sonic/otel_config.yml"):
-    duthost.copy(content=rendered_config, dest=dest_path)
-
-
 def _is_otel_collector_ready(duthost):
-    if (
-        not duthost.is_service_fully_started("otel")
-        or not duthost.critical_processes_running("otel")
-    ):
+    if not duthost.critical_processes_running("otel"):
         return False
 
     result = duthost.shell(
@@ -587,16 +571,9 @@ def is_otel_image_available(duthost, attempts=6, retry_interval=10):
     return False
 
 
-def enable_otel_collector(duthost, timeout=60, check_image=True):
+def enable_otel_collector(duthost, *, feature_exists, timeout=60):
     """Enable the OTEL feature and wait for its container."""
-    if check_image and not is_otel_image_available(duthost):
-        pytest.skip("docker-sonic-otel is not available on this platform")
-
-    exists = duthost.shell(
-        "sonic-db-cli CONFIG_DB exists 'FEATURE|otel'",
-        module_ignore_errors=True,
-    )
-    if exists.get("stdout", "").strip() == "0":
+    if not feature_exists:
         duthost.shell(
             "sonic-db-cli CONFIG_DB hmset 'FEATURE|otel' "
             "state enabled auto_restart enabled "
@@ -608,17 +585,7 @@ def enable_otel_collector(duthost, timeout=60, check_image=True):
         module_ignore_errors=False,
     )
 
-    end_time = time.time() + timeout
-    while time.time() < end_time:
-        running = duthost.shell(
-            r"docker inspect -f \{\{.State.Running\}\} otel",
-            module_ignore_errors=True,
-        )
-        if running.get("rc") == 0 \
-                and running.get("stdout", "").strip() == "true":
-            return True
-        time.sleep(2)
-    raise AssertionError("OTEL container did not become ready")
+    wait_for_container_running(duthost, "otel", timeout=timeout, check_interval=2)
 
 
 def start_influxdb(ptfhost, port=8181, timeout=30,

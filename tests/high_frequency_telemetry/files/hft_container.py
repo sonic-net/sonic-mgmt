@@ -57,6 +57,14 @@ def start_service():
         command("systemctl", "start", "hft.service")
 
 
+def stop_service(container):
+    command("systemctl", "stop", "hft.service")
+    if container is not None:
+        container.reload()
+        if container.attrs["State"]["Running"]:
+            raise RuntimeError("hft is still running after systemctl stop")
+
+
 def enable_feature(client):
     command("config", "feature", "state", SERVICE, "enabled")
     for _ in range(60):
@@ -75,8 +83,7 @@ def create_with_args(client, source, name, args):
     host = source.attrs["HostConfig"]
     # The standalone, local HFT service uses host networking and bind mounts.
     # Do not silently detach a custom installation from its network or volumes.
-    if (host["NetworkMode"] != "host" or host["AutoRemove"] or
-            any(mount["Type"] == "volume" for mount in source.attrs["Mounts"])):
+    if host["NetworkMode"] != "host" or any(mount["Type"] == "volume" for mount in source.attrs["Mounts"]):
         raise RuntimeError("Cannot temporarily replace this non-standard hft container")
     config.update(Image=source.attrs["Image"], HostConfig=host, Cmd=args,
                   Labels={**(config.get("Labels") or {}), OWNER_LABEL: name})
@@ -110,10 +117,7 @@ def install(client, work, state, args):
     else:
         source = original
     candidate = create_with_args(client, source, work.name, args)
-    command("systemctl", "stop", "hft.service")
-    source.reload()
-    if source.attrs["State"]["Running"]:
-        raise RuntimeError("Managed hft did not stop; refusing to run two countersyncd instances")
+    stop_service(source)
     source.rename(work.name + "-original")
     candidate.rename(SERVICE)
     if feature_state() == "disabled":
@@ -133,16 +137,13 @@ def restore(client, work):
     source_file = work / "source"
     source_id = source_file.read_text() if source_file.exists() else before["original"]
     current = lookup(client, SERVICE)
-    if current and current.id != source_id and current.labels.get(OWNER_LABEL) != work.name:
+    test_owns_current = current is not None and current.labels.get(OWNER_LABEL) == work.name
+    if current and current.id != source_id and not test_owns_current:
         raise RuntimeError("Unexpected hft container; refusing to stop or remove it")
-    if before["state"] == "disabled" or (current and current.labels.get(OWNER_LABEL) == work.name):
+    if before["state"] == "disabled" or test_owns_current:
         # Under warm restart the unit's ExecStop uses 'container kill', which
         # requires the feature still to be enabled. Stop and verify before disabling.
-        command("systemctl", "stop", "hft.service")
-        if current:
-            current.reload()
-            if current.attrs["State"]["Running"]:
-                raise RuntimeError("hft is still running after systemctl stop")
+        stop_service(current)
     if before["state"] == "disabled" and feature_state() != "disabled":
         command("config", "feature", "state", SERVICE, "disabled")
 
