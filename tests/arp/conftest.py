@@ -6,7 +6,7 @@ import pytest
 import time
 
 from .args.wr_arp_args import add_wr_arp_args
-from .arp_utils import collect_info, get_po
+from .arp_utils import collect_info, get_po, get_db_cli
 from tests.common import constants
 from tests.common.config_reload import config_reload
 from ipaddress import ip_network, IPv6Network, IPv4Network
@@ -57,8 +57,11 @@ def get_function_completeness_level(pytestconfig):
 
 
 @pytest.fixture(scope="module")
-def config_facts(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def config_facts(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if duthost.is_multi_asic:
+        # VLAN config is per ASIC namespace (ASICs may not be connected to each other): use the ASIC of intfs_for_test
+        return duthost.asic_instance(enum_frontend_asic_index).config_facts(source="running")['ansible_facts']
     return duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
 
 
@@ -188,7 +191,7 @@ def common_setup_teardown(duthosts, ptfhost, enum_rand_one_per_hwsku_frontend_ho
 
 
 @pytest.fixture
-def garp_enabled(rand_selected_dut, config_facts):
+def garp_enabled(rand_selected_dut, enum_frontend_asic_index, config_facts):
     """
     Tries to enable gratuitious ARP for each VLAN on the ToR in CONFIG_DB
 
@@ -207,11 +210,13 @@ def garp_enabled(rand_selected_dut, config_facts):
 
     """
     duthost = rand_selected_dut
+    asic = duthost.asic_instance(enum_frontend_asic_index)
+    db_cli = get_db_cli(asic)
 
     vlan_intfs = list(config_facts['VLAN_INTERFACE'].keys())
-    garp_check_cmd = 'sonic-db-cli CONFIG_DB HGET "VLAN_INTERFACE|{}" grat_arp'
-    garp_enable_cmd = 'sonic-db-cli CONFIG_DB HSET "VLAN_INTERFACE|{}" grat_arp enabled'
-    cat_arp_accept_cmd = 'cat /proc/sys/net/ipv4/conf/{}/arp_accept'
+    garp_check_cmd = db_cli + ' CONFIG_DB HGET "VLAN_INTERFACE|{}" grat_arp'
+    garp_enable_cmd = db_cli + ' CONFIG_DB HSET "VLAN_INTERFACE|{}" grat_arp enabled'
+    cat_arp_accept_cmd = asic.ns_arg + 'cat /proc/sys/net/ipv4/conf/{}/arp_accept'
     arp_accept_vals = []
     old_grat_arp_vals = {}
 
@@ -231,7 +236,7 @@ def garp_enabled(rand_selected_dut, config_facts):
 
     yield all(int(val) == 2 for val in arp_accept_vals)
 
-    garp_disable_cmd = 'sonic-db-cli CONFIG_DB HDEL "VLAN_INTERFACE|{}" grat_arp'
+    garp_disable_cmd = db_cli + ' CONFIG_DB HDEL "VLAN_INTERFACE|{}" grat_arp'
     for vlan in vlan_intfs:
         old_grat_arp_val = old_grat_arp_vals[vlan]
 
@@ -286,8 +291,22 @@ def ip_and_intf_info(config_facts, intfs_for_test, ptfhost, ptfadapter):
     return ptf_intf_ipv4_addr, ptf_intf_ipv4_hosts, ptf_intf_ipv6_addr, ptf_intf_name, intf1_index
 
 
+def _config_proxy_arp(duthost, asic, vid, mode):
+    if not duthost.is_multi_asic:
+        duthost.shell('config vlan proxy_arp {} {}'.format(vid, mode))
+        return
+    # 'config vlan proxy_arp' only restarts ndppd in the host 'swss' container, so on multi-ASIC DUTs
+    # set CONFIG_DB of the ASIC and restart ndppd in the swss container of the ASIC
+    swss = asic.get_docker_name('swss')
+    duthost.shell('{} CONFIG_DB HSET "VLAN_INTERFACE|Vlan{}" proxy_arp {}'.format(get_db_cli(asic), vid, mode))
+    duthost.shell('docker exec {} sonic-cfggen -d -t /usr/share/sonic/templates/ndppd.conf.j2,/etc/ndppd.conf'
+                  .format(swss))
+    duthost.shell('docker exec {} supervisorctl restart ndppd'.format(swss))
+
+
 @pytest.fixture
-def proxy_arp_enabled(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, config_facts):
+def proxy_arp_enabled(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
+                      config_facts):
     """
     Tries to enable proxy ARP for each VLAN on the ToR
 
@@ -300,10 +319,10 @@ def proxy_arp_enabled(request, duthosts, enum_rand_one_per_hwsku_frontend_hostna
                False otherwise
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asic = duthost.asic_instance(enum_frontend_asic_index)
     pt_require(duthost.has_config_subcommand('config vlan proxy_arp'), "Proxy ARP command does not exist on device")
 
-    proxy_arp_check_cmd = 'sonic-db-cli CONFIG_DB HGET "VLAN_INTERFACE|Vlan{}" proxy_arp'
-    proxy_arp_config_cmd = 'config vlan proxy_arp {} {}'
+    proxy_arp_check_cmd = get_db_cli(asic) + ' CONFIG_DB HGET "VLAN_INTERFACE|Vlan{}" proxy_arp'
     vlans = config_facts['VLAN']
     vlan_ids = [vlans[vlan]['vlanid'] for vlan in list(vlans.keys())]
     old_proxy_arp_vals = {}
@@ -314,7 +333,7 @@ def proxy_arp_enabled(request, duthosts, enum_rand_one_per_hwsku_frontend_hostna
         old_proxy_arp_res = duthost.shell(proxy_arp_check_cmd.format(vid))
         old_proxy_arp_vals[vid] = old_proxy_arp_res['stdout']
 
-        duthost.shell(proxy_arp_config_cmd.format(vid, 'enabled'))
+        _config_proxy_arp(duthost, asic, vid, 'enabled')
 
         logger.info("Enabled proxy ARP for Vlan{}".format(vid))
         new_proxy_arp_res = duthost.shell(proxy_arp_check_cmd.format(vid))
@@ -326,11 +345,11 @@ def proxy_arp_enabled(request, duthosts, enum_rand_one_per_hwsku_frontend_hostna
 
     yield all('enabled' in val for val in new_proxy_arp_vals)
 
-    proxy_arp_del_cmd = 'sonic-db-cli CONFIG_DB HDEL "VLAN_INTERFACE|Vlan{}" proxy_arp'
+    proxy_arp_del_cmd = get_db_cli(asic) + ' CONFIG_DB HDEL "VLAN_INTERFACE|Vlan{}" proxy_arp'
     for vid, proxy_arp_val in list(old_proxy_arp_vals.items()):
         if 'enabled' not in proxy_arp_val:
             # Disable proxy_arp explicitly
-            duthost.shell(proxy_arp_config_cmd.format(vid, 'disabled'))
+            _config_proxy_arp(duthost, asic, vid, 'disabled')
             time.sleep(2)
             # Delete the DB entry instead of using the config command to satisfy check_dut_health_status
             duthost.shell(proxy_arp_del_cmd.format(vid))
@@ -350,18 +369,22 @@ def generate_link_local_addr(mac):
 
 
 @pytest.fixture(params=['v4', 'v6'])
-def packets_for_test(request, ptfadapter, duthost, config_facts, tbinfo, ip_and_intf_info):
+def packets_for_test(request, ptfadapter, duthost, enum_frontend_asic_index, config_facts, tbinfo, ip_and_intf_info):
     ip_version = request.param
     src_addr_v4, _, src_addr_v6, _, ptf_intf_index = ip_and_intf_info
     ptf_intf_mac = ptfadapter.dataplane.get_mac(0, ptf_intf_index)
     vlans = config_facts['VLAN']
     topology = tbinfo['topo']['name']
     dut_mac = ''
+    dut_mac_cmd = 'sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\''
+    ns_option = duthost.asic_instance(enum_frontend_asic_index).cli_ns_option
+    if ns_option:
+        dut_mac_cmd += ' ' + ns_option
     for vlan_details in list(vlans.values()):
         if 'dualtor' in topology:
             dut_mac = vlan_details['mac'].lower()
         else:
-            dut_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0]
+            dut_mac = duthost.shell(dut_mac_cmd)["stdout_lines"][0]
         break
 
     if ip_version == 'v4':

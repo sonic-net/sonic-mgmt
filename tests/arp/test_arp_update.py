@@ -10,9 +10,9 @@ from scapy.all import Ether, IPv6, ICMPv6ND_NS, ICMPv6NDOptSrcLLAddr, in6_getnsm
                       in6_getnsma, inet_pton, inet_ntop
 from tests.arp.arp_utils import (clear_dut_arp_cache, fdb_cleanup, get_dut_mac,
                                  fdb_has_mac, get_vlan_last_ipv4, get_vlan_ipv4_for_subnet,
-                                 get_vlan_ipv6)
+                                 get_vlan_ipv6, get_db_cli)
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
-from tests.common.fixtures.ptfhost_utils import setup_vlan_arp_responder, run_icmp_responder  # noqa: F401
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder, vlan_arp_responder  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.constants import PTF_TIMEOUT
 from tests.common.utilities import wait_until
@@ -25,15 +25,26 @@ pytestmark = [
 ]
 
 
+@pytest.fixture(scope="module", autouse=True)
+def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo, enum_frontend_asic_index):
+    """
+    ARP responder for the first VLAN of the ASIC under test (of the DUT on single-ASIC DUTs)
+    """
+    asic = rand_selected_dut.asic_instance(enum_frontend_asic_index) if rand_selected_dut.is_multi_asic else None
+    yield from vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo, asic)
+
+
 @pytest.fixture
-def pause_arp_update(rand_selected_dut):
+def pause_arp_update(rand_selected_dut, enum_frontend_asic_index):
+    asic = rand_selected_dut.asic_instance(enum_frontend_asic_index)
+    swss = asic.get_docker_name("swss")
     cmds = [
-        "docker exec swss supervisorctl stop arp_update",
-        "ip neigh flush all"
+        f"docker exec {swss} supervisorctl stop arp_update",
+        f"{asic.ns_arg}ip neigh flush all"
     ]
     rand_selected_dut.shell_cmds(cmds=cmds)
     yield
-    cmds[0] = "docker exec swss supervisorctl start arp_update"
+    cmds[0] = f"docker exec {swss} supervisorctl start arp_update"
     rand_selected_dut.shell_cmds(cmds=cmds)
 
 
@@ -60,12 +71,13 @@ def ptf_interface_info(ip_and_intf_info, ptfadapter):
 
 
 @pytest.fixture
-def dut_interface_info(rand_selected_dut, config_facts, tbinfo, ptf_interface_info):
+def dut_interface_info(rand_selected_dut, enum_frontend_asic_index, config_facts, tbinfo, ptf_interface_info):
     """
     Get DUT interface information, matching the VLAN subnet that contains the PTF IP.
     """
     duthost = rand_selected_dut
-    dut_mac = get_dut_mac(duthost, config_facts, tbinfo)
+    asic = duthost.asic_instance(enum_frontend_asic_index)
+    dut_mac = get_dut_mac(duthost, config_facts, tbinfo, asic.cli_ns_option)
 
     # Find the VLAN IP in the same subnet as PTF
     vlan_name, dut_ipv4, prefix_len = get_vlan_ipv4_for_subnet(config_facts, ptf_interface_info['ip'])
@@ -80,6 +92,7 @@ def dut_interface_info(rand_selected_dut, config_facts, tbinfo, ptf_interface_in
 
     return {
         'host': duthost,
+        'asic': asic,
         'mac': dut_mac,
         'vlan_name': vlan_name or vlan_name_v6,
         'ipv4': dut_ipv4,
@@ -89,16 +102,17 @@ def dut_interface_info(rand_selected_dut, config_facts, tbinfo, ptf_interface_in
 
 
 @pytest.fixture
-def clean_environment(rand_selected_dut, ptfadapter):
+def clean_environment(rand_selected_dut, enum_frontend_asic_index, ptfadapter):
     """
     Cleanup FDB and DUT ARP/neighbor cache before and after test run
     """
     duthost = rand_selected_dut
+    ns_option = duthost.asic_instance(enum_frontend_asic_index).cli_ns_option
 
     logger.info("Setting up clean environment: clearing FDB and ARP/neighbor cache")
     fdb_cleanup(duthost)
-    clear_dut_arp_cache(duthost)
-    clear_dut_arp_cache(duthost, is_ipv6=True)
+    clear_dut_arp_cache(duthost, ns_option)
+    clear_dut_arp_cache(duthost, ns_option, is_ipv6=True)
     ptfadapter.dataplane.flush()
 
     yield
@@ -125,14 +139,14 @@ def ptf_with_ip_config(ptf_interface_info, dut_interface_info, ptfhost):
                   module_ignore_errors=True)
 
 
-def neighbor_learned(dut, target_ip):
-    neigh_output = dut.shell(f"ip neigh show {target_ip}")['stdout'].strip()
+def neighbor_learned(dut, target_ip, ns_arg=""):
+    neigh_output = dut.shell(f"{ns_arg}ip neigh show {target_ip}")['stdout'].strip()
     logger.info(f"DUT neighbor entry: {neigh_output}")
     return neigh_output and ("REACHABLE" in neigh_output or "STALE" in neigh_output)
 
 
-def appl_db_neighbor_syncd(dut, vlan_name, target_ip, exp_mac):
-    cmd = f"sonic-db-cli APPL_DB hget 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh'"  # noqa: E231
+def appl_db_neighbor_syncd(dut, vlan_name, target_ip, exp_mac, db_cli="sonic-db-cli"):
+    cmd = f"{db_cli} APPL_DB hget 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh'"  # noqa: E231
     asic_db_mac = dut.shell(cmd)['stdout']
     logger.info(f"DUT neighbor mac: {asic_db_mac} of entry {vlan_name}:{target_ip}")  # noqa: E231
     return exp_mac.lower() == asic_db_mac.lower()
@@ -147,11 +161,13 @@ def test_kernel_asic_mac_mismatch(
     pause_arp_update,
     setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,
     toggle_all_simulator_ports_to_rand_selected_tor,  # noqa: F811
-    rand_selected_dut, ip_version, setup_vlan_arp_responder,  # noqa: F811
-    tbinfo
+    rand_selected_dut, ip_version, setup_vlan_arp_responder,
+    tbinfo, enum_frontend_asic_index
 ):
     # This test just needs a valid responder IP to ping; use the last configured
     # member and pick v4/v6 by ip_version.
+    asic = rand_selected_dut.asic_instance(enum_frontend_asic_index)
+    db_cli = get_db_cli(asic)
     arp = setup_vlan_arp_responder
     vlan_name = arp.vlan
     if 'dualtor' in tbinfo['topo']['name']:
@@ -166,37 +182,37 @@ def test_kernel_asic_mac_mismatch(
         # values are [ipv4, ipv6]; [ipv6] on IPv6-only topos.
         target_ip = responder_ips[0] if ip_version == 4 else responder_ips[-1]
 
-    rand_selected_dut.shell(f"ping -c1 -W1 {target_ip}; true")  # noqa: E702
+    rand_selected_dut.shell(f"{asic.ns_arg}ping -c1 -W1 {target_ip}; true")  # noqa: E702
 
-    pt_assert(wait_until(10, 1, 0, neighbor_learned, rand_selected_dut, target_ip),
+    pt_assert(wait_until(10, 1, 0, neighbor_learned, rand_selected_dut, target_ip, asic.ns_arg),
               f"Neighbor {target_ip} not learned on {rand_selected_dut}")
 
-    neighbor_info = rand_selected_dut.shell(f"ip neigh show {target_ip}")["stdout"].split()
+    neighbor_info = rand_selected_dut.shell(f"{asic.ns_arg}ip neigh show {target_ip}")["stdout"].split()
     target_mac = neighbor_info[4]
 
     pt_assert(neighbor_info[2] == vlan_name)
 
-    pt_assert(wait_until(5, 1, 0, appl_db_neighbor_syncd, rand_selected_dut, vlan_name, target_ip, target_mac),
+    pt_assert(wait_until(5, 1, 0, appl_db_neighbor_syncd, rand_selected_dut, vlan_name, target_ip, target_mac, db_cli),
               f"APPL_DB not synced for vlan {vlan_name}, ip {target_ip} on {rand_selected_dut}")
 
     logger.info(f"Neighbor {target_ip} has been learned, APPL_DB and kernel are in sync")
 
     logger.info("Manually setting APPL_DB MAC address")
     rand_selected_dut.shell(
-        f"sonic-db-cli APPL_DB hset 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh' '00:00:00:00:00:00'"  # noqa: E231
+        f"{db_cli} APPL_DB hset 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh' '00:00:00:00:00:00'"  # noqa: E231
     )
     asic_db_mac = rand_selected_dut.shell(
-        f"sonic-db-cli APPL_DB hget 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh'"  # noqa: E231
+        f"{db_cli} APPL_DB hget 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh'"  # noqa: E231
     )['stdout']
     pt_assert(target_mac.lower() != asic_db_mac.lower(),
               f"APPL_DB MAC was not corrupted: expected 00:00:00:00:00:00 but got {asic_db_mac}. "  # noqa: E231
               "Ensure arp_update is stopped before modifying APPL_DB.")
     logger.info("APPL_DB and kernel are out of sync (expected)")
 
-    rand_selected_dut.shell("docker exec swss supervisorctl start arp_update")
+    rand_selected_dut.shell(f"docker exec {asic.get_docker_name('swss')} supervisorctl start arp_update")
 
     pt_assert(
-        wait_until(30, 2, 0, appl_db_neighbor_syncd, rand_selected_dut, vlan_name, target_ip, target_mac),
+        wait_until(30, 2, 0, appl_db_neighbor_syncd, rand_selected_dut, vlan_name, target_ip, target_mac, db_cli),
         f"APPL_DB not re-synced to kernel MAC {target_mac} for {target_ip} on {rand_selected_dut}"
     )
 
@@ -296,7 +312,7 @@ def test_dut_arping_learns_mac(
     ptf_interface_info,
     dut_interface_info,
     clean_environment,
-    setup_vlan_arp_responder  # noqa: F811
+    setup_vlan_arp_responder
 ):
     """
     After fdb_cleanup and clearing DUT ARP cache,
@@ -327,7 +343,7 @@ def test_dut_arping_learns_mac(
     logger.info("DUT VLAN IPv4: {}".format(dut_info['ipv4']))
 
     # Simulate arping from DUT to the PTF port under test
-    dut_info['host'].shell(f"arping -c 1 -I {dut_info['vlan_name']} {ptf_responder_ip}")
+    dut_info['host'].shell(f"{dut_info['asic'].ns_arg}arping -c 1 -I {dut_info['vlan_name']} {ptf_responder_ip}")
 
     # Confirm MAC is learned on DUT FDB
     pt_assert(

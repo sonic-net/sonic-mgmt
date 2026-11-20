@@ -20,6 +20,15 @@ def clear_dut_arp_cache(duthost, ns_option=None, is_ipv6=False):
     duthost.shell(arp_flush_cmd)
 
 
+def get_db_cli(asic):
+    """
+    Return the sonic-db-cli command for the DB of the ASIC (no namespace option on single-ASIC DUTs)
+    """
+    if asic.cli_ns_option:
+        return "sonic-db-cli {}".format(asic.cli_ns_option)
+    return "sonic-db-cli"
+
+
 def get_po(mg_facts, intf):
     for k, v in list(mg_facts['minigraph_portchannels'].items()):
         if intf in v['members']:
@@ -74,14 +83,17 @@ def fdb_cleanup(duthost):
                       "FDB Table Cleanup failed")
 
 
-def get_dut_mac(duthost, config_facts, tbinfo):
+def get_dut_mac(duthost, config_facts, tbinfo, ns_option=None):
     """
-    Get DUT MAC address
+    Get DUT MAC address, from the DB of the namespace given by ns_option (e.g. "-n asic0") if set
     """
     if 'dualtor' in tbinfo['topo']['name']:
         for vlan_details in list(config_facts['VLAN'].values()):
             return vlan_details['mac'].lower()
-    return duthost.shell("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0]
+    cmd = "sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'"
+    if ns_option:
+        cmd = "{} {}".format(cmd, ns_option)
+    return duthost.shell(cmd)["stdout_lines"][0]
 
 
 def fdb_has_mac(duthost, mac):
