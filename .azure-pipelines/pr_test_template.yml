@@ -80,6 +80,12 @@ parameters:
   type: string
   default: ""
 
+# A companion VS build does not contain the VPP artifact. Keep the generic
+# build ID available to callers that provide both platform artifacts.
+- name: VS_KVM_BUILD_ID
+  type: string
+  default: ""
+
 - name: KVM_IMAGE_BUILD_PIPELINE_ID
   type: string
   default: ""
@@ -153,7 +159,7 @@ jobs:
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: ${{ parameters.KVM_IMAGE_BRANCH }}
-          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
+          KVM_BUILD_ID: ${{ coalesce(parameters.VS_KVM_BUILD_ID, parameters.KVM_BUILD_ID) }}
           KVM_IMAGE_BUILD_PIPELINE_ID: ${{ parameters.KVM_IMAGE_BUILD_PIPELINE_ID }}
           MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
@@ -198,7 +204,7 @@ jobs:
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: ${{ parameters.KVM_IMAGE_BRANCH }}
-          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
+          KVM_BUILD_ID: ${{ coalesce(parameters.VS_KVM_BUILD_ID, parameters.KVM_BUILD_ID) }}
           MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
           VM_TYPE: "csonic"
           KVM_IMAGE_BUILD_PIPELINE_ID: ${{ parameters.KVM_IMAGE_BUILD_PIPELINE_ID }}
@@ -246,7 +252,7 @@ jobs:
           MAX_WORKER: $(INSTANCE_NUMBER)
           DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a"
           KVM_IMAGE_BRANCH: ${{ parameters.KVM_IMAGE_BRANCH }}
-          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
+          KVM_BUILD_ID: ${{ coalesce(parameters.VS_KVM_BUILD_ID, parameters.KVM_BUILD_ID) }}
           KVM_IMAGE_BUILD_PIPELINE_ID: ${{ parameters.KVM_IMAGE_BUILD_PIPELINE_ID }}
           MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
@@ -291,7 +297,7 @@ jobs:
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: ${{ parameters.KVM_IMAGE_BRANCH }}
-          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
+          KVM_BUILD_ID: ${{ coalesce(parameters.VS_KVM_BUILD_ID, parameters.KVM_BUILD_ID) }}
           KVM_IMAGE_BUILD_PIPELINE_ID: ${{ parameters.KVM_IMAGE_BUILD_PIPELINE_ID }}
           MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
@@ -337,7 +343,7 @@ jobs:
           MAX_WORKER: $(INSTANCE_NUMBER)
           COMMON_EXTRA_PARAMS: "--disable_loganalyzer --disable_sai_validation "
           KVM_IMAGE_BRANCH: ${{ parameters.KVM_IMAGE_BRANCH }}
-          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
+          KVM_BUILD_ID: ${{ coalesce(parameters.VS_KVM_BUILD_ID, parameters.KVM_BUILD_ID) }}
           KVM_IMAGE_BUILD_PIPELINE_ID: ${{ parameters.KVM_IMAGE_BUILD_PIPELINE_ID }}
           MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
@@ -381,7 +387,7 @@ jobs:
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: ${{ parameters.KVM_IMAGE_BRANCH }}
-          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
+          KVM_BUILD_ID: ${{ coalesce(parameters.VS_KVM_BUILD_ID, parameters.KVM_BUILD_ID) }}
           COMMON_EXTRA_PARAMS: "--neighbor_type=sonic --disable_sai_validation "
           KVM_IMAGE_BUILD_PIPELINE_ID: ${{ parameters.KVM_IMAGE_BUILD_PIPELINE_ID }}
           VM_TYPE: vsonic
@@ -431,7 +437,7 @@ jobs:
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: ${{ parameters.KVM_IMAGE_BRANCH }}
-          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
+          KVM_BUILD_ID: ${{ coalesce(parameters.VS_KVM_BUILD_ID, parameters.KVM_BUILD_ID) }}
           KVM_IMAGE_BUILD_PIPELINE_ID: ${{ parameters.KVM_IMAGE_BUILD_PIPELINE_ID }}
           MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
@@ -484,7 +490,7 @@ jobs:
           MAX_WORKER: $(INSTANCE_NUMBER)
           NUM_ASIC: 4
           KVM_IMAGE_BRANCH: ${{ parameters.KVM_IMAGE_BRANCH }}
-          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
+          KVM_BUILD_ID: ${{ coalesce(parameters.VS_KVM_BUILD_ID, parameters.KVM_BUILD_ID) }}
           KVM_IMAGE_BUILD_PIPELINE_ID: ${{ parameters.KVM_IMAGE_BUILD_PIPELINE_ID }}
           MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
@@ -530,7 +536,7 @@ jobs:
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: ${{ parameters.KVM_IMAGE_BRANCH }}
-          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
+          KVM_BUILD_ID: ${{ coalesce(parameters.VS_KVM_BUILD_ID, parameters.KVM_BUILD_ID) }}
           KVM_IMAGE_BUILD_PIPELINE_ID: ${{ parameters.KVM_IMAGE_BUILD_PIPELINE_ID }}
           MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "

@@ -301,5 +301,5 @@ stages:
   jobs:
     - template: .azure-pipelines/pr_test_template.yml
       parameters:
-        KVM_BUILD_ID: $(ISIS_KVM_BUILD_ID)
+        VS_KVM_BUILD_ID: $(ISIS_KVM_BUILD_ID)
         KVM_IMAGE_BUILD_PIPELINE_ID: $(ISIS_KVM_PIPELINE_ID)
