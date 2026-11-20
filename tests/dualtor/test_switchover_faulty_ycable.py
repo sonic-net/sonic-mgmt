@@ -111,7 +111,7 @@ def setup_faulted_y_cable_driver(
         if not restore_ok:
             logging.warning("Primary Y-cable cleanup command failed: %s", result)
 
-        if not restore_ok or not _wait_for_recovery(
+        if not restore_ok or not _wait_for_faulty_tor_recovery(
                 simulated_faulty_side, select_mux_port, active_standby_ports):
             logging.warning("Y-cable or mux health did not recover; recreating PMON on %s",
                             simulated_faulty_side.hostname)
@@ -124,7 +124,7 @@ def setup_faulted_y_cable_driver(
             pytest_assert(restarted, "Failed to start PMON on {}".format(simulated_faulty_side.hostname))
             logging.info("PMON is running.")
             pytest_assert(
-                _wait_for_recovery(simulated_faulty_side, select_mux_port, active_standby_ports),
+                _wait_for_faulty_tor_recovery(simulated_faulty_side, select_mux_port, active_standby_ports),
                 "Failed to recover Y-cable state or mux health after PMON recovery")
 
         pytest_assert(_wait_for_mux_ports_healthy(simulated_good_side, active_standby_ports),
@@ -168,7 +168,7 @@ def _wait_for_mux_ports_healthy(duthost, ports):
     return wait_until(120, 10, 0, _check_mux_ports_healthy)
 
 
-def _wait_for_recovery(faulty_side, mux_port, ports):
+def _wait_for_faulty_tor_recovery(faulty_side, mux_port, ports):
     if not _wait_for_ycabled_startup(faulty_side):
         logging.warning("ycabled did not reach RUNNING on %s", faulty_side.hostname)
         return False
