@@ -711,7 +711,12 @@ def create_linecard_console(supervisor, linecard_duthost, inv_files, creds):
         pytest.skip(f"Linecard console not supported: {str(e)}")
 
 
-def create_duthost_console(duthost, localhost, conn_graph_facts, creds, cancel_event=None):  # noqa: F811
+def create_duthost_console(duthost, localhost, conn_graph_facts, creds, cancel_event=None,  # noqa: F811
+                           attach_only=False):
+    """
+    With attach_only, attach to the DUT console line without logging in to the DUT or writing
+    to the line, e.g. to read what the DUT prints during a reboot. creds is not used then.
+    """
     dut_hostname = duthost.hostname
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
     if "/" in console_host:
@@ -725,14 +730,7 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds, cancel_e
     console_direct_ssh_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['direct_ssh_port']
 
     console_type = f"console_{console_type}"
-    update_console_creds(creds, console_auth_type)
 
-    if console_menu_type and console_menu_type.lower() != "n/a":
-        console_menu_type = f"{console_type}_{console_menu_type}"
-    else:
-        console_menu_type = console_type
-
-    # console password and sonic_password are lists, which may contain more than one password
     # ansible-core >= 2.21: variable_manager._hostvars is None outside of a play run (it stays
     # None in the pytest-ansible adhoc context). Fall back to the public get_vars() API, which
     # resolves inventory + group + host vars for the target host.
@@ -742,6 +740,37 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds, cancel_e
     else:
         _host_obj = localhost.host.options['inventory_manager'].get_host(dut_hostname)
         _host_vars = _vm.get_vars(host=_host_obj) if _host_obj is not None else {}
+    if attach_only:
+        # Only the console login is needed. Read it directly: creds_on_dut() renders every
+        # host variable, which takes about 15 seconds.
+        creds = {
+            "console_login_options": _host_vars.get("console_login_options", {}),
+            "console_password": {k: v["passwd"] for k, v in _host_vars.get("console_login", {}).items()},
+        }
+    update_console_creds(creds, console_auth_type)
+
+    if console_menu_type and console_menu_type.lower() != "n/a":
+        console_menu_type = f"{console_type}_{console_menu_type}"
+    else:
+        console_menu_type = console_type
+
+    if attach_only:
+        # No DUT login, so no DUT password, no clearing of the console port and no retries.
+        return ConsoleHost(
+            console_type=console_type,
+            console_host=console_host,
+            console_port=console_port,
+            sonic_username=None,
+            sonic_password=None,
+            console_username=console_username,
+            console_password=creds["console_password"].get(console_type),
+            console_device=console_device,
+            console_direct_ssh_port=console_direct_ssh_port,
+            cancel_event=cancel_event,
+            attach_only=True,
+        )
+
+    # console password and sonic_password are lists, which may contain more than one password
     sonicadmin_alt_password = _host_vars.get("ansible_altpassword")
     sonic_password = [creds['sonicadmin_password'], sonicadmin_alt_password]
 
@@ -801,44 +830,6 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds, cancel_e
             continue
     else:
         raise Exception("Failed to set up connection to console port. See warning logs for details.")
-
-
-def attach_duthost_console(duthost, conn_graph_facts, cancel_event=None):
-    """
-    Attach to the DUT console line without logging in to the DUT or writing to the line,
-    to read what the DUT prints, e.g. during a reboot.
-    """
-    dut_hostname = duthost.hostname
-    console_info = conn_graph_facts['device_console_info'][dut_hostname]
-    console_link = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']
-    console_type = f"console_{console_link['type']}"
-
-    # Read only the console login. creds_on_dut() renders every host variable, which takes
-    # about 15 seconds.
-    _vm = duthost.host.options['variable_manager']
-    if _vm._hostvars is not None:
-        host_vars = _vm._hostvars[dut_hostname]
-    else:
-        host_obj = duthost.host.options['inventory_manager'].get_host(dut_hostname)
-        host_vars = _vm.get_vars(host=host_obj) if host_obj is not None else {}
-    console_logins = host_vars.get("console_login", {})
-    auth_type = console_info.get('AuthType', "")
-    if auth_type and auth_type in host_vars.get("console_login_options", {}):
-        console_logins = host_vars["console_login_options"][auth_type]
-
-    return ConsoleHost(
-        console_type=console_type,
-        console_host=console_info['ManagementIp'].split("/")[0],
-        console_port=console_link['peerport'],
-        sonic_username=None,
-        sonic_password=None,
-        console_username=console_link['proxy'],
-        console_password=console_logins.get(console_type, {}).get('passwd'),
-        console_device=console_link['peerdevice'],
-        console_direct_ssh_port=console_link['direct_ssh_port'],
-        cancel_event=cancel_event,
-        attach_only=True,
-    )
 
 
 def creds_on_dut(duthost):

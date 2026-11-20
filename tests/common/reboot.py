@@ -14,8 +14,7 @@ from .platform.interface_utils import check_interface_status_of_up_ports
 from .platform.processes_utils import wait_critical_processes
 from .plugins.loganalyzer.utils import support_ignore_loganalyzer
 from .utilities import wait_until, get_plt_reboot_ctrl, is_ipv6_address
-from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs, create_duthost_console, creds_on_dut, \
-    attach_duthost_console
+from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs, create_duthost_console, creds_on_dut
 from tests.common.fixtures.conn_graph_facts import get_graph_facts
 
 logger = logging.getLogger(__name__)
@@ -804,10 +803,10 @@ def check_determine_reboot_cause_service(dut):
             Current sub-state: {sub_state}"
 
 
-def try_create_dut_console(duthost, localhost, conn_graph_facts, creds, cancel_event=None):
+def try_create_dut_console(duthost, localhost, conn_graph_facts, creds, cancel_event=None, attach_only=False):
     try:
         dut_console = create_duthost_console(duthost, localhost, conn_graph_facts, creds,
-                                             cancel_event=cancel_event)
+                                             cancel_event=cancel_event, attach_only=attach_only)
     except Exception as err:
         logger.warning(f"Fail to create dut console. Please check console config or if console works or not. {err}")
         return None
@@ -862,13 +861,13 @@ def collect_console_log(duthost, localhost, cancel_event=None):
     Returns:
         ConsoleLogReader if attached before the reboot, None otherwise
     """
-    try:
-        conn_graph_facts = get_graph_facts(duthost, localhost, [duthost.hostname])
-        if cancel_event is not None and cancel_event.is_set():
-            return None
-        dut_console = attach_duthost_console(duthost, conn_graph_facts, cancel_event=cancel_event)
-    except Exception as err:
-        logger.warning(f"Fail to attach to the dut console, we cannot get log by console: {err}")
+    conn_graph_facts = get_graph_facts(duthost, localhost, [duthost.hostname])
+    if cancel_event is not None and cancel_event.is_set():
+        return None
+    dut_console = try_create_dut_console(duthost, localhost, conn_graph_facts, None,
+                                         cancel_event=cancel_event, attach_only=True)
+    if not dut_console:
+        logger.warning("dut console is not ready, we cannot get log by console")
         return None
     if cancel_event is not None and cancel_event.is_set():
         logger.warning("Attached to the dut console after the reboot started, closing it")
