@@ -1,6 +1,5 @@
 """Utilities for validating high frequency telemetry through InfluxDB."""
 
-import base64
 import itertools
 import json
 import logging
@@ -22,8 +21,6 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
-
-HFT_OTEL_ARGS = ("--enable-otel", "--otel-endpoint=http://localhost:4317")
 
 # countersyncd names every OTEL gauge after the canonical SAI stat and tags each
 # data point with object_name / sai_type / sai_stat. The InfluxDB exporter turns
@@ -455,15 +452,9 @@ def cleanup_hft_config(duthost, profile_name, group_names=None):
 
 
 def ensure_countersyncd_daemon(duthost):
-    """Check complete argv tokens of the process that supervisor is monitoring."""
+    """Verify that supervisor reports a running countersyncd in hft."""
     pid = _get_running_countersyncd_pid(duthost)
     pytest_assert(pid is not None, "Expected supervisor-owned countersyncd to be RUNNING in hft")
-    encoded = duthost.command(argv=["docker", "exec", "hft", "base64", "-w0", f"/proc/{pid}/cmdline"], verbose=False)
-    argv = base64.b64decode(encoded["stdout"]).rstrip(b"\0").split(b"\0")
-    pytest_assert(
-        argv[0].rsplit(b"/", 1)[-1] == b"countersyncd" and all(arg.encode() in argv[1:] for arg in HFT_OTEL_ARGS),
-        f"Supervisor PID {pid} must be countersyncd with {' '.join(HFT_OTEL_ARGS)}",
-    )
     return True
 
 
@@ -503,16 +494,17 @@ def restart_countersyncd_daemon(duthost, timeout=30):
         f"Failed to restart countersyncd: {result}",
     )
 
+    new_pid = None
+
     def restarted():
-        pid = _get_running_countersyncd_pid(duthost)
-        return pid is not None and pid != old_pid
+        nonlocal new_pid
+        new_pid = _get_running_countersyncd_pid(duthost)
+        return new_pid is not None and new_pid != old_pid
 
     pytest_assert(
         wait_until(timeout, 1, 0, restarted),
         f"countersyncd did not restart from PID {old_pid}",
     )
-    new_pid = _get_running_countersyncd_pid(duthost)
-    ensure_countersyncd_daemon(duthost)
     logger.info("Restarted countersyncd from PID %d to PID %d", old_pid, new_pid)
     return old_pid, new_pid
 

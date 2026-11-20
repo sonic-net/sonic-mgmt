@@ -14,7 +14,6 @@ from tests.high_frequency_telemetry.counter_profiles import (
     get_support_counter_list,
 )
 from tests.high_frequency_telemetry.utilities import (
-    HFT_OTEL_ARGS,
     InfluxDbSink,
     cleanup_hft_config,
     enable_otel_collector,
@@ -38,6 +37,7 @@ logger = logging.getLogger(__name__)
 
 OTEL_CONFIG_PATH = "/etc/sonic/otel_config.yml"
 HFT_WORK_PARENT = "/run/lock/sonic-mgmt-hft"
+HFT_OTEL_ARGS = ("--enable-otel", "--otel-endpoint=http://localhost:4317")
 INFLUXDB_PORT = 8181
 INFLUXDB_BUCKET_PREFIX = "hft_test"
 INFLUXDB_BUCKET_IDS = itertools.count(1)

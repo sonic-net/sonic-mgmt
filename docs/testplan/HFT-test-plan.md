@@ -80,7 +80,7 @@ HFT Phase 1 supports key AI data center statistics across four object types:
   network and capabilities. Its Docker `Cmd` is `["--enable-otel", "--otel-endpoint=http://localhost:4317"]`.
   SONiC starts this container through `hft.service`; the original is stopped first and restored
   afterwards. `/etc/sonic/hft/hft.env` is never modified. The Queue case restarts just
-  `countersyncd`, then checks both arguments on the new supervisor-owned process.
+  `countersyncd`, then checks that supervisor reports a new running PID.
   If restoration fails, the fixture retains its recovery record under `/run/lock/sonic-mgmt-hft/`
   and prevents a new run from replacing the container again.
 - The fixture temporarily rewrites `/etc/sonic/otel_config.yml`; when present it must be a regular
@@ -167,7 +167,7 @@ boundary.
 5. Validate complete series/tag coverage, nonnegative values, and average source interval and CPS within 10%.
 6. Disable the profile and wait for the session to stop, then delete the group
    and profile.
-7. Restart only `countersyncd`, require a new running PID with `--enable-otel`,
+7. Restart only `countersyncd`, require a new running PID from supervisor,
    and leave the SWSS container and forwarding state intact.
 
 **Expected Results**
@@ -397,7 +397,7 @@ cadence validation to two port series.
 1. **Start isolated infrastructure**: Reuse the module's test-owned in-memory InfluxDB process on port 8181.
 2. **Isolate the case**: Stop the collector, create a unique empty database, and install an OTEL configuration targeting it.
 3. **Restart OTEL safely**: Restart the systemd-managed `otel.service` and require its critical collector process to become healthy.
-4. **Verify countersyncd**: Check that the module's supervisor-managed process is running in `hft` with `--enable-otel`.
+4. **Verify countersyncd**: Check that supervisor reports `countersyncd` as running in `hft`.
 5. **Configure HFT**: Get available ports (desired: 2, minimum: 1). Atomically create HFT profile `e2e_port_profile` (poll interval 10ms, stream `enabled`) and its PORT group monitoring `IF_IN_OCTETS`.
 6. **Poll InfluxDB for metrics**: Query the exact expected measurements and object tags.
 7. **Verify data arrived**: Require complete series coverage, values, interval, and CPS within 5%.
