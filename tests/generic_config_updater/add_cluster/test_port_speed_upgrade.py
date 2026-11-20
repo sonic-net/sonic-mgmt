@@ -29,17 +29,29 @@ from tests.common.utilities import (
 )
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
-from tests.common.config_reload import config_reload
 from tests.common.helpers.gnmi_streaming_helper import setup_gnmi_streaming_context
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from tests.common.gu_utils import delete_tmpfile, expect_op_success, generate_tmpfile, apply_patch
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, NAMESPACE_PREFIX
 from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
 from tests.generic_config_updater.add_cluster.helpers import (
+    filter_oper_up_ports,
     format_sonic_buffer_pg_dict,
     format_sonic_interface_dict,
+    get_asic_interface_status_map,
+    get_external_portchannel_members,
+    get_portchannel_member_value,
+    iter_portchannel_members,
     remove_dataacl_table_single_dut,
     send_and_verify_traffic,
+)
+
+from tests.generic_config_updater.add_cluster.constants import (
+    SPEED_100G,
+    SPEED_400G,
+)
+from tests.generic_config_updater.add_cluster.portchannel_helpers import (
+    restore_dut_via_minigraph as _restore_dut_via_minigraph,
 )
 
 pytestmark = [
@@ -52,8 +64,6 @@ allure.logger = logger
 # -----------------------------
 # Speed and ACL constants
 # -----------------------------
-SPEED_100G = "100000"
-SPEED_400G = "400000"
 
 PORT_SPEED_UPGRADE_SUPPORTED_SPEEDS_MAP = {
     'x86_64-88_lc0_36fh-r0': [SPEED_100G, SPEED_400G],
@@ -92,26 +102,6 @@ LOGANALYZER_IGNORE_REGEX = [
     ".*ERR swss[0-9]*#orchagent: :- processPriorityGroup: Port with alias:.* not found",
     ".*ERR swss[0-9]*#orchagent: :- doTask: Failed to process invalid buffer task",
 ]
-
-
-def _restore_dut_via_minigraph(duthost, loganalyzer=None):
-    """
-    Restore the DUT to the original minigraph configuration.
-
-    Used for teardown and for recovery when setup or the test leaves the DUT in
-    a bad state (for example telemetry start-limit-hit after GCU speed changes).
-
-    Args:
-        duthost: DUT host object.
-        loganalyzer: Optional loganalyzer fixture for reload-time syslog ignores.
-    """
-    config_reload(
-        duthost,
-        config_source="minigraph",
-        safe_reload=True,
-        wait_for_bgp=True,
-        ignore_loganalyzer=loganalyzer,
-    )
 
 
 # -----------------------------
@@ -246,33 +236,18 @@ def _get_external_portchannel_member_ports(config_facts, duthost=None):
     is_chassis_packet = duthost and duthost.facts.get('switch_type') == 'chassis-packet'
     internal_portchannels = set()
     if is_chassis_packet:
-        for portchannel, member_port, _member_value in _iter_portchannel_members(config_facts):
+        for portchannel, member_port, _member_value in iter_portchannel_members(config_facts):
             if member_port.startswith("Ethernet-BP"):
                 internal_portchannels.add(portchannel)
 
     member_ports = set()
-    for portchannel, member_port, _member_value in _iter_portchannel_members(config_facts):
+    for portchannel, member_port, _member_value in iter_portchannel_members(config_facts):
         if portchannel in internal_portchannels:
             continue
         if is_chassis_packet and member_port.startswith("Ethernet-BP"):
             continue
         member_ports.add(member_port)
     return member_ports
-
-
-def _iter_portchannel_members(config_facts):
-    """
-    Iterate PORTCHANNEL_MEMBER entries as (portchannel, member_port, value).
-
-    Supports both ansible config_facts nested form and raw CONFIG_DB key form.
-    """
-    for key, value in config_facts.get("PORTCHANNEL_MEMBER", {}).items():
-        if '|' in key:
-            portchannel, member_port = key.split('|', 1)
-            yield portchannel, member_port, value
-        else:
-            for member_port, member_value in value.items():
-                yield key, member_port, member_value
 
 
 def _get_external_portchannel_members(config_facts, portchannel):
@@ -286,12 +261,9 @@ def _get_external_portchannel_members(config_facts, portchannel):
     Returns:
         list: Sorted non-BP Ethernet member ports.
     """
-    members = [
-        member_port
-        for pc_name, member_port, _member_value in _iter_portchannel_members(config_facts)
-        if pc_name == portchannel and not member_port.startswith("Ethernet-BP")
-    ]
-    return sorted(members)
+    return get_external_portchannel_members(
+        config_facts, portchannel, internal_port_prefixes=("Ethernet-BP",)
+    )
 
 
 def get_eligible_front_panel_ports(config_facts, duthost=None, required_speed=None, portchannel_only=True):
@@ -404,28 +376,6 @@ def _build_dut_context(duthost, tbinfo, asic_index):
     }
 
 
-def _get_asic_interface_status_map(duthost, asic_namespace=None):
-    """
-    Return parsed show interface status for all ports on an ASIC in one CLI call.
-
-    Args:
-        duthost: DUT host object.
-        asic_namespace: Optional ASIC namespace (for example, asic0).
-
-    Returns:
-        dict: Mapping of Ethernet port name to parsed status row.
-    """
-    if asic_namespace:
-        cmd = f"show interface status -n {asic_namespace}"
-    else:
-        cmd = "show interface status"
-    rows = duthost.show_and_parse(cmd)
-    return {
-        row['interface']: row for row in rows
-        if row.get('interface')
-    }
-
-
 def get_port_show_interface_status(duthost, port, asic_namespace=None):
     """
     Return the parsed show interface status row for a single port.
@@ -455,7 +405,7 @@ def _is_port_oper_up(duthost, port, asic_namespace=None, status_map=None):
         duthost: DUT host object.
         port: Ethernet port name.
         asic_namespace: Optional ASIC namespace.
-        status_map: Optional pre-fetched map from _get_asic_interface_status_map().
+        status_map: Optional pre-fetched map from get_asic_interface_status_map().
 
     Returns:
         bool: True when both admin and oper status are up.
@@ -467,27 +417,6 @@ def _is_port_oper_up(duthost, port, asic_namespace=None, status_map=None):
         if not status:
             return False
     return status.get('oper', '').lower() == 'up' and status.get('admin', '').lower() == 'up'
-
-
-def _filter_oper_up_ports(eligible_ports, status_map):
-    """
-    Return eligible ports that are admin up and oper up using a pre-fetched status map.
-
-    Args:
-        eligible_ports: Candidate Ethernet port names from config_facts.
-        status_map: Parsed show interface status keyed by port name.
-
-    Returns:
-        list: Ports that are oper up.
-    """
-    oper_up_ports = []
-    for port in eligible_ports:
-        status = status_map.get(port)
-        if not status:
-            continue
-        if status.get('oper', '').lower() == 'up' and status.get('admin', '').lower() == 'up':
-            oper_up_ports.append(port)
-    return oper_up_ports
 
 
 def _collect_upgrade_test_options(duthosts, candidates, tbinfo, enum_upstream_dut_hostname):
@@ -530,10 +459,10 @@ def _collect_upgrade_test_options(duthosts, candidates, tbinfo, enum_upstream_du
             )
             if not eligible_ports:
                 continue
-            status_map = _get_asic_interface_status_map(
+            status_map = get_asic_interface_status_map(
                 candidate, ctx["asic_namespace"]
             )
-            oper_up_ports = _filter_oper_up_ports(eligible_ports, status_map)
+            oper_up_ports = filter_oper_up_ports(eligible_ports, status_map)
             if oper_up_ports:
                 asic_options[asic_index] = {
                     "ctx": ctx,
@@ -755,28 +684,10 @@ def _get_portchannel_for_member(config_facts, port):
     Returns:
         str or None: PortChannel name containing the port.
     """
-    for portchannel, member_port, _member_value in _iter_portchannel_members(config_facts):
+    for portchannel, member_port, _member_value in iter_portchannel_members(config_facts):
         if member_port == port:
             return portchannel
     return None
-
-
-def _get_portchannel_member_value(config_facts, portchannel, port):
-    """
-    Return the PORTCHANNEL_MEMBER value for a selected member port.
-
-    Args:
-        config_facts: Running config facts for the selected ASIC namespace.
-        portchannel: PortChannel name containing the port.
-        port: Ethernet port name.
-
-    Returns:
-        dict: PORTCHANNEL_MEMBER value for the selected member.
-    """
-    portchannel_members = config_facts.get("PORTCHANNEL_MEMBER", {})
-    if portchannel in portchannel_members:
-        return portchannel_members.get(portchannel, {}).get(port, {})
-    return portchannel_members.get(f"{portchannel}|{port}", {})
 
 
 def _append_portchannel_add_ops(json_patch, json_namespace, config_facts, port):
@@ -792,7 +703,7 @@ def _append_portchannel_add_ops(json_patch, json_namespace, config_facts, port):
         return
 
     pc_member_key = f"{portchannel}|{port}"
-    pc_member_value = _get_portchannel_member_value(config_facts, portchannel, port)
+    pc_member_value = get_portchannel_member_value(config_facts, portchannel, port)
 
     json_patch.append({
         "op": "add",
