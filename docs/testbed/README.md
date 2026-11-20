@@ -3,6 +3,7 @@
 - [Overview](README.testbed.Overview.md)
 - Setup
   - [Physical Switch Testbed Setup](README.testbed.Setup.md)
+  - [Switch-Host BMC USB link provisioning](README.testbed.BmcUsbLink.md)
   - [Virtual Switch Testbed Setup](README.testbed.VsSetup.md)
   - [Virtual Switch Multiple Devices Testbed Setup](README.testbed.WANSetup.md)
   - [Setup sonic-mgmt Docker](README.testbed.Docker.md)
