@@ -22,6 +22,12 @@ LLDP_RECOVERY_NEIGHBOR_TIMEOUT = 300
 LLDP_DB_TIMEOUT = 90
 LLDP_POLL_INTERVAL = 5
 LLDP_STABLE_POLLS = 3
+# Modular/chassis platforms have many more iBGP/eBGP neighbors reconverging
+# in parallel across linecards after a swss restart or mass interface flap,
+# so allow more time than the default 300s before declaring a timeout.
+BGP_CONVERGE_TIMEOUT = 300
+BGP_CONVERGE_TIMEOUT_CHASSIS = 600
+
 
 # Keep lldp_syncd's case-sensitive Enum names: it lowercases only the lookup.
 # Do not add aliases or capability bits that the producer does not serialize.
@@ -455,17 +461,20 @@ def test_lldp_entry_table_after_syncd_orchagent(
 ):
     """Verify all required LLDP ports, including eth0, recover after restarting swss."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    is_multi_asic = duthost.is_multi_asic
     if duthost.facts['asic_type'] == "vs":
         pytest.skip("Skip this test case for virtual testbed")
     wait_for_lldp_convergence(
         duthost, db_instance, capture_and_validate_baseline, phase="Before test: LLDP synchronization")
+    if is_multi_asic:
+        bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="all")
 
     logging.info("Stop and start swss and syncd on DUT")
     # It's found that restart swss container could cause swss service to go down. In most of OC tests
     # pre-test will set feature autorestart to be disabled. This results critical services like swss/syncd
     # will not restart. Use swss service restart here.
     duthost.shell("sudo systemctl reset-failed")
-    if duthost.is_multi_asic:
+    if is_multi_asic:
         for asic in duthost.asics:
             duthost.shell("sudo systemctl restart {}".format(asic.get_service_name("swss")))
     else:
@@ -476,9 +485,16 @@ def test_lldp_entry_table_after_syncd_orchagent(
     # Wait for BGP sessions to reach Established state instead of a fixed sleep,
     # to avoid a downstream memory-alarm false positive caused by bgpd warming up
     # in the next test case.
-    bgp_neighbors = list(duthost.get_bgp_neighbors().keys())
+    if not is_multi_asic:
+        bgp_neighbors = list(duthost.get_bgp_neighbors().keys())
+    bgp_converge_timeout = (
+        BGP_CONVERGE_TIMEOUT_CHASSIS if duthost.get_facts().get("modular_chassis") else BGP_CONVERGE_TIMEOUT
+    )
+    check_bgp_sessions = (
+        duthost.check_bgp_session_state_all_asics if is_multi_asic else duthost.check_bgp_session_state
+    )
     pytest_assert(
-        wait_until(300, 10, 30, duthost.check_bgp_session_state, bgp_neighbors),
+        wait_until(bgp_converge_timeout, 10, 30, check_bgp_sessions, bgp_neighbors),
         "BGP sessions did not reach Established state after swss restart",
     )
     wait_for_lldp_convergence(
@@ -524,14 +540,17 @@ def test_lldp_entry_table_after_all_batched_flap(
 ):
     """Require all flapped ports to recover while retaining management checks."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    is_multi_asic = duthost.is_multi_asic
     wait_for_lldp_convergence(
         duthost, db_instance, capture_and_validate_baseline, phase="Before test: LLDP synchronization")
+    if is_multi_asic:
+        bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="all")
     testable_interfaces = sorted(capture_and_validate_baseline - {"eth0"})
     logger.info("Using bulk interface flap for {} interfaces".format(len(testable_interfaces)))
     asic_interface_map = group_interfaces_by_asic(duthost, testable_interfaces)
     for asic_str, asic_interfaces in asic_interface_map.items():
         logger.info("Flapping interfaces: {}".format(asic_interfaces))
-        if duthost.is_multi_asic:
+        if is_multi_asic:
             # Interface range shutdown/startup is not supported in multi-asic platforms.
             for interface in asic_interfaces:
                 _shutdown_startup_interface(duthost, interface, asic_str)
@@ -546,9 +565,16 @@ def test_lldp_entry_table_after_all_batched_flap(
     # Wait for the BGP sessions to reconverge so that swss reclaims the transient
     # memory before the memory_utilization fixture takes its teardown snapshot,
     # avoiding a docker:swss memory-alarm false positive from an unsettled reading.
-    bgp_neighbors = list(duthost.get_bgp_neighbors().keys())
+    if not is_multi_asic:
+        bgp_neighbors = list(duthost.get_bgp_neighbors().keys())
+    bgp_converge_timeout = (
+        BGP_CONVERGE_TIMEOUT_CHASSIS if duthost.get_facts().get("modular_chassis") else BGP_CONVERGE_TIMEOUT
+    )
+    check_bgp_sessions = (
+        duthost.check_bgp_session_state_all_asics if is_multi_asic else duthost.check_bgp_session_state
+    )
     pytest_assert(
-        wait_until(300, 10, 30, duthost.check_bgp_session_state, bgp_neighbors),
+        wait_until(bgp_converge_timeout, 10, 30, check_bgp_sessions, bgp_neighbors),
         "BGP sessions did not re-establish after batched interface flap",
     )
 
