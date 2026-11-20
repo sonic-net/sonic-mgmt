@@ -38,7 +38,7 @@ def get_vlan_interfaces_dict(duthost, tbinfo, asic=None):
     Args:
         mg_facts (dict): Minigraph facts containing VLAN interface information
         config_facts (dict): Config facts containing VLAN interface configuration
-        asic: optional ASIC instance; if set, config facts are read from the namespace of this ASIC
+        asic: optional ASIC instance; if set, minigraph and config facts are read from the namespace of this ASIC
 
     Returns:
         dict: Structured dictionary with VLAN interfaces organized by IPv4/IPv6 addresses
@@ -75,8 +75,8 @@ def get_vlan_interfaces_dict(duthost, tbinfo, asic=None):
             }
         }
     """
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     cfg_host = duthost if asic is None else asic
+    mg_facts = cfg_host.get_extended_minigraph_facts(tbinfo)
     config_facts = cfg_host.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     result = {}
 
