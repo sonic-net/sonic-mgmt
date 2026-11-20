@@ -418,6 +418,23 @@ def wait_for_threshold_log(loganalyzer, duthost, asichost, cmd):
         loganalyzer.analyze(marker, fail=True)
 
 
+def reset_crm_threshold_state(asichost, crm_cli_res, crm_used, crm_avail):
+    """
+    Clear stale orchagent CRM threshold state before verification.
+
+    Orchagent logs THRESHOLD_EXCEEDED only on a state transition. Re-applying an
+    exceed threshold while the resource is already marked exceeded (e.g. after a
+    prior test run) produces no syslog and causes LogAnalyzer to fail.
+    """
+    reset_cmd = (
+        'bash -c "crm config thresholds {res} type used && '
+        'crm config thresholds {res} low 0 && '
+        'crm config thresholds {res} high {high}"'
+    ).format(res=crm_cli_res, high=crm_used + crm_avail)
+    asichost.command(reset_cmd)
+    wait_until(1, 1, CRM_UPDATE_TIME, lambda: True)
+
+
 def verify_thresholds(duthost, asichost, **kwargs):
     """
     Verifies that WARNING message logged if there are any resources that exceeds a pre-defined threshold value.
@@ -430,6 +447,8 @@ def verify_thresholds(duthost, asichost, **kwargs):
             "ASIC/counters DB checks are not applicable in virtual testbeds."
         )
         return
+    crm_used, crm_avail = get_crm_stats(kwargs['crm_cmd'], duthost)
+    reset_crm_threshold_state(asichost, kwargs['crm_cli_res'], crm_used, crm_avail)
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='crm_test')
     for key, value in list(THR_VERIFY_CMDS.items()):
         logger.info("Verifying CRM threshold '{}'".format(key))
