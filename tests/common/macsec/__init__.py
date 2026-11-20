@@ -207,7 +207,7 @@ class MacsecPlugin(object):
         If MACsec is enabled and configured for this DUT/profile, wait for
         MKA establishment (APP/STATE DB populated with SC/SA, including SAK)
         before calling ``load_all_macsec_info``. This avoids races where
-        ``get_macsec_attr`` hits APP_DB before the egress SA row (and ``sak``)
+        ``prepare_ptf_macsec`` hits APP_DB before the egress SA row (and ``sak``)
         has been written by wpa_supplicant.
         """
 

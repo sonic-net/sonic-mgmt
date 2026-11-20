@@ -1,5 +1,29 @@
 {
 {%- set asic_cnt = asic_cnt|int -%}
+{#- On Broadcom DUTs the profile states rekey_period and enable_replay_protect -#}
+{#- explicitly (replay_window only when replay protection is on). The always-  -#}
+{#- on testbed runs with replay protection off: PTF shares the neighbour's SA, -#}
+{#- so the two senders' PNs interleave and strict replay checking would drop   -#}
+{#- frames as late. orchagent passes the setting to the SAI                    -#}
+{#- (sonic-net/sonic-swss#5037); with it off, neighbour traffic shows            -#}
+{#- IN_PKTS_LATE 0 and BGP stays up. Other vendors keep the SAI defaults.      -#}
+{%- macro macsec_profile_body() -%}
+        "priority": "{{priority}}",
+        "cipher_suite": "{{cipher_suite}}",
+        "primary_cak": "{{primary_cak}}",
+        "primary_ckn": "{{primary_ckn}}",
+        "policy": "{{policy}}",
+        "send_sci": "{{send_sci}}"
+        {%- if asic_type|default('') == 'broadcom' -%}
+        ,
+        "rekey_period": "{{ rekey_period|default(0) }}",
+        "enable_replay_protect": "{{ enable_replay_protect|default('false') }}"
+        {%- if enable_replay_protect|default('false') == 'true' -%}
+        ,
+        "replay_window": "{{ replay_window|default(100) }}"
+        {%- endif -%}
+        {%- endif -%}
+{%- endmacro -%}
 {% if asic_cnt > 1 %}
   "localhost": {
     "MACSEC_PROFILE": {}
@@ -8,12 +32,7 @@
   "asic{{ns}}": {
     "MACSEC_PROFILE": {
       "{{macsec_profile}}": {
-        "priority": "{{priority}}",
-        "cipher_suite": "{{cipher_suite}}",
-        "primary_cak": "{{primary_cak}}",
-        "primary_ckn": "{{primary_ckn}}",
-        "policy": "{{policy}}",
-        "send_sci": "{{send_sci}}"
+{{ macsec_profile_body() }}
       }
     }
 {% if ns == asic_cnt-1 %}
@@ -25,12 +44,7 @@
 {% else %}
   "MACSEC_PROFILE": {
       "{{macsec_profile}}": {
-        "priority": "{{priority}}",
-        "cipher_suite": "{{cipher_suite}}",
-        "primary_cak": "{{primary_cak}}",
-        "primary_ckn": "{{primary_ckn}}",
-        "policy": "{{policy}}",
-        "send_sci": "{{send_sci}}"
+{{ macsec_profile_body() }}
       }
     }
 {%- endif -%}

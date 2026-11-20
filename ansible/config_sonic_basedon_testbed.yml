@@ -663,6 +663,22 @@
       - name: Load variables from topology file for topo_{{ topo }}.yml
         include_vars: "vars/topo_{{ topo }}.yml"
 
+      - name: Fail fast — macsec_links entry without a profile
+        fail:
+          msg: "Every macsec_links entry in vars/topo_{{ topo }}.yml needs a profile: {{ macsec_links | rejectattr('profile', 'defined') | list }}"
+        when: macsec_links | default([]) | rejectattr('profile', 'defined') | list | length > 0
+
+      # macsec_links in the topology file is the single MACsec declaration; an
+      # explicitly passed macsec_profile still wins as the global default. Golden
+      # config renders it and every other profile the links name, so each link
+      # can run its own profile.
+      - name: Derive macsec_profile from the topology macsec_links
+        set_fact:
+          macsec_profile: "{{ macsec_links[0].profile }}"
+        when:
+          - macsec_profile is not defined
+          - macsec_links | default([]) | length > 0
+
       - name: set BGP confd ASN facts
         set_fact:
           bgp_confd_asn: "{{ hostvars[inventory_hostname]['configuration_properties']['common']['dut_confed_asn'] | default(None) }}"
@@ -947,9 +963,26 @@
         register: lab_csv_result
         when: port_override_from_links | default(false) | bool
 
+      # macsec_links is not tied to a topology type: the module binds them on
+      # whatever golden config the topology produces.
+      - name: Copy macsec profile json to dut
+        copy: src=../tests/common/macsec/profile.json
+              dest=/tmp/profile.json
+        become: true
+        when: macsec_profile is defined and init_cfg_profile is not defined
+
+      # Despite the name, the template only renders MACSEC_PROFILE and is used for any topology.
+      - name: Copy golden_config_db_t2 template to DUT
+        copy: src=templates/golden_config_db_t2.j2
+              dest=/tmp/golden_config_db_t2.j2
+        become: true
+        when: macsec_profile is defined and init_cfg_profile is not defined
+
       - name: Generate golden_config_db.json
         generate_golden_config_db:
           topo_name: "{{ topo }}"
+          macsec_profile: "{{ macsec_profile | default(omit) }}"
+          macsec_links: "{{ macsec_links | default([]) }}"
           port_index_map: "{{ port_index_map | default({}) }}"
           port_speeds: "{{ (lab_csv_result.stdout | from_json).port_speeds if (port_override_from_links | default(false) | bool) and lab_csv_result is defined and lab_csv_result.rc == 0 else omit }}"
           port_override_from_links: "{{ port_override_from_links | default(false) | bool }}"
@@ -969,30 +1002,7 @@
           lacp_fast_rate: "{{ lacp_fast_rate | default(false) }}"
           device_conn: "{{ device_conn[inventory_hostname] | default({}) }}"
         become: true
-        when: enable_macsec is not defined and init_cfg_profile is not defined
-
-      - name: Copy macsec profile json to dut
-        copy: src=../tests/common/macsec/profile.json
-              dest=/tmp/profile.json
-        become: true
-        when: "('t2' in topo) and (enable_macsec is defined)"
-
-      - name: Copy golden_config_db_t2 template to DUT
-        copy: src=templates/golden_config_db_t2.j2
-              dest=/tmp/golden_config_db_t2.j2
-        become: true
-        when: "('t2' in topo) and (enable_macsec is defined)"
-
-      - name: Generate golden_config_db.json for t2
-        generate_golden_config_db:
-          topo_name: "{{ topo }}"
-          macsec_profile: "{{ macsec_profile }}"
-          num_asics: "{{ num_asics }}"
-          bgp_confd_asn: "{{ bgp_confd_asn }}"
-          bgp_confd_peers: "{{ bgp_confd_peers }}"
-          device_conn: "{{ device_conn[inventory_hostname] | default({}) }}"
-        become: true
-        when: "('t2' in topo) and (enable_macsec is defined)"
+        when: init_cfg_profile is not defined
 
       - name: Use minigraph case
         block:
