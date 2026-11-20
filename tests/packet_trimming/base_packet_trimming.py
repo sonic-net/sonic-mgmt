@@ -349,7 +349,7 @@ class BasePacketTrimming:
                     verify_queue_and_port_trim_counter_consistency(duthost, port)
 
     def test_trimming_during_warm_reboot(self, duthost, ptfadapter, ptfhost, test_params, localhost,
-                                         clean_warm_reboot_traffic):
+                                         clean_warm_reboot_traffic, skip_if_warm_reboot_unsupported):
         """
         Test Case: Verify Trimming Is Not Disrupted During Warm Reboot
 

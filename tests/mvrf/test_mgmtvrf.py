@@ -314,7 +314,8 @@ class TestReboot():
         inbound_test.test_snmp_fact(localhost=localhost, duthost=duthost, creds=creds)
 
     @pytest.mark.disable_loganalyzer
-    def test_warmboot(self, duthosts, rand_one_dut_hostname, localhost, ptfhost, creds, change_critical_services):
+    def test_warmboot(self, duthosts, rand_one_dut_hostname, localhost, ptfhost, creds, change_critical_services,
+                      skip_if_warm_reboot_unsupported):
         duthost = duthosts[rand_one_dut_hostname]
         duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost, reboot_type="warm")
