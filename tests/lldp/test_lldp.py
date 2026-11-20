@@ -293,39 +293,39 @@ def check_lldp_neighbor(duthost, localhost, nbrhosts, eos, sonic,
             )
 
         # Verify the published DUT system description field is correct
-            assert (
-                nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_desc']
-                == dut_system_description
-            ), (
-                "LLDP neighbor system description mismatch for interface '{}'. "
-                "Expected system description: '{}', but got: '{}'."
-            ).format(
-                neighbor_interface,
-                dut_system_description,
-                nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_desc']
-            )
+        assert (
+            nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_desc']
+            == dut_system_description
+        ), (
+            "LLDP neighbor system description mismatch for interface '{}'. "
+            "Expected system description: '{}', but got: '{}'."
+        ).format(
+            neighbor_interface,
+            dut_system_description,
+            nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_desc']
+        )
 
         # Verify the published DUT port id field is correct
-            assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_id'] == \
-                config_facts['PORT'][k]['alias'], (
-                "LLDP neighbor port ID mismatch for interface '{}'. "
-                "Expected port ID (alias) from config_facts: '{}', but got from LLDP: '{}'."
-            ).format(
-                neighbor_interface,
-                config_facts['PORT'][k]['alias'],
-                nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_id']
-            )
+        assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_id'] == \
+            config_facts['PORT'][k]['alias'], (
+            "LLDP neighbor port ID mismatch for interface '{}'. "
+            "Expected port ID (alias) from config_facts: '{}', but got from LLDP: '{}'."
+        ).format(
+            neighbor_interface,
+            config_facts['PORT'][k]['alias'],
+            nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_id']
+        )
 
         # Verify the published DUT port description field is correct
-            assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_desc'] == \
-                config_facts['PORT'][k]['description'], (
-                "LLDP neighbor port description mismatch for interface '{}'. "
-                "Expected port description from config_facts: '{}', but got from LLDP: '{}'."
-            ).format(
-                neighbor_interface,
-                config_facts['PORT'][k]['description'],
-                nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_desc']
-            )
+        assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_desc'] == \
+            config_facts['PORT'][k]['description'], (
+            "LLDP neighbor port description mismatch for interface '{}'. "
+            "Expected port description from config_facts: '{}', but got from LLDP: '{}'."
+        ).format(
+            neighbor_interface,
+            config_facts['PORT'][k]['description'],
+            nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_desc']
+        )
 
 
 def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
@@ -401,26 +401,36 @@ def verify_lldp_table(duthost, intf_status_output, test_name=""):
     context = " {}".format(test_name) if test_name else ""
     logger.info("Verifying LLDP table{}".format(context))
 
-    # Get LLDP table output using show_and_parse for robust parsing
-    lldp_table_parsed = duthost.show_and_parse("show lldp table")
-    lldp_table_interfaces = set()
-    for entry in lldp_table_parsed:
-        interface = entry.get('localport', '')
-        # Filter out separator/footer lines that show_and_parse may include
-        if interface and not interface.startswith('-') and not interface.startswith('Total'):
-            lldp_table_interfaces.add(interface)
+    def _parse_lldp_table():
+        # Get LLDP table output using show_and_parse for robust parsing
+        lldp_table_parsed = duthost.show_and_parse("show lldp table")
+        ifaces = set()
+        for entry in lldp_table_parsed:
+            interface = entry.get('localport', '')
+            # Filter out separator/footer lines that show_and_parse may include
+            if interface and not interface.startswith('-') and not interface.startswith('Total'):
+                ifaces.add(interface)
+        return ifaces
 
-    logger.info("LLDP table interfaces{}: {}".format(context, sorted(lldp_table_interfaces)))
-    logger.info("LLDP table interfaces in total: {}".format(len(lldp_table_interfaces)))
+    lldp_table_interfaces = set()
+
+    def _eth0_in_lldp_table():
+        nonlocal lldp_table_interfaces
+        lldp_table_interfaces = _parse_lldp_table()
+        return 'eth0' in lldp_table_interfaces
 
     # On virtual/KVM testbeds, eth0 has no LLDP neighbor so it won't appear in the LLDP table
     if is_virtual_platform(duthost):
+        lldp_table_interfaces = _parse_lldp_table()
         if 'eth0' not in lldp_table_interfaces:
             logger.info("eth0 not in LLDP table (expected on virtual/KVM testbed){}"
                         .format(context))
     else:
-        pytest_assert('eth0' in lldp_table_interfaces,
+        pytest_assert(wait_until(10, 1, 0, _eth0_in_lldp_table),
                       "eth0 is missing from LLDP table{}".format(context))
+
+    logger.info("LLDP table interfaces{}: {}".format(context, sorted(lldp_table_interfaces)))
+    logger.info("LLDP table interfaces in total: {}".format(len(lldp_table_interfaces)))
 
     # For LLDP table comparison: exclude eth0 from lldp_table, exclude PortChannels and admin down from intf_status
     lldp_table_interfaces_no_eth0 = lldp_table_interfaces - {'eth0'}
