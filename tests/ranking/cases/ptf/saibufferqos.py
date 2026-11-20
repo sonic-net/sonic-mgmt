@@ -949,10 +949,10 @@ class SaiHelperScaleTM(SaiHelperUtilsMixin, SaiHelperBase):
         sai_thrift_remove_fdb_entry(self.client,self.fdb_entry3)
         sai_thrift_remove_fdb_entry(self.client,self.fdb_entry2)
         sai_thrift_remove_fdb_entry(self.client,self.fdb_entry1)
+        self.destroy_routing_interfaces()
         self.destroy_vlans_with_members()
         self.destroy_bridge_ports()
         self.destroy_lags_with_members()
-        self.destroy_routing_interfaces()
         sai_thrift_remove_buffer_pool(self.client, self.ingr_pool)
         sai_thrift_remove_buffer_pool(self.client, self.egr_pool)
 
@@ -1016,12 +1016,8 @@ class LossyAlphaTest(SaiHelperScaleTM):
             abs_value = abs(float(egr_buf_size)*(2**self.alpha1)/(1+2**self.alpha1)-stats_q["SAI_QUEUE_STAT_CURR_OCCUPANCY_BYTES"])
             self.assertLessEqual(abs_value, float(egr_buf_size)*(2**self.alpha1)/(1+2**self.alpha1)*0.05)
 
-            if get_platform() == 'clx':
-                self.assertLessEqual(abs(stats_q["SAI_QUEUE_STAT_CURR_OCCUPANCY_BYTES"] - stats_p["SAI_BUFFER_POOL_STAT_CURR_OCCUPANCY_BYTES"]), self.pir)
-                time.sleep(float(egr_buf_size)*(2**self.alpha1)/(1+2**self.alpha1)/self.pir + 2)
-            else:
-                self.assertEqual(stats_q["SAI_QUEUE_STAT_CURR_OCCUPANCY_BYTES"], stats_p["SAI_BUFFER_POOL_STAT_CURR_OCCUPANCY_BYTES"])
-                time.sleep(60)
+            self.assertLessEqual(abs(stats_q["SAI_QUEUE_STAT_CURR_OCCUPANCY_BYTES"] - stats_p["SAI_BUFFER_POOL_STAT_CURR_OCCUPANCY_BYTES"]), self.pir)
+            time.sleep(float(egr_buf_size)*(2**self.alpha1)/(1+2**self.alpha1)/self.pir + 2)
 
             stats_p2 = query_counter(
                             self, sai_thrift_get_buffer_pool_stats, self.egr_pool)
@@ -1039,12 +1035,11 @@ class LossyAlphaTest(SaiHelperScaleTM):
 
             self.assertEqual(stats_q2["SAI_QUEUE_STAT_CURR_OCCUPANCY_BYTES"], 0)
 
-            if get_platform() == 'clx':
-                self.assertLessEqual(abs(stats_q2["SAI_QUEUE_STAT_SHARED_WATERMARK_BYTES"] - stats_p2["SAI_BUFFER_POOL_STAT_WATERMARK_BYTES"]), self.pir)
+            self.assertLessEqual(abs(stats_q2["SAI_QUEUE_STAT_SHARED_WATERMARK_BYTES"] - stats_p2["SAI_BUFFER_POOL_STAT_WATERMARK_BYTES"]), self.pir)
 
             #clear queue stats
-            sai_thrift_clear_queue_stats(self.client, self.queues2[2])
-            sai_thrift_clear_buffer_pool_stats(self.client, self.egr_pool)
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues2[2])
+            clear_counter(self, sai_thrift_clear_buffer_pool_stats, self.egr_pool)
 
             #double check queue and pool stats, should equeal zero
             stats_q2 = query_counter(
@@ -1077,12 +1072,8 @@ class LossyAlphaTest(SaiHelperScaleTM):
 
             self.assertLessEqual(abs_value, float(egr_buf_size)*(2**self.alpha2)/(1+2**self.alpha2)*0.05)
 
-            if get_platform() == 'clx':
-                self.assertLessEqual(abs(stats_q3["SAI_QUEUE_STAT_CURR_OCCUPANCY_BYTES"] - stats_p3["SAI_BUFFER_POOL_STAT_CURR_OCCUPANCY_BYTES"]), self.pir)
-                time.sleep(float(egr_buf_size)*(2**self.alpha2)/(1+2**self.alpha2)/self.pir + 2)
-            else:
-                self.assertEqual(stats_q3["SAI_QUEUE_STAT_CURR_OCCUPANCY_BYTES"], stats_p3["SAI_BUFFER_POOL_STAT_CURR_OCCUPANCY_BYTES"])
-                time.sleep(60)
+            self.assertLessEqual(abs(stats_q3["SAI_QUEUE_STAT_CURR_OCCUPANCY_BYTES"] - stats_p3["SAI_BUFFER_POOL_STAT_CURR_OCCUPANCY_BYTES"]), self.pir)
+            time.sleep(float(egr_buf_size)*(2**self.alpha2)/(1+2**self.alpha2)/self.pir + 2)
 
             stats_p4 = query_counter(
                             self, sai_thrift_get_buffer_pool_stats, self.egr_pool)
@@ -1100,12 +1091,11 @@ class LossyAlphaTest(SaiHelperScaleTM):
 
             self.assertEqual(stats_q4["SAI_QUEUE_STAT_CURR_OCCUPANCY_BYTES"], 0)
 
-            if get_platform() == 'clx':
-                self.assertLessEqual(abs(stats_q4["SAI_QUEUE_STAT_SHARED_WATERMARK_BYTES"] - stats_p4["SAI_BUFFER_POOL_STAT_WATERMARK_BYTES"]), self.pir)
+            self.assertLessEqual(abs(stats_q4["SAI_QUEUE_STAT_SHARED_WATERMARK_BYTES"] - stats_p4["SAI_BUFFER_POOL_STAT_WATERMARK_BYTES"]), self.pir)
 
             #clear queue stats
-            sai_thrift_clear_queue_stats(self.client, self.queues2[3])
-            sai_thrift_clear_buffer_pool_stats(self.client, self.egr_pool)
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues2[3])
+            clear_counter(self, sai_thrift_clear_buffer_pool_stats, self.egr_pool)
 
             #double check queue and pool stats, should equeal zero
             stats_q5 = query_counter(
@@ -1116,8 +1106,8 @@ class LossyAlphaTest(SaiHelperScaleTM):
             self.assertEqual(stats_p5["SAI_BUFFER_POOL_STAT_WATERMARK_BYTES"],0)
 
         finally:
-            sai_thrift_clear_queue_stats(self.client, self.queues2[2])
-            sai_thrift_clear_queue_stats(self.client, self.queues2[3])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues2[2])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues2[3])
 
     def tearDown(self):
 
@@ -1236,13 +1226,13 @@ class LossyEcnTest(SaiHelperScaleTM):
             self.assertGreater(stats_q["SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS"], 0)
 
             verify_packet(self, self.rev_pkt, self.dev_port2)
-            time.sleep(60)
+            time.sleep(float(self.buf_size)*(2**self.alpha1)/(1+2**self.alpha1)/self.pir + 2)
             stats_p = query_counter(
                             self, sai_thrift_get_buffer_pool_stats, self.ingr_pool)
 
             self.assertEqual(stats_p["SAI_BUFFER_POOL_STAT_CURR_OCCUPANCY_BYTES"], 0)
 
-            sai_thrift_clear_queue_stats(self.client, self.queues2[2])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues2[2])
 
             print("----------------- send pkt ect2 ---------------------")
 
@@ -1262,13 +1252,13 @@ class LossyEcnTest(SaiHelperScaleTM):
             self.assertGreater(stats_q1["SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS"], 0)
 
             verify_packet(self, self.rev_pkt, self.dev_port2)   
-            time.sleep(60)
+            time.sleep(float(self.buf_size)*(2**self.alpha1)/(1+2**self.alpha1)/self.pir + 2)
 
             stats_p = query_counter(
                             self, sai_thrift_get_buffer_pool_stats, self.ingr_pool)
 
             self.assertEqual(stats_p["SAI_BUFFER_POOL_STAT_CURR_OCCUPANCY_BYTES"], 0)
-            sai_thrift_clear_queue_stats(self.client, self.queues2[2])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues2[2])
 
             print("----------------- send pkt ect0 ---------------------")
 
@@ -1288,13 +1278,14 @@ class LossyEcnTest(SaiHelperScaleTM):
             self.assertEqual(stats_q2["SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS"], 0)
             #check rev pkt ecn = 0
             verify_packet(self, self.pkt_ect0, self.dev_port2)   
-            time.sleep(60)
+            time.sleep(float(self.buf_size)*(2**self.alpha1)/(1+2**self.alpha1)/self.pir + 2)
 
             stats_p = query_counter(
                             self, sai_thrift_get_buffer_pool_stats, self.ingr_pool)
 
             self.assertEqual(stats_p["SAI_BUFFER_POOL_STAT_CURR_OCCUPANCY_BYTES"], 0)
-            sai_thrift_clear_queue_stats(self.client, self.queues2[2])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues2[2])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues6[2])
 
             print("----------------- send p6_pkt ect1 ---------------------")
 
@@ -1303,6 +1294,7 @@ class LossyEcnTest(SaiHelperScaleTM):
 
             print("Verify traffic\n")
 
+            time.sleep(1)
             stats_q3 = query_counter(
                             self, sai_thrift_get_queue_stats, self.queues6[2])
 
@@ -1319,7 +1311,7 @@ class LossyEcnTest(SaiHelperScaleTM):
                             self, sai_thrift_get_buffer_pool_stats, self.ingr_pool)
 
             self.assertEqual(stats_p["SAI_BUFFER_POOL_STAT_CURR_OCCUPANCY_BYTES"], 0)
-            sai_thrift_clear_queue_stats(self.client, self.queues6[2])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues6[2])
 
             print("----------------- send p6_pkt ect2 ---------------------")
             for _ in range(self.tx_cnt):
@@ -1327,6 +1319,7 @@ class LossyEcnTest(SaiHelperScaleTM):
 
             print("Verify traffic\n")
 
+            time.sleep(1)
             stats_q4 = query_counter(
                             self, sai_thrift_get_queue_stats, self.queues6[2])
 
@@ -1343,7 +1336,7 @@ class LossyEcnTest(SaiHelperScaleTM):
                             self, sai_thrift_get_buffer_pool_stats, self.ingr_pool)
 
             self.assertEqual(stats_p["SAI_BUFFER_POOL_STAT_CURR_OCCUPANCY_BYTES"], 0)
-            sai_thrift_clear_queue_stats(self.client, self.queues6[2])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues6[2])
 
             print("----------------- send p6_pkt ect3 ---------------------")
             for _ in range(self.tx_cnt):
@@ -1351,6 +1344,7 @@ class LossyEcnTest(SaiHelperScaleTM):
 
             print("Verify traffic\n")
 
+            time.sleep(1)
             stats_q5 = query_counter(
                             self, sai_thrift_get_queue_stats, self.queues6[2])
 
@@ -1369,7 +1363,7 @@ class LossyEcnTest(SaiHelperScaleTM):
                             self, sai_thrift_get_buffer_pool_stats, self.ingr_pool)
 
             self.assertEqual(stats_p["SAI_BUFFER_POOL_STAT_CURR_OCCUPANCY_BYTES"], 0)
-            sai_thrift_clear_queue_stats(self.client, self.queues6[2])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues6[2])
 
         finally:
             sai_thrift_set_queue_attribute(self.client, self.queues2[2], wred_profile_id=0)
@@ -1458,16 +1452,15 @@ class LossyWredTest(SaiHelperScaleTM):
 
             if get_platform() == 'clx':
                 egr_buf_size = self.egr_share_buf_size
-                baseline = float(egr_buf_size)*(2**self.alpha1)/(1+2**self.alpha1)
-                self.assertGreaterEqual(stats_p["SAI_QUEUE_STAT_SHARED_WATERMARK_BYTES"], int(baseline * 0.95))
-                self.assertLessEqual(stats_p["SAI_QUEUE_STAT_SHARED_WATERMARK_BYTES"], int(baseline * 1.05))
-                time.sleep(baseline/self.pir+2)
-                stats_p = query_counter(
-                    self, sai_thrift_get_queue_stats, self.queues2[2])
-                self.assertEqual(stats_p["SAI_QUEUE_STAT_CURR_OCCUPANCY_BYTES"], 0)
             else:
-                self.assertGreaterEqual(stats_p["SAI_QUEUE_STAT_SHARED_WATERMARK_BYTES"], 4000000*0.95)
-                self.assertLessEqual(stats_p["SAI_QUEUE_STAT_SHARED_WATERMARK_BYTES"], 4000000*1.05)
+                egr_buf_size = self.buf_size
+            baseline = float(egr_buf_size)*(2**self.alpha1)/(1+2**self.alpha1)
+            self.assertGreaterEqual(stats_p["SAI_QUEUE_STAT_SHARED_WATERMARK_BYTES"], int(baseline * 0.95))
+            self.assertLessEqual(stats_p["SAI_QUEUE_STAT_SHARED_WATERMARK_BYTES"], int(baseline * 1.05))
+            time.sleep(baseline/self.pir+2)
+            stats_p = query_counter(
+                self, sai_thrift_get_queue_stats, self.queues2[2])
+            self.assertEqual(stats_p["SAI_QUEUE_STAT_CURR_OCCUPANCY_BYTES"], 0)
 
             print("Send pkt from {} to {} , ip_dscp = 3".format(self.dev_port3, self.dev_port2))
             print("Send {} pkts, pkt size: {} B".format(self.tx_cnt, self.pkt_len))
@@ -1487,18 +1480,14 @@ class LossyWredTest(SaiHelperScaleTM):
                 stats_p2["SAI_QUEUE_STAT_DROPPED_PACKETS"])
             self.assertGreater(stats_p2["SAI_QUEUE_STAT_DROPPED_PACKETS"], 0)
 
-            if get_platform() == 'clx':
-                baseline = float(self.egr_share_buf_size)*(2**self.alpha2)/(1+2**self.alpha2)
-                self.assertGreaterEqual(stats_p2["SAI_QUEUE_STAT_SHARED_WATERMARK_BYTES"], baseline*0.95)
-                self.assertLessEqual(stats_p2["SAI_QUEUE_STAT_SHARED_WATERMARK_BYTES"], baseline*1.05)
-            else:
-                self.assertGreaterEqual(stats_p2["SAI_QUEUE_STAT_SHARED_WATERMARK_BYTES"], 3000000*0.95)
-                self.assertLessEqual(stats_p2["SAI_QUEUE_STAT_SHARED_WATERMARK_BYTES"], 3000000*1.05)
+            baseline = float(egr_buf_size)*(2**self.alpha2)/(1+2**self.alpha2)
+            self.assertGreaterEqual(stats_p2["SAI_QUEUE_STAT_SHARED_WATERMARK_BYTES"], baseline*0.95)
+            self.assertLessEqual(stats_p2["SAI_QUEUE_STAT_SHARED_WATERMARK_BYTES"], baseline*1.05)
 
         finally:
 
-            sai_thrift_clear_queue_stats(self.client, self.queues2[2])
-            sai_thrift_clear_queue_stats(self.client, self.queues2[3])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues2[2])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues2[3])
 
     def tearDown(self):
         sai_thrift_set_queue_attribute(self.client, self.queues1[1], wred_profile_id=0)
@@ -1538,8 +1527,9 @@ class LossyMinGarenteeTest(SaiHelperScaleTM):
         print("Verify forwarding works with default buffer profile")
 
         try:
-            sai_thrift_clear_queue_stats(self.client, self.queues5[2])
-            sai_thrift_clear_ingress_priority_group_stats(self.client, self.ipg_idx6[2])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues5[2])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues6[2])
+            clear_counter(self, sai_thrift_clear_ingress_priority_group_stats, self.ipg_idx6[2])
             buffer_profile_pg4 = sai_thrift_create_buffer_profile(
                 self.client, pool_id=self.ingr_pool,
                 reserved_buffer_size=20480,
@@ -1592,6 +1582,7 @@ class LossyMinGarenteeTest(SaiHelperScaleTM):
                 send_packet(self, self.dev_port5, self.pkt_p6_l)
 
             print("Verify traffic\n")
+            time.sleep(2)
             stats_q6 = query_counter(
                             self, sai_thrift_get_queue_stats, self.queues6[2])
             
@@ -1613,6 +1604,7 @@ class LossyMinGarenteeTest(SaiHelperScaleTM):
             #cancel shaping, let four pkts out of queue
             sai_thrift_set_scheduler_group_attribute(self.client, self.queues6_2_parent_sch_grp, scheduler_profile_id=0)
 
+            time.sleep(1)
             stats_q6_post = query_counter(
                             self, sai_thrift_get_queue_stats, self.queues6[2])
             print("SAI_QUEUE_STAT_DROPPED_PACKETS",
@@ -1647,23 +1639,24 @@ class LossyMinGarenteeTest(SaiHelperScaleTM):
                 stats_pg["SAI_INGRESS_PRIORITY_GROUP_STAT_DROPPED_PACKETS"])
 
             self.assertEqual(stats_pg["SAI_INGRESS_PRIORITY_GROUP_STAT_PACKETS"], 4)
-            sai_thrift_clear_ingress_priority_group_stats(self.client, self.ipg_idx6[2])
+            clear_counter(self, sai_thrift_clear_ingress_priority_group_stats, self.ipg_idx6[2])
 
             #cancel shaping, let four pkts out of queue
             sai_thrift_set_scheduler_group_attribute(self.client, self.queues5_2_parent_sch_grp, scheduler_profile_id=0)
 
+            time.sleep(1)
             stats_q5_post = query_counter(
                             self, sai_thrift_get_queue_stats, self.queues5[2])
             self.assertEqual(stats_q5_post["SAI_QUEUE_STAT_PACKETS"], 4)
 
         finally:
-            sai_thrift_clear_queue_stats(self.client, self.queues6[2])
-            sai_thrift_clear_queue_stats(self.client, self.queues5[2])
-            sai_thrift_clear_ingress_priority_group_stats(self.client, self.ipg_idx6[2])
-            sai_thrift_remove_buffer_profile(self.client, buffer_profile_pg4)
-            sai_thrift_remove_buffer_profile(self.client, buffer_profile_q4)
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues6[2])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues5[2])
+            clear_counter(self, sai_thrift_clear_ingress_priority_group_stats, self.ipg_idx6[2])
             sai_thrift_set_ingress_priority_group_attribute(self.client, self.ipg_idx6[2], buffer_profile=0)
             sai_thrift_set_queue_attribute(self.client, self.queues6[2], buffer_profile_id=0)
+            sai_thrift_remove_buffer_profile(self.client, buffer_profile_pg4)
+            sai_thrift_remove_buffer_profile(self.client, buffer_profile_q4)
             sai_thrift_remove_scheduler(self.client,sched4)
             sai_thrift_set_scheduler_group_attribute(self.client, self.queues6_2_parent_sch_grp, scheduler_profile_id=0)
             sai_thrift_set_scheduler_group_attribute(self.client, self.queues5_2_parent_sch_grp, scheduler_profile_id=0)
@@ -1744,8 +1737,8 @@ class LossyCPUTest(SaiHelperScaleTM):
             print("\tOK")
 
         finally:
-            sai_thrift_clear_queue_stats(self.client, self.queues5[2])
-            sai_thrift_clear_queue_stats(self.client, self.cpu_queue0)
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues5[2])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.cpu_queue0)
             status = sai_thrift_set_scheduler_group_attribute(self.client, self.queues5_2_parent_sch_grp, scheduler_profile_id=0)
             sai_thrift_set_queue_attribute(self.client, self.queues5[2], buffer_profile_id=0)
             sai_thrift_remove_hostif_trap(self.client, test_trap)
@@ -1782,6 +1775,7 @@ class LossyPfcRxTest(SaiHelperScaleTM):
             super(LossyPfcRxTest, self).setUp()
 
         self.tx_cnt = 100000
+        self.pfc_cnt = self.tx_cnt
         self.pkt_len = 9000
         self.pkt_p6 = simple_udp_packet(
             eth_dst='00:01:02:03:04:06',
@@ -1853,9 +1847,8 @@ class LossyPfcRxTest(SaiHelperScaleTM):
             stats_q["SAI_QUEUE_STAT_DROPPED_PACKETS"])
         self.assertGreater(stats_q["SAI_QUEUE_STAT_DROPPED_PACKETS"], 0)
 
-        if get_platform() == 'clx':
-            stats_port6 = query_counter(self, sai_thrift_get_port_stats, self.port6)
-            self.assertEqual(stats_port6.get("SAI_PORT_STAT_PFC_2_RX_PKTS", 0), self.pfc_cnt)
+        stats_port6 = query_counter(self, sai_thrift_get_port_stats, self.port6)
+        self.assertEqual(stats_port6.get("SAI_PORT_STAT_PFC_2_RX_PKTS", 0), self.pfc_cnt)
 
     def tearDown(self):
         if get_platform() == 'clx':
@@ -1917,6 +1910,9 @@ class LossySrcBalancingTest(SaiHelperScaleTM):
                     send_packet(self, self.dev_port2, self.pkt_src_p2)
                     send_packet(self, self.dev_port20, self.pkt_src_p20)
                     send_packet(self, self.dev_port21, self.pkt_src_p21)
+                stats_q = query_counter(
+                    self, sai_thrift_get_queue_stats, self.queues1[2])
+                self.assertGreater(stats_q["SAI_QUEUE_STAT_DROPPED_PACKETS"], 0)
                 status = sai_thrift_set_scheduler_group_attribute(
                     self.client, self.queues1_2_parent_sch_grp, scheduler_profile_id=0)
                 self.assertEqual(status, SAI_STATUS_SUCCESS)
@@ -1990,14 +1986,14 @@ class LossySrcBalancingTest(SaiHelperScaleTM):
         finally:
             if get_platform() == 'clx':
                 self.FlowCntDestroy()
-            sai_thrift_clear_queue_stats(self.client, self.queues1[2])
-            sai_thrift_clear_ingress_priority_group_stats(self.client, self.ipg_idx2[2])
-            sai_thrift_clear_ingress_priority_group_stats(self.client, self.ipg_idx3[2])
-            sai_thrift_clear_ingress_priority_group_stats(self.client, self.ipg_idx4[2])
-            sai_thrift_clear_ingress_priority_group_stats(self.client, self.ipg_idx5[2])
-            sai_thrift_clear_ingress_priority_group_stats(self.client, self.ipg_idx6[2])
-            sai_thrift_clear_ingress_priority_group_stats(self.client, self.ipg_idx20[2])
-            sai_thrift_clear_ingress_priority_group_stats(self.client, self.ipg_idx21[2])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues1[2])
+            clear_counter(self, sai_thrift_clear_ingress_priority_group_stats, self.ipg_idx2[2])
+            clear_counter(self, sai_thrift_clear_ingress_priority_group_stats, self.ipg_idx3[2])
+            clear_counter(self, sai_thrift_clear_ingress_priority_group_stats, self.ipg_idx4[2])
+            clear_counter(self, sai_thrift_clear_ingress_priority_group_stats, self.ipg_idx5[2])
+            clear_counter(self, sai_thrift_clear_ingress_priority_group_stats, self.ipg_idx6[2])
+            clear_counter(self, sai_thrift_clear_ingress_priority_group_stats, self.ipg_idx20[2])
+            clear_counter(self, sai_thrift_clear_ingress_priority_group_stats, self.ipg_idx21[2])
 
     def tearDown(self):
 
@@ -2085,7 +2081,7 @@ class LosslessAlphaTest(SaiHelperScaleTM):
         print("Verify forwarding works with default buffer profile")
 
         try:
-            sai_thrift_clear_buffer_pool_stats(self.client, self.ingr_pool)
+            clear_counter(self, sai_thrift_clear_buffer_pool_stats, self.ingr_pool)
             print("Send {} pkts, pkt size: {} B".format(self.tx_cnt, self.pkt_len))
             for _ in range(self.tx_cnt):
                 send_packet(self, self.dev_port2, self.pkt)
@@ -2124,10 +2120,7 @@ class LosslessAlphaTest(SaiHelperScaleTM):
             
             stats2 = stats_pg["SAI_INGRESS_PRIORITY_GROUP_STAT_SHARED_CURR_OCCUPANCY_BYTES"]
 
-            if get_platform() == 'clx':
-                time.sleep(float(self.buf_size - self.headroom_size) * (2**pg_alpha1) / self.pir)
-            else:
-                time.sleep(60)
+            time.sleep(float(self.buf_size - self.headroom_size) * (2**pg_alpha1) / self.pir)
             # check buffer stats equeal zero
             stats_pool = query_counter(
                             self, sai_thrift_get_buffer_pool_stats, self.ingr_pool)
@@ -2154,8 +2147,8 @@ class LosslessAlphaTest(SaiHelperScaleTM):
                 self.assertEqual(stats_pool["SAI_BUFFER_POOL_STAT_WATERMARK_BYTES"], stats_pg2["SAI_INGRESS_PRIORITY_GROUP_STAT_WATERMARK_BYTES"])
 
         finally:
-            sai_thrift_clear_ingress_priority_group_stats(self.client, self.ipg_idx2[1])
-            sai_thrift_clear_queue_stats(self.client, self.queues1[1])
+            clear_counter(self, sai_thrift_clear_ingress_priority_group_stats, self.ipg_idx2[1])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues1[1])
 
     def tearDown(self):
 
@@ -2281,7 +2274,7 @@ class LosslessEcnTest(SaiHelperScaleTM):
 
             self.assertEqual(stats_p["SAI_BUFFER_POOL_STAT_CURR_OCCUPANCY_BYTES"], 0)
 
-            sai_thrift_clear_queue_stats(self.client, self.queues2[1])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues2[1])
 
             for _ in range(self.tx_cnt):
                 send_packet(self, self.dev_port1, self.pkt_ect2)
@@ -2314,7 +2307,7 @@ class LosslessEcnTest(SaiHelperScaleTM):
                             self, sai_thrift_get_buffer_pool_stats, self.ingr_pool)
             self.assertEqual(stats_p2["SAI_BUFFER_POOL_STAT_CURR_OCCUPANCY_BYTES"], 0)
 
-            sai_thrift_clear_queue_stats(self.client, self.queues2[1])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues2[1])
 
             for _ in range(self.tx_cnt):
                 send_packet(self, self.dev_port1, self.pkt_ect3)
@@ -2347,7 +2340,7 @@ class LosslessEcnTest(SaiHelperScaleTM):
                             self, sai_thrift_get_buffer_pool_stats, self.ingr_pool)
             self.assertEqual(stats_p3["SAI_BUFFER_POOL_STAT_CURR_OCCUPANCY_BYTES"], 0)
 
-            sai_thrift_clear_queue_stats(self.client, self.queues2[1])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues2[1])
 
             for _ in range(self.tx_cnt):
                 send_packet(self, self.dev_port1, self.pkt_ect0)
@@ -2380,13 +2373,14 @@ class LosslessEcnTest(SaiHelperScaleTM):
                             self, sai_thrift_get_buffer_pool_stats, self.ingr_pool)
             self.assertEqual(stats_p4["SAI_BUFFER_POOL_STAT_CURR_OCCUPANCY_BYTES"], 0)
 
-            sai_thrift_clear_queue_stats(self.client, self.queues2[1])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues2[1])
 
             for _ in range(self.tx_cnt):
                 send_packet(self, self.dev_port1, self.pkt_p6)
 
             print("Verify traffic\n")
 
+            time.sleep(2)
             stats_q5 = query_counter(
                             self, sai_thrift_get_queue_stats, self.queues6[1])
 
@@ -2401,7 +2395,7 @@ class LosslessEcnTest(SaiHelperScaleTM):
             print("SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS",
                 stats_q5["SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS"])
             self.assertEqual(stats_q5["SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS"], 0)
-            sai_thrift_clear_queue_stats(self.client, self.queues6[1])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues6[1])
 
             verify_packet(self, self.pkt_p6, self.dev_port6)   
 
@@ -2411,7 +2405,7 @@ class LosslessEcnTest(SaiHelperScaleTM):
             self.assertEqual(stats_p5["SAI_BUFFER_POOL_STAT_CURR_OCCUPANCY_BYTES"], 0)
 
         finally:
-            sai_thrift_clear_queue_stats(self.client, self.queues6[1])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues6[1])
 
     def tearDown(self):
         sai_thrift_set_queue_attribute(self.client, self.queues1[1], wred_profile_id=0)
@@ -2504,14 +2498,14 @@ class LosslessCPUTest(SaiHelperScaleTM):
 
         finally:
             sai_thrift_set_port_attribute(self.client, self.port6, priority_flow_control_tx=0)
-            sai_thrift_clear_queue_stats(self.client, self.cpu_queue0)
-            sai_thrift_clear_ingress_priority_group_stats(self.client, self.ipg_idx6[1])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.cpu_queue0)
+            clear_counter(self, sai_thrift_clear_ingress_priority_group_stats, self.ipg_idx6[1])
             sai_thrift_set_queue_attribute(self.client, self.queues5[1], buffer_profile_id=0)
             sai_thrift_set_scheduler_group_attribute(self.client, self.queues5_1_parent_sch_grp, scheduler_profile_id=0)
             sai_thrift_set_ingress_priority_group_attribute(self.client, self.ipg_idx6[1], buffer_profile=0)
             sai_thrift_remove_hostif_trap(self.client, test_trap)
             sai_thrift_remove_scheduler(self.client, sched)
-            sai_thrift_clear_queue_stats(self.client, self.queues5[1])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues5[1])
 
     def tearDown(self):
 
@@ -2543,25 +2537,20 @@ class LosslessPfcRxTxTest(SaiHelperScaleTM):
             ip_dscp=1,
             ip_ecn=1,
             pktlen=self.pkt_len - 4)  
-        if get_platform() == 'clx':
-            self.pkt_pfc = self.create_pfc_packet(
-                '01:80:c2:00:00:01', '00:22:22:22:22:22', 1 << 1)
+        self.pkt_pfc = self.create_pfc_packet(
+            '01:80:c2:00:00:01', '00:22:22:22:22:22', 1 << 1)
 
     def runTest(self):
         print("\n")
         print("Verify forwarding works with default buffer profile")
-        is_clx = get_platform() == 'clx'
         try:
-            if is_clx:
-                clear_counter(self, sai_thrift_clear_port_stats, self.port1)
-                clear_counter(self, sai_thrift_clear_port_stats, self.port2)
+            clear_counter(self, sai_thrift_clear_port_stats, self.port1)
+            clear_counter(self, sai_thrift_clear_port_stats, self.port2)
             for _ in range(self.tx_cnt):
-                if is_clx:
-                    send_packet(self, self.dev_port2, self.pkt_pfc)
+                send_packet(self, self.dev_port2, self.pkt_pfc)
                 send_packet(self, self.dev_port1, self.pkt_p2)
 
-            if is_clx:
-                time.sleep(1)
+            time.sleep(1)
             print("Verify traffic\n")
             stats_port = query_counter(
                             self, sai_thrift_get_port_stats, self.port1)
@@ -2570,15 +2559,13 @@ class LosslessPfcRxTxTest(SaiHelperScaleTM):
             print("SAI_PORT_STAT_PFC_1_TX_PKTS",
                 stats_port["SAI_PORT_STAT_PFC_1_TX_PKTS"])
             self.assertGreater(stats_port["SAI_PORT_STAT_PFC_1_TX_PKTS"], 0)
-            if is_clx:
-                stats_port2 = query_counter(
-                    self, sai_thrift_get_port_stats, self.port2)
-                self.assertGreater(stats_port2["SAI_PORT_STAT_PFC_1_RX_PKTS"], 0)
+            stats_port2 = query_counter(
+                self, sai_thrift_get_port_stats, self.port2)
+            self.assertGreater(stats_port2["SAI_PORT_STAT_PFC_1_RX_PKTS"], 0)
 
         finally:
-            sai_thrift_clear_port_stats(self.client, self.port1)
-            if is_clx:
-                sai_thrift_clear_port_stats(self.client, self.port2)
+            clear_counter(self, sai_thrift_clear_port_stats, self.port1)
+            clear_counter(self, sai_thrift_clear_port_stats, self.port2)
 
     def tearDown(self):
 
@@ -2662,9 +2649,9 @@ class SchedulerTest(SaiHelperScaleTM):
             self.assertLess(stats_q2["SAI_QUEUE_STAT_PACKETS"], stats_q3["SAI_QUEUE_STAT_PACKETS"]*5)
 
         finally:
-            sai_thrift_clear_queue_stats(self.client, self.queues4[1])
-            sai_thrift_clear_queue_stats(self.client, self.queues4[2])
-            sai_thrift_clear_queue_stats(self.client, self.queues4[3])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues4[1])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues4[2])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues4[3])
             sai_thrift_set_port_attribute(self.client, self.port4, qos_scheduler_profile_id=0)
             sai_thrift_remove_scheduler(self.client, sched4)
 
@@ -2733,6 +2720,7 @@ class CpuQueue(SaiHelperScaleTM):
         pkt = simple_udp_packet(ip_dst=test_ip)
 
         hostif = 0
+        hif_socket = None
         queues10 = None
         try:
             hostif = sai_thrift_create_hostif(self.client,
@@ -2774,8 +2762,10 @@ class CpuQueue(SaiHelperScaleTM):
             self.assertEqual(stats_q7["SAI_QUEUE_STAT_PACKETS"],1)
             
         finally:
+            if hif_socket is not None:
+                hif_socket.close()
             if queues10 is not None:
-                sai_thrift_clear_queue_stats(self.client, queues10[7])
+                clear_counter(self, sai_thrift_clear_queue_stats, queues10[7])
             if hostif:
                 sai_thrift_remove_hostif(self.client, hostif)
 
@@ -2818,7 +2808,8 @@ class MirrorBufferIsolateTest(SaiHelperScaleTM):
         print("Verify forwarding works with default buffer profile")
 
         try:
-            sai_thrift_clear_port_stats(self.client, self.port6)
+            clear_counter(self, sai_thrift_clear_port_stats, self.port6)
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues6[2])
             span_id_ingress = sai_thrift_create_mirror_session(
                 self.client,
                 monitor_port=self.port6,
@@ -2903,8 +2894,8 @@ class MirrorBufferIsolateTest(SaiHelperScaleTM):
 
 
         finally:
-            sai_thrift_clear_queue_stats(self.client, self.queues6[2])
-            sai_thrift_clear_queue_stats(self.client, self.queues6[8])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues6[2])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues6[8])
             obj_list = sai_thrift_object_list_t(count=0, idlist=[span_id_ingress])
             sai_thrift_set_port_attribute(self.client, self.port4, ingress_mirror_session=obj_list)
             sai_thrift_remove_mirror_session(self.client, span_id_ingress)
@@ -2958,7 +2949,8 @@ class FloodBufferIsolateTest(SaiHelperScaleTM):
         print("Verify forwarding works with default buffer profile")
 
         try:
-            sai_thrift_clear_port_stats(self.client, self.port5)
+            clear_counter(self, sai_thrift_clear_port_stats, self.port5)
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues5[1])
             # create vlan 40 with 
             self.create_vlan_with_members(40, {self.port4_bp: 'tagged',
                                             self.port5_bp: 'tagged'})
@@ -3015,8 +3007,8 @@ class FloodBufferIsolateTest(SaiHelperScaleTM):
             self.assertGreater(stats_port5["SAI_PORT_STAT_ETHER_STATS_TX_NO_ERRORS"], stats_q1["SAI_QUEUE_STAT_PACKETS"])
         
         finally:
-            sai_thrift_clear_queue_stats(self.client, self.queues5[1])
-            sai_thrift_clear_queue_stats(self.client, self.queues5[8])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues5[1])
+            clear_counter(self, sai_thrift_clear_queue_stats, self.queues5[8])
             sai_thrift_set_queue_attribute(self.client, self.queues5[1], buffer_profile_id=0)
             sai_thrift_set_ingress_priority_group_attribute(self.client, self.ipg_idx4[1], buffer_profile=0)
             sai_thrift_set_port_attribute(self.client, self.port5, qos_scheduler_profile_id=0)
