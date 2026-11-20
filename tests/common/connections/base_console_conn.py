@@ -43,12 +43,9 @@ CONSOLE_SSH_RARITAN_CONFIG = "console_ssh_to_port_raritan_config"
 
 
 class BaseConsoleConn(CiscoBaseConnection):
-    # Attach to the console line only: no DUT login and no write to the DUT.
-    attach_only = False
 
     def __init__(self, **kwargs):
         self.logger = logging.getLogger(__name__)
-        self.attach_only = kwargs.pop("attach_only", False)
         # Clear additional args before passing to BaseConsoleConn
         all_passwords = kwargs['console_password']
         key_to_rm = [
@@ -159,14 +156,8 @@ class BaseConsoleConn(CiscoBaseConnection):
         # not support config mode for now
         pass
 
-    def _try_session_preparation(self, force_data=True):
-        # netmiko writes a RETURN before session preparation; an attach-only console must not.
-        return super(BaseConsoleConn, self)._try_session_preparation(force_data=force_data and not self.attach_only)
-
     def cleanup(self):
-        # netmiko's cleanup writes "exit" to the line; an attach-only console only closes.
-        if not self.attach_only:
-            super(BaseConsoleConn, self).cleanup()
+        super(BaseConsoleConn, self).cleanup()
 
     def disconnect(self):
         super(BaseConsoleConn, self).disconnect()

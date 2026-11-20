@@ -62,6 +62,9 @@ class ConsoleRebootStartedError(Exception):
 
 
 class SSHConsoleConn(BaseConsoleConn):
+    # Attach to the console line only: no DUT login and no write to the line.
+    attach_only = False
+
     def __init__(self, **kwargs):
         self.menu_port = None
 
@@ -70,6 +73,7 @@ class SSHConsoleConn(BaseConsoleConn):
         # every write to the DUT serial line is refused (see write_channel) so a
         # late login/wake-up CR cannot abort bootloader autoboot.
         self._cancel_event = kwargs.pop("cancel_event", None)
+        self.attach_only = kwargs.pop("attach_only", False)
 
         if "console_username" not in kwargs \
                 or "console_password" not in kwargs:

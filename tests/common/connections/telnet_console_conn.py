@@ -9,6 +9,8 @@ except ImportError:
 
 class TelnetConsoleConn(BaseConsoleConn):
     def __init__(self, **kwargs):
+        # Attach to the console line only: no DUT login and no write to the line.
+        self.attach_only = kwargs.pop("attach_only", False)
         # For telnet console, neither console username or password is needed
         # so we assign sonic_username/sonic_password to username/password
         kwargs['host'] = kwargs['console_host']
@@ -22,9 +24,18 @@ class TelnetConsoleConn(BaseConsoleConn):
         kwargs['device_type'] = "_telnet"
         super(TelnetConsoleConn, self).__init__(**kwargs)
 
+    def _try_session_preparation(self, force_data=True):
+        # netmiko writes a RETURN before session preparation; an attach-only console must not.
+        return super(TelnetConsoleConn, self)._try_session_preparation(force_data=force_data and not self.attach_only)
+
     def session_preparation(self):
         if not self.attach_only:
             super(TelnetConsoleConn, self).session_preparation()
+
+    def cleanup(self):
+        # netmiko's cleanup writes "exit" to the line; an attach-only console only closes.
+        if not self.attach_only:
+            super(TelnetConsoleConn, self).cleanup()
 
     def telnet_login(
         self,
