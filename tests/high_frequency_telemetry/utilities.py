@@ -290,6 +290,36 @@ def setup_hft_stream_state(duthost, profile_name, stream_state):
     )
 
 
+def wait_for_session_state(
+        duthost, profile_name, group_type, expected_state, timeout=30):
+    session_key = shlex.quote(
+        "HIGH_FREQUENCY_TELEMETRY_SESSION_TABLE|"
+        f"{profile_name}|{group_type}"
+    )
+    if expected_state == "enabled":
+        condition = '[ "$state" = enabled ]'
+    elif expected_state == "disabled":
+        condition = '[ "$state" = disabled ] || [ "$state" = missing ]'
+    else:
+        condition = '[ "$state" = missing ]'
+    command = (
+        f"for i in $(seq 1 {timeout}); do "
+        "state=$(redis-cli -n 6 --raw EVAL "
+        "'if redis.call(\"EXISTS\", KEYS[1]) == 0 then "
+        "return \"missing\" end; return redis.call(\"HGET\", KEYS[1], "
+        "ARGV[1]) or \"invalid\"' "
+        f"1 {session_key} stream_status) || exit 2; "
+        f"if {condition}; then exit 0; fi; "
+        "sleep 1; done; exit 1"
+    )
+    result = duthost.shell(command, module_ignore_errors=True)
+    pytest_assert(
+        result.get("rc") == 0,
+        f"HFT session {profile_name}|{group_type} did not reach "
+        f"{expected_state}: {result}",
+    )
+
+
 def cleanup_hft_config(duthost, profile_name, group_names=None):
     """Stop the stream, delete its groups, then delete the profile."""
     original_error = sys.exc_info()[1]
@@ -353,37 +383,12 @@ def cleanup_hft_config(duthost, profile_name, group_names=None):
             ),
         )
 
-    def wait_for_session_state(group_type, expected_state):
-        session_key = shlex.quote(
-            "HIGH_FREQUENCY_TELEMETRY_SESSION_TABLE|"
-            f"{profile_name}|{group_type}"
-        )
-        if expected_state == "disabled":
-            condition = '[ "$state" = disabled ] || [ "$state" = missing ]'
-        else:
-            condition = '[ "$state" = missing ]'
-        command = (
-            "for i in $(seq 1 30); do "
-            "state=$(redis-cli -n 6 --raw EVAL "
-            "'if redis.call(\"EXISTS\", KEYS[1]) == 0 then "
-            "return \"missing\" end; return redis.call(\"HGET\", KEYS[1], "
-            "ARGV[1]) or \"invalid\"' "
-            f"1 {session_key} stream_status) || exit 2; "
-            f"if {condition}; then exit 0; fi; "
-            "sleep 1; done; exit 1"
-        )
-        run_command(
-            command,
-            f"HFT session {profile_name}|{group_type} did not reach "
-            f"{expected_state}",
-        )
-
     stopped_groups = {}
     for group_type in configured_groups:
         stopped_groups[group_type] = cleanup_step(
             f"wait for session {profile_name}|{group_type} to stop",
             lambda group_type=group_type: wait_for_session_state(
-                group_type, "disabled"
+                duthost, profile_name, group_type, "disabled"
             ),
         )
     removed_groups = {}
@@ -406,7 +411,7 @@ def cleanup_hft_config(duthost, profile_name, group_names=None):
         removed_groups[group_type] = group_deleted and cleanup_step(
                 f"wait for session {profile_name}|{group_type} removal",
                 lambda group_type=group_type: wait_for_session_state(
-                    group_type, "removed"
+                    duthost, profile_name, group_type, "removed"
                 ),
             )
 
@@ -910,8 +915,15 @@ class InfluxDbSink:
             for series in expected_series
         }
 
-    def _where_clause(self, cutoff=None):
-        return f" WHERE time <= '{cutoff}'" if cutoff else ""
+    def _where_clause(self, cutoff=None, start_time=None):
+        clauses = []
+        if start_time:
+            clauses.append(f"time > '{start_time}'")
+        if cutoff:
+            clauses.append(f"time <= '{cutoff}'")
+        if not clauses:
+            return ""
+        return " WHERE " + " AND ".join(clauses)
 
     @staticmethod
     def _grouped_rows(result, measurement, value_column):
@@ -942,9 +954,9 @@ class InfluxDbSink:
         return values
 
     def _grouped_values(self, measurements, expression, value_column,
-                        cutoff=None):
+                        cutoff=None, start_time=None):
         measurements = sorted(measurements)
-        where = self._where_clause(cutoff)
+        where = self._where_clause(cutoff, start_time=start_time)
         statements = [
             (
                 f'SELECT {expression} AS "{value_column}" '
@@ -959,11 +971,11 @@ class InfluxDbSink:
             values.update(self._grouped_rows(result, measurement, value_column))
         return values
 
-    def _statistics(self, expected_series, cutoff):
+    def _statistics(self, expected_series, cutoff, start_time=None):
         measurements = sorted({
             series.measurement for series in expected_series
         })
-        where = self._where_clause(cutoff)
+        where = self._where_clause(cutoff, start_time=start_time)
         specs = (
             ('COUNT("gauge")', "sample_count"),
             ('FIRST("gauge")', "first_value"),
@@ -989,39 +1001,43 @@ class InfluxDbSink:
             )
         return values
 
-    def counts(self, expected_series, cutoff=None):
+    def counts(self, expected_series, cutoff=None, start_time=None):
         return self._grouped_values(
             {series.measurement for series in expected_series},
             'COUNT("gauge")',
             "sample_count",
             cutoff,
+            start_time=start_time,
         )
 
-    def latest(self, expected_series, cutoff=None):
+    def latest(self, expected_series, cutoff=None, start_time=None):
         return self._grouped_values(
             {series.measurement for series in expected_series},
             'LAST("gauge")',
             "metric_value",
             cutoff,
+            start_time=start_time,
         )
 
     def wait_for_points(self, expected_series, min_points=20, timeout=30,
-                        poll_interval=1):
+                        poll_interval=1, start_time=None):
         expected = self._expected_map(expected_series)
         end_time = time.time() + timeout
         last_counts = {}
         cutoff = None
         missing_latest = set(expected)
-        unfiltered_ready = False
+        # With start_time, only count samples after the lower bound so prior
+        # history (e.g. pre-warm-reboot) cannot satisfy min_points early.
+        window_ready = start_time is not None
         while time.time() < end_time:
-            if not unfiltered_ready:
+            if not window_ready:
                 last_counts = self.counts(expected_series)
-                unfiltered_ready = expected and all(
+                window_ready = expected and all(
                     key in last_counts
                     and int(last_counts[key]["value"] or 0) >= min_points
                     for key in expected
                 )
-            if unfiltered_ready:
+            if window_ready:
                 snapshot_latest = self.latest(expected_series)
                 missing_latest = set(expected) - set(snapshot_latest)
                 if not missing_latest:
@@ -1029,7 +1045,9 @@ class InfluxDbSink:
                         (snapshot_latest[key]["time"] for key in expected),
                         key=_parse_rfc3339_timestamp,
                     )
-                    last_counts = self.counts(expected_series, cutoff)
+                    last_counts = self.counts(
+                        expected_series, cutoff, start_time=start_time
+                    )
                     if all(
                         key in last_counts
                         and int(last_counts[key]["value"] or 0) >= min_points
@@ -1037,10 +1055,11 @@ class InfluxDbSink:
                     ):
                         logger.info(
                             "All %d HFT series have at least %d points at "
-                            "shared cutoff %s",
+                            "shared cutoff %s (start_time=%s)",
                             len(expected),
                             min_points,
                             cutoff,
+                            start_time,
                         )
                         return cutoff
             time.sleep(poll_interval)
@@ -1052,7 +1071,7 @@ class InfluxDbSink:
         ]
         raise AssertionError(
             f"Timed out waiting for {min_points} points per series at shared "
-            f"cutoff {cutoff}. "
+            f"cutoff {cutoff} (start_time={start_time}). "
             f"Missing latest ({len(missing_latest)}): "
             f"{list(missing_latest)[:20]}. "
             f"Missing ({len(missing)}): {missing[:20]}. "
@@ -1061,9 +1080,11 @@ class InfluxDbSink:
 
     def validate_series(self, expected_series, expected_interval_us,
                         min_points=20, interval_tolerance=0.05,
-                        validate_cadence=True, cutoff=None):
+                        validate_cadence=True, cutoff=None, start_time=None):
         """Validate series coverage and values, optionally enforcing cadence."""
         expected = self._expected_map(expected_series)
+        if start_time is not None:
+            _parse_rfc3339_timestamp(start_time)
         if cutoff is None:
             snapshot_latest = self.latest(expected_series)
             missing_latest = set(expected) - set(snapshot_latest)
@@ -1078,7 +1099,9 @@ class InfluxDbSink:
             )
         else:
             _parse_rfc3339_timestamp(cutoff)
-        values = self._statistics(expected_series, cutoff)
+        values = self._statistics(
+            expected_series, cutoff, start_time=start_time
+        )
         counts = values["sample_count"]
         first = values["first_value"]
         last = values["last_value"]
@@ -1178,8 +1201,16 @@ class InfluxDbSink:
     def wait_and_validate(self, expected_series, expected_interval_us,
                           min_points=20, timeout=30,
                           interval_tolerance=0.05,
-                          validate_cadence=True):
-        cutoff = self.wait_for_points(expected_series, min_points, timeout)
+                          validate_cadence=True, start_time=None):
+        """Wait for samples then validate cadence/values.
+
+        When *start_time* is set, only samples with ``time > start_time`` are
+        counted and used for cadence. Use this after warm reboot (or any gap)
+        so the downtime is not folded into average interval / CPS.
+        """
+        cutoff = self.wait_for_points(
+            expected_series, min_points, timeout, start_time=start_time
+        )
         return self.validate_series(
             expected_series,
             expected_interval_us,
@@ -1187,6 +1218,7 @@ class InfluxDbSink:
             interval_tolerance=interval_tolerance,
             validate_cadence=validate_cadence,
             cutoff=cutoff,
+            start_time=start_time,
         )
 
     def assert_no_new_points(self, expected_series, duration=3, drain_time=2):
