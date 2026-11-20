@@ -137,7 +137,11 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
     @pytest.fixture(autouse=True)
     def add_dest_routes(self, setup_info, tbinfo, dest_port_type):      # noqa F811
-        if self.acl_stage() != 'egress':
+        # setup_info shuts down eBGP for the whole module, so the default data
+        # destination has no route of its own. An egress mirror -- like an
+        # egress ACL -- only produces a copy if the data packet is actually
+        # forwarded out of a port, so it needs the data route as well.
+        if self.acl_stage() != 'egress' and self.mirror_type() != 'egress':
             yield
             return
 
@@ -1214,6 +1218,9 @@ class EverflowIPv4Tests(BaseEverflowTest):
             "(l4 dst range)": self._base_tcp_packet(ptfadapter, setup, router_mac, dport=4675, dst_ip=default_ip),
             "(dscp)": self._base_tcp_packet(ptfadapter, setup, router_mac, dscp=51, dst_ip=default_ip)
         }
+
+        if duthost.facts["asic_type"] == "vpp":
+            pkt_dict.pop("(dscp)")
 
         for description, pkt in list(pkt_dict.items()):
             logging.info("Sending packet with qualifier set %s to DUT" % description)

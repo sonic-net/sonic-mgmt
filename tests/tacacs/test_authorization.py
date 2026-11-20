@@ -18,7 +18,6 @@ from tests.common.utilities import skip_release, wait_until, paramiko_ssh
 from .utils import check_server_received
 from tests.common.utilities import backup_config, restore_config, \
         reload_minigraph_with_golden_config
-from tests.common.helpers.dut_utils import is_container_running
 from .utils import duthost_shell_with_unreachable_retry
 
 pytestmark = [
@@ -343,12 +342,7 @@ def test_authorization_tacacs_only(
 
     if duthost.sonichost.is_frontend_node():
         commands.extend(frontend_commands)
-    telemetry_is_running = is_container_running(duthost, 'telemetry')
-    gnmi_is_running = is_container_running(duthost, 'gnmi')
-    if not telemetry_is_running and gnmi_is_running:
-        commands.append("show feature status gnmi")
-    else:
-        commands.append("show feature status telemetry")
+    commands.append("show feature status gnmi")
 
     for subcommand in commands:
         exit_code, stdout, stderr = ssh_run_command(remote_user_client, subcommand, expect_exit_code=0, verify=True)
@@ -805,8 +799,7 @@ def test_fallback_to_local_authorization_with_config_reload(
                                     setup_authorization_tacacs,
                                     tacacs_creds,
                                     check_tacacs,  # noqa: F811
-                                    remote_user_client,
-                                    remote_rw_user_client):
+                                    remote_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     """
         During load minigraph BGP service will shutdown and restart.
@@ -843,15 +836,21 @@ def test_fallback_to_local_authorization_with_config_reload(
         wait_for_bgp = not duthost.get_bgp_confed_asn()
         reload_minigraph_with_golden_config(duthost, override_config, wait_for_bgp=wait_for_bgp)
 
-        # Shutdown tacacs server to simulate network unreachable because BGP shutdown
-        stop_tacacs_server(ptfhost)
+        with ssh_connect_remote_retry(
+            duthost.mgmt_ip,
+            tacacs_creds['tacacs_rw_user'],
+            tacacs_creds['tacacs_rw_user_passwd'],
+            duthost
+        ) as remote_rw_user_client:
+            # Shutdown tacacs server to simulate network unreachable because BGP shutdown
+            stop_tacacs_server(ptfhost)
 
-        # Test "sudo config save -y" can success after reload minigraph
-        exit_code, stdout, stderr = ssh_run_command(remote_rw_user_client, "sudo config save -y",
-                                                    expect_exit_code=0, verify=True)
+            # Test "sudo config save -y" can success after reload minigraph
+            exit_code, stdout, stderr = ssh_run_command(remote_rw_user_client, "sudo config save -y",
+                                                        expect_exit_code=0, verify=True)
 
-        #  Cleanup UT.
-        start_tacacs_server(ptfhost)
+            #  Cleanup UT.
+            start_tacacs_server(ptfhost)
     finally:
         #  Restore config after test finish
         restore_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
