@@ -111,6 +111,13 @@
   include_tasks: host_setup.yml
   when: run_host_setup | bool and package_installation | bool
 
+# Package setup is cached, but the OVS services may have stopped since then.
+- name: Ensure Open vSwitch is running
+  become: yes
+  service:
+    name: openvswitch-switch
+    state: started
+
 # ---- Python environment (idempotent) ----
 - name: Ensure Python environment
   include_tasks: ensure_python_env.yml
