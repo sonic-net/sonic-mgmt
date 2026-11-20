@@ -127,8 +127,8 @@ def test_dirty_container_kill_preserves_sak_consistency(
 
     force_dut_key_server is required so the DUT's freshly-restarted
     wpa_supplicant acts as MKA key server and generates a new SAK after
-    restart.  Without this, a peer KS may redistribute the same SAK (no
-    change detected), making step 6b vacuous.
+    restart.  Without this, a peer KS may redistribute the same SAK,
+    making step 6b vacuous.
     """
     duthost = macsec_duthost
 
@@ -158,17 +158,17 @@ def test_dirty_container_kill_preserves_sak_consistency(
 
     logger.info("Step 6a: confirming MKA actually re-keyed (silent-pass guard)")
     post_recovery_saks = snapshot_appl_db_saks(duthost, ctrl_links)
-    changed = [
+    unchanged = [
         k for k, v in pre_kill_saks.items()
-        if k in post_recovery_saks and post_recovery_saks[k] != v
+        if k in post_recovery_saks and post_recovery_saks[k] == v
     ]
-    assert changed, (
+    assert not unchanged, (
         "MKA did not re-key after dirty restart: pre-kill and post-recovery "
-        "SAKs identical on all {} entry/entries.  The SAK consistency check "
-        "below would be vacuous — failing now to catch this silent-pass mode."
-    ).format(len(pre_kill_saks))
-    logger.info("MKA re-keyed on %d/%d SA entries",
-                len(changed), len(pre_kill_saks))
+        "SAKs identical on {} entry/entries.  The SAK consistency check "
+        "below could silently pass for these stale entries."
+    ).format(len(unchanged))
+    # An AN change can replace every entry key, leaving no common keys to compare.
+    logger.info("No unchanged pre-kill SAK entries remain after recovery")
 
     logger.info("Step 6b: verifying APPL_DB SAKs are programmed into ASIC_DB")
     assert_appl_db_sak_programmed_in_asic(duthost, ctrl_links)
