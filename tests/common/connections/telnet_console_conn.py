@@ -17,12 +17,14 @@ class TelnetConsoleConn(BaseConsoleConn):
         # among all passwords in __init__
         kwargs['username'] = kwargs['sonic_username']
         kwargs['console_username'] = kwargs['sonic_username']
-        kwargs['console_password'] = kwargs['sonic_password']
+        # An attach-only console does not log in, so it may have no password
+        kwargs['console_password'] = kwargs['sonic_password'] or [None]
         kwargs['device_type'] = "_telnet"
         super(TelnetConsoleConn, self).__init__(**kwargs)
 
     def session_preparation(self):
-        super(TelnetConsoleConn, self).session_preparation()
+        if not self.attach_only:
+            super(TelnetConsoleConn, self).session_preparation()
 
     def telnet_login(
         self,
@@ -34,6 +36,8 @@ class TelnetConsoleConn(BaseConsoleConn):
         max_loops=20,
     ):
         """Telnet login. Can be username/password or just password."""
+        if self.attach_only:
+            return ""
         delay_factor = self.select_delay_factor(delay_factor)
         time.sleep(1 * delay_factor)
 

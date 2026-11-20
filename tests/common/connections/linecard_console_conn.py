@@ -78,6 +78,10 @@ class LinecardConsoleConn():
         # Launch picocom to connect to linecard
         console_cli.sendline(f"sudo /usr/bin/picocom /dev/ttySCD{self.linecard_number}")
         console_cli.expect('Terminal ready', timeout=20)
+        if kwargs.get('attach_only', False):
+            # Attached to the linecard console line; do not log in or write anything to it.
+            self.console_cli = console_cli
+            return
         console_cli.sendline('\n')
 
         # Authenticate to linecard
@@ -162,6 +166,13 @@ class LinecardConsoleConn():
             self.console_cli.sendline(data)
         else:
             self.console_cli.send(data)
+
+    def read_channel(self):
+        """Return what the console printed since the last read, without waiting."""
+        try:
+            return self.console_cli.read_nonblocking(size=65536, timeout=0).decode(errors="ignore")
+        except (pexpect.TIMEOUT, pexpect.EOF):
+            return ""
 
     def read_until_pattern(self, pattern, read_timeout=None):
         timeout = read_timeout if read_timeout is not None else self.default_timeout

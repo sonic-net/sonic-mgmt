@@ -62,9 +62,6 @@ class ConsoleRebootStartedError(Exception):
 
 
 class SSHConsoleConn(BaseConsoleConn):
-    # Attach to the console line only: no DUT login and no write to the line.
-    attach_only = False
-
     def __init__(self, **kwargs):
         self.menu_port = None
 
@@ -73,7 +70,6 @@ class SSHConsoleConn(BaseConsoleConn):
         # every write to the DUT serial line is refused (see write_channel) so a
         # late login/wake-up CR cannot abort bootloader autoboot.
         self._cancel_event = kwargs.pop("cancel_event", None)
-        self.attach_only = kwargs.pop("attach_only", False)
 
         if "console_username" not in kwargs \
                 or "console_password" not in kwargs:
@@ -111,9 +107,6 @@ class SSHConsoleConn(BaseConsoleConn):
             # Login requires menu port
             kwargs['username'] = kwargs['console_username']
             self.menu_port = kwargs['console_port']
-        if self.attach_only and self.menu_port:
-            # Selecting the menu port waits for the DUT login prompt and writes to the line.
-            raise ValueError("attach_only is not supported for menu port consoles")
         kwargs['password'] = kwargs['console_password']
         kwargs['host'] = kwargs['console_host']
         kwargs['device_type'] = "_ssh"
@@ -221,6 +214,10 @@ class SSHConsoleConn(BaseConsoleConn):
 
         if self.attach_only:
             # Attached to the DUT console line; do not log in or write anything to it.
+            if self.menu_port:
+                # Selecting the port on the console server menu attaches to the DUT console line.
+                self.write_and_poll("menu ports", "Selection:")
+                self.write_channel(str(self.menu_port) + self.RETURN)
             return
 
         if self.console_type.endswith("config"):

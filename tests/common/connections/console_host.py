@@ -48,8 +48,6 @@ def ConsoleHost(console_type,
                 attach_only=False):
     if console_type not in ConsoleTypeMapper:
         raise ValueError("console type {} is not supported yet".format(console_type))
-    if attach_only and not issubclass(ConsoleTypeMapper[console_type], SSHConsoleConn):
-        raise ValueError("attach_only is not supported for console type {}".format(console_type))
     params = {
         "console_host": console_host,
         "console_port": console_port,
@@ -59,7 +57,8 @@ def ConsoleHost(console_type,
         "console_username": console_username,
         "console_password": console_password,
         "console_device": console_device,
-        "timeout": timeout_s
+        "timeout": timeout_s,
+        "attach_only": attach_only,
     }
 
     # Only SSHConsoleConn consumes cancel_event (it pops it before delegating to
@@ -69,8 +68,6 @@ def ConsoleHost(console_type,
     # resolved class so non-SSH console types are unaffected.
     if cancel_event is not None and issubclass(ConsoleTypeMapper[console_type], SSHConsoleConn):
         params["cancel_event"] = cancel_event
-    if attach_only:
-        params["attach_only"] = True
 
     # Add linecard-specific parameters if provided
     if supervisor_ip is not None:
