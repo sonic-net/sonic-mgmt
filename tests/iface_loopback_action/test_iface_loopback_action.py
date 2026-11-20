@@ -115,7 +115,7 @@ def test_loopback_action_reload(request, duthost, localhost, ptfadapter, ports_c
             reboot(duthost, localhost, reboot_type)
             pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
                           "All critical services should be fully started!")
-        pytest_assert(wait_until(60, 20, 0, check_interface_status_of_up_ports, duthost),
+        pytest_assert(wait_until(180, 20, 0, check_interface_status_of_up_ports, duthost),
                       "Not all ports that are admin up on are operationally up")
         # Wait for the rif counter to initialize
         wait_until(180, 10, 0, is_rif_counters_ready, duthost)

@@ -10,10 +10,12 @@ import pytest
 import textfsm
 
 from tests.common.devices.sonic import SonicHost
+from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import InterruptableThread, wait_until
 
 from natsort import natsorted
+from retry.api import retry_call
 
 logger = logging.getLogger(__name__)
 max_wait = 0
@@ -28,6 +30,11 @@ BGP_SESSION_TIMEOUT = 300
 BGP_POLL_INTERVAL = 10
 BGP_RECOVERY_DELAY = 30
 FLAP_THREAD_STOP_TIMEOUT = 120
+
+MAX_FLAP_WORKERS = 8
+FLAP_COMPLETION_TIMEOUT = 120
+KILL_BGPD_TRIES = 3
+KILL_BGPD_RETRY_DELAY = 5
 
 pytestmark = [pytest.mark.topology('t1', 't2', 'lrh', 'urh', 'm1', 'lt2', 'ft2', 'c0', 'lma', 'uma')]
 
@@ -134,18 +141,47 @@ def stop_flap_workers(workers, stop_event, neighbors):
     return errors
 
 
-def start_flap_worker(neigh, stop_event):
-    flap_completed = threading.Event()
+def start_flap_worker(neighbors, stop_event):
+    # Hostnames of neighbors that finished at least one stop/start cycle.
+    flap_completed = set()
     thread = InterruptableThread(
         target=flap_neighbor_session,
-        args=(neigh, stop_event, flap_completed)
+        args=(neighbors, stop_event, flap_completed)
     )
     thread.daemon = True
     thread.start()
     return thread, flap_completed
 
 
-def assert_flap_workers_succeeded(workers, errors, test_exception=None):
+def split_neighbors_for_workers(neighbors, max_workers=MAX_FLAP_WORKERS):
+    """Split neighbors round-robin into at most max_workers groups."""
+    neighbors = list(neighbors)
+    group_count = min(max_workers, len(neighbors))
+    return [neighbors[i::group_count] for i in range(group_count)]
+
+
+def get_flapped_neighbors(workers):
+    return set().union(*(completed for _, completed in workers))
+
+
+def wait_for_all_neighbors_flapped(
+    workers, neighbors, timeout=FLAP_COMPLETION_TIMEOUT
+):
+    """Wait until every selected neighbor completed at least one flap."""
+    expected = {neigh.hostname for neigh in neighbors}
+
+    def all_flapped():
+        return (
+            expected <= get_flapped_neighbors(workers)
+            or not any(thread.is_alive() for thread, _ in workers)
+        )
+
+    wait_until(timeout, 1, 0, all_flapped)
+
+
+def assert_flap_workers_succeeded(
+    workers, neighbors, errors, test_exception=None
+):
     failures = list(errors)
     if test_exception:
         failures.insert(
@@ -154,14 +190,15 @@ def assert_flap_workers_succeeded(workers, errors, test_exception=None):
                 "".join(traceback.format_exception(*test_exception))
             )
         )
-    incomplete_workers = [
-        thread.name for thread, flap_completed in workers
-        if not flap_completed.is_set()
-    ]
-    if incomplete_workers:
+    flapped = get_flapped_neighbors(workers)
+    missing_neighbors = sorted(
+        neigh.hostname for neigh in neighbors
+        if neigh.hostname not in flapped
+    )
+    if missing_neighbors:
         failures.append(
-            "BGP flap workers completed no flap cycles: {}".format(
-                incomplete_workers
+            "BGP neighbors with no completed flap cycle: {}".format(
+                missing_neighbors
             )
         )
     pytest_assert(
@@ -236,10 +273,20 @@ def wait_for_peer_memory_recovery(dut, asic_index, neighbor_ips, baseline):
 
 
 @pytest.fixture(scope='module')
+def pre_flap_stats(duthosts):
+    """Snapshot all linecards before any parametrized case withdraws routes."""
+    return {
+        dut.hostname: get_cpu_stats(dut)
+        for dut in duthosts.frontend_nodes
+    }
+
+
+@pytest.fixture(scope='module')
 def setup(
     tbinfo,
     nbrhosts,
     duthosts,
+    pre_flap_stats,
     enum_frontend_dut_hostname,
     enum_rand_one_frontend_asic_index
 ):
@@ -330,8 +377,7 @@ def setup(
 
     logger.info('Setup_info: {}'.format(setup_info))
 
-    # Keep the full RIB baseline before either test withdraws routes.
-    setup_info['pre_flap_stats'] = get_cpu_stats(duthost)
+    setup_info['pre_flap_stats'] = pre_flap_stats[duthost.hostname]
 
     yield setup_info
 
@@ -362,13 +408,24 @@ def setup(
     )
 
 
-def flap_neighbor_session(neigh, stop_event, flap_completed):
+def flap_neighbor_session(neighbors, stop_event, flap_completed):
+    """Flap the given neighbors one after another until stop_event is set."""
     while not stop_event.is_set():
-        result = neigh.kill_bgpd()
-        validate_bgp_command_result(neigh, "stop", result)
-        result = neigh.start_bgpd()
-        validate_bgp_command_result(neigh, "start", result)
-        flap_completed.set()
+        for neigh in neighbors:
+            if stop_event.is_set():
+                break
+            # A transient Ansible connection failure must not kill the whole
+            # worker and leave the rest of its neighbors unflapped.
+            result = retry_call(
+                neigh.kill_bgpd,
+                exceptions=RunAnsibleModuleFail,
+                tries=KILL_BGPD_TRIES,
+                delay=KILL_BGPD_RETRY_DELAY
+            )
+            validate_bgp_command_result(neigh, "stop", result)
+            result = neigh.start_bgpd()
+            validate_bgp_command_result(neigh, "start", result)
+            flap_completed.add(neigh.hostname)
 
 
 def test_bgp_single_session_flaps(setup):
@@ -382,7 +439,7 @@ def test_bgp_single_session_flaps(setup):
     workers = []
     test_exception = None
     try:
-        workers.append(start_flap_worker(setup['neighhost'], stop_event))
+        workers.append(start_flap_worker([setup['neighhost']], stop_event))
         for i in range(10):
             stats.append(get_cpu_stats(setup['duthost']))
             index = len(stats) - 1
@@ -400,6 +457,7 @@ def test_bgp_single_session_flaps(setup):
             assert stats[index][8] <= (stats[0][8] * memSpike)
 
             time.sleep(wait_time)
+        wait_for_all_neighbors_flapped(workers, [setup['neighhost']])
     except (Exception, pytest.fail.Exception):
         test_exception = sys.exc_info()
     finally:
@@ -407,7 +465,9 @@ def test_bgp_single_session_flaps(setup):
             workers, stop_event, [setup['neighhost']]
         )
 
-    assert_flap_workers_succeeded(workers, worker_errors, test_exception)
+    assert_flap_workers_succeeded(
+        workers, [setup['neighhost']], worker_errors, test_exception
+    )
     wait_for_peer_memory_recovery(
         setup['duthost'], setup['asic_index'], setup['neighbor_ips'], stats[0]
     )
@@ -425,8 +485,8 @@ def test_bgp_multiple_session_flaps(setup):
     workers = []
     test_exception = None
     try:
-        for neigh in neighbors:
-            workers.append(start_flap_worker(neigh, stop_event))
+        for group in split_neighbors_for_workers(neighbors):
+            workers.append(start_flap_worker(group, stop_event))
         for i in range(10):
             stats.append(get_cpu_stats(setup['duthost']))
             index = len(stats) - 1
@@ -444,12 +504,15 @@ def test_bgp_multiple_session_flaps(setup):
             assert stats[index][8] <= (stats[0][8] * memSpike)
 
             time.sleep(wait_time)
+        wait_for_all_neighbors_flapped(workers, neighbors)
     except (Exception, pytest.fail.Exception):
         test_exception = sys.exc_info()
     finally:
         worker_errors = stop_flap_workers(workers, stop_event, neighbors)
 
-    assert_flap_workers_succeeded(workers, worker_errors, test_exception)
+    assert_flap_workers_succeeded(
+        workers, neighbors, worker_errors, test_exception
+    )
     wait_for_peer_memory_recovery(
         setup['duthost'], setup['asic_index'], setup['neighbor_ips'], stats[0]
     )
