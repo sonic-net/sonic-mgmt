@@ -93,8 +93,10 @@
     - include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
 
   always:
+    # Only once the level was saved: a block that failed before that never raised it
     - name: Set log level back to the saved level
-      command: "swssloglevel -l {{ (orchagent_logger_level | default({})).stdout | default('') | trim or 'NOTICE' }} -c orchagent"
+      command: "swssloglevel -l {{ orchagent_logger_level.stdout | trim or 'NOTICE' }} -c orchagent"
+      when: orchagent_logger_level is defined and orchagent_logger_level is succeeded
 
     # An absent row means orchagent's default; drop the row the test created
     - name: Remove the orchagent LOGGER row if the test created it
@@ -163,8 +165,10 @@
     - include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
 
   always:
+    # Only once the level was saved: a block that failed before that never raised it
     - name: Set log level back to the saved level
-      command: "swssloglevel -l {{ (orchagent_logger_level | default({})).stdout | default('') | trim or 'NOTICE' }} -c orchagent"
+      command: "swssloglevel -l {{ orchagent_logger_level.stdout | trim or 'NOTICE' }} -c orchagent"
+      when: orchagent_logger_level is defined and orchagent_logger_level is succeeded
 
     # An absent row means orchagent's default; drop the row the test created
     - name: Remove the orchagent LOGGER row if the test created it
