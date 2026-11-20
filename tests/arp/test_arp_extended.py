@@ -26,7 +26,7 @@ def _check_neighbor_entry(asichost, ip, version):
     return ip in switch_arptable['arptable'][version]
 
 
-def test_arp_accept_value(rand_selected_dut, enum_frontend_asic_index, garp_enabled, config_facts):
+def test_arp_accept_value(rand_selected_dut, asic_under_test, garp_enabled, config_facts):
     """
     Verify that arp_accept is set to 2 when grat_arp is enabled.
 
@@ -34,7 +34,7 @@ def test_arp_accept_value(rand_selected_dut, enum_frontend_asic_index, garp_enab
     that the kernel arp_accept sysctl is programmed to 2 (same-subnet only).
     """
     duthost = rand_selected_dut
-    asic = duthost.asic_instance(enum_frontend_asic_index)
+    asic = asic_under_test
 
     vlan_intfs = list(config_facts['VLAN_INTERFACE'].keys())
 
@@ -44,7 +44,7 @@ def test_arp_accept_value(rand_selected_dut, enum_frontend_asic_index, garp_enab
                       "Expected arp_accept=2 for {}, got {}".format(vlan, arp_accept_res['stdout']))
 
 
-def test_accept_untracked_na_value(rand_selected_dut, enum_frontend_asic_index, garp_enabled, config_facts):
+def test_accept_untracked_na_value(rand_selected_dut, asic_under_test, garp_enabled, config_facts):
     """
     Verify that accept_untracked_na is set to 2 when grat_arp is enabled.
 
@@ -53,7 +53,7 @@ def test_accept_untracked_na_value(rand_selected_dut, enum_frontend_asic_index, 
     (same-subnet only).
     """
     duthost = rand_selected_dut
-    asic = duthost.asic_instance(enum_frontend_asic_index)
+    asic = asic_under_test
 
     vlan_intfs = list(config_facts['VLAN_INTERFACE'].keys())
 
@@ -65,7 +65,7 @@ def test_accept_untracked_na_value(rand_selected_dut, enum_frontend_asic_index, 
                           vlan, accept_untracked_na_res['stdout']))
 
 
-def test_arp_garp_enabled(rand_selected_dut, enum_frontend_asic_index, garp_enabled, ip_and_intf_info, intfs_for_test,
+def test_arp_garp_enabled(rand_selected_dut, asic_under_test, garp_enabled, ip_and_intf_info, intfs_for_test,
                           config_facts, ptfadapter):
     """
     Send a gratuitous ARP (GARP) packet from the PTF to the DUT
@@ -74,7 +74,7 @@ def test_arp_garp_enabled(rand_selected_dut, enum_frontend_asic_index, garp_enab
     """
     pytest_require(garp_enabled, 'Gratuitous ARP not enabled for this device')
     duthost = rand_selected_dut
-    asic = duthost.asic_instance(enum_frontend_asic_index)
+    asic = asic_under_test
     ptf_intf_ipv4_addr = ip_and_intf_info[0]
 
     arp_request_ip = increment_ipv4_addr(ptf_intf_ipv4_addr)
@@ -104,7 +104,7 @@ def test_arp_garp_enabled(rand_selected_dut, enum_frontend_asic_index, garp_enab
     pytest_assert(switch_arptable['arptable']['v4'][arp_request_ip]['interface'] in vlan_intfs)
 
 
-def test_arp_garp_out_of_subnet_not_learned(rand_selected_dut, enum_frontend_asic_index, garp_enabled, ip_and_intf_info,
+def test_arp_garp_out_of_subnet_not_learned(rand_selected_dut, asic_under_test, garp_enabled, ip_and_intf_info,
                                             intfs_for_test, config_facts, ptfadapter):
     """
     Send a gratuitous ARP (GARP) packet with a source IP outside the subnet
@@ -114,7 +114,7 @@ def test_arp_garp_out_of_subnet_not_learned(rand_selected_dut, enum_frontend_asi
     out-of-subnet GARP.
     """
     duthost = rand_selected_dut
-    asic = duthost.asic_instance(enum_frontend_asic_index)
+    asic = asic_under_test
 
     # Derive an out-of-subnet IP from the VLAN's IPv4 subnet
     vlan_addrs = list(list(config_facts['VLAN_INTERFACE'].items())[0][1].keys())
@@ -159,7 +159,7 @@ def test_arp_garp_out_of_subnet_not_learned(rand_selected_dut, enum_frontend_asi
                   "Out-of-subnet GARP source {} should NOT be learned with arp_accept=2".format(out_of_subnet_ip))
 
 
-def test_ipv6_unsolicited_na_link_local_accepted(rand_selected_dut, enum_frontend_asic_index, garp_enabled,
+def test_ipv6_unsolicited_na_link_local_accepted(rand_selected_dut, asic_under_test, garp_enabled,
                                                  ip_and_intf_info, intfs_for_test, config_facts, ptfadapter):
     """
     Send an unsolicited IPv6 Neighbor Advertisement (NA) with a link-local
@@ -169,7 +169,7 @@ def test_ipv6_unsolicited_na_link_local_accepted(rand_selected_dut, enum_fronten
     settings, since link-local is always valid on any interface.
     """
     duthost = rand_selected_dut
-    asic = duthost.asic_instance(enum_frontend_asic_index)
+    asic = asic_under_test
     ptf_intf_ipv6_addr = ip_and_intf_info[2]
     pytest_require(ptf_intf_ipv6_addr is not None, 'No IPv6 VLAN address configured on device')
 
@@ -193,7 +193,7 @@ def test_ipv6_unsolicited_na_link_local_accepted(rand_selected_dut, enum_fronten
                   "Link-local unsolicited NA source {} should be learned".format(link_local_ip))
 
 
-def test_ipv6_unsolicited_na_in_subnet_learned(rand_selected_dut, enum_frontend_asic_index, garp_enabled,
+def test_ipv6_unsolicited_na_in_subnet_learned(rand_selected_dut, asic_under_test, garp_enabled,
                                                ip_and_intf_info, intfs_for_test, config_facts, ptfadapter):
     """
     Send an unsolicited IPv6 Neighbor Advertisement (NA) with a source address
@@ -202,7 +202,7 @@ def test_ipv6_unsolicited_na_in_subnet_learned(rand_selected_dut, enum_frontend_
     The DUT should learn a neighbor entry from this in-subnet unsolicited NA.
     """
     duthost = rand_selected_dut
-    asic = duthost.asic_instance(enum_frontend_asic_index)
+    asic = asic_under_test
     ptf_intf_ipv6_addr = ip_and_intf_info[2]
     pytest_require(ptf_intf_ipv6_addr is not None, 'No IPv6 VLAN address configured on device')
 
@@ -232,7 +232,7 @@ def test_ipv6_unsolicited_na_in_subnet_learned(rand_selected_dut, enum_frontend_
     pytest_assert(switch_arptable['arptable']['v6'][in_subnet_ipv6]['interface'] in vlan_intfs)
 
 
-def test_ipv6_unsolicited_na_out_of_subnet_not_learned(rand_selected_dut, enum_frontend_asic_index, garp_enabled,
+def test_ipv6_unsolicited_na_out_of_subnet_not_learned(rand_selected_dut, asic_under_test, garp_enabled,
                                                        ip_and_intf_info, intfs_for_test, config_facts, ptfadapter):
     """
     Send an unsolicited IPv6 Neighbor Advertisement (NA) with a source address
@@ -242,7 +242,7 @@ def test_ipv6_unsolicited_na_out_of_subnet_not_learned(rand_selected_dut, enum_f
     unsolicited NA.
     """
     duthost = rand_selected_dut
-    asic = duthost.asic_instance(enum_frontend_asic_index)
+    asic = asic_under_test
     ptf_intf_ipv6_addr = ip_and_intf_info[2]
     pytest_require(ptf_intf_ipv6_addr is not None, 'No IPv6 VLAN address configured on device')
 
@@ -285,7 +285,7 @@ def test_ipv6_unsolicited_na_out_of_subnet_not_learned(rand_selected_dut, enum_f
                   "Out-of-subnet unsolicited NA source {} should NOT be learned".format(out_of_subnet_ipv6))
 
 
-def test_proxy_arp(rand_selected_dut, enum_frontend_asic_index, proxy_arp_enabled, ip_and_intf_info, ptfadapter,
+def test_proxy_arp(rand_selected_dut, asic_under_test, proxy_arp_enabled, ip_and_intf_info, ptfadapter,
                    packets_for_test):
     """
     Send an ARP request or neighbor solicitation (NS) to the DUT for an IP address within the subnet of the DUT's VLAN.
@@ -293,7 +293,7 @@ def test_proxy_arp(rand_selected_dut, enum_frontend_asic_index, proxy_arp_enable
     DUT should reply with an ARP reply or neighbor advertisement (NA) containing the DUT's own MAC
     """
     pytest_require(proxy_arp_enabled, 'Proxy ARP not enabled for all VLANs')
-    asic = rand_selected_dut.asic_instance(enum_frontend_asic_index)
+    asic = asic_under_test
     swss = asic.get_docker_name('swss')
 
     ptf_intf_ipv4_addr, _, ptf_intf_ipv6_addr, _, ptf_intf_index = ip_and_intf_info

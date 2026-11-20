@@ -26,17 +26,17 @@ pytestmark = [
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo, enum_frontend_asic_index):
+def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo, asic_under_test):
     """
     ARP responder for the first VLAN of the ASIC under test (of the DUT on single-ASIC DUTs)
     """
-    asic = rand_selected_dut.asic_instance(enum_frontend_asic_index) if rand_selected_dut.is_multi_asic else None
+    asic = asic_under_test if asic_under_test.ns_arg else None
     yield from vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo, asic)
 
 
 @pytest.fixture
-def pause_arp_update(rand_selected_dut, enum_frontend_asic_index):
-    asic = rand_selected_dut.asic_instance(enum_frontend_asic_index)
+def pause_arp_update(rand_selected_dut, asic_under_test):
+    asic = asic_under_test
     swss = asic.get_docker_name("swss")
     cmds = [
         f"docker exec {swss} supervisorctl stop arp_update",
@@ -71,12 +71,12 @@ def ptf_interface_info(ip_and_intf_info, ptfadapter):
 
 
 @pytest.fixture
-def dut_interface_info(rand_selected_dut, enum_frontend_asic_index, config_facts, tbinfo, ptf_interface_info):
+def dut_interface_info(rand_selected_dut, asic_under_test, config_facts, tbinfo, ptf_interface_info):
     """
     Get DUT interface information, matching the VLAN subnet that contains the PTF IP.
     """
     duthost = rand_selected_dut
-    asic = duthost.asic_instance(enum_frontend_asic_index)
+    asic = asic_under_test
     dut_mac = get_dut_mac(duthost, config_facts, tbinfo, asic.cli_ns_option)
 
     # Find the VLAN IP in the same subnet as PTF
@@ -102,12 +102,12 @@ def dut_interface_info(rand_selected_dut, enum_frontend_asic_index, config_facts
 
 
 @pytest.fixture
-def clean_environment(rand_selected_dut, enum_frontend_asic_index, ptfadapter):
+def clean_environment(rand_selected_dut, asic_under_test, ptfadapter):
     """
     Cleanup FDB and DUT ARP/neighbor cache before and after test run
     """
     duthost = rand_selected_dut
-    ns_option = duthost.asic_instance(enum_frontend_asic_index).cli_ns_option
+    ns_option = asic_under_test.cli_ns_option
 
     logger.info("Setting up clean environment: clearing FDB and ARP/neighbor cache")
     fdb_cleanup(duthost)
@@ -162,11 +162,11 @@ def test_kernel_asic_mac_mismatch(
     setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,
     toggle_all_simulator_ports_to_rand_selected_tor,  # noqa: F811
     rand_selected_dut, ip_version, setup_vlan_arp_responder,
-    tbinfo, enum_frontend_asic_index
+    tbinfo, asic_under_test
 ):
     # This test just needs a valid responder IP to ping; use the last configured
     # member and pick v4/v6 by ip_version.
-    asic = rand_selected_dut.asic_instance(enum_frontend_asic_index)
+    asic = asic_under_test
     db_cli = get_db_cli(asic)
     arp = setup_vlan_arp_responder
     vlan_name = arp.vlan

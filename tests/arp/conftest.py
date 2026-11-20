@@ -66,6 +66,15 @@ def config_facts(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_front
 
 
 @pytest.fixture(scope="module")
+def asic_under_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
+    """
+    ASIC under test: the ASIC given by enum_frontend_asic_index on the DUT given by
+    enum_rand_one_per_hwsku_frontend_hostname, the same DUT and ASIC as config_facts and intfs_for_test
+    """
+    return duthosts[enum_rand_one_per_hwsku_frontend_hostname].asic_instance(enum_frontend_asic_index)
+
+
+@pytest.fixture(scope="module")
 def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, tbinfo, config_facts):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = duthost.asic_instance(enum_frontend_asic_index)
@@ -191,7 +200,7 @@ def common_setup_teardown(duthosts, ptfhost, enum_rand_one_per_hwsku_frontend_ho
 
 
 @pytest.fixture
-def garp_enabled(rand_selected_dut, enum_frontend_asic_index, config_facts):
+def garp_enabled(rand_selected_dut, asic_under_test, config_facts):
     """
     Tries to enable gratuitious ARP for each VLAN on the ToR in CONFIG_DB
 
@@ -210,7 +219,7 @@ def garp_enabled(rand_selected_dut, enum_frontend_asic_index, config_facts):
 
     """
     duthost = rand_selected_dut
-    asic = duthost.asic_instance(enum_frontend_asic_index)
+    asic = asic_under_test
     db_cli = get_db_cli(asic)
 
     vlan_intfs = list(config_facts['VLAN_INTERFACE'].keys())
@@ -369,7 +378,7 @@ def generate_link_local_addr(mac):
 
 
 @pytest.fixture(params=['v4', 'v6'])
-def packets_for_test(request, ptfadapter, duthost, enum_frontend_asic_index, config_facts, tbinfo, ip_and_intf_info):
+def packets_for_test(request, ptfadapter, duthost, asic_under_test, config_facts, tbinfo, ip_and_intf_info):
     ip_version = request.param
     src_addr_v4, _, src_addr_v6, _, ptf_intf_index = ip_and_intf_info
     ptf_intf_mac = ptfadapter.dataplane.get_mac(0, ptf_intf_index)
@@ -377,14 +386,14 @@ def packets_for_test(request, ptfadapter, duthost, enum_frontend_asic_index, con
     topology = tbinfo['topo']['name']
     dut_mac = ''
     dut_mac_cmd = 'sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\''
-    ns_option = duthost.asic_instance(enum_frontend_asic_index).cli_ns_option
+    ns_option = asic_under_test.cli_ns_option
     if ns_option:
         dut_mac_cmd += ' ' + ns_option
     for vlan_details in list(vlans.values()):
         if 'dualtor' in topology:
             dut_mac = vlan_details['mac'].lower()
         else:
-            dut_mac = duthost.shell(dut_mac_cmd)["stdout_lines"][0]
+            dut_mac = (asic_under_test.sonichost if ns_option else duthost).shell(dut_mac_cmd)["stdout_lines"][0]
         break
 
     if ip_version == 'v4':
