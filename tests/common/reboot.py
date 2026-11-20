@@ -864,7 +864,8 @@ def collect_console_log(duthost, localhost, cancel_event=None):
     conn_graph_facts = get_graph_facts(duthost, localhost, [duthost.hostname])
     if cancel_event is not None and cancel_event.is_set():
         return None
-    dut_console = try_create_dut_console(duthost, localhost, conn_graph_facts, None,
+    creds = creds_on_dut(duthost)
+    dut_console = try_create_dut_console(duthost, localhost, conn_graph_facts, creds,
                                          cancel_event=cancel_event, attach_only=True)
     if not dut_console:
         logger.warning("dut console is not ready, we cannot get log by console")
