@@ -27,10 +27,13 @@ class CommandFailed(Exception):
 class FakeDut(object):
     """Answers the sonic-db-cli and swssloglevel commands the helper runs,
     behind any prefix such as "docker exec swss" or "-n asic0". A command
-    fails when broken is set or it contains one of the strings in fail."""
+    fails when broken is set or it contains one of the strings in fail.
+    swssloglevel -p also lists the components in levels, which are in
+    neither DB."""
 
-    def __init__(self, config=None, state=None, broken=False, fail=()):
+    def __init__(self, config=None, state=None, broken=False, fail=(), levels=None):
         self.db = {"CONFIG_DB": dict(config or {}), "STATE_DB": dict(state or {})}
+        self.levels = dict(levels or {})
         self.broken = broken
         self.fail = fail
         self.commands = []
@@ -47,9 +50,11 @@ class FakeDut(object):
             names = set(k.split("|", 1)[1] for k in self.db["CONFIG_DB"]) | \
                 set(k.split("|", 1)[1] for k in self.db["STATE_DB"])
             lines = []
-            for name in sorted(names):
-                row = self.db["CONFIG_DB"].get("LOGGER|" + name) or self.db["STATE_DB"].get("LOGGER_TABLE|" + name)
-                lines.append("{:<30}{}".format(name, row["LOGLEVEL"]))
+            for name in sorted(names | set(self.levels)):
+                level = self.db["CONFIG_DB"].get("LOGGER|" + name, {}).get("LOGLEVEL") or \
+                    self.db["STATE_DB"].get("LOGGER_TABLE|" + name, {}).get("LOGLEVEL") or self.levels.get(name)
+                if level:
+                    lines.append("{:<30}{}".format(name, level))
             out = "\n".join(lines)
         elif "sonic-db-cli" in args:
             args = args[args.index("sonic-db-cli") + 1:]
@@ -120,6 +125,14 @@ def test_row_without_loglevel_is_restored_without_it():
     assert dut.db["CONFIG_DB"] == {"LOGGER|orchagent": {"LOGOUTPUT": "STDERR"}}
 
 
+def test_row_without_loglevel_and_no_logger_table_is_restored_without_it():
+    dut = FakeDut(config={"LOGGER|bfdsyncd": {"LOGOUTPUT": "SYSLOG"}}, levels={"bfdsyncd": "NOTICE"})
+    saved = logger_row.save_logger_row(dut, "bfdsyncd")
+    logger_row.set_log_level(dut, "bfdsyncd", "DEBUG")
+    logger_row.restore_logger_row(dut, saved)
+    assert dut.db["CONFIG_DB"] == {"LOGGER|bfdsyncd": {"LOGOUTPUT": "SYSLOG"}}
+
+
 def test_configured_level_wins_over_effective_level():
     # A process that applies a change only on SIGHUP still runs NOTICE while
     # its row says INFO; restore puts back the configured INFO.
@@ -143,6 +156,25 @@ def test_level_falls_back_to_swssloglevel_then_default():
     assert logger_row.get_log_level(dut, "orchagent", loglevel_cli=None) is None
     dut = FakeDut(config={"LOGGER|orchagent": {"LOGLEVEL": "WARN"}})
     assert logger_row.get_log_level(dut, "orchagent") == "WARN"
+
+
+def test_level_from_swssloglevel_for_component_in_neither_db():
+    dut = FakeDut(levels={"SAI_API_BFD": "SAI_LOG_LEVEL_INFO", "SAI_API_BFD_X": "SAI_LOG_LEVEL_DEBUG"})
+    assert logger_row.get_log_level(dut, "SAI_API_BFD", default="SAI_LOG_LEVEL_NOTICE") == "SAI_LOG_LEVEL_INFO"
+
+
+def test_save_reads_config_db_level_once():
+    dut = FakeDut(**OLD_IMAGE)
+    logger_row.save_logger_row(dut, "orchagent")
+    assert sum("CONFIG_DB HGET" in c for c in dut.commands) == 1
+
+
+@pytest.mark.parametrize("fail", ["STATE_DB HGET", "CONFIG_DB HGET", "swssloglevel -p"])
+def test_failed_level_read_raises(fail):
+    """A failed level read must not fall through to the default, or restore
+    would write the default in place of the level the row held."""
+    with pytest.raises(CommandFailed):
+        logger_row.get_log_level(FakeDut(fail=[fail]), "orchagent", default="NOTICE")
 
 
 def test_sai_category_without_state_row_is_deleted():

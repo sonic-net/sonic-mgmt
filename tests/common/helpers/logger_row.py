@@ -11,6 +11,9 @@ LOGGER_TABLE keys, taking that to mean a deleted row returns the daemon to
 its default. Otherwise it writes the saved level back to the row, so a row
 that was absent is left holding that level: CONFIG_DB ends as found only when
 the row existed or STATE_DB held LOGGER_TABLE keys.
+
+Every read raises on failure, so a failed read is never taken for an absent
+level or row.
 """
 
 import logging
@@ -42,14 +45,19 @@ def _state_has_logger_table(duthost, db_cli):
     return bool(_db(duthost, db_cli, "STATE_DB KEYS 'LOGGER_TABLE|*'", strict=True))
 
 
-def get_log_level(duthost, component, db_cli="sonic-db-cli", loglevel_cli="swssloglevel", default=None):
-    """The component's current level: STATE_DB, then CONFIG_DB, then swssloglevel -p."""
-    for db, key in (("STATE_DB", "LOGGER_TABLE"), ("CONFIG_DB", "LOGGER")):
-        level = _db(duthost, db_cli, "{} HGET '{}|{}' LOGLEVEL".format(db, key, component))
-        if level:
-            return level
+def get_log_level(duthost, component, db_cli="sonic-db-cli", loglevel_cli="swssloglevel", default=None,
+                  configured=None):
+    """The component's current level: STATE_DB, then CONFIG_DB, then swssloglevel -p.
+    A caller that already read the CONFIG_DB LOGLEVEL passes it as configured."""
+    level = _db(duthost, db_cli, "STATE_DB HGET 'LOGGER_TABLE|{}' LOGLEVEL".format(component), strict=True)
+    if level:
+        return level
+    if configured is None:
+        configured = _db(duthost, db_cli, "CONFIG_DB HGET 'LOGGER|{}' LOGLEVEL".format(component), strict=True)
+    if configured:
+        return configured
     if loglevel_cli:
-        for line in duthost.shell("{} -p".format(loglevel_cli), module_ignore_errors=True)["stdout_lines"]:
+        for line in duthost.shell("{} -p".format(loglevel_cli))["stdout_lines"]:
             fields = line.split()
             if len(fields) == 2 and fields[0] == component:
                 return fields[1]
@@ -57,7 +65,7 @@ def get_log_level(duthost, component, db_cli="sonic-db-cli", loglevel_cli="swssl
 
 
 def save_logger_row(duthost, component, db_cli="sonic-db-cli", loglevel_cli="swssloglevel", default=None):
-    """Record what restore_logger_row needs; the reads it branches on raise on failure."""
+    """Record what restore_logger_row needs."""
     existed = logger_row_exists(duthost, component, db_cli)
     configured = _db(duthost, db_cli, "CONFIG_DB HGET 'LOGGER|{}' LOGLEVEL".format(component),
                      strict=True) if existed else ""
@@ -66,7 +74,7 @@ def save_logger_row(duthost, component, db_cli="sonic-db-cli", loglevel_cli="sws
         "db_cli": db_cli,
         "existed": existed,
         "configured": configured,
-        "level": get_log_level(duthost, component, db_cli, loglevel_cli, default),
+        "level": get_log_level(duthost, component, db_cli, loglevel_cli, default, configured),
         "state_has_logger_table": _state_has_logger_table(duthost, db_cli),
     }
 
@@ -81,9 +89,9 @@ def restore_logger_row(duthost, saved):
     row's own configured LOGLEVEL.
 
     Without LOGGER_TABLE keys a row that was absent keeps the saved level. A
-    row that existed without LOGLEVEL gets the field removed again once the
-    daemon has been set back to the saved level. A Python daemon applies any
-    of this only on SIGHUP. Writes are best-effort: a failure is logged.
+    row that existed without LOGLEVEL gets the saved level written and then
+    the field removed again. A Python daemon applies any of this only on
+    SIGHUP. Writes are best-effort: a failure is logged.
     """
     component, db_cli = saved["component"], saved["db_cli"]
     key = "'LOGGER|{}'".format(component)
@@ -93,5 +101,5 @@ def restore_logger_row(duthost, saved):
     level = saved["configured"] or saved["level"]
     if level:
         _restore_write(duthost, db_cli, "CONFIG_DB HSET {} LOGLEVEL {}".format(key, level))
-    if saved["existed"] and not saved["configured"] and saved["state_has_logger_table"]:
+    if saved["existed"] and not saved["configured"]:
         _restore_write(duthost, db_cli, "CONFIG_DB HDEL {} LOGLEVEL".format(key))

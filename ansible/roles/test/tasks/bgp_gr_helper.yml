@@ -103,6 +103,14 @@
       command: "sonic-db-cli CONFIG_DB DEL 'LOGGER|orchagent'"
       when: orchagent_logger_row is defined and orchagent_logger_row.stdout | trim == "0"
 
+    # A row the test found without LOGLEVEL gets the field removed again
+    - name: Remove the LOGLEVEL the test added to an existing orchagent LOGGER row
+      command: "sonic-db-cli CONFIG_DB HDEL 'LOGGER|orchagent' LOGLEVEL"
+      when: >-
+        orchagent_logger_row is defined and orchagent_logger_row.stdout | trim == "1" and
+        orchagent_logger_level is defined and orchagent_logger_level is succeeded and
+        orchagent_logger_level.stdout | trim == ""
+
 # Test case 2: Verify that routes are not preserved when peer performed normal reboot
 - block:
     - set_fact:
@@ -174,3 +182,11 @@
     - name: Remove the orchagent LOGGER row if the test created it
       command: "sonic-db-cli CONFIG_DB DEL 'LOGGER|orchagent'"
       when: orchagent_logger_row is defined and orchagent_logger_row.stdout | trim == "0"
+
+    # A row the test found without LOGLEVEL gets the field removed again
+    - name: Remove the LOGLEVEL the test added to an existing orchagent LOGGER row
+      command: "sonic-db-cli CONFIG_DB HDEL 'LOGGER|orchagent' LOGLEVEL"
+      when: >-
+        orchagent_logger_row is defined and orchagent_logger_row.stdout | trim == "1" and
+        orchagent_logger_level is defined and orchagent_logger_level is succeeded and
+        orchagent_logger_level.stdout | trim == ""
