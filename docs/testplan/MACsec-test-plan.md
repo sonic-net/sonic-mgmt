@@ -511,3 +511,14 @@ The switch should only react encrypted PFC frames, send encrypted PFC frames.
 #### Macsec enabled on all interfaces and the DUT is rebooted
 
 - Check the macsec docker comes up and macsec sessions are established.
+
+#### Reboot DUT Line Card
+
+- Configure MACsec on the controlled links of the DUT line card, wait for the MKA sessions to be established and save the configuration.
+- Cold reboot the line card.
+- Verify macsec connection comes up after line card reboot
+   - The MACsec sessions of all the ASICs (namespaces) of the line card are re-established.
+   - The APPL_DB MACsec tables on the DUT are consistent with the ones on the neighbors on every controlled link.
+   - MACsec is enabled on both ends of every controlled link.
+   - The SAKs are renegotiated, a new MKA session is created with a new SAK.
+   - The data plane works over the MACsec links, the upstream neighbors can be reached from the DUT.
