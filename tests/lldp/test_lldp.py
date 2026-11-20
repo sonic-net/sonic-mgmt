@@ -151,11 +151,14 @@ def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
 
 def _neighbor_lldp_facts(localhost, hostip, snmp_community, neighbor_interface,
                          dut_hostname, eos_host=None):
+    """Converged EOS peers need not expose SNMP; reuse their established CLI.
+
+    Normalize CLI output to retain the same LLDP field assertions as SNMP.
+    """
     if eos_host is None:
         return localhost.lldp_facts(
             host=hostip, version='v2c', community=snmp_community)['ansible_facts']
 
-    # Converged cEOS peers are already reachable through the neighbor CLI connection.
     pytest_assert(re.fullmatch(r'Ethernet\d+(?:/\d+)*', neighbor_interface),
                   "Unexpected EOS LLDP interface name")
     output = eos_host.eos_command(
