@@ -253,6 +253,8 @@ r, ".* ERR syncd#SDK: \[[^\]]*SAI_UTILS.ERR\].*.\/src\/mlnx_sai_utils.c.*- get_d
 r, ".* ERR syncd#SDK: \[[^\]]*SAI_UTILS.ERR\].*.\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, UNKNOWN_MULTICAST_FLOOD_GROUP, key:BRIDGE \[OID:.*Type:.*sx_bridge_id.*"
 r, ".* ERR syncd#SDK: \[[^\]]*SAI_UTILS.ERR\].*.\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, BROADCAST_FLOOD_GROUP, key:BRIDGE \[OID:.*Type:.*sx_bridge_id.*"
 r, ".* ERR syncd#SDK: \[[^\]]*SAI_UTILS.ERR\].*get_dispatch_attribs_handler:.*(INGRESS_SAMPLE_MIRROR_SESSION|EGRESS_SAMPLE_MIRROR_SESSION).*"
+r, ".* ERR syncd\d*#SDK: .*mlnx_bridge_port_nhg_id_get:.*Invalid bridge port type.*"
+r, ".* ERR syncd\d*#SDK: .*get_dispatch_attribs_handler:.*BRIDGE_PORT_NEXT_HOP_GROUP_ID.*"
 
 # https://github.com/sonic-net/sonic-buildimage/issues/27327
 # Mellanox SDK new log format (with client_pid prefix) - FEC_ALIGNMENT_LOCK polling on ports without FEC support
