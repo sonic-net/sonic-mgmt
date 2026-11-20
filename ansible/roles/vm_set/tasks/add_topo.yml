@@ -195,6 +195,8 @@
       privileged: yes
       memory: 32G
       memory_swap: 64G
+      ulimits:
+        - "nofile:8192:16384"
     become: yes
 
   - name: Update ptf password
