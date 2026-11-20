@@ -31,11 +31,12 @@ def _write_case_registry(path, capability='SAI_PORT_ATTR_ADMIN_STATE'):
             'unit': 'supported',
         },
         'port_counter_read': {
-            'description': 'Port counter read latency',
+            'display_name': 'Port counter read',
+            'description': 'Total time to read port counters',
             'direction': 'lower_better',
+            'metric_type': 'counter',
             'operations': ['read'],
-            'result_type': 'performance',
-            'unit': 's/op',
+            'unit': 'ms',
         },
     }))
     return path
@@ -149,3 +150,72 @@ def test_metadata_cli_exposes_header_inputs_only():
 
     assert {'headers', 'experimental_headers'} <= options
     assert not {'sai_root', 'inc', 'experimental', 'out_dir'} & options
+
+
+def test_report_registry_preserves_explicit_metric_contract_for_hidden_specs():
+    registry = {
+        'acl_counter_read': {
+            'display_name': 'ACL counter read',
+            'description': 'Total time to read ACL counters',
+            'metric_type': 'counter',
+            'operations': ['read'],
+            'unit': 'ms',
+            'direction': 'lower_better',
+            'include_in_report': True,
+        },
+        'borrowed_route_rate': {
+            'description': 'Route rate collected by another scale case',
+            'metric_type': 'throughput',
+            'operations': ['create'],
+            'unit': 'routes/s',
+            'direction': 'higher_better',
+            'include_in_report': False,
+        },
+    }
+
+    report = generate_metadata.build_report_registry(registry)
+
+    assert set(report) == {'acl_counter_read', 'borrowed_route_rate'}
+    assert report['acl_counter_read']['display_name'] == 'ACL counter read'
+    assert report['acl_counter_read']['metric_type'] == 'counter'
+    assert report['borrowed_route_rate']['include_in_report'] is False
+
+
+def test_visible_report_metric_requires_display_name():
+    registry = {
+        'acl_counter_read': {
+            'description': 'Total time to read ACL counters',
+            'metric_type': 'counter',
+            'operations': ['read'],
+            'unit': 'ms',
+            'direction': 'lower_better',
+            'include_in_report': True,
+        },
+    }
+
+    try:
+        generate_metadata.build_report_registry(registry)
+    except ValueError as error:
+        assert 'acl_counter_read.display_name' in str(error)
+    else:
+        raise AssertionError('visible metric without display_name was accepted')
+
+
+def test_visible_report_metric_rejects_empty_display_name():
+    registry = {
+        'acl_counter_read': {
+            'display_name': '   ',
+            'description': 'Total time to read ACL counters',
+            'metric_type': 'counter',
+            'operations': ['read'],
+            'unit': 'ms',
+            'direction': 'lower_better',
+        },
+    }
+
+    try:
+        generate_metadata.build_report_registry(registry)
+    except ValueError as error:
+        assert 'acl_counter_read.display_name' in str(error)
+    else:
+        raise AssertionError('visible metric with empty display_name was accepted')

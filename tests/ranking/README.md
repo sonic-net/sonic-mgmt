@@ -14,7 +14,7 @@ Prepare, Run, and Report are separate commands:
 3. **Report** reads controller output offline and never contacts the devices.
 
 This README is a complete quick start for the tracked SONiC-to-SONiC
-`sonic_sonic` environment template. Copy it to a local lab package and review
+SONiC testbed package. Copy the closest leaf to a new lab package and review
 every topology-specific file before using it with real devices.
 
 ## Scope and ownership
@@ -87,14 +87,28 @@ environment package's `prepare.py`, not to Run.
 
 ### SONiC-to-SONiC/Broadcom environment only
 
-The tracked `environments/sonic_sonic` package reaches the generic Ready state
+The tracked `testbeds/sonic/th6-66` package reaches the generic Ready state
 by stopping DUT `swss`, starting DUT SAIserver, keeping PTF `swss`/`syncd`
 active, stopping the SAIserver process inside the PTF tooling container, and
 programming Broadcom ingress mirror-to-CPU. These are requirements of this
 environment's Prepare/check implementation only. A different DUT/packet-host
 architecture may use different actions or skip Prepare entirely. See
-`tests/ranking/environments/sonic_sonic/README.md` for the topology and
+`tests/ranking/testbeds/sonic/README.md` for the topology and
 ownership boundary.
+
+### vSONiC environment
+
+`tests/ranking/testbeds/vsonic/` is a separate environment package for an
+existing management VM that provides KVM/libvirt, Docker, and Open vSwitch.
+Its pytest Prepare driver creates the inner vSONiC DUT, PTF container, 32 veth
+pairs, one OVS pseudo-wire bridge with fixed bidirectional flows, and the DUT
+SAIserver. Jenkins/AliTools or the operator still owns the outer physical host,
+management VM, and pre-staged `sonic-vs.img.gz`.
+
+This package does not use the SONiC-to-SONiC mirror setup and does not invoke
+the old `testbed-cli` or Ansible topology playbooks. See
+`tests/ranking/testbeds/vsonic/README.md` for its prerequisites, exact resource
+ownership, secret injection, Prepare command, and independent Run command.
 
 ## 1. Prerequisites
 
@@ -187,41 +201,44 @@ does not discover or repair incorrect physical cabling.
 
 The environment package is the operator-owned input. Keep it inside the
 checkout so the single repository mount exposes it to the controller container.
-The canonical template is `tests/ranking/environments/sonic_sonic/`.
+The canonical template is `tests/ranking/testbeds/sonic/th6-66/`.
 Start by copying the complete package to a local lab name:
 
 ```bash
-cp -a tests/ranking/environments/sonic_sonic tests/ranking/examples/my-lab
+cp -a tests/ranking/testbeds/sonic/th6-66 tests/ranking/testbeds/sonic/my-lab
 ```
 
-`tests/ranking/examples/` is ignored by Git, which keeps local credentials and
-internal addresses out of commits. The tracked template contains documentation
-addresses only; replace them in the local copy.
+Keep local packages that contain credentials untracked. In an internal tree,
+checked-in testbeds may contain lab addresses, but secrets still require the
+repository's access controls and must not be copied to public branches.
 
 ### Environment package files
 
 ```text
-tests/ranking/examples/my-lab/
+tests/ranking/testbeds/sonic/my-lab/
 ├── environment.yml             # edit: hosts, container paths, timeout, wiring
-├── environment.py              # keep: strict schema and Run compiler
-├── prepare.py                  # review: lab-specific configure/check actions
+├── environment.py              # keep: thin adapter to the shared schema
+├── prepare.py                  # keep: thin adapter to the shared driver
 ├── dut/
 │   ├── config_db.json          # edit: selected DUT PORT table
 │   └── port_config.ini         # edit: DUT names, lanes, speed, FEC, index
 └── ptf/
-    ├── port_config.ini         # edit: PTF SONiC port names in wiring/SDK order
-    └── mirror_port.py          # review: Broadcom SDK-port mirror mapping
+    └── port_config.ini         # edit: PTF SONiC port names in wiring/SDK order
 ```
+
+Shared `schema.py`, `driver.py`, `port_mapping.py`, and `mirror_port.py` live
+one level above the leaf packages. A new SONiC-to-SONiC testbed normally changes
+only leaf YAML and port assets.
 
 | File | Used by | What the operator must do |
 | --- | --- | --- |
 | `environment.yml` | Prepare and Run | Set host identity, authentication, container paths, timeout, and every DUT-to-PTF link |
-| `environment.py` | Prepare and Run | Normally keep unchanged; it validates the `sonic_sonic` schema and builds sonic-mgmt adapter/runtime data |
-| `prepare.py` | Prepare only | Keep only when the new lab uses the same two-SONiC-device lifecycle; otherwise implement the environment's own configure/check hooks |
+| `environment.py` | Prepare and Run | Keep the thin adapter unchanged; shared `schema.py` validates the `physical` schema and builds sonic-mgmt adapter/runtime data |
+| `prepare.py` | Prepare only | Keep the thin adapter when the new lab uses the same two-SONiC-device lifecycle |
 | `dut/config_db.json` | Case sync overlay | Replace with a top-level `PORT` table for the selected DUT ports |
 | `dut/port_config.ini` | Case sync overlay | Replace with the matching DUT platform rows |
 | `ptf/port_config.ini` | PTF mirror setup | List the connected PTF SONiC ports in the order expected by the SDK mapping |
-| `ptf/mirror_port.py` | PTF mirror setup | Keep only if `cd0..cdN` matches the PTF SDK order; adapt for another SDK/platform |
+| shared `mirror_port.py` | PTF mirror setup | Uses the selected leaf's `ptf/port_config.ini`; change shared logic only for a genuinely new SDK contract |
 
 ### Obtain platform port information
 
@@ -241,7 +258,7 @@ sonic-cfggen -d --print-data | jq '{PORT: .PORT}' > /tmp/config_db.full.json
 ```
 
 Transfer that file to the controller through the approved lab mechanism as
-`tests/ranking/examples/my-lab/dut/config_db.full.json`. Then run this from the
+`tests/ranking/testbeds/sonic/my-lab/dut/config_db.full.json`. Then run this from the
 repository root to retain only the ports selected by the environment package:
 
 ```bash
@@ -251,7 +268,7 @@ from pathlib import Path
 
 import yaml
 
-root = Path('tests/ranking/examples/my-lab')
+root = Path('tests/ranking/testbeds/sonic/my-lab')
 environment = yaml.safe_load((root / 'environment.yml').read_text())
 full = json.loads((root / 'dut/config_db.full.json').read_text())
 selected = list(environment['ports'])
@@ -264,10 +281,10 @@ filtered = {'PORT': {name: ports[name] for name in selected}}
     json.dumps(filtered, indent=2) + '\n', encoding='utf-8')
 PY
 
-rm tests/ranking/examples/my-lab/dut/config_db.full.json
+rm tests/ranking/testbeds/sonic/my-lab/dut/config_db.full.json
 ```
 
-This writes `tests/ranking/examples/my-lab/dut/config_db.json`. Its final
+This writes `tests/ranking/testbeds/sonic/my-lab/dut/config_db.json`. Its final
 `PORT` key set must equal `environment.yml:ports` exactly. Do not copy
 credentials, unrelated CONFIG_DB tables, or unconnected DUT ports.
 
@@ -281,23 +298,21 @@ The following values must describe the same cable map:
 - Every `ports.<dut-port>.interface` exists on the PTF host and appears in
   `ptf/port_config.ini` in the SDK order used by `mirror_port.py`.
 - PTF ids are unique, ordered, and contiguous starting at `1`.
-- The number of ports must have a matching standard sonic-mgmt topology file.
-  This checkout currently provides `ansible/vars/topo_ptf32.yml` and
-  `ansible/vars/topo_ptf64.yml`, so this environment adapter currently supports
-  32-port and 64-port packages.
+- The number of physical test ports comes from `environment.yml:ports`.
+  Run passes one PTF interface for each entry. Physical Ranking uses the
+  `ptf` topology type without a port-count-specific topo file.
 
 ### `environment.yml` fields
 
 | Field | Required/default | Operator action |
 | --- | --- | --- |
 | `schema_version` | Required, must be `1` | Keep |
-| `type` | Required, must be `sonic_sonic` | Keep for this implementation |
-| `asic` | Required | DUT ASIC family, for example `td5`; shown only when Report receives `--ranking-config` |
+| `type` | Required, must be `physical` | Keep for this implementation |
 | `controller.testbed` | Required | Choose a stable unique testbed name |
 | `controller.host_pattern` | Required | Normally keep `all` |
 | `controller.connection` | Optional, default `ssh` | Use `paramiko` when system SSH is incompatible or password auth is used |
 | `hosts.dut.name`, `hosts.ptf.name` | Required | Unique sonic-mgmt inventory aliases |
-| `hosts.<role>.address` | Required | Reachable management IPv4 address/hostname; PTF address must be IPv4 |
+| `hosts.<role>.address` | Required | Reachable management IPv4 address |
 | `hosts.<role>.user` | Required | SSH user with the permissions listed above |
 | `hosts.<role>.auth.password` | Optional | Local fallback only; never commit a populated value |
 | `dut.rpc_port` | Required, exactly `9092` | Keep |
@@ -364,7 +379,7 @@ All remaining commands run from `/work/sonic-mgmt` inside this controller
 container. The examples use:
 
 ```text
-environment package: tests/ranking/examples/my-lab
+environment package: tests/ranking/testbeds/sonic/my-lab
 output batch:        tests/ranking/output/route-batch-001
 known fast case:     sairoute.multipleRoutesTest
 ```
@@ -376,7 +391,8 @@ Use pytest collection before changing the lab:
 ```bash
 python3 -m pytest -q \
   tests/ranking/run/test_ranking.py \
-  --ranking-config tests/ranking/examples/my-lab/environment.yml \
+  --confcutdir=tests/ranking \
+  --ranking-config tests/ranking/testbeds/sonic/my-lab/environment.yml \
   --ranking-output tests/ranking/output/route-batch-001 \
   --ranking-select case:sairoute.multipleRoutesTest \
   --collect-only
@@ -406,7 +422,8 @@ replace the complete PTF case directory:
 ```bash
 python3 -m pytest -s -v \
   tests/ranking/prepare/test_prepare.py \
-  --ranking-environment tests/ranking/examples/my-lab \
+  --confcutdir=tests/ranking \
+  --ranking-environment tests/ranking/testbeds/sonic/my-lab \
   --ranking-cases tests/ranking/cases \
   --ranking-force-sync
 ```
@@ -433,12 +450,14 @@ Examples for individual actions:
 ```bash
 # Configure and then check, without copying cases.
 python3 -m pytest -s -v tests/ranking/prepare/test_prepare.py \
-  --ranking-environment tests/ranking/examples/my-lab \
+  --confcutdir=tests/ranking \
+  --ranking-environment tests/ranking/testbeds/sonic/my-lab \
   --ranking-prepare-steps configure_env,check_env
 
 # Check an environment configured manually, then force-publish cases.
 python3 -m pytest -s -v tests/ranking/prepare/test_prepare.py \
-  --ranking-environment tests/ranking/examples/my-lab \
+  --confcutdir=tests/ranking \
+  --ranking-environment tests/ranking/testbeds/sonic/my-lab \
   --ranking-cases tests/ranking/cases \
   --ranking-prepare-steps check_env,sync_cases \
   --ranking-force-sync
@@ -461,7 +480,8 @@ Run the known fast case:
 ```bash
 python3 -m pytest -s -v \
   tests/ranking/run/test_ranking.py \
-  --ranking-config tests/ranking/examples/my-lab/environment.yml \
+  --confcutdir=tests/ranking \
+  --ranking-config tests/ranking/testbeds/sonic/my-lab/environment.yml \
   --ranking-output tests/ranking/output/route-batch-001 \
   --ranking-select case:sairoute.multipleRoutesTest
 ```
@@ -524,6 +544,22 @@ updates `enum_values.json`, `skeleton.json`, and `spec_registry.json` under
 non-capability entries in `tests/ranking/cases/ptf/spec_registry.json`; the
 case registry remains the source used while tests execute.
 
+Each reportable performance entry declares the report contract explicitly:
+
+| Field | Meaning |
+| --- | --- |
+| `spec_name` | Stable machine identifier; this is the JSON object key |
+| `display_name` | Human-readable value shown in the report's `Spec name` column |
+| `metric_type` | Report section: `throughput`, `latency`, `counter`, `scale`, or `fill_rate` |
+| `unit` | Unit of `actual_value`; callers do not pass it to `record_spec()` |
+| `operations` | Operations that this metric may record |
+| `direction` | Comparison direction when a baseline is present |
+| `include_in_report` | Optional; defaults to `true`; `false` keeps collection but hides the metric |
+
+`record_spec()` supplies only the measured facts: `spec_name`, operation,
+workload `count`, primary `actual_value`, and optional duration/evidence. The
+registry, rather than naming conventions, determines how Report displays it.
+
 ### Case selectors
 
 `--ranking-select` accepts comma-separated case names, module names, or one
@@ -575,12 +611,14 @@ python3 -m tests.ranking.report.generate \
 
 The command above intentionally omits environment information. To opt in to
 showing the DUT ASIC, ASIC vendor, DUT IP, and PTF IP, pass the environment
-YAML explicitly:
+YAML explicitly. The following example uses the vTD5 package, which already
+defines all four fields. The current physical packages do not define `asic`;
+omit this optional report argument for those packages.
 
 ```bash
 python3 -m tests.ranking.report.generate \
   --ranking-output tests/ranking/output/route-batch-001 \
-  --ranking-config tests/ranking/examples/my-lab/environment.yml
+  --ranking-config tests/ranking/testbeds/vsonic/vtd5/environment.yml
 ```
 
 ### Report command reference
@@ -599,6 +637,12 @@ or a damaged required artifact, makes Report exit nonzero and print the error to
 stderr. Report exits zero only after the unified HTML file is complete.
 Report reads `skeleton.json`, `enum_values.json`, and `spec_registry.json`
 directly from `report/metadata/`, validating their JSON and required structure.
+The performance and scale panel uses exactly two tables. `Performance` joins
+throughput, route-flap group/member operations, counter timing, and operation
+latency in one operation matrix; each value carries its own unit, and counter
+timing also shows the counter workload. `Scale` joins reported resource scale
+with scenario-specific installed counts and fill rate. Both tables use the
+registry `display_name` in the `Spec name` column.
 When `--ranking-config` is omitted, no environment summary is embedded in the
 HTML. When it is supplied, Report reads only `asic`, `dut.platform`,
 `hosts.dut.address`, and `hosts.ptf.address`; credentials and other environment
@@ -680,7 +724,7 @@ the devices.
 | Symptom | Check |
 | --- | --- |
 | `Host unreachable in the inventory` | Management address, SSH user/password/key, `controller.connection`, and container network path |
-| `standard sonic-mgmt topology is missing` | Port count must currently match `topo_ptf32.yml` or `topo_ptf64.yml` |
+| `standard sonic-mgmt topology is missing` | For vSONiC, check that its configured topology file exists in the checkout |
 | Target case directory already exists | Rerun Prepare with `sync_cases` and `--ranking-force-sync` when replacement is intended |
 | Binding import or RPC error in the case log | Check `ptf.binding_dir` and compatibility between the PTF binding and DUT SAIserver |
 | RPC reachability failure | DUT SAIserver state, TCP `9092`, routes/firewalls, and PTF-to-DUT management path |
@@ -692,7 +736,7 @@ the devices.
 The isolated unit suite does not require devices:
 
 ```bash
-python3 -m pytest -q --confcutdir=tests/ranking/unit_tests \
+python3 -m pytest -q -o 'python_files=unit_test_*.py' --confcutdir=tests/ranking/unit_tests \
   tests/ranking/unit_tests
 
 python3 -m compileall -q tests/ranking

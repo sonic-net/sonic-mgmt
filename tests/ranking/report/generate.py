@@ -323,8 +323,8 @@ def _render(report_dir, inputs, runs, manifest_cases, environment_summary=None):
     definitions = render_spec.build_registry_definitions(
         inputs["spec_registry.json"])
     expected = {key: definition for key, definition in definitions.items()
-                if definition.get("result_type") != "incidental"}
-    fill_rows = render_spec.build_fill_rate_rows(results)
+                if definition.get("include_in_report", True)}
+    fill_rows = render_spec.build_fill_rate_rows(results, definitions)
     rows = render_spec.build_spec_rows(actual, expected, definitions)
     summary = render_spec.summarize(rows)
     capability = aggregate_capability.build_document(

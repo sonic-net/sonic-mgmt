@@ -20,13 +20,13 @@ RANKING_ROOT = REPORT_ROOT.parent
 METADATA_ROOT = REPORT_ROOT / 'metadata'
 CASE_SPEC_REGISTRY = RANKING_ROOT / 'cases' / 'ptf' / 'spec_registry.json'
 METADATA_FILES = ('enum_values.json', 'skeleton.json', 'spec_registry.json')
-KNOWN_RESULT_TYPES = frozenset(
-    ('performance', 'scale', 'fill_rate', 'capability', 'incidental'))
-REQUIRED_SPEC_FIELDS = {
+KNOWN_METRIC_TYPES = frozenset(
+    ('throughput', 'latency', 'counter', 'scale', 'fill_rate'))
+REQUIRED_METRIC_FIELDS = {
     'description': str,
     'direction': str,
+    'metric_type': str,
     'operations': list,
-    'result_type': str,
     'unit': str,
 }
 
@@ -67,18 +67,29 @@ def build_report_registry(case_registry):
             continue
         if not isinstance(definition, dict):
             raise ValueError('case spec registry entry is not an object: %s' % name)
-        result_type = definition.get('result_type')
-        if result_type not in KNOWN_RESULT_TYPES:
-            raise ValueError(
-                'case spec registry %s has unknown result_type %r'
-                % (name, result_type))
-        if result_type == 'capability':
+        if definition.get('result_type') == 'capability':
             continue
-        for field, expected_type in REQUIRED_SPEC_FIELDS.items():
+        metric_type = definition.get('metric_type')
+        if metric_type not in KNOWN_METRIC_TYPES:
+            raise ValueError(
+                'case spec registry %s has unknown metric_type %r'
+                % (name, metric_type))
+        for field, expected_type in REQUIRED_METRIC_FIELDS.items():
             if not isinstance(definition.get(field), expected_type):
                 raise ValueError(
                     'case spec registry %s.%s has the wrong type'
                     % (name, field))
+        included = definition.get('include_in_report', True)
+        if type(included) is not bool:
+            raise ValueError(
+                'case spec registry %s.include_in_report has the wrong type'
+                % name)
+        display_name = definition.get('display_name')
+        if (included and
+                (not isinstance(display_name, str) or not display_name.strip())):
+            raise ValueError(
+                'case spec registry %s.display_name has the wrong type'
+                % name)
         if not all(isinstance(operation, str)
                    for operation in definition['operations']):
             raise ValueError(

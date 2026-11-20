@@ -20,10 +20,11 @@ def _metadata(root):
     values = {
         'spec_registry.json': {
             'ipv4_route_scale': {
+                'display_name': 'IPv4 route scale',
                 'description': 'IPv4 route scale',
                 'direction': 'higher_better',
+                'metric_type': 'scale',
                 'operations': ['create'],
-                'result_type': 'scale',
                 'unit': 'entries',
             },
         },
@@ -109,7 +110,7 @@ def test_report_renders_final_case_results_to_exact_html_outputs(output_root):
     assert CASE in page and '>PASS<' in page
     assert 'sairoute.MissingCase' in page and '>NOT TESTED<' in page
     assert 'SAI_PORT_ATTR_ADMIN_STATE' in page
-    assert 'ipv4_route_scale' in page and '>100<' in page
+    assert 'IPv4 route scale' in page and '>100<' in page
     assert '../cases/saisanity/logs/L2SanityTest.log' in page
 
 
@@ -181,7 +182,7 @@ def test_manifest_only_report_marks_every_case_not_tested(
 def test_report_renders_directly_from_merged_case_results(output_root):
     generate.build_report(output_root)
     page = (output_root / 'report/report.html').read_text()
-    assert 'ipv4_route_scale' in page
+    assert 'IPv4 route scale' in page
     assert '>100<' in page
     source = json.loads(
         (output_root / 'cases/saisanity/results/L2SanityTest.json').read_text())
