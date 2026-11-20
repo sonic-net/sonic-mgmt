@@ -222,8 +222,8 @@ function converge_topo_if_needed
 
     # Keep the cSONiC path independent from the established cEOS path below.
     if [[ "$use_converged_peers" == "True" && "$vm_type" == "csonic" ]]; then
-        if [[ "$topo" != "t0" ]]; then
-            echo "cSONiC converged peers currently support topo=t0 only; skipping topo '$topo'."
+        if [[ "$topo" != "t0" && "$topo" != "t1-lag" ]]; then
+            echo "cSONiC converged peers currently support topo=t0 and t1-lag only; skipping topo '$topo'."
             return
         fi
         echo "use_converged_peers is true, converging cSONiC topo..."
