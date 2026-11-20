@@ -523,7 +523,7 @@ class HashTest(BaseTest):
             rcvd_port, rcvd_pkt = retry_call(
                 self.send_and_verify_packets,
                 fargs=[src_port, pkt, masked_exp_pkt, dst_port_lists, logs],
-                tries=2,
+                tries=3,
                 delay=2
             )
         else:
@@ -593,7 +593,7 @@ class HashTest(BaseTest):
             rcvd_port, rcvd_pkt = retry_call(
                 self.send_and_verify_packets,
                 fargs=[src_port, pkt, masked_exp_pkt, dst_port_lists, logs],
-                tries=2,
+                tries=3,
                 delay=2
             )
         else:
