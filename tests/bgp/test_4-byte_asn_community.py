@@ -8,6 +8,8 @@ Step 2: Verify 4-byte BGP session between DUT and neighbor is established
 
 '''
 import logging
+import os
+import tempfile
 
 import pytest
 import time
@@ -24,8 +26,6 @@ dut_4byte_asn = 400003
 neighbor_4byte_asn = 400001
 bgp_sleep = 120
 bgp_id_textfsm = "./bgp/templates/bgp_id.template"
-# Full startup-config backup for converged multi-VRF cEOS
-EOS_NEIGH_BACKUP_CONFIG_FILE = "/tmp/bgp_4byte_asn_community_eos_backup_{}"
 
 pytestmark = [
     pytest.mark.topology('t2', 'lrh', 'urh')
@@ -112,16 +112,38 @@ class SonicBGPRouter(BGPRouter):
         pass
 
 
+def extract_eos_bgp_vrf_block(bgp_running_config, vrf):
+    """
+    Return the "   vrf <vrf>" block (header and all nested lines) from
+    "show running-config section router bgp", or [] if the VRF is not present.
+    """
+    header = "vrf {}".format(vrf)
+    block, in_vrf = [], False
+    for line in bgp_running_config.splitlines():
+        indent = len(line) - len(line.lstrip())
+        if indent == 3 and line.strip() == header:
+            in_vrf = True
+            block.append(line)
+            continue
+        if in_vrf:
+            if line.strip() and indent <= 3:
+                break
+            block.append(line)
+    return block
+
+
 class EosBGPRouter(BGPRouter):
-    def __init__(self, host, asn, eos_bgp_summary_vrf=None, eos_bgp_parents=None, dut_peer_addrs=None,
-                 eos_restore_backup_path=None):
+    def __init__(self, host, asn, eos_bgp_summary_vrf=None, eos_bgp_parents=None, dut_peer_addrs=None):
         super().__init__(host, asn)
         self.os_type = 'eos'
         # Converged multi-VRF cEOS: default VRF "show ip bgp summary" can be empty; use vrf <logical_peer>.
         self.eos_bgp_summary_vrf = eos_bgp_summary_vrf
         self.eos_bgp_parents = eos_bgp_parents
         self.dut_peer_addrs = dut_peer_addrs
-        self.eos_restore_backup_path = eos_restore_backup_path
+        self.saved_vrf_block = None
+
+    def _is_multi_vrf(self):
+        return bool(self.eos_bgp_parents and self.dut_peer_addrs and self.eos_bgp_summary_vrf)
 
     def _ip_bgp_summary_cmd(self):
         cmd = "show ip bgp summary"
@@ -157,6 +179,15 @@ class EosBGPRouter(BGPRouter):
 
     def save_bgp_config(self):
         self.saved_bgp_config = self.get_command_output("show run section bgp")
+        if self._is_multi_vrf():
+            # Converged multi-VRF cEOS is shared by many logical neighbors; only this VRF is restored.
+            self.saved_vrf_block = extract_eos_bgp_vrf_block(
+                self.get_command_output("show running-config section router bgp"),
+                self.eos_bgp_summary_vrf)
+            pytest_assert(
+                self.saved_vrf_block,
+                "BGP vrf {} not found under {} on {}; not modifying the neighbor".format(
+                    self.eos_bgp_summary_vrf, self.eos_bgp_parents[0], self.host.hostname))
 
     def remove_bgp_config(self, asn=None):
         # Converged multi-VRF: do not run "no router bgp <primary_asn>" on a shared cEOS VM.
@@ -175,14 +206,23 @@ class EosBGPRouter(BGPRouter):
             lines=["no router bgp {}".format(asn)])
 
     def restore_bgp_config(self, asn_to_be_removed):
-        if self.eos_restore_backup_path:
-            self.host.load_configuration(self.eos_restore_backup_path)
+        if self._is_multi_vrf():
+            self._restore_bgp_vrf()
             return
-        if self.eos_bgp_parents and self.dut_peer_addrs:
-            self.remove_bgp_config()
-        else:
-            self.remove_bgp_config(asn=asn_to_be_removed)
+        self.remove_bgp_config(asn=asn_to_be_removed)
         self.host.eos_config(lines=list(self.saved_bgp_config.split("\n")))
+
+    def _restore_bgp_vrf(self):
+        # Recreate only this VRF under the existing BGP process; other VRFs, global BGP and
+        # interfaces are untouched.
+        payload = [self.eos_bgp_parents[0], "   no vrf {}".format(self.eos_bgp_summary_vrf)] + self.saved_vrf_block
+        with tempfile.NamedTemporaryFile("w", prefix="bgp_4byte_vrf_restore_", suffix=".cfg",
+                                         delete=False) as f:
+            f.write("\n".join(payload) + "\n")
+        try:
+            self.host.eos_config(src=f.name, match="none", replace="line")
+        finally:
+            os.remove(f.name)
 
     def get_bgp_config(self):
         current_bgp_config = self.get_command_output("show run section bgp")
@@ -311,8 +351,6 @@ def setup_ceos(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand
     vrf_name = nbr_ent.get("multi_vrf_data", {}).get("vrf") if multi_vrf else None
     dut_peer_addrs = (dut_ip_v4, dut_ip_v6) if multi_vrf else None
     eos_parents_for_cleanup = neigh_eos_bgp_parents if multi_vrf else None
-    neigh_eos_restore_backup = (
-        EOS_NEIGH_BACKUP_CONFIG_FILE.format(neighbors[neigh].hostname) if multi_vrf else None)
 
     bgp_neigh = EosBGPRouter(
         nbrhosts[neigh]["host"],
@@ -320,7 +358,6 @@ def setup_ceos(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand
         eos_bgp_summary_vrf=vrf_name,
         eos_bgp_parents=eos_parents_for_cleanup,
         dut_peer_addrs=dut_peer_addrs,
-        eos_restore_backup_path=neigh_eos_restore_backup,
     )
     neigh_bgp_id = bgp_neigh.get_router_id()
     with open(bgp_id_textfsm) as template:
@@ -363,17 +400,14 @@ def setup_ceos(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand
     logger.debug("Neighbor BGP Config: {}".format(bgp_neigh.get_bgp_config()))
     logger.debug('Setup_info: {}'.format(setup_info))
     bgp_neigh.save_bgp_config()
-    if neigh_eos_restore_backup:
-        neighbors[neigh].eos_config(
-            backup=True,
-            backup_options={'filename': neigh_eos_restore_backup},
-        )
 
     yield setup_info
 
-    bgp_neigh.restore_bgp_config(asn_to_be_removed=neighbor_4byte_asn)
-    # restore config to original state
-    config_reload(duthost, safe_reload=True, wait_for_bgp=True)
+    try:
+        bgp_neigh.restore_bgp_config(asn_to_be_removed=neighbor_4byte_asn)
+    finally:
+        # restore config to original state
+        config_reload(duthost, safe_reload=True, wait_for_bgp=True)
 
 
 @pytest.fixture(scope='module')
