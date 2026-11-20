@@ -34,9 +34,23 @@ def test_console_stress_output(duthost_console):
     # Each line: "LINE_XXXX: " + 10 blocks of '0123456789' (110 chars per line)
     # Generate 1000 lines = 110,000 chars total
     num_lines = 1000
+
+    # Pace the DUT-side output. A serial console has no hardware flow control, so a
+    # DUT that dumps ~110 KB in one unbroken burst overruns the console server's
+    # receive FIFO (and the SSH/TCP window while it ramps up) during the very first
+    # wave -- the leading lines are then silently lost or corrupted. Flushing and
+    # pausing every `pace_every` lines gives the receiver time to drain each chunk,
+    # so no burst ever gets far enough ahead to overflow. The printed content is
+    # byte-for-byte identical to the unpaced version, so the integrity check below
+    # is unchanged.
+    pace_every = 20
+    pace_seconds = 0.05
     # Disable echo verification because the serial echo wraps across lines.
     output = duthost_console.send_command(
-        f"python3 -c \"for i in range({num_lines}): print(f'LINE_{{i:04d}}: ' + '0123456789' * 10)\"",  # noqa: E231
+        f"python3 -c \"import sys, time; "  # noqa: E231
+        f"[ (print('LINE_%04d: ' % i + '0123456789' * 10), "  # noqa: E231
+        f"(i % {pace_every} == {pace_every - 1} and (sys.stdout.flush() or time.sleep({pace_seconds})))) "  # noqa: E231
+        f"for i in range({num_lines}) ]\"",  # noqa: E231
         read_timeout=300,
         expect_string=PROMPT_PATTERN,
         cmd_verify=False,
