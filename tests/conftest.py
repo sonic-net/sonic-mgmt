@@ -157,7 +157,8 @@ pytest_plugins = ('tests.common.plugins.nasa_debug',
                   'tests.common.fixtures.duthost_utils',
                   'tests.common.plugins.parallel_fixture',
                   'tests.common.plugins.erspan_mirror',
-                  'tests.common.port_attributes.pytest_plugin')
+                  'tests.common.port_attributes.pytest_plugin',
+                  'tests.common.plugins.dualtor_enum_one_tor')
 
 
 # NOTE: This is to backport fix https://github.com/python/cpython/pull/126098
@@ -996,6 +997,7 @@ def set_rand_one_dut_hostname(request):
             dut_hostnames = random.sample(dut_hostnames, 1)
         rand_one_dut_hostname_var = dut_hostnames[0]
         logger.info("Randomly select dut {} for testing".format(rand_one_dut_hostname_var))
+    return rand_one_dut_hostname_var
 
 
 @pytest.fixture(scope="module")
