@@ -120,22 +120,18 @@ class GNMIEnvironment(object):
         except Exception as e:
             logger.warning(f"Failed to read CONFIG_DB: {e}")
 
-        # Fallback: detect from running telemetry process
+        # Fallback: detect from the server process of this container
         try:
             if hasattr(self, 'gnmi_container'):
-                res = duthost.shell(f"docker exec {self.gnmi_container} ps aux | grep telemetry",
-                                    module_ignore_errors=True)
-                if res['rc'] == 0 and '--port' in res['stdout']:
-                    # Extract port from telemetry command line
-                    import re
-                    match = re.search(r'--port\s+(\d+)', res['stdout'])
-                    if match:
-                        self.gnmi_port = int(match.group(1))
-                        # Check for --noTLS flag
-                        # --noTLS means no TLS; --insecure means TLS with self-signed cert (use_tls=True)
-                        self.use_tls = '--noTLS' not in res['stdout']
-                        logger.info(f"Detected from process: port={self.gnmi_port}, tls={self.use_tls}")
-                        return
+                command = self._container_server_command(duthost)
+                match = re.search(r'--port[\s=]+(\d+)', command)
+                if match:
+                    self.gnmi_port = int(match.group(1))
+                    # Check for --noTLS flag
+                    # --noTLS means no TLS; --insecure means TLS with self-signed cert (use_tls=True)
+                    self.use_tls = '--noTLS' not in command
+                    logger.info(f"Detected from process: port={self.gnmi_port}, tls={self.use_tls}")
+                    return
         except Exception as e:
             logger.warning(f"Failed to detect from running process: {e}")
 
@@ -143,6 +139,23 @@ class GNMIEnvironment(object):
         self.gnmi_port = 8080
         self.use_tls = True  # default to insecure TLS (GNMI|certs configured in tests)
         logger.info(f"Using default config: port={self.gnmi_port}, tls={self.use_tls}")
+
+    def _container_server_command(self, duthost):
+        """
+        Command line of the gNMI server running in self.gnmi_container, or "" if there is none.
+
+        `docker top` lists only the processes of that container. `docker exec <container> ps` cannot be used:
+        a container that shares the host PID namespace sees every process on the DUT, including the server of
+        another container (gnmi and telemetry both run /usr/sbin/telemetry), and would report that one's port.
+        """
+        res = duthost.shell(f"docker top {self.gnmi_container} -eo pid,args", module_ignore_errors=True)
+        if res['rc'] != 0:
+            return ""
+        for line in res['stdout_lines'][1:]:
+            fields = line.split(None, 1)
+            if len(fields) == 2 and fields[1].split()[0].rsplit('/', 1)[-1] == self.gnmi_process:
+                return fields[1]
+        return ""
 
 
 def gnmi_container(duthost):
