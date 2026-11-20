@@ -181,6 +181,7 @@ class GenerateGoldenConfigDBModule(object):
                                     port_index_map=dict(required=False, type='dict', default=None),
                                     port_config=dict(required=False, type='dict', default={}),
                                     port_config_file=dict(required=False, type='path', default=None),
+                                    service_ports=dict(required=False, type='list', elements='str', default=[]),
                                     port_speeds=dict(required=False, type='dict', default=None),
                                     port_override_from_links=dict(required=False, type='bool', default=False),
                                     macsec_profile=dict(required=False, type='str', default=None),
@@ -205,12 +206,15 @@ class GenerateGoldenConfigDBModule(object):
         self.port_index_map = self.module.params['port_index_map']
         self.port_config = self.module.params['port_config']
         self.port_config_file = self.module.params['port_config_file']
+        self.service_ports = self.module.params['service_ports']
         self.port_speeds = self.module.params['port_speeds']
         self.port_override_from_links = self.module.params['port_override_from_links']
         if self.port_config and not self.port_config_file:
             self.module.fail_json(msg="port_config requires port_config_file")
         if self.port_config and self.port_override_from_links:
             self.module.fail_json(msg="port_config cannot be combined with port_override_from_links")
+        if self.service_ports and not set(self.service_ports).issubset((self.port_config or {}).get("PORT", {})):
+            self.module.fail_json(msg="service_ports must be present in the generated PORT configuration")
         self.macsec_profile = self.module.params['macsec_profile']
         self.num_asics = self.module.params['num_asics']
         self.hwsku = self.module.params['hwsku']
@@ -1585,6 +1589,8 @@ class GenerateGoldenConfigDBModule(object):
             native_ports = config_dict.get("PORT", {})
             config_dict.update(copy.deepcopy(self.port_config))
             for name, row in config_dict.get("PORT", {}).items():
+                if name in self.service_ports:
+                    continue
                 for field in ("autoneg", "fec"):
                     if field in native_ports.get(name, {}):
                         row[field] = native_ports[name][field]
@@ -1662,6 +1668,11 @@ class GenerateGoldenConfigDBModule(object):
             config = json.dumps(config_dict, indent=4)
 
         if self.port_config:
+            if self.service_ports:
+                config_dict = json.loads(config)
+                for name in self.service_ports:
+                    config_dict["PORT"][name] = copy.deepcopy(self.port_config["PORT"][name])
+                config = json.dumps(config_dict, indent=4)
             config = self.generate_generic_qos_config(config)
 
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:

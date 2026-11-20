@@ -49,6 +49,18 @@ def _lanes(row):
     return frozenset(row["lanes"].split(","))
 
 
+def _data_cages(cages):
+    widths = {cage: len(set().union(*(_lanes(row) for row in choices[0]["ports"].values())))
+              for cage, choices in cages.items()}
+    return {cage for cage, width in widths.items() if width > 1 or max(widths.values()) == 1}
+
+
+def _matches_ports(choice, reference):
+    return all(
+        name in reference and all(str(row[key]) == str(reference[name].get(key)) for key in ("lanes", "speed"))
+        for name, row in choice["ports"].items())
+
+
 def _connected(name, row, connections, base_ports, base_indices, vlans):
     return (name in base_indices and base_indices[name] in vlans and name in connections
             and bool(base_ports[name].get("lanes"))
@@ -56,21 +68,25 @@ def _connected(name, row, connections, base_ports, base_indices, vlans):
             and str(connections[name]["speed"]) == str(row["speed"]))
 
 
-def select_modes(cages, cables, connections, base_ports, vlans, min_subports=0, max_nodes=100000):
-    """Cover data-port mode/speed counts without changing the existing peer setup.
+def select_modes(cages, cables, connections, base_ports, vlans, min_subports=0, max_nodes=100000,
+                 current_ports=None):
+    """Cover configured data-port modes independently of compatible PTF links.
 
-    Single-lane auxiliary cages keep a compatible baseline mode. On an entirely
+    Single-lane auxiliary cages retain their current mode. On an entirely
     single-lane platform they are the data cages and participate in coverage.
     """
     if min_subports < 0:
         raise ValueError("min_subports must not be negative")
     base_indices = {name: index for index, name in enumerate(sorted(base_ports, key=natural_key))}
-    widths = {cage: len(set().union(*(_lanes(row) for row in choices[0]["ports"].values())))
-              for cage, choices in cages.items()}
-    data_cages = {cage for cage, width in widths.items() if width > 1 or max(widths.values()) == 1}
+    data_cages = _data_cages(cages)
+    retained_ports = base_ports if current_ports is None else current_ports
     required = Counter()
     options = {}
     for cage, choices in cages.items():
+        if cage not in data_cages:
+            choices = [choice for choice in choices if _matches_ports(choice, retained_ports)]
+            if not choices:
+                raise ValueError("Cannot preserve the running port configuration for auxiliary cage " + cage)
         options[cage] = []
         for choice in choices:
             counts = Counter(int(row["speed"]) for row in choice["ports"].values())
@@ -80,10 +96,13 @@ def select_modes(cages, cables, connections, base_ports, vlans, min_subports=0, 
                         raise ValueError("No buffer lookup for advertised speed {}".format(speed))
                     demand = (choice["mode"], speed)
                     required[demand] = max(required[demand], count, len(cables[speed]), min_subports)
-            contribution = Counter(
-                (choice["mode"], int(row["speed"])) for name, row in choice["ports"].items()
-                if _connected(name, row, connections, base_ports, base_indices, vlans))
+            contribution = Counter((choice["mode"], int(row["speed"])) for row in choice["ports"].values())
             options[cage].append((choice, contribution))
+
+    def preference(choice):
+        connected = sum(_connected(name, row, connections, base_ports, base_indices, vlans)
+                        for name, row in choice["ports"].items())
+        return (-connected, not _matches_ports(choice, base_ports), len(choice["ports"]))
 
     nodes = 0
 
@@ -107,7 +126,8 @@ def select_modes(cages, cables, connections, base_ports, vlans, min_subports=0, 
                 (cage, choice, counts) for cage, choices in remaining.items()
                 for choice, counts in choices if counts[demand]]
         demand = min(unmet, key=lambda item: (len(candidates[item]), item))
-        for cage, choice, counts in candidates[demand]:
+        for cage, choice, counts in sorted(
+                candidates[demand], key=lambda item: (preference(item[1]), natural_key(item[0]))):
             result = search(dict(selected, **{cage: choice}), covered + counts)
             if result is not None:
                 return result
@@ -115,20 +135,17 @@ def select_modes(cages, cables, connections, base_ports, vlans, min_subports=0, 
 
     selected = search({}, Counter())
     if selected is None:
-        raise ValueError("DUT mode/speed counts cannot fit the existing wiring and port speeds")
+        raise ValueError("DUT mode/speed counts cannot fit the available data cages")
 
     for cage, choices in options.items():
         if cage in selected:
             continue
 
-        def preference(option):
-            choice, counts = option
-            baseline = all(name in base_ports
-                           and all(str(row[key]) == str(base_ports[name][key]) for key in ("lanes", "speed"))
-                           for name, row in choice["ports"].items())
-            return (-sum(counts.values()), not baseline, len(choice["ports"]))
-
-        selected[cage] = min(choices, key=preference)[0]
+        selected[cage] = min(choices, key=lambda option: preference(option[0]))[0]
+        if cage not in data_cages:
+            selected[cage] = {"mode": selected[cage]["mode"],
+                              "ports": {name: copy.deepcopy(retained_ports[name])
+                                        for name in selected[cage]["ports"]}}
     return selected
 
 
@@ -145,12 +162,14 @@ def render_port_config(ports):
     return "\n".join(lines) + "\n"
 
 
-def generate_port_config(cages, lookup, base_ports, connections, vlan_map, min_subports=0):
+def generate_port_config(cages, lookup, base_ports, connections, vlan_map, min_subports=0, current_ports=None):
     """Return ordinary PORT/CABLE_LENGTH/BREAKOUT_CFG data and PTF VLAN indices."""
     cables = read_lookup(lookup)
     vlans = {int(index): vlan for index, vlan in vlan_map.items()}
     base_indices = {name: index for index, name in enumerate(sorted(base_ports, key=natural_key))}
-    selected = select_modes(cages, cables, connections, base_ports, vlans, min_subports)
+    selected = select_modes(cages, cables, connections, base_ports, vlans, min_subports, current_ports=current_ports)
+    data_cages = _data_cages(cages)
+    service_ports = {name for cage, choice in selected.items() if cage not in data_cages for name in choice["ports"]}
     ports = {}
     port_modes = {}
     for choice in selected.values():
@@ -165,7 +184,8 @@ def generate_port_config(cages, lookup, base_ports, connections, vlan_map, min_s
     for index, name in enumerate(sorted(ports, key=natural_key)):
         row = ports[name]
         connected = _connected(name, row, connections, base_ports, base_indices, vlans)
-        row["admin_status"] = "up" if connected else "down"
+        if name not in service_ports:
+            row["admin_status"] = "up" if connected else "down"
         if connected:
             port_vlans[index] = vlans[base_indices[name]]
         by_mode_speed[(port_modes[name], int(row["speed"]))].append((not connected, name))
@@ -184,4 +204,5 @@ def generate_port_config(cages, lookup, base_ports, connections, vlan_map, min_s
         },
         "port_config_ini": render_port_config(ports),
         "port_vlan_map": port_vlans,
+        "service_ports": sorted(service_ports, key=natural_key),
     }

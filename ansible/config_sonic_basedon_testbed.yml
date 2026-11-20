@@ -312,6 +312,16 @@
     delegate_to: localhost
     when: (deploy is not defined or deploy|bool == false) and not (is_bmc_topo | bool)
 
+  - name: Use generated Generic minigraph connection view
+    set_fact:
+      generic_minigraph_device_conn: >-
+        {{ device_conn | combine({inventory_hostname:
+          device_conn[inventory_hostname] | dict2items |
+          selectattr('key', 'in', port_config.port_vlan_map | map('int') |
+            map('extract', port_alias) | map('extract', port_alias_map) | list) |
+          items2dict}) }}
+    when: topo == 'generic' and init_cfg_profile is not defined
+
   - name: find and generate fabric ASIC information
     fabric_info:
       num_fabric_asic: "{{ num_fabric_asics | default(0) }}"
@@ -632,16 +642,19 @@
           src: 'templates/docker_http_proxy.j2'
           dest: '/etc/systemd/system/docker.service.d/http-proxy.conf'
           force: yes
+        register: docker_proxy_config
 
       - name: restart docker service, let docker proxy takes effect
         systemd:
           state: restarted
           daemon_reload: yes
           name: docker
+        when: docker_proxy_config.changed
 
       - name: Wait 60s for docker containers to restart
         pause:
           seconds: 60
+        when: docker_proxy_config.changed
     become: true
     when: proxy_env is defined and deploy is defined and deploy|bool == true
 
@@ -686,12 +699,6 @@
           bgp_confd_asn: "{{ hostvars[inventory_hostname]['configuration_properties']['common']['dut_confed_asn'] | default(None) }}"
           bgp_confd_peers: "{{ hostvars[inventory_hostname]['configuration_properties']['common']['dut_confed_peers'] | default(None) }}"
 
-      - name: saved original minigraph file in SONiC DUT(ignore errors when file does not exist)
-        shell: mv /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.orig
-        become: true
-        ignore_errors: true
-        when: init_cfg_profile is not defined
-
       - name: Determine if configuring IPv6-only management (based on use_ipv6_mgmt flag, not current ansible_host)
         set_fact:
             sonic_mgmt_ipv6: "{{ use_ipv6_mgmt is defined and use_ipv6_mgmt|bool == true }}"
@@ -725,10 +732,22 @@
       - debug: msg="tacacs_servers {{ tacacs_servers }}"
 
       - name: create new minigraph file for SONiC device
-        template: src=templates/minigraph_template.j2
-                  dest=/etc/sonic/minigraph.xml
+        template:
+          src: templates/minigraph_template.j2
+          dest: /etc/sonic/minigraph.xml
+          backup: true
+        register: minigraph_render
         become: true
         when: init_cfg_profile is not defined
+
+      - name: Preserve the previous minigraph as the original backup
+        copy:
+          remote_src: true
+          src: "{{ minigraph_render.backup_file }}"
+          dest: /etc/sonic/minigraph.xml.orig
+          mode: preserve
+        become: true
+        when: init_cfg_profile is not defined and minigraph_render.backup_file is defined
 
       - block:
         - name: Load variables from vars/init_cfg_profiles.yml
@@ -970,6 +989,7 @@
           topo_name: "{{ topo }}"
           port_config: "{{ port_config.config if topo == 'generic' else omit }}"
           port_config_file: "{{ port_config_file if topo == 'generic' else omit }}"
+          service_ports: "{{ port_config.service_ports if topo == 'generic' else omit }}"
           port_index_map: "{{ port_index_map | default({}) }}"
           port_speeds: "{{ (lab_csv_result.stdout | from_json).port_speeds if (port_override_from_links | default(false) | bool) and lab_csv_result is defined and lab_csv_result.rc == 0 else omit }}"
           port_override_from_links: "{{ port_override_from_links | default(false) | bool }}"
@@ -987,7 +1007,7 @@
           console_ports: "{{ device_serial_link[inventory_hostname] | default(omit) if 'c0' in topo else omit }}"
           enabled_dpu_indices: "{{ (testbed_facts.enabled_dpus[inventory_hostname] | map(attribute='dpu_index') | list) if (testbed_facts.enabled_dpus is defined and inventory_hostname in testbed_facts.enabled_dpus) else omit }}"
           lacp_fast_rate: "{{ lacp_fast_rate | default(false) }}"
-          device_conn: "{{ device_conn[inventory_hostname] | default({}) }}"
+          device_conn: "{{ generic_minigraph_device_conn[inventory_hostname] if topo == 'generic' else device_conn[inventory_hostname] | default({}) }}"
         become: true
         when: enable_macsec is not defined and init_cfg_profile is not defined
 

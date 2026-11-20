@@ -105,7 +105,7 @@ class SonicPortAliasMap():
                     return value
         return None
 
-    def generate_config(self, connections, vlan_map, min_subports):
+    def generate_config(self, connections, vlan_map, min_subports, current_ports=None):
         from portconfig import BreakoutCfg, get_port_config
 
         platform = self.get_platform_type()
@@ -120,7 +120,8 @@ class SonicPortAliasMap():
         with open(os.path.join(hwsku_dir, "pg_profile_lookup.ini")) as source:
             lookup = source.read()
         result = generate_port_config(
-            expand_modes(capabilities, BreakoutCfg), lookup, base_ports, connections, vlan_map, min_subports)
+            expand_modes(capabilities, BreakoutCfg), lookup, base_ports, connections, vlan_map, min_subports,
+            current_ports=current_ports)
         result.update(platform=platform, hwsku=self.hwsku)
         return result
 
@@ -401,8 +402,14 @@ def main():
     m_args = module.params
     try:
         if m_args['generate_config']:
+            rc, out, err = module.run_command(["sonic-cfggen", "-d", "--var-json", "PORT"])
+            if rc != 0:
+                module.fail_json(msg="Failed to read running ports for Generic service-port preservation: " + err)
+            current_ports = json.loads(out)
+            if not isinstance(current_ports, dict) or not current_ports:
+                module.fail_json(msg="Running PORT configuration is missing for Generic service-port preservation")
             result = SonicPortAliasMap(m_args['hwsku']).generate_config(
-                m_args['device_conn'], m_args['vlan_map'], m_args['min_subports'])
+                m_args['device_conn'], m_args['vlan_map'], m_args['min_subports'], current_ports=current_ports)
             module.exit_json(ansible_facts={'port_config': result})
             return
         aliases = []  # list of port aliases
