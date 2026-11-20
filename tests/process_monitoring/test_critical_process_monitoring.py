@@ -15,8 +15,9 @@ from tests.common import config_reload
 from tests.common.vs_data import is_vs_device
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
+from tests.common.platform.bmc_utils import check_bmc_chassis_power_cycle_support, power_cycle_via_bmc
 from tests.common.reboot import REBOOT_TYPE_COLD, reboot_ctrl_dict, wait_for_shutdown, wait_for_startup
-from tests.common.utilities import get_plt_reboot_ctrl, wait_until, kill_process_by_pid
+from tests.common.utilities import get_plt_reboot_ctrl, pdu_reboot, wait_until, kill_process_by_pid
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, NAMESPACE_PREFIX
 from tests.common.helpers.dut_utils import get_program_info
 from tests.common.helpers.dut_utils import get_group_program_info
@@ -631,7 +632,7 @@ def get_skip_containers(duthost, tbinfo, skip_vendor_specific_container):
 
 @pytest.fixture(scope='function')
 def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container,
-                               localhost):
+                               localhost, get_pdu_controller):
     duthost = duthosts[rand_one_dut_hostname]
     up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
     skip_containers = get_skip_containers(duthost, tbinfo, skip_vendor_specific_container)
@@ -639,6 +640,11 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
 
     # Check if database container is being tested
     is_testing_database = "database" not in skip_containers
+    is_bmc_topology = tbinfo.get('topo', {}).get('name') == 'bmc-dual-mgmt'
+    pdu_ctrl = get_pdu_controller(duthost) if is_testing_database and is_bmc_topology else None
+    use_bmc_power_cycle = is_bmc_topology and pdu_ctrl is None
+    if is_testing_database and use_bmc_power_cycle:
+        check_bmc_chassis_power_cycle_support(duthost)
 
     # add log to indicate start of yield
     logger.info("Starting test to monitor critical processes...")
@@ -650,9 +656,23 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
     # Special handling for database container - reboot the DUT
     if is_testing_database:
         logger.info("Database container was tested - rebooting the DUT...")
+        tc_name = os.environ.get("PYTEST_CURRENT_TEST", "").split(" ")[0]
+        plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, tc_name, REBOOT_TYPE_COLD)
+        timeout = plt_reboot_ctrl.get("timeout", reboot_ctrl_dict[REBOOT_TYPE_COLD]["timeout"])
+        if use_bmc_power_cycle:
+            timeout = max(timeout, 1200)
+        wait_time = 120
+        if duthost.facts.get("modular_chassis"):
+            wait_time = max(wait_time, 600)
+            timeout = max(timeout, 420)
 
         # Check if this is a virtual switch (KVM) testbed
-        if is_vs_device(duthost):
+        if use_bmc_power_cycle:
+            power_cycle_via_bmc(duthost, localhost, startup_timeout=timeout)
+        elif is_bmc_topology:
+            logger.info("Recovering %s via PDU power cycle", duthost.hostname)
+            pytest_assert(pdu_reboot(pdu_ctrl), "PDU reboot failed for {}".format(duthost.hostname))
+        elif is_vs_device(duthost):
             num_asics = duthost.facts.get("num_asic", 1)
             if num_asics > 1:
                 # Multi-ASIC VS: after killing the global database container, SSH
@@ -695,15 +715,6 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
                             "database container test: {}".format(duthost.hostname, str(e)))
 
         logger.info("Waiting for DUT to boot up after reboot...")
-        # Wait for DUT to come back up after reboot. Like tests.common.reboot.reboot(), use the
-        # cold reboot timeout and its platform override (plt_reboot_dict) from the inventory.
-        tc_name = os.environ.get("PYTEST_CURRENT_TEST", "").split(" ")[0]
-        plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, tc_name, REBOOT_TYPE_COLD)
-        timeout = plt_reboot_ctrl.get("timeout", reboot_ctrl_dict[REBOOT_TYPE_COLD]["timeout"])
-        wait_time = 120
-        if duthost.facts.get("modular_chassis"):
-            wait_time = max(wait_time, 600)
-            timeout = max(timeout, 420)
 
         # Wait for SSH to come back up
         wait_for_startup(duthost, localhost, delay=10, timeout=timeout)

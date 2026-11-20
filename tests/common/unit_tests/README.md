@@ -67,6 +67,26 @@ python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
   tests/common/unit_tests/unit_test_bmcctld_startup.py -q
 ```
 
+## BMC critical-process recovery regression
+
+`unit_test_critical_process_bmc_recovery.py` exercises the shared recovery helper
+and process-monitoring fixture without Linux or testbed dependencies. On
+`bmc-dual-mgmt`, a PDU takes precedence. Without a PDU, recovery requires
+`Chassis.is_chassis_power_cycle_supported()` to return `True` and a callable
+`Chassis.do_chassis_power_cycle()`. The fixture checks this before running a
+destructive database test; old or unsupported platform packages fail setup.
+
+The chassis operation must power-cycle both the BMC and switch host. Recovery
+requires changed boot IDs from both devices, not just reachable SSH. The unit
+tests cover capability checks, pre-test rejection, restart evidence, disconnects,
+PDU routing, and unchanged non-BMC recovery. They do not establish hardware
+power-cycle support; that requires vendor implementation and a physical testbed.
+
+```bash
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/unit_test_critical_process_bmc_recovery.py -q
+```
+
 ## PTF daily TACACS provisioning regression
 
 `helpers/unit_test_ptf_tacacs_provisioning.py` loads the topology task YAML and

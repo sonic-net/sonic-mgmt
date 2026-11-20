@@ -11,6 +11,7 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.sonic_db import CONFIG_DB, STATE_DB, redis_hget, redis_hgetall, redis_hset
+from tests.common.reboot import wait_for_shutdown, wait_for_startup
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -63,6 +64,66 @@ def pause_pmon_daemon(duthost, daemon_name):
     finally:
         logger.info("Restarting pmon daemon '%s'", daemon_name)
         duthost.start_pmon_daemon(daemon_name)
+
+
+def check_bmc_chassis_power_cycle_support(bmc):
+    """Require full-chassis power-cycle support without changing power state."""
+    probe = (
+        'from sonic_platform.chassis import Chassis; '
+        'chassis = Chassis(); '
+        'supported = getattr(chassis, "is_chassis_power_cycle_supported", None); '
+        'assert callable(supported) and supported() is True and '
+        'callable(getattr(chassis, "do_chassis_power_cycle", None)), '
+        '"Platform does not support full-chassis power cycle; '
+        'install a supporting platform package or configure a PDU"; '
+    )
+    bmc.shell("sudo -n python3 -c {}".format(shlex.quote(probe)))
+
+
+def power_cycle_via_bmc(bmc, localhost, startup_timeout):
+    """Cycle the full system through the BMC and wait for both devices to return.
+
+    Args:
+        bmc: BMC DUT exposing get_bmc_host(), backed by testbed bmc_host metadata.
+        localhost: Ansible localhost handle used for SSH availability checks.
+        startup_timeout: Timeout in seconds for each device's startup wait.
+
+    Requires a chassis implementing do_chassis_power_cycle() and advertising
+    is_chassis_power_cycle_supported().
+    The operation restarts both the BMC and switch CPU. Capability and inventory
+    resolution failures propagate before cycling; recovery failures also propagate.
+    """
+    switch_host = bmc.get_bmc_host()
+    check_bmc_chassis_power_cycle_support(bmc)
+    boot_id = bmc.shell("cat /proc/sys/kernel/random/boot_id")['stdout'].strip()
+    pytest_assert(boot_id, "Could not read boot ID from {}".format(bmc.hostname))
+    switch_boot_id = switch_host.shell("cat /proc/sys/kernel/random/boot_id")['stdout'].strip()
+    pytest_assert(switch_boot_id, "Could not read boot ID from {}".format(switch_host.hostname))
+    logger.warning("System power cycling %s via BMC API; both BMC and switch host will restart",
+                   bmc.hostname)
+    try:
+        bmc.shell("sudo -n python3 -u -c {}".format(
+            shlex.quote('from sonic_platform.chassis import Chassis; '
+                        'assert Chassis().do_chassis_power_cycle() is True')))
+    except Exception as error:
+        logger.info("BMC power-cycle command interrupted; verifying restart: %s", error)
+
+    wait_for_shutdown(bmc, localhost, delay=0, timeout=180)
+    wait_for_startup(bmc, localhost, delay=10, timeout=startup_timeout)
+
+    def restarted(device, original_boot_id):
+        try:
+            current = device.shell("cat /proc/sys/kernel/random/boot_id")['stdout'].strip()
+            return bool(current) and current != original_boot_id
+        except Exception as error:
+            logger.info("Waiting for boot ID from %s: %s", device.hostname, error)
+            return False
+
+    pytest_assert(wait_until(120, 5, 0, lambda: restarted(bmc, boot_id)),
+                  "BMC {} boot ID did not change after system power cycle".format(bmc.hostname))
+    wait_for_startup(switch_host, localhost, delay=10, timeout=startup_timeout)
+    pytest_assert(wait_until(120, 5, 0, lambda: restarted(switch_host, switch_boot_id)),
+                  "Switch host {} boot ID did not change after system power cycle".format(switch_host.hostname))
 
 
 def get_switch_host_or_skip_test(duthost):
