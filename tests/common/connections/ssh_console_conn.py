@@ -62,9 +62,6 @@ class ConsoleRebootStartedError(Exception):
 
 
 class SSHConsoleConn(BaseConsoleConn):
-    # Attach to the console line only: no DUT login and no write to the line.
-    attach_only = False
-
     def __init__(self, **kwargs):
         self.menu_port = None
 
@@ -73,6 +70,7 @@ class SSHConsoleConn(BaseConsoleConn):
         # every write to the DUT serial line is refused (see write_channel) so a
         # late login/wake-up CR cannot abort bootloader autoboot.
         self._cancel_event = kwargs.pop("cancel_event", None)
+        # Attach to the console line only: no DUT login and no write to the line.
         self.attach_only = kwargs.pop("attach_only", False)
 
         if "console_username" not in kwargs \
@@ -195,7 +193,8 @@ class SSHConsoleConn(BaseConsoleConn):
         # quiet autoboot window aborts autoboot and traps the DUT (see
         # _read_initial_console). An attach-only session only needs the console
         # server's immediate "port is busy" notice, so it waits less on a quiet line.
-        session_init_msg = self._read_initial_console(max_reads=2 if self.attach_only else 6)
+        attach_only = getattr(self, "attach_only", False)
+        session_init_msg = self._read_initial_console(max_reads=2 if attach_only else 6)
         self.logger.debug(session_init_msg)
         # Reset the bootloader-deferred signal at the start of every preparation. This is
         # currently INTERNAL state only: it coordinates the early-returns within
@@ -216,7 +215,7 @@ class SSHConsoleConn(BaseConsoleConn):
             console_port = self.username.split(':')[-1]
             raise PortInUseException(f"Host closed connection, as console port '{console_port}' is currently occupied.")
 
-        if self.attach_only:
+        if attach_only:
             # Attached to the DUT console line; do not log in or write anything to it.
             if self.menu_port:
                 # Selecting the port on the console server menu attaches to the DUT console line.
@@ -683,7 +682,7 @@ class SSHConsoleConn(BaseConsoleConn):
         # Probing would call _is_at_sonic_prompt(), which sends up to four RETURNs
         # when the one-shot bootloader banner is no longer buffered -- those CRs
         # would land in an autoboot "hit any key" window and trap the DUT.
-        if self.attach_only:
+        if getattr(self, "attach_only", False):
             pass
         elif getattr(self, "_bootloader_deferred", False):
             self.logger.warning(
