@@ -340,24 +340,34 @@ def advance_egress_encoding_an(duthost, get_port_profile_name, ctrl_links,
     return get_egress_encoding_ans(duthost, ctrl_links)
 
 
+def update_existing_profile(duthost, ns_prefix, profile_name, **fields):
+    """Update an existing MACsec profile using keyword fields; return False if missing."""
+    # Skip missing profiles so HSET does not create an incomplete entry.
+    exists = duthost.shell(
+        "sonic-db-cli {} CONFIG_DB EXISTS 'MACSEC_PROFILE|{}'".format(
+            ns_prefix, profile_name),
+        module_ignore_errors=False,
+    )["stdout"].strip()
+    if exists != "1":
+        return False
+    duthost.shell(
+        "sonic-db-cli {} CONFIG_DB HSET 'MACSEC_PROFILE|{}' {}".format(
+            ns_prefix, profile_name,
+            " ".join("{} {}".format(field, value) for field, value in fields.items())),
+        module_ignore_errors=False,
+    )
+    return True
+
+
 def set_rekey_period(duthost, get_port_profile_name, ctrl_links, rekey_period):
     """Set rekey_period on each controlled port's profile without restarting MACsec."""
     profiles = {(getns_prefix(duthost, port), get_port_profile_name(port))
                 for port in ctrl_links}
     for ns_prefix, profile_name in sorted(profiles):
-        # HSET creates missing hashes, so verify the profile before updating it.
-        exists = duthost.shell(
-            "sonic-db-cli {} CONFIG_DB EXISTS 'MACSEC_PROFILE|{}'".format(
-                ns_prefix, profile_name),
-            module_ignore_errors=False,
-        )["stdout"].strip()
-        pytest_assert(exists == "1", "MACsec profile {} missing in namespace {}".format(
-            profile_name, ns_prefix.strip() or "global"))
-        duthost.shell(
-            "sonic-db-cli {} CONFIG_DB HSET 'MACSEC_PROFILE|{}' rekey_period {}".format(
-                ns_prefix, profile_name, rekey_period),
-            module_ignore_errors=False,
-        )
+        pytest_assert(
+            update_existing_profile(duthost, ns_prefix, profile_name, rekey_period=rekey_period),
+            "MACsec profile {} missing in namespace {}".format(
+                profile_name, ns_prefix.strip() or "global"))
 
 
 def _asic_db_egress_sa_ans_by_sc(duthost, ctrl_links):

@@ -11,6 +11,7 @@ from tests.common.macsec.recovery_helpers import (
     graceful_restart_macsec,
     set_rekey_period,
     snapshot_appl_db_saks,
+    update_existing_profile,
     wait_for_macsec_container,
     wait_for_mka_converged,
     MKA_CONVERGE_TIMEOUT,
@@ -82,23 +83,6 @@ def force_dut_key_server(macsec_duthost, get_port_profile_name, ctrl_links,
     """
     duthost = macsec_duthost
 
-    def _update_existing_profile(ns_prefix, profile_name, *fields):
-        # Skip missing profiles so HSET does not create an incomplete entry.
-        exists = duthost.shell(
-            "sonic-db-cli {} CONFIG_DB EXISTS 'MACSEC_PROFILE|{}'".format(
-                ns_prefix, profile_name),
-            module_ignore_errors=False,
-        )["stdout"].strip()
-        if exists != "1":
-            return False
-        # Apply the requested field/value pairs to the existing profile.
-        duthost.shell(
-            "sonic-db-cli {} CONFIG_DB HSET 'MACSEC_PROFILE|{}' {}".format(
-                ns_prefix, profile_name, " ".join(str(value) for value in fields)),
-            module_ignore_errors=False,
-        )
-        return True
-
     # 1. Resolve and validate each unique namespace/profile, then save its original settings.
     profiles = {(getns_prefix(duthost, port), get_port_profile_name(port))
                 for port in ctrl_links}
@@ -129,7 +113,7 @@ def force_dut_key_server(macsec_duthost, get_port_profile_name, ctrl_links,
             logger.info("force_dut_key_server: namespace=%s profile=%s original priority=%s "
                         "rekey_period=%s, forcing priority to 0",
                         ns_prefix.strip() or "global", profile_name, orig_priority, orig_rekey)
-            assert _update_existing_profile(ns_prefix, profile_name, "priority", 0), \
+            assert update_existing_profile(duthost, ns_prefix, profile_name, priority=0), \
                 "MACsec profile {} disappeared in namespace {}".format(
                     profile_name, ns_prefix.strip() or "global")
         graceful_restart_macsec(duthost)
@@ -143,8 +127,8 @@ def force_dut_key_server(macsec_duthost, get_port_profile_name, ctrl_links,
             logger.info("force_dut_key_server teardown: namespace=%s profile=%s restoring "
                         "priority=%s rekey_period=%s", ns_prefix.strip() or "global",
                         profile_name, orig_priority, orig_rekey)
-            if not _update_existing_profile(ns_prefix, profile_name, "priority", orig_priority,
-                                            "rekey_period", orig_rekey):
+            if not update_existing_profile(duthost, ns_prefix, profile_name, priority=orig_priority,
+                                           rekey_period=orig_rekey):
                 logger.warning("Not restoring missing MACsec profile %s in namespace %s",
                                profile_name, ns_prefix.strip() or "global")
         if original_settings:
