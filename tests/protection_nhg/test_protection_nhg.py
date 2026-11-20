@@ -521,6 +521,23 @@ def _bring_intf_up(duthost, intf_info):
     time.sleep(5)
 
 
+def _restore_intfs(duthost, af, downed):
+    """
+    Test cleanup: bring every interface in *downed* back up.  Failures are
+    logged rather than raised, so they do not mask the test's own result.
+    """
+    for intf in downed:
+        logger.info("[%s] Cleanup: restoring %s", af, intf["name"])
+        try:
+            for port in intf["shutdown"]:
+                duthost.no_shutdown_interface(port)
+            wait_until(CONVERGENCE_TIMEOUT, CONVERGENCE_POLL, 0,
+                       lambda: _intf_oper_state(duthost, intf) == "up")
+        except Exception as exc:
+            logger.warning("[%s] Cleanup failed for %s: %s",
+                           af, intf["name"], exc)
+
+
 # ---------------------------------------------------------------------------
 # Interface discovery helpers
 # ---------------------------------------------------------------------------
@@ -1158,16 +1175,7 @@ class TestProtectionNhg:
             self._assert_primary_members(setup, {p0_ip, p1_ip}, step="both_up_again")
 
         finally:
-            for intf in downed:
-                logger.info("[%s] Cleanup: restoring %s", af, intf["name"])
-                try:
-                    for port in intf["shutdown"]:
-                        duthost.no_shutdown_interface(port)
-                    wait_until(CONVERGENCE_TIMEOUT, CONVERGENCE_POLL, 0,
-                               lambda: _intf_oper_state(duthost, intf) == "up")
-                except Exception as exc:
-                    logger.warning("[%s] Cleanup failed for %s: %s",
-                                   af, intf["name"], exc)
+            _restore_intfs(duthost, af, downed)
 
     def _assert_standby_members(self, setup, expected_ips, step):
         """
@@ -1264,16 +1272,7 @@ class TestProtectionNhg:
             self._assert_standby_members(setup, {s0_ip, s1_ip}, step="standby0_back")
 
         finally:
-            for intf in downed:
-                logger.info("[%s] Cleanup: restoring %s", af, intf["name"])
-                try:
-                    for port in intf["shutdown"]:
-                        duthost.no_shutdown_interface(port)
-                    wait_until(CONVERGENCE_TIMEOUT, CONVERGENCE_POLL, 0,
-                               lambda: _intf_oper_state(duthost, intf) == "up")
-                except Exception as exc:
-                    logger.warning("[%s] Cleanup failed for %s: %s",
-                                   af, intf["name"], exc)
+            _restore_intfs(duthost, af, downed)
 
     def test_all_paths_down_keeps_last_standby(self, prot_nhg_setup, ptfadapter):
         """
@@ -1385,16 +1384,7 @@ class TestProtectionNhg:
             self._assert_oids_stable(setup)
 
         finally:
-            for intf in downed:
-                logger.info("[%s] Cleanup: restoring %s", af, intf["name"])
-                try:
-                    for port in intf["shutdown"]:
-                        duthost.no_shutdown_interface(port)
-                    wait_until(CONVERGENCE_TIMEOUT, CONVERGENCE_POLL, 0,
-                               lambda: _intf_oper_state(duthost, intf) == "up")
-                except Exception as exc:
-                    logger.warning("[%s] Cleanup failed for %s: %s",
-                                   af, intf["name"], exc)
+            _restore_intfs(duthost, af, downed)
 
 
 # ---------------------------------------------------------------------------
@@ -1678,16 +1668,7 @@ class TestSharedPrimaryNhg:
             self._assert_oids_stable(setup)
 
         finally:
-            for intf in downed:
-                logger.info("[%s] Cleanup: restoring %s", af, intf["name"])
-                try:
-                    for port in intf["shutdown"]:
-                        duthost.no_shutdown_interface(port)
-                    wait_until(CONVERGENCE_TIMEOUT, CONVERGENCE_POLL, 0,
-                               lambda: _intf_oper_state(duthost, intf) == "up")
-                except Exception as exc:
-                    logger.warning("[%s] Cleanup failed for %s: %s",
-                                   af, intf["name"], exc)
+            _restore_intfs(duthost, af, downed)
 
 
 # ---------------------------------------------------------------------------
@@ -2191,13 +2172,4 @@ class TestNmRatio:
             self._assert_oids_stable(setup)
 
         finally:
-            for intf in downed:
-                logger.info("[%s] Cleanup: restoring %s", af, intf["name"])
-                try:
-                    for port in intf["shutdown"]:
-                        duthost.no_shutdown_interface(port)
-                    wait_until(CONVERGENCE_TIMEOUT, CONVERGENCE_POLL, 0,
-                               lambda: _intf_oper_state(duthost, intf) == "up")
-                except Exception as exc:
-                    logger.warning("[%s] Cleanup failed for %s: %s",
-                                   af, intf["name"], exc)
+            _restore_intfs(duthost, af, downed)
