@@ -6,10 +6,16 @@ This module provides a user-friendly wrapper around PtfGrpc for gNOI
 gRPC complexity behind clean, Pythonic method interfaces.
 """
 import logging
+import time
 from typing import Dict, Optional
 from urllib.parse import urlparse
 
+from tests.common.ptf_grpc import GrpcTimeoutError
+
 logger = logging.getLogger(__name__)
+
+TRANSFER_MAX_ATTEMPTS = 3   # retry image download on transient server-side deadline errors
+TRANSFER_RETRY_DELAY = 30   # seconds between attempts
 
 
 # Signal types as defined in gNOI system.proto
@@ -251,7 +257,19 @@ class PtfGnoi:
         }
 
         self.grpc_client.configure_max_time(3600)   # image download can take a long time
-        response = self.grpc_client.call_unary("gnoi.file.File", "TransferToRemote", request, metadata=metadata)
+        for attempt in range(1, TRANSFER_MAX_ATTEMPTS + 1):
+            start = time.time()
+            try:
+                response = self.grpc_client.call_unary(
+                    "gnoi.file.File", "TransferToRemote", request, metadata=metadata)
+                break
+            except GrpcTimeoutError as e:
+                logger.warning("TransferToRemote attempt %d/%d failed after %.1fs: %s",
+                               attempt, TRANSFER_MAX_ATTEMPTS, time.time() - start, e)
+                if attempt == TRANSFER_MAX_ATTEMPTS:
+                    raise GrpcTimeoutError(
+                        f"Image download failed after {attempt} attempts (url={url}): {e}") from e
+                time.sleep(TRANSFER_RETRY_DELAY)
         logger.info("TransferToRemote completed: %s -> %s", url, local_path)
         return response
 
