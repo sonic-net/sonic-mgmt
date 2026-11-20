@@ -81,11 +81,28 @@ HFT Phase 1 supports key AI data center statistics across four object types:
   SONiC starts this container through `hft.service`; the original is stopped first and restored
   afterwards. `/etc/sonic/hft/hft.env` is never modified. The Queue case restarts just
   `countersyncd`, then checks that supervisor reports a new running PID.
-  The module locks the DUT before cleaning HFT profiles or changing the collector, and holds
-  the lock through teardown. If HFT restoration fails, the recovery record under
-  `/run/lock/sonic-mgmt-hft/` keeps a new run from claiming the DUT.
+  A new container gets its run label and both arguments at **create** time, even when
+  HFT was initially disabled and no stock container existed. The module locks the DUT
+  before taking its recovery baseline, cleaning profiles or changing the collector.
+- **Interrupted runs:** `/var/lib/sonic-mgmt-hft` identifies a private, persistent run directory
+  on the DUT. It records the original container ID, feature state and collector configuration.
+  On the same management controller, the next HFT run can recover automatically after a killed
+  pytest process: it must acquire the previous owner's kernel file lock and match its saved token.
+  Recovery waits for in-flight container operations, stops a surviving test container by identity,
+  and restores the original ID (or absence), collector and test-owned sink before starting again.
+  A reload or reboot alone is not a rollback. The lock's age is not evidence that the controller is dead.
+- If a controller or its cache was lost, first confirm the old job is stopped. Rerun against the
+  same DUT and PTF with `SONIC_MGMT_HFT_RECOVER_OWNER` set to the exact owner token from the
+  fixture error. Do not delete the lock or stop a container merely because it is named `hft`.
+  Unknown containers and failed rollbacks keep the journal for inspection. A legacy run that
+  left only `/run/lock/sonic-mgmt-hft/` has no durable owner token: inspect its saved helper
+  and original container ID rather than automatically taking over a potentially live operator.
 - The fixture temporarily rewrites `/etc/sonic/otel_config.yml`; when present it must be a regular
-  file with a single hard link.
+  file with a single hard link. Recovery checks the OTEL container identity and only restores
+  a configuration that still belongs to the test or matches the original snapshot. It preserves
+  unrelated `FEATURE|otel` fields and verifies the original collector's supervisor state, without
+  requiring its configuration to listen on the test-only gRPC port. An unavailable PTF blocks
+  sink cleanup only; completed DUT recovery steps are checkpointed and are not repeated.
 - The DUT must provide the `otel` container image.
 - InfluxDB 3 Core (`influxdb3`) must be installed on the PTF host.
 - HFT CLI commands (`config hft add/del/enable/disable`) must be available on the DUT.

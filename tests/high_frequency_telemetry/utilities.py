@@ -18,7 +18,6 @@ from _pytest.outcomes import OutcomeException
 from natsort import natsorted
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.dut_utils import wait_for_container_running
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -518,12 +517,9 @@ def _is_otel_collector_ready(duthost):
     return result.get("rc") == 0
 
 
-def restart_otel_service(duthost, timeout=60):
-    """Restart otel.service and wait for the collector's OTLP listener."""
-    duthost.shell(
-        "sudo systemctl reset-failed otel && sudo systemctl restart otel",
-        module_ignore_errors=False,
-    )
+def restart_otel_service(duthost, tx, timeout=60):
+    """Restart the test collector and wait for the test configuration's OTLP listener."""
+    tx.call("restart-otel")
     ready = wait_until(timeout, 2, 10, _is_otel_collector_ready, duthost)
     diagnostics = ""
     if not ready:
@@ -544,18 +540,6 @@ def restart_otel_service(duthost, timeout=60):
     )
 
 
-def stop_otel_collector(duthost):
-    """Stop only the OTEL collector process inside its container."""
-    result = duthost.shell(
-        "docker exec otel supervisorctl stop otel",
-        module_ignore_errors=True,
-    )
-    pytest_assert(
-        result.get("rc") == 0 or "not running" in result.get("stdout", "").lower(),
-        f"Failed to stop the OTEL collector process: {result}",
-    )
-
-
 def is_otel_image_available(duthost, attempts=6, retry_interval=10):
     """Return whether the DUT has the OTEL container image."""
     for attempt in range(attempts):
@@ -571,24 +555,7 @@ def is_otel_image_available(duthost, attempts=6, retry_interval=10):
     return False
 
 
-def enable_otel_collector(duthost, *, feature_exists, timeout=60):
-    """Enable the OTEL feature and wait for its container."""
-    if not feature_exists:
-        duthost.shell(
-            "sonic-db-cli CONFIG_DB hmset 'FEATURE|otel' "
-            "state enabled auto_restart enabled "
-            "has_global_scope True has_per_asic_scope False",
-            module_ignore_errors=False,
-        )
-    duthost.shell(
-        "sudo config feature state otel enabled",
-        module_ignore_errors=False,
-    )
-
-    wait_for_container_running(duthost, "otel", timeout=timeout, check_interval=2)
-
-
-def start_influxdb(ptfhost, port=8181, timeout=30,
+def start_influxdb(ptfhost, node_id, *, before_start, port=8181, timeout=30,
                    log_path="/tmp/hft_influxdb3.log"):
     """Start an owned in-memory InfluxDB 3 process and return its PID."""
     binary = ptfhost.shell("command -v influxdb3", module_ignore_errors=True)
@@ -608,8 +575,9 @@ def start_influxdb(ptfhost, port=8181, timeout=30,
         listener.get("rc") != 0,
         f"TCP port {port} is already in use on the PTF host",
     )
+    before_start()  # Journal only a validated PTF host, but before a process can escape.
     result = ptfhost.shell(
-        "nohup influxdb3 serve --object-store memory --node-id hft-test "
+        f"nohup influxdb3 serve --object-store memory --node-id {shlex.quote(node_id)} "
         f"--http-bind=0.0.0.0:{int(port)} --without-auth "
         f"> {shlex.quote(log_path)} 2>&1 < /dev/null & echo $!",
         module_ignore_errors=False,
@@ -635,7 +603,7 @@ def start_influxdb(ptfhost, port=8181, timeout=30,
         ).get("stdout", "")
         raise RuntimeError(f"InfluxDB did not become healthy:\n{server_log}")
     except BaseException:
-        ptfhost.shell(f"kill {pid}", module_ignore_errors=True)
+        stop_owned_influxdb(ptfhost, node_id)
         raise
 
 
@@ -682,27 +650,27 @@ def query_influxdb(ptfhost, influxql_query, port=8181, db="home"):
     return ptfhost.shell(command, module_ignore_errors=True)
 
 
-def stop_influxdb(ptfhost, pid):
-    """Stop only the InfluxDB process owned by this test."""
-    process = ptfhost.shell(
-        f"ps -p {int(pid)} -o args=", module_ignore_errors=True
-    )
-    if process.get("rc") != 0:
-        return
-    pytest_assert(
-        "influxdb3 serve" in process.get("stdout", ""),
-        f"Refusing to terminate unexpected PID {pid}: {process.get('stdout', '')}",
-    )
-    ptfhost.shell(f"kill {int(pid)}", module_ignore_errors=True)
-    end_time = time.time() + 10
-    while time.time() < end_time:
-        status = ptfhost.shell(
-            f"ps -p {int(pid)} -o stat=", module_ignore_errors=True
-        )
-        if status.get("rc") != 0 or status.get("stdout", "").lstrip().startswith("Z"):
+def stop_owned_influxdb(ptfhost, node_id):
+    """Find this run's uniquely named sink, not the current listener on its port."""
+    def owned_pids():
+        status = ptfhost.shell("ps -ww -C influxdb3 -o pid=,args=", module_ignore_errors=True, verbose=False)
+        if status.get("rc") == 1 and not (status.get("stdout") or status.get("stderr")):
+            return []
+        pytest_assert(status.get("rc") == 0, "Could not inspect the PTF InfluxDB processes")
+        pids = []
+        for line in status["stdout"].splitlines():
+            fields = line.split()
+            if (len(fields) >= 7 and fields[1].rsplit("/", 1)[-1] == "influxdb3" and
+                    fields[2:7] == ["serve", "--object-store", "memory", "--node-id", node_id]):
+                pids.append(int(fields[0]))
+        return pids
+
+    for sig in ("TERM", "KILL"):
+        for pid in owned_pids():
+            ptfhost.shell(f"kill -{sig} {pid}", module_ignore_errors=True)
+        if wait_until(10, 1, 0, lambda: not owned_pids()):
             return
-        time.sleep(1)
-    ptfhost.shell(f"kill -9 {int(pid)}", module_ignore_errors=True)
+    pytest.fail(f"Test-owned InfluxDB {node_id} is still running")
 
 
 def parse_influxdb_json(json_text):
