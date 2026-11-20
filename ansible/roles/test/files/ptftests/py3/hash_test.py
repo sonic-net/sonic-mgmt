@@ -185,6 +185,81 @@ class HashTest(BaseTest):
         logging.info('filtered_ports={}'.format(filtered_ports))
         return filtered_ports
 
+    def findDstIpWithDisjointExpectedPorts(self, orig_exp_port_lists, orig_dip):
+        ipv4 = ip_network(six.text_type(orig_dip)).version == 4
+        ip_ranges = self.fibs[0].ipv4_ranges() if ipv4 else self.fibs[0].ipv6_ranges()
+        orig_exp_port_set = {port for exp_port_list in orig_exp_port_lists for port in exp_port_list}
+        dip = None
+        exp_port_lists = None
+        for ip_range in ip_ranges:
+            dip = ip_range.get_random_ip()
+            _, exp_port_lists, _ = self.get_src_and_exp_ports(dip)
+            if any(len(exp_port) < 1 for exp_port in exp_port_lists):
+                continue
+            exp_port_set = {port for exp_port_list in exp_port_lists for port in exp_port_list}
+            if exp_port_set.isdisjoint(orig_exp_port_set):
+                logging.info("Expected ports for ip_dst={} is {} disjoint from ip_dst={} expected ports {}"
+                             .format(dip, str(exp_port_lists), orig_dip, str(orig_exp_port_lists)))
+                break
+        else:
+            logging.info("Couldn't find another route that didn't include any of the original expected ports {}"
+                         .format(str(orig_exp_port_lists)))
+            dip = None
+            exp_port_lists = None
+
+        return exp_port_lists, dip
+
+    def runIngressPortTest(self, exp_port_lists, dst_ip):
+        hash_key = 'ingress-port'
+        # The 'ingress-port' key is not used in hash by design. We are doing negative test for 'ingress-port'.
+        # When 'ingress-port' is included in HASH_KEYS, the PTF test will try to inject same packet to different
+        # ingress ports and expect that they are forwarded from same egress port.
+        if self.topo_type == 'ft2':
+            # For FT2 topo, all the ports are connected to LT2
+            # So we can use any port as ingress port
+            port_list = self.src_ports
+        else:
+            port_list = self.get_ingress_ports(exp_port_lists, dst_ip)
+        # Send many distinct flows; every flow must leave on the same egress port(s) from every ingress
+        # port. A single flow is not sufficient: with N-way ECMP the same flow lands on the same egress
+        # from two ingress ports ~1/N of the time by chance, and a fixed flow would then pass forever.
+        assert len(port_list) >= 2, (
+            "ingress-port test needs at least 2 ingress ports, got {}".format(port_list))
+        expected_egress_counts = {
+            len(self.ptf_test_port_map[str(p)]["target_dut"]) for p in port_list
+        }
+        assert len(expected_egress_counts) == 1, (
+            "ingress ports {} disagree on target_dut count {}".format(port_list, expected_egress_counts))
+        expected_egress_count = expected_egress_counts.pop()
+        mismatches = []
+        for _ in range(self.ingress_port_test_flows):
+            flow = {
+                'ip_src': self.src_ip_interval.get_random_ip(),
+                'ip_dst': dst_ip,
+                'sport': random.randint(1, 65535),
+                'dport': random.randint(1, 65535),
+            }
+            hit_count_map = {}
+            for ingress_port in port_list:
+                logging.info('Checking hash key {}, src_port={}, exp_ports={}, flow={}'
+                             .format(hash_key, ingress_port, exp_port_lists, flow))
+                (matched_port, _) = self.check_ip_route(
+                    hash_key, ingress_port, dst_ip, exp_port_lists, flow=flow)
+                hit_count_map[matched_port] = hit_count_map.get(
+                    matched_port, 0) + 1
+            logging.info("flow {} hit count map: {}".format(flow, hit_count_map))
+            # if the packet from the ingress port could go to both ToRs(active-active dualtor), we should
+            # expect that the packets go to the same ToR has same egress port, so there should be two entries
+            # in the hit count map.
+            if len(hit_count_map.keys()) != expected_egress_count:
+                mismatches.append((flow, hit_count_map))
+        logging.info("ingress-port: {} flows x {} ingress ports {}, {} flows changed egress with ingress port"
+                     .format(self.ingress_port_test_flows, len(port_list), port_list, len(mismatches)))
+        for flow, hit_count_map in mismatches:
+            logging.error("ingress port affected egress: flow={} hit count map={}".format(flow, hit_count_map))
+        assert not mismatches, "{}/{} flows egressed on different ports depending on ingress port {}".format(
+            len(mismatches), self.ingress_port_test_flows, port_list)
+
     def check_hash(self, hash_key):
         dst_ip = self.dst_ip_interval.get_random_ip()
         src_port, exp_port_lists, next_hops = self.get_src_and_exp_ports(
@@ -200,54 +275,13 @@ class HashTest(BaseTest):
                 assert False
         hit_count_map = {}
         if hash_key == 'ingress-port':
-            # The 'ingress-port' key is not used in hash by design. We are doing negative test for 'ingress-port'.
-            # When 'ingress-port' is included in HASH_KEYS, the PTF test will try to inject same packet to different
-            # ingress ports and expect that they are forwarded from same egress port.
-            if self.topo_type == 'ft2':
-                # For FT2 topo, all the ports are connected to LT2
-                # So we can use any port as ingress port
-                port_list = self.src_ports
-            else:
-                port_list = self.get_ingress_ports(exp_port_lists, dst_ip)
-            # Send many distinct flows; every flow must leave on the same egress port(s) from every ingress
-            # port. A single flow is not sufficient: with N-way ECMP the same flow lands on the same egress
-            # from two ingress ports ~1/N of the time by chance, and a fixed flow would then pass forever.
-            assert len(port_list) >= 2, (
-                "ingress-port test needs at least 2 ingress ports, got {}".format(port_list))
-            expected_egress_counts = {
-                len(self.ptf_test_port_map[str(p)]["target_dut"]) for p in port_list
-            }
-            assert len(expected_egress_counts) == 1, (
-                "ingress ports {} disagree on target_dut count {}".format(port_list, expected_egress_counts))
-            expected_egress_count = expected_egress_counts.pop()
-            mismatches = []
-            for _ in range(self.ingress_port_test_flows):
-                flow = {
-                    'ip_src': self.src_ip_interval.get_random_ip(),
-                    'ip_dst': dst_ip,
-                    'sport': random.randint(1, 65535),
-                    'dport': random.randint(1, 65535),
-                }
-                hit_count_map = {}
-                for ingress_port in port_list:
-                    logging.info('Checking hash key {}, src_port={}, exp_ports={}, flow={}'
-                                 .format(hash_key, ingress_port, exp_port_lists, flow))
-                    (matched_port, _) = self.check_ip_route(
-                        hash_key, ingress_port, dst_ip, exp_port_lists, flow=flow)
-                    hit_count_map[matched_port] = hit_count_map.get(
-                        matched_port, 0) + 1
-                logging.info("flow {} hit count map: {}".format(flow, hit_count_map))
-                # if the packet from the ingress port could go to both ToRs(active-active dualtor), we should
-                # expect that the packets go to the same ToR has same egress port, so there should be two entries
-                # in the hit count map.
-                if len(hit_count_map.keys()) != expected_egress_count:
-                    mismatches.append((flow, hit_count_map))
-            logging.info("ingress-port: {} flows x {} ingress ports {}, {} flows changed egress with ingress port"
-                         .format(self.ingress_port_test_flows, len(port_list), port_list, len(mismatches)))
-            for flow, hit_count_map in mismatches:
-                logging.error("ingress port affected egress: flow={} hit count map={}".format(flow, hit_count_map))
-            assert not mismatches, "{}/{} flows egressed on different ports depending on ingress port {}".format(
-                len(mismatches), self.ingress_port_test_flows, port_list)
+            self.runIngressPortTest(exp_port_lists, dst_ip)
+            if self.topo_type == 't2':
+                # Try another iteration of 'ingress-port' with a different dest IP to cover testing all ports
+                logging.info("2nd ingress-port hashing test (disjoint exp_ports)")
+                new_exp_port_list, new_dst_ip = self.findDstIpWithDisjointExpectedPorts(exp_port_lists, dst_ip)
+                if new_exp_port_list and new_dst_ip:
+                    self.runIngressPortTest(new_exp_port_list, new_dst_ip)
         else:
             for _ in range(0, self.balancing_test_times * len(list(itertools.chain(*exp_port_lists)))):
                 logging.info('Checking hash key {}, src_port={}, exp_ports={}, dst_ip={}'

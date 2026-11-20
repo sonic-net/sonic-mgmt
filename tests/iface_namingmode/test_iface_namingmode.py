@@ -1315,6 +1315,13 @@ class TestConfigInterface():
             supported_speeds.remove(native_speed)
         # Set speed to configure
         configure_speed = supported_speeds[0] if supported_speeds else native_speed
+        # Arista-7060XE7: an in-place change to a speed far from the native one (e.g. 800G to 100G)
+        # also changes the other port of the same cage, and the native speed cannot be restored in
+        # place; the ports must be removed and re-added (config interface breakout, or config reload).
+        # Use the closest lower speed, which can be changed and restored in place.
+        if 'Arista-7060XE7' in duthost.facts['hwsku'] and supported_speeds:
+            lower = [s for s in supported_speeds if int(s) < int(native_speed)]
+            configure_speed = max(lower, key=int) if lower else min(supported_speeds, key=int)
 
         ignore_host_lane_count_loganalyzer(ignore_condition=duthost.facts['hwsku'] in ["Arista-7060X6-64PE-P32O64",
                                                                                        "Arista-7060X6-64PE-P64"])

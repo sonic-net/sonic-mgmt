@@ -391,7 +391,6 @@ The following existing test suites are compatible with the BMC environment and w
 | gNMI | `tests/gnmi/` |
 | LLDP | `tests/lldp/` |
 | PMON | `tests/platform_tests/daemon/` |
-| Telemetry | `tests/telemetry/` |
 | Redfish | `tests/redfish/` |
 | CACL | `tests/cacl/` |
 | Autorestart | `tests/autorestart/` |

@@ -81,6 +81,9 @@ def main():
                              "pacing keeps the CPU-punted copies of the storm under the "
                              "CoPP ARP policer so the kernel netlink consumers in the "
                              "swss container are not overrun.")
+    parser.add_argument("--side-dwell", type=float, default=0.0,
+                        help="minimum seconds each MAC remains on one interface before "
+                             "moving to the other")
     args = parser.parse_args()
 
     signal.signal(signal.SIGTERM, _stop)
@@ -99,42 +102,52 @@ def main():
 
     sys.stdout.write(
         "storm started: iface_a={} iface_b={} num_macs={} router_mac={} vlan_tag={} "
-        "pps={}\n".format(
+        "pps={} side_dwell={}\n".format(
             args.iface_a, args.iface_b, n, args.router_mac, args.vlan_tag,
-            args.pps if args.pps > 0 else "unlimited"))
+            args.pps if args.pps > 0 else "unlimited", args.side_dwell))
     sys.stdout.flush()
 
-    # One round sends every MAC on both interfaces (2 * n frames) and produces
-    # exactly one MAC move per MAC on the DUT, so the round period that yields
-    # the requested rate is (2 * n) / pps. Pacing per round rather than per
-    # packet keeps the per-frame cost negligible.
     round_period = (2.0 * n / args.pps) if args.pps > 0 else 0.0
+    side_period = max((float(n) / args.pps) if args.pps > 0 else 0.0,
+                      args.side_dwell)
 
     sent = 0
     last_report = time.time()
     next_round = time.time()
     while _running:
-        # One round: each MAC is sent on iface_a immediately followed by iface_b,
-        # producing one FDB MAC-move event per MAC per round on the DUT.
-        next_round += round_period
-        for i in range(n):
-            if not _running:
-                break
-            try:
-                sock_a.send(pkts[i])
-                sock_b.send(pkts[i])
-                sent += 2
-            except OSError as e:
-                sys.stderr.write("send error on mac index {}: {}\n".format(i, e))
-                time.sleep(0.01)
-        if round_period:
-            delay = next_round - time.time()
-            if delay > 0:
-                time.sleep(delay)
-            elif delay < -round_period:
-                # Fell behind by more than one full round; re-anchor instead of
-                # bursting to catch up.
-                next_round = time.time()
+        if args.side_dwell > 0:
+            for sock in (sock_a, sock_b):
+                for i in range(n):
+                    if not _running:
+                        break
+                    try:
+                        sock.send(pkts[i])
+                        sent += 1
+                    except OSError as e:
+                        sys.stderr.write("send error on mac index {}: {}\n".format(i, e))
+                        time.sleep(0.01)
+                if _running and side_period:
+                    # Measure from actual burst completion so scheduler delays
+                    # cannot shorten the requested exposure time.
+                    time.sleep(side_period)
+        else:
+            next_round += round_period
+            for i in range(n):
+                if not _running:
+                    break
+                try:
+                    sock_a.send(pkts[i])
+                    sock_b.send(pkts[i])
+                    sent += 2
+                except OSError as e:
+                    sys.stderr.write("send error on mac index {}: {}\n".format(i, e))
+                    time.sleep(0.01)
+            if round_period:
+                delay = next_round - time.time()
+                if delay > 0:
+                    time.sleep(delay)
+                elif delay < -round_period:
+                    next_round = time.time()
         now = time.time()
         elapsed = now - last_report
         if elapsed >= args.report_interval:

@@ -13,7 +13,7 @@
 /tests/arp/                                                                  @prsunny
 /tests/autorestart/                                                          @augusdn
 /tests/bfd/                                                                  @prsunny
-/tests/bgp/                                                                  @deepak-singhal0408
+/tests/bgp/                                                                  @deepak-singhal0408 @wenyiz2021
 /tests/bmp/                                                                  @FengPan-Frank
 /tests/cacl/                                                                 @yyynini @shreyansh-nexthop
 /tests/clock/                                                                @wsycqyz

@@ -693,7 +693,6 @@ class TestbedHealthChecker:
                 critical_containers = [
                     "gnmi",
                     "pmon",
-                    "telemetry",
                     "sysmgr",
                     "redfish",
                     "acms",
