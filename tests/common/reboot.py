@@ -628,7 +628,8 @@ def get_reboot_cause(dut):
     # On Arista-7260CX3 platforms, power-loss detection hardware occasionally
     # reports "CPU (cpu-s3, description: gpi 2 detailed fault - CPU state S3" instead of "Power Loss".
     # This is a confirmed hardware limitation. See https://github.com/sonic-net/sonic-mgmt/issues/24475
-    if "7260CX3" in dut.facts.get("platform", "") and re.search(r"CPU.*cpu-s3.*gpi 2 detailed fault", cause):
+    # The platform string is lowercase (e.g. x86_64-arista_7260cx3_64), so compare case-insensitively.
+    if "7260cx3" in dut.facts.get("platform", "").lower() and re.search(r"CPU.*cpu-s3.*gpi 2 detailed fault", cause):
         return REBOOT_TYPE_POWEROFF
 
     return REBOOT_TYPE_UNKNOWN
