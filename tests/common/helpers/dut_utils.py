@@ -803,6 +803,44 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds, cancel_e
         raise Exception("Failed to set up connection to console port. See warning logs for details.")
 
 
+def attach_duthost_console(duthost, conn_graph_facts, cancel_event=None):
+    """
+    Attach to the DUT console line without logging in to the DUT or writing to the line,
+    to read what the DUT prints, e.g. during a reboot.
+    """
+    dut_hostname = duthost.hostname
+    console_info = conn_graph_facts['device_console_info'][dut_hostname]
+    console_link = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']
+    console_type = f"console_{console_link['type']}"
+
+    # Read only the console login. creds_on_dut() renders every host variable, which takes
+    # about 15 seconds.
+    _vm = duthost.host.options['variable_manager']
+    if _vm._hostvars is not None:
+        host_vars = _vm._hostvars[dut_hostname]
+    else:
+        host_obj = duthost.host.options['inventory_manager'].get_host(dut_hostname)
+        host_vars = _vm.get_vars(host=host_obj) if host_obj is not None else {}
+    console_logins = host_vars.get("console_login", {})
+    auth_type = console_info.get('AuthType', "")
+    if auth_type and auth_type in host_vars.get("console_login_options", {}):
+        console_logins = host_vars["console_login_options"][auth_type]
+
+    return ConsoleHost(
+        console_type=console_type,
+        console_host=console_info['ManagementIp'].split("/")[0],
+        console_port=console_link['peerport'],
+        sonic_username=None,
+        sonic_password=None,
+        console_username=console_link['proxy'],
+        console_password=console_logins[console_type]['passwd'],
+        console_device=console_link['peerdevice'],
+        console_direct_ssh_port=console_link['direct_ssh_port'],
+        cancel_event=cancel_event,
+        attach_only=True,
+    )
+
+
 def creds_on_dut(duthost):
     """ read credential information according to the dut inventory """
     groups = duthost.host.options['inventory_manager'].get_host(duthost.hostname).get_vars()['group_names']

@@ -62,6 +62,9 @@ class ConsoleRebootStartedError(Exception):
 
 
 class SSHConsoleConn(BaseConsoleConn):
+    # Attach to the console line only: no DUT login and no write to the line.
+    attach_only = False
+
     def __init__(self, **kwargs):
         self.menu_port = None
 
@@ -70,6 +73,7 @@ class SSHConsoleConn(BaseConsoleConn):
         # every write to the DUT serial line is refused (see write_channel) so a
         # late login/wake-up CR cannot abort bootloader autoboot.
         self._cancel_event = kwargs.pop("cancel_event", None)
+        self.attach_only = kwargs.pop("attach_only", False)
 
         if "console_username" not in kwargs \
                 or "console_password" not in kwargs:
@@ -107,6 +111,9 @@ class SSHConsoleConn(BaseConsoleConn):
             # Login requires menu port
             kwargs['username'] = kwargs['console_username']
             self.menu_port = kwargs['console_port']
+        if self.attach_only and self.menu_port:
+            # Selecting the menu port waits for the DUT login prompt and writes to the line.
+            raise ValueError("attach_only is not supported for menu port consoles")
         kwargs['password'] = kwargs['console_password']
         kwargs['host'] = kwargs['console_host']
         kwargs['device_type'] = "_ssh"
@@ -189,13 +196,14 @@ class SSHConsoleConn(BaseConsoleConn):
         # the console state is classified below. The inherited netmiko
         # _test_channel_read() would write a RETURN on an empty read, which on a
         # quiet autoboot window aborts autoboot and traps the DUT (see
-        # _read_initial_console).
-        session_init_msg = self._read_initial_console()
+        # _read_initial_console). An attach-only session only needs the console
+        # server's immediate "port is busy" notice, so it waits less on a quiet line.
+        session_init_msg = self._read_initial_console(max_reads=2 if self.attach_only else 6)
         self.logger.debug(session_init_msg)
         # Reset the bootloader-deferred signal at the start of every preparation. This is
         # currently INTERNAL state only: it coordinates the early-returns within
-        # session_preparation()/login_stage_2() and has no external reader today (reboot.py
-        # just holds the connection open and later disconnects). It is set at any of several
+        # session_preparation()/login_stage_2() and has no external reader today (the reboot
+        # console-log collector attaches with attach_only and never logs in). It is set at any of several
         # checkpoints that can be the FIRST to observe a boot banner (initial read, menu-port
         # login, _recover_to_login_prompt, and login_stage_2's mid-wait / final-try) --
         # defense-in-depth so no single missed classification lets a key reach a
@@ -210,6 +218,10 @@ class SSHConsoleConn(BaseConsoleConn):
         ):
             console_port = self.username.split(':')[-1]
             raise PortInUseException(f"Host closed connection, as console port '{console_port}' is currently occupied.")
+
+        if self.attach_only:
+            # Attached to the DUT console line; do not log in or write anything to it.
+            return
 
         if self.console_type.endswith("config"):
             # We can skip stage 2 login for config menu connections
@@ -665,13 +677,14 @@ class SSHConsoleConn(BaseConsoleConn):
         Only send 'exit' if we're certain the DUT is at a SONiC prompt.
         This prevents issues during reboot when DUT might be in GRUB or other boot stages.
         """
-        # A console whose session preparation was deferred (DUT still in the
-        # bootloader/boot stage) has no SONiC prompt to probe. Probing would call
-        # _is_at_sonic_prompt(), which sends up to four RETURNs when the one-shot
-        # bootloader banner is no longer buffered -- those CRs would land in an
-        # autoboot "hit any key" window and trap the DUT. Skip all interactive
-        # probing and just close the transport below.
-        if getattr(self, "_bootloader_deferred", False):
+        # Close an attached-only session, or one whose session preparation was
+        # deferred (DUT still in the bootloader/boot stage), without probing.
+        # Probing would call _is_at_sonic_prompt(), which sends up to four RETURNs
+        # when the one-shot bootloader banner is no longer buffered -- those CRs
+        # would land in an autoboot "hit any key" window and trap the DUT.
+        if self.attach_only:
+            pass
+        elif getattr(self, "_bootloader_deferred", False):
             self.logger.warning(
                 "Session preparation was deferred (bootloader/boot stage); "
                 "closing console transport without prompt probing")
