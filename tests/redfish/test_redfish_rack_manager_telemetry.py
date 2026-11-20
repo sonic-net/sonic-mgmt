@@ -41,7 +41,11 @@ from tests.redfish.redfish_utils import (
     assert_field_nonempty,
     assert_no_content,
     assert_redfish_error,
+    assert_retry_after,
     assert_status_ok,
+    BRIDGE_DOWN_STATUSES,
+    BRIDGE_RECOVERY_TIMEOUT,
+    BRIDGE_STATE_TIMEOUT,
 )
 
 logger = logging.getLogger(__name__)
@@ -71,8 +75,6 @@ PERSIST_TIMEOUT = 20
 PERSIST_POLL = 1
 # Settle time before asserting that a rejected request wrote nothing.
 NO_WRITE_SETTLE = 3
-BRIDGE_STATE_TIMEOUT = 30
-BRIDGE_RECOVERY_TIMEOUT = 60
 # bmcweb rejects OEM action bodies above this size before forwarding them.
 MAX_BODY_BYTES = 64 * 1024
 # isoUtcNow() in the bridge: ISO 8601 UTC with microseconds.
@@ -80,8 +82,6 @@ TIMESTAMP_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
 BMCWEB_CONTAINER = "redfish"
 BRIDGE_PROGRAM = "sonic-dbus-bridge"
-# Acceptable answers while the bridge is down; see test_submit_telemetry_bridge_unavailable.
-BRIDGE_DOWN_STATUSES = (401, 500, 503)
 
 # Documented reference payload (oem-extension/README.md, section 4.3).
 TELEMETRY_PAYLOAD = {
@@ -483,8 +483,9 @@ class TestRedfishRackManagerTelemetry:
         and the telemetry forward, so which call fails first decides the
         status: 503 ServiceTemporarilyUnavailable (forward), or 500/401 if
         the user lookup fails first. Either way bmcweb must answer promptly
-        with no 2xx, and nothing may reach STATE_DB. After the bridge is
-        restarted the next POST must succeed and persist.
+        with no 2xx, and nothing may reach STATE_DB. A 503 must carry
+        Retry-After, which is what tells the Rack Manager when to retry.
+        After the bridge is restarted the next POST must succeed and persist.
         """
         bmc_duthost.shell("docker exec {} supervisorctl stop {}".format(BMCWEB_CONTAINER, BRIDGE_PROGRAM))
         try:
@@ -503,6 +504,9 @@ class TestRedfishRackManagerTelemetry:
                 "Expected one of {} with {} stopped, got: {}".format(
                     BRIDGE_DOWN_STATUSES, BRIDGE_PROGRAM, response.status_code)
             )
+            if response.status_code == 503:
+                retry_after = assert_retry_after(response, telemetry_target)
+                logger.info("503 carries Retry-After: %s", retry_after)
             _assert_nothing_persisted(bmc_duthost)
         finally:
             bmc_duthost.shell(

@@ -1,6 +1,7 @@
 """
 Shared Redfish test utilities for SONiC BMC Redfish API tests.
 """
+import email.utils
 import ipaddress
 import logging
 import os
@@ -201,6 +202,33 @@ def assert_redfish_error(response, status, message, message_args=None, prop=None
             "MessageArgs must be {!r}, got: {!r}".format(
                 message_args, [i.get("MessageArgs") for i in matched])
         )
+
+
+def assert_retry_after(response, path):
+    """Assert a 503 carries a Retry-After header in either RFC 9110 form.
+
+    The value is delay-seconds (a non-negative integer) or an HTTP-date. The
+    sonic-redfish only promises the header, so any valid value is accepted.
+    Returns the header value as sent.
+    """
+    value = response.headers.get("Retry-After")
+    pytest_assert(
+        value is not None,
+        "HTTP 503 from {} must carry Retry-After, got headers: {}".format(path, dict(response.headers))
+    )
+    value = value.strip()
+    # isdigit() alone also accepts digits int() rejects, such as superscripts.
+    if value.isascii() and value.isdigit():
+        return value
+    try:
+        parsed = email.utils.parsedate_to_datetime(value)
+    except (TypeError, ValueError):
+        parsed = None
+    pytest_assert(
+        parsed is not None,
+        "Retry-After from {} must be delay-seconds or an HTTP-date, got: {!r}".format(path, value)
+    )
+    return value
 
 
 def best_effort(fn, *args, **kwargs):
@@ -491,6 +519,20 @@ def reset_to_bootstrap(duthost, snapshot, saved=()):
 PRIVILEGED_PATH = "{}/Managers".format(REDFISH_ROOT)
 
 BRIDGE_SERVICE = "sonic-dbus-bridge"
+BRIDGE_STATE_TIMEOUT = 30
+BRIDGE_RECOVERY_TIMEOUT = 60
+# With the bridge off the bus the mTLS user lookup can fail before a request is
+# forwarded, so 500 or 401 are as valid as the 503 the forward itself produces.
+BRIDGE_DOWN_STATUSES = (401, 500, 503)
+
+BMCCTLD = "bmcctld"
+BMCCTLD_TIMEOUT = 120
+
+
+def bmcctld_running(duthost):
+    """True when bmcctld is RUNNING in the pmon container."""
+    status, _ = duthost.get_pmon_daemon_status(BMCCTLD)
+    return status == "RUNNING"
 
 
 def supervisor(duthost, action, program):
