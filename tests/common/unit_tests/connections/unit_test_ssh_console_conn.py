@@ -137,6 +137,7 @@ def _make_console(read_chunks):
     touch. ``read_channel`` yields ``read_chunks`` in order, then "" forever.
     """
     conn = SSHConsoleConn.__new__(SSHConsoleConn)
+    conn.attach_only = False
     conn.RETURN = RETURN
     conn.logger = mock.MagicMock()
     conn.select_delay_factor = mock.MagicMock(return_value=1)
@@ -202,6 +203,7 @@ def test_session_preparation_defers_login_in_bootloader():
     bootloader path must not call it.
     """
     conn = SSHConsoleConn.__new__(SSHConsoleConn)
+    conn.attach_only = False
     conn.logger = mock.MagicMock()
     conn.console_type = "ssh"  # not a "*config" menu type
     conn.menu_port = None
@@ -238,6 +240,7 @@ def test_session_preparation_menu_port_defers_login_in_bootloader():
     DUT-side key (no CR / username / login / finalise) once a bootloader banner
     is observed on the DUT serial line."""
     conn = SSHConsoleConn.__new__(SSHConsoleConn)
+    conn.attach_only = False
     conn.RETURN = RETURN
     conn.host = "dut"
     conn.logger = mock.MagicMock()
@@ -388,6 +391,7 @@ def test_session_preparation_menu_port_defers_when_banner_lags_first_read():
     bootloader banner still defers login and NO DUT-side key is sent. With the
     old single-read code the first empty read would have triggered a CR."""
     conn = SSHConsoleConn.__new__(SSHConsoleConn)
+    conn.attach_only = False
     conn.RETURN = RETURN
     conn.host = "dut"
     conn.logger = mock.MagicMock()
@@ -450,6 +454,7 @@ def test_session_preparation_direct_path_defers_on_bootloader():
     session_preparation_finalise() (whose set_base_prompt writes CRs that would
     abort autoboot)."""
     conn = SSHConsoleConn.__new__(SSHConsoleConn)
+    conn.attach_only = False
     conn.RETURN = RETURN
     conn.logger = mock.MagicMock()
     conn.console_type = "ssh"          # not a "*config" menu type

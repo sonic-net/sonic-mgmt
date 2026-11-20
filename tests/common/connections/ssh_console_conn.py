@@ -191,10 +191,8 @@ class SSHConsoleConn(BaseConsoleConn):
         # the console state is classified below. The inherited netmiko
         # _test_channel_read() would write a RETURN on an empty read, which on a
         # quiet autoboot window aborts autoboot and traps the DUT (see
-        # _read_initial_console). An attach-only session only needs the console
-        # server's immediate "port is busy" notice, so it waits less on a quiet line.
-        attach_only = getattr(self, "attach_only", False)
-        session_init_msg = self._read_initial_console(max_reads=2 if attach_only else 6)
+        # _read_initial_console).
+        session_init_msg = self._read_initial_console()
         self.logger.debug(session_init_msg)
         # Reset the bootloader-deferred signal at the start of every preparation. This is
         # currently INTERNAL state only: it coordinates the early-returns within
@@ -215,7 +213,7 @@ class SSHConsoleConn(BaseConsoleConn):
             console_port = self.username.split(':')[-1]
             raise PortInUseException(f"Host closed connection, as console port '{console_port}' is currently occupied.")
 
-        if attach_only:
+        if self.attach_only:
             # Attached to the DUT console line; do not log in or write anything to it.
             if self.menu_port:
                 # Selecting the port on the console server menu attaches to the DUT console line.
@@ -682,7 +680,7 @@ class SSHConsoleConn(BaseConsoleConn):
         # Probing would call _is_at_sonic_prompt(), which sends up to four RETURNs
         # when the one-shot bootloader banner is no longer buffered -- those CRs
         # would land in an autoboot "hit any key" window and trap the DUT.
-        if getattr(self, "attach_only", False):
+        if self.attach_only:
             pass
         elif getattr(self, "_bootloader_deferred", False):
             self.logger.warning(
