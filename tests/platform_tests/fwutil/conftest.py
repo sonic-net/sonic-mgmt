@@ -1,6 +1,9 @@
 import pytest
 import logging
 import os
+from fwutil_common import (
+    LATEST_VERSION_IDX, get_bmc_chassis_and_entries, get_bmc_fw_version, set_bmc_fw_to_target_version
+)
 from tests.common.helpers.firmware_helper import show_firmware
 
 logger = logging.getLogger(__name__)
@@ -40,6 +43,40 @@ def shutdown_bgp(request, duthost):
 
 def check_path_exists(duthost, path):
     return duthost.stat(path=path)["stat"]["exists"]
+
+
+@pytest.fixture(scope="function", autouse=True)
+def bmc_firmware_baseline(request, duthost):
+    """Leave a BMC on the newest firmware after every fwutil test.
+
+    A deployed BMC runs the newest firmware, and the tests that verify an upgrade downgrade it
+    first. Restoring the newest firmware here - whether the test passed or failed - keeps that
+    baseline for the tests that run later on the same testbed.
+    """
+    # Only the tests that take fw_pkg get it parametrized, so the others cannot resolve it here.
+    if not duthost.is_bmc() or "fw_pkg" not in request.fixturenames:
+        yield
+        return
+
+    # call_fwutil() restores platform_components.json only when the install succeeds. This puts the
+    # original back after the restore below, whatever happened.
+    request.getfixturevalue("backup_platform_file")
+    # Resolved before the test runs, so that the restore below does not depend on fixtures that
+    # may already have been finalized.
+    fw_pkg = request.getfixturevalue("fw_pkg")
+    localhost = request.getfixturevalue("localhost")
+    pdu_controller = request.getfixturevalue("pdu_controller")
+    chassis, entries = get_bmc_chassis_and_entries(duthost, fw_pkg)
+
+    yield
+
+    # Without a PDU no firmware was activated, so there is nothing to restore.
+    if not entries or not pdu_controller:
+        return
+    newest = entries[LATEST_VERSION_IDX]
+    if get_bmc_fw_version(duthost) != newest["version"]:
+        logger.info("Restoring the BMC to the newest firmware %s after %s", newest["version"], request.node.name)
+        set_bmc_fw_to_target_version(request, duthost, localhost, pdu_controller, chassis, newest)
 
 
 @pytest.fixture(scope='function', params=["CPLD", "ONIE", "BIOS", "FPGA"])
