@@ -275,44 +275,16 @@
   - name: Use the generated Generic DUT configuration
     set_fact:
       port_config: "{{ vm_topo_config['DUT']['port_config'] }}"
-      hwsku: "{{ vm_topo_config['DUT']['port_config']['hwsku'] }}"
+      port_config_file: /etc/sonic/port_config_generic.ini
       sort_by_index: false
       neighbor_eosvm_mgmt: {}
     when: topo == 'generic' and init_cfg_profile is not defined
 
   - name: Install generated Generic port configuration
-    block:
-    - name: Create generated HWSKU directory
-      file:
-        path: "/usr/share/sonic/device/{{ port_config.platform }}/{{ hwsku }}"
-        state: directory
-        mode: "0755"
-
-    - name: Find the installed base HWSKU assets
-      find:
-        paths: "/usr/share/sonic/device/{{ port_config.platform }}/{{ port_config.base_hwsku }}"
-        file_type: any
-        hidden: true
-      register: base_hwsku_assets
-
-    - name: Reuse base HWSKU platform assets
-      file:
-        src: "{{ item.path }}"
-        dest: "/usr/share/sonic/device/{{ port_config.platform }}/{{ hwsku }}/{{ item.path | basename }}"
-        state: link
-      loop: "{{ base_hwsku_assets.files }}"
-      when: item.path | basename not in ['hwsku.json', 'port_config.ini']
-
-    - name: Use generated INI rather than an alternate JSON port definition
-      file:
-        path: "/usr/share/sonic/device/{{ port_config.platform }}/{{ hwsku }}/hwsku.json"
-        state: absent
-
-    - name: Write the canonical port map
-      copy:
-        content: "{{ port_config.port_config_ini }}"
-        dest: "/usr/share/sonic/device/{{ port_config.platform }}/{{ hwsku }}/port_config.ini"
-        mode: "0644"
+    copy:
+      content: "{{ port_config.port_config_ini }}"
+      dest: "{{ port_config_file }}"
+      mode: "0644"
     become: true
     when: topo == 'generic' and init_cfg_profile is not defined and deploy | default(false) | bool
 
@@ -997,6 +969,7 @@
         generate_golden_config_db:
           topo_name: "{{ topo }}"
           port_config: "{{ port_config.config if topo == 'generic' else omit }}"
+          port_config_file: "{{ port_config_file if topo == 'generic' else omit }}"
           port_index_map: "{{ port_index_map | default({}) }}"
           port_speeds: "{{ (lab_csv_result.stdout | from_json).port_speeds if (port_override_from_links | default(false) | bool) and lab_csv_result is defined and lab_csv_result.rc == 0 else omit }}"
           port_override_from_links: "{{ port_override_from_links | default(false) | bool }}"
@@ -1098,12 +1071,29 @@
           - hwsku is defined
           - hwsku == 'cisco-8101-p4-32x100-vs'
           - not (use_ipv6_mgmt|default(false)|bool)
-        when: init_cfg_profile is not defined
+        when: init_cfg_profile is not defined and topo != 'generic'
 
       - name: SONiC config reload to pick up config_db.json
         command: config reload -y
         become: yes
         when: init_cfg_profile is defined
+
+      - name: Load generated Generic configuration without changing startup
+        command: config reload -y /etc/sonic/golden_config_db.json
+        become: true
+        async: "{{ 300 if use_ipv6_mgmt | default(false) | bool else 0 }}"
+        poll: "{{ 0 if use_ipv6_mgmt | default(false) | bool else 15 }}"
+        register: generic_reload
+        when: topo == 'generic' and init_cfg_profile is not defined
+
+      - name: Use IPv6 management after Generic reload
+        set_fact:
+          ansible_host: "{{ ansible_hostv6 | default(ansible_host, true) }}"
+        when: topo == 'generic' and init_cfg_profile is not defined and use_ipv6_mgmt | default(false) | bool
+
+      - name: Reconnect after Generic IPv6 management transition
+        meta: reset_connection
+        when: topo == 'generic' and init_cfg_profile is not defined and use_ipv6_mgmt | default(false) | bool
 
       - name: Wait for switch to become reachable again
         become: false
@@ -1119,10 +1109,35 @@
           timeout: 600
         changed_when: false
 
-      - name: Generate native QoS and buffers for the selected Generic ports and cable lengths
-        command: config qos reload --no-dynamic-buffer --no-delay
+      - name: Wait for generated Generic reload to complete
+        async_status:
+          jid: "{{ generic_reload.ansible_job_id }}"
+        register: generic_reload_status
+        until: generic_reload_status.finished | bool
+        retries: 30
+        delay: 10
+        become: true
+        when: topo == 'generic' and init_cfg_profile is not defined and use_ipv6_mgmt | default(false) | bool
+
+      - name: Read loaded Generic default PFC watchdog policy
+        command:
+          argv:
+            - sonic-cfggen
+            - -d
+            - -v
+            - "DEVICE_METADATA.localhost.get('default_pfcwd_status', 'enable')"
+        register: generic_pfcwd_policy
+        changed_when: false
         become: true
         when: topo == 'generic' and init_cfg_profile is not defined
+
+      - name: Start default PFC watchdog for Generic topology
+        command: pfcwd start_default
+        become: true
+        when:
+          - topo == 'generic'
+          - init_cfg_profile is not defined
+          - generic_pfcwd_policy.stdout | trim | lower == 'enable'
 
       - name: Validate breakout config params
         assert:

@@ -121,7 +121,7 @@ class SonicPortAliasMap():
             lookup = source.read()
         result = generate_port_config(
             expand_modes(capabilities, BreakoutCfg), lookup, base_ports, connections, vlan_map, min_subports)
-        result.update(platform=platform, base_hwsku=self.hwsku, hwsku=self.hwsku + "_Generic")
+        result.update(platform=platform, hwsku=self.hwsku)
         return result
 
     def get_portconfig_path(self, slotid=None, asic_id=None):

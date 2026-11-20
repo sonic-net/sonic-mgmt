@@ -32,10 +32,32 @@ PTF container and interfaces. Generated configuration is stored in
 This is a controller-local generated artifact, not a topology to commit.
 Keep it in the same workspace for `deploy-mg`, `remove-topo` and pytest.
 
-`deploy-mg` creates a `<base-HWSKU>_Generic` directory containing the generated
-port map and links to the base HWSKU's other assets. It does not modify the base
-HWSKU. Standard minigraph generation, golden configuration, native QoS/buffer
-templates and configuration save load the resulting DUT configuration.
+`deploy-mg` keeps the real HWSKU in inventory, minigraph and `DEVICE_METADATA`.
+It writes the generated map to `/etc/sonic/port_config_generic.ini` without
+changing installed HWSKU assets. Golden configuration generation passes this
+file explicitly to `sonic-cfggen -p` and retains the complete native minigraph
+configuration, including VLANs and interfaces, before applying the calculated
+ports, cable lengths and breakout modes. Native autoneg/FEC and real-HWSKU
+policies are retained.
+
+Native HWSKU QoS/buffer templates render against the selected ports and cable
+lengths before loading the complete configuration. A temporary buffer-template
+wrapper supplies the calculated cable lookup without changing installed SKU
+assets; a template that replaces those lengths fails explicitly.
+Generic does not run a later `config qos reload`, which would clear the chosen
+cable lengths and regenerate platform defaults.
+After reload completes, Generic reads the loaded default PFC watchdog policy
+and starts the native default watchdog only when enabled; full-lossy policies
+remain disabled.
+
+The complete `/etc/sonic/golden_config_db.json` is loaded directly with standard
+`config reload`. Startup configuration changes only at the normal `save` step;
+`save=false` leaves it unchanged. IPv6-only management transitions reload
+asynchronously and reconnect before checking completion.
+Generic does not call `config load_minigraph`,
+which would resolve the base port map again without an explicit generated map.
+Subsequent native reloads and startup use the saved configuration, not a derived
+HWSKU. `port_override_from_links` cannot be combined with the generated layout.
 The normal inventory credentials and Ansible errors are used throughout.
 
 `remove-topo` removes the PTF topology through the normal role. Like an ordinary
