@@ -127,6 +127,22 @@
 {{- vlan_intfs.append(vlan_intf) -}}
 {% endfor %}
       </PortChannelInterfaces>
+{# VLANs and their gateways must be present in the owning ASIC namespace. #}
+{# Keep aliases in XML so minigraph_facts can resolve VLAN members. #}
+{% set asic_vlan_configs = {} %}
+{% if (card_type is not defined or card_type != 'supervisor') and 'tor' in vm_topo_config['dut_type'] | lower %}
+{% for vlan, vlan_param in vlan_configs.items() %}
+{% set members = [] %}
+{% for index in range(port_alias | length) %}
+{% if port_alias[index] in vlan_param['intfs'] and front_panel_asic_ifs_asic_id[index] == asic_name %}
+{% set _ = members.append(port_alias[index]) %}
+{% endif %}
+{% endfor %}
+{% if members %}
+{% set _ = asic_vlan_configs.update({vlan: dict(vlan_param, intfs=members)}) %}
+{% endif %}
+{% endfor %}
+{% endif %}
 {% if card_type is defined and card_type == 'supervisor' and vlan_intfs %}
       <VlanInterfaces>
         <VlanInterface>
@@ -137,11 +153,47 @@
           <VlanID>2</VlanID>
         </VlanInterface>
       </VlanInterfaces>
+{% elif asic_vlan_configs %}
+      <VlanInterfaces>
+{% for vlan, vlan_param in asic_vlan_configs.items() %}
+        <VlanInterface>
+          <Name>{{ vlan }}</Name>
+          <AttachTo>{{ vlan_param['intfs'] | join(';') }}</AttachTo>
+          <VlanID>{{ vlan_param['id'] }}</VlanID>
+          <Tag>{{ vlan_param['tag'] }}</Tag>
+{% if 'secondary_subnet' in vlan_param %}
+          <SecondarySubnets>{{ vlan_param['secondary_subnet'] }}</SecondarySubnets>
+{% endif %}
+{% if 'type' in vlan_param %}
+          <Type>{{ 'Tagged' if vlan_param['type'] | lower == 'tagged' else 'UnTagged' }}</Type>
+{% endif %}
+          <DhcpRelays>{{ dhcp_servers | default([]) | join(';') }}</DhcpRelays>
+{% if dhcpv6_servers is defined %}
+          <Dhcpv6Relays>{{ dhcpv6_servers | join(';') }}</Dhcpv6Relays>
+{% endif %}
+{% if 'mac' in vlan_param %}
+          <MacAddress>{{ vlan_param['mac'] }}</MacAddress>
+{% endif %}
+        </VlanInterface>
+{% endfor %}
+      </VlanInterfaces>
 {% else %}
       <VlanInterfaces/>
 {% endif %}
       <IPInterfaces>
 {% if card_type is not defined or card_type != 'supervisor' %}
+{# Add gateway addresses only for VLANs with members on this ASIC. #}
+{% for vlan, vlan_param in asic_vlan_configs.items() %}
+{% for prefix in ['prefix', 'secondary_subnet', 'prefix_v6'] %}
+{% if prefix in vlan_param %}
+        <IPInterface>
+          <Name i:nil="true"/>
+          <AttachTo>{{ vlan }}</AttachTo>
+          <Prefix>{{ vlan_param[prefix] }}</Prefix>
+        </IPInterface>
+{% endif %}
+{% endfor %}
+{% endfor %}
 {% for index in range(vms_number) %}
 {% if vms[index] in vm_asic_ifnames and vm_asic_ids[vms[index]][0] == asic_name %}
 {% if vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int] is not none %}
