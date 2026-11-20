@@ -15,10 +15,8 @@ class ConserverConsoleConn():
             raise ValueError("Either console_device or console_port is not set")
 
         self.sonic_username = kwargs['sonic_username']
-        # An attach-only console does not log in, so it may have no password
-        self.sonic_password = kwargs['sonic_password'][0] if kwargs['sonic_password'] else None
+        self.sonic_password = kwargs['sonic_password'][0]
         self.console_type = kwargs['console_type']
-        self.attach_only = kwargs.get('attach_only', False)
         conserver_info = kwargs['console_device'].split(":")
         self.conserver_host = conserver_info[0]
         self.conserver_name = conserver_info[1]
@@ -27,10 +25,8 @@ class ConserverConsoleConn():
         self.delay_factor = 1
         self.default_timeout = 30
 
-        # An attach-only console connects in spy mode (-s), which is read-only, instead of forcing
-        # read-write mode (-f), and does not log in.
         console_cli = pexpect.spawn(
-            'console', ["-s" if self.attach_only else "-f", "-M", self.conserver_host,
+            'console', ["-f", "-M", self.conserver_host,
                         self.conserver_name, "-p", self.port],
             timeout=self.default_timeout)
 
@@ -38,14 +34,13 @@ class ConserverConsoleConn():
             os.remove(CONSERVER_DEBUG_FILE)
         console_cli.logfile = open(CONSERVER_DEBUG_FILE, "wb")
 
-        if not self.attach_only:
-            console_cli.sendline()
-            match = console_cli.expect(["login", CONSERVER_CLI_PROMPT])
-            if match == 0:
-                console_cli.sendline(self.sonic_username)
-                console_cli.expect("Password:")
-                console_cli.sendline(self.sonic_password)
-                console_cli.expect(CONSERVER_CLI_PROMPT)
+        console_cli.sendline()
+        match = console_cli.expect(["login", CONSERVER_CLI_PROMPT])
+        if match == 0:
+            console_cli.sendline(self.sonic_username)
+            console_cli.expect("Password:")
+            console_cli.sendline(self.sonic_password)
+            console_cli.expect(CONSERVER_CLI_PROMPT)
 
         self.console_cli = console_cli
 
@@ -77,13 +72,6 @@ class ConserverConsoleConn():
             self.console_cli.sendline(cmd)
         else:
             self.console_cli.send(cmd)
-
-    def read_channel(self):
-        """Return what the console printed since the last read, without waiting."""
-        try:
-            return self.console_cli.read_nonblocking(size=65536, timeout=0).decode(errors="ignore")
-        except (pexpect.TIMEOUT, pexpect.EOF):
-            return ""
 
     def read_until_pattern(self, pattern, read_timeout=None):
         timeout = read_timeout if read_timeout is not None else self.default_timeout
