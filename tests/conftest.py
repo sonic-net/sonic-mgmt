@@ -59,6 +59,7 @@ from tests.common.helpers.parallel_utils import ParallelCoordinator, ParallelSta
 from tests.common.helpers.pfcwd_helper import TrafficPorts, select_test_ports, set_pfc_timers, \
     is_pfcwd_hw_recovery_enabled
 from tests.common import constants
+from tests.common.mellanox_data import is_issu_enabled, is_mellanox_device
 from tests.common.system_utils import docker
 from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files, wait_until
@@ -987,6 +988,25 @@ def is_macsec_enabled_for_test(duthosts):
     if request:
         macsec_en = request.config.getoption("--enable_macsec", default=False)
     return macsec_en
+
+
+@pytest.fixture(scope="module")
+def is_warm_reboot_enabled(rand_selected_dut):
+    """Return whether warm reboot is supported for the selected DUT.
+
+    Non-Mellanox devices are treated as supported. Mellanox devices require
+    ISSU to be enabled; otherwise warm reboot is not supported.
+    """
+    if not is_mellanox_device(rand_selected_dut):
+        return True
+    return is_issu_enabled(rand_selected_dut)
+
+
+@pytest.fixture(scope="module")
+def skip_if_warm_reboot_unsupported(is_warm_reboot_enabled):
+    """Skip the test when warm reboot is unsupported (ISSU disabled on Mellanox)."""
+    if not is_warm_reboot_enabled:
+        pytest.skip("Warm reboot unsupported (ISSU disabled)")
 
 
 # Make sure in same test module, always use same random DUT
@@ -4292,9 +4312,7 @@ def weak_server(request, duthosts):
     Returns True if the testbed should be treated as a weak server.
     Can be forced via --weak_server CLI flag.
     """
-    if request.config.getoption("--weak_server"):
-        return True
-    return False
+    return request.config.getoption("--weak_server")
 
 
 class DualtorMuxPortSetupConfig(enum.Flag):
