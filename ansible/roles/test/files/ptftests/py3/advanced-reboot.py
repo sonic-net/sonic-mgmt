@@ -2886,7 +2886,8 @@ class ReloadTest(BaseTest):
 
     def arpVlanGwPing(self):
         total_rcv_pkt_cnt = 0
-        packets = random.sample(self.arp_vlan_gw_ping_packets, self.arp_vlan_gw_ping_pkts)
+        # with replacement: small topologies (t0-8) have fewer VLAN ports than packets
+        packets = random.choices(self.arp_vlan_gw_ping_packets, k=self.arp_vlan_gw_ping_pkts)
         for packet in packets:
             src_port, arp_packet = packet
             testutils.send_packet(self, src_port, arp_packet)

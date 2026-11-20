@@ -7,9 +7,14 @@ import traceback
 import pytest
 import logging
 from datetime import datetime
+from functools import partial
+from urllib.parse import urlparse
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.upgrade_helpers import install_sonic
 from tests.common.reboot import get_reboot_cause
 from tests.common.fixtures.advanced_reboot import AdvancedReboot
+from tests.common.utilities import get_host_visible_vars, get_inventory_files
+from tests.copp.copp_utils import parse_show_copp_configuration
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa: F401
@@ -29,12 +34,13 @@ MAX_WAIT_TIME_FOR_REBOOT_CAUSE = 120
 
 
 class ContinuousReboot:
-    def __init__(self, request, duthost, ptfhost, localhost, conn_graph_facts):
+    def __init__(self, request, duthost, ptfhost, localhost, conn_graph_facts, tbinfo):
         self.request = request
         self.duthost = duthost
         self.ptfhost = ptfhost
         self.localhost = localhost
         self.conn_graph_facts = conn_graph_facts
+        self.tbinfo = tbinfo
         self.continuous_reboot_count = request.config.getoption(
             "--continuous_reboot_count")
         self.continuous_reboot_delay = request.config.getoption(
@@ -42,6 +48,7 @@ class ContinuousReboot:
         self.reboot_type = request.config.getoption("--reboot_type")
         self.image_location = request.config.getoption("--image_location")
         self.image_list = request.config.getoption("--image_list")
+        self.neighbor_miss_copp_pps = request.config.getoption("--neighbor_miss_copp_pps")
         self.current_image = self.duthost.shell(
             'sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
         self.test_report = dict()
@@ -51,10 +58,94 @@ class ContinuousReboot:
 
         self.init_reporting()
 
+    def image_exists(self, image_path):
+        # Checked from the sonic-mgmt host: this only asks "is the image there",
+        # independent of the DUT's mgmt routing state.
+        http_code = self.localhost.shell(
+            "curl -o /dev/null --silent -Iw '%{{http_code}}' {}".format(image_path),
+            module_ignore_errors=True)["stdout"]
+        if http_code != '200':
+            logging.info("Image existence check returned HTTP {} for {}".format(http_code, image_path))
+        return http_code == '200'
+
+    def _dut_stdout(self, cmd):
+        return self.duthost.shell(cmd, module_ignore_errors=True).get("stdout", "").strip()
+
+    def ensure_dut_can_resolve(self, host):
+        """Use inventory DNS servers if the DUT cannot resolve the image host."""
+        if not host:
+            return
+        result = self.duthost.command(argv=["getent", "hosts", host], module_ignore_errors=True)
+        if result.get("rc") == 0:
+            return
+        dut_vars = get_host_visible_vars(get_inventory_files(self.request), self.duthost.hostname) or {}
+        dns_servers = dut_vars.get("dns_servers", [])
+        if not dns_servers:
+            logging.warning("No inventory dns_servers configured for DUT; skipping DNS setup")
+            return
+        for dns in dns_servers:
+            result = self.duthost.command(
+                argv=["config", "dns", "nameserver", "add", str(dns)], module_ignore_errors=True)
+            if result.get("rc") != 0:
+                logging.warning("Failed to add inventory DNS server %s: %s", dns, result.get("stderr", ""))
+
+    def ensure_neighbor_miss_copp(self):
+        """
+        Raise neighbor_miss cir/cbs for bulk ARP resolution during warm-up.
+        Restore the original overrides at teardown.
+        """
+        trap = parse_show_copp_configuration(self.duthost, None).get("neighbor_miss")
+        if not trap:
+            logging.warning("No neighbor_miss CoPP trap configured; skipping rate adjustment")
+            return
+        group = trap["trap_group"]
+        if trap.get("meter_type") != "packets" or not all(trap.get(k) for k in ("cir", "cbs")):
+            logging.warning("CoPP group %s has no existing packet rate/burst; skipping rate adjustment", group)
+            return
+        config = self.duthost.get_running_config_facts()
+        original = dict(config.get("COPP_GROUP", {}).get(group, {}))
+        applied_rate = str(self.neighbor_miss_copp_pps)
+        # Register cleanup before changing rates.
+        self.request.addfinalizer(partial(
+            self.restore_neighbor_miss_copp, group, original, applied_rate))
+        result = self.duthost.command(
+            argv=["sonic-db-cli", "CONFIG_DB", "HSET", "COPP_GROUP|" + group,
+                  "cir", applied_rate, "cbs", applied_rate],
+            module_ignore_errors=True)
+        if result.get("rc") != 0:
+            logging.warning("Failed to raise neighbor_miss CoPP rate: {}".format(result.get("stderr", "")))
+
+    def restore_neighbor_miss_copp(self, group, original, applied_rate):
+        current = self.duthost.get_running_config_facts().get("COPP_GROUP", {}).get(group)
+        expected = dict(original, cir=applied_rate, cbs=applied_rate)
+        # Skip entries changed outside this test.
+        if current != expected:
+            return
+        # Use the current image's defaults for rates without user overrides.
+        defaults = json.loads(self._dut_stdout("cat /etc/sonic/copp_cfg.json") or "{}")
+        group_defaults = defaults.get("COPP_GROUP", {}).get(group, {})
+        rates = {k: original.get(k, group_defaults.get(k)) for k in ("cir", "cbs")}
+        key = "COPP_GROUP|" + group
+        # Restore effective rates first; HDEL alone may leave the policer unchanged.
+        restore_args = ["HSET", key]
+        for field, value in rates.items():
+            if value is not None:
+                restore_args.extend([field, str(value)])
+        commands = [restore_args] if len(restore_args) > 2 else []
+        missing_fields = [k for k in ("cir", "cbs") if k not in original]
+        if missing_fields:
+            commands.append(["HDEL", key] + missing_fields)
+        for args in commands:
+            result = self.duthost.command(
+                argv=["sonic-db-cli", "CONFIG_DB"] + args, module_ignore_errors=True)
+            pytest_assert(result.get("rc") == 0, "Failed to restore neighbor_miss CoPP rates: {}".
+                          format(result.get("stderr", "")))
+
     def init_reporting(self):
         self.reboot_count = None
         self.current_image = None
         self.is_new_image = None
+        self.target_version = None
         self.test_duration = None
         self.critical_services = None
         self.interfaces = None
@@ -79,6 +170,7 @@ class ContinuousReboot:
         @param reboot_kwargs: The argument used by reboot_helper
         """
         logging.info("Run %s reboot on DUT" % self.reboot_type)
+        self.ensure_neighbor_miss_copp()
         self.run_reboot_testcase()
         # Wait until uptime reaches allowed value
         wait_until_uptime(self.duthost, self.continuous_reboot_delay)
@@ -117,9 +209,9 @@ class ContinuousReboot:
             'sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
         if self.is_new_image is True:
             # After boot-up, verify that the required image is running on the DUT
-            if self.advancedReboot.binaryVersion != self.current_image:
+            if self.target_version != self.current_image:
                 raise RebootHealthError("Image installation failed.\
-                    Expected: {}. Found: {}".format(self.advancedReboot.binaryVersion, self.current_image))
+                    Expected: {}. Found: {}".format(self.target_version, self.current_image))
 
     def check_test_params(self):
         while True:
@@ -160,13 +252,9 @@ class ContinuousReboot:
                     image_install_list)].strip()
                 image_path = install_info.get(
                     'location').strip() + "/" + self.new_image
-                file_exists = self.duthost.command(
-                    "curl -o /dev/null --silent -Iw '%{{http_code}}' {}".format(image_path),
-                    module_ignore_errors=True)["stdout"]
-                if file_exists != '200':
-                    logging.info("Remote image file {} does not exist. Curl returned: {}".format(
-                        image_path, file_exists))
-                    logging.warning("Continuing the test with current image")
+                if not self.image_exists(image_path):
+                    logging.warning(
+                        "Image {} does not exist; continuing with current image".format(image_path))
                     self.new_image = "current"
             except ValueError:
                 logging.warning(
@@ -175,16 +263,14 @@ class ContinuousReboot:
         if self.new_image == "current":
             logging.info(
                 "Next image is set to current - skip image installation")
-            self.advancedReboot.newSonicImage = None
             self.is_new_image = False
         else:
-            self.advancedReboot.newSonicImage = image_path
-            self.advancedReboot.cleanupOldSonicImages = True
+            # Install via the shared upgrade helper, which handles the mgmt
+            # routing for the download; AdvancedReboot only does the reboot.
+            self.ensure_dut_can_resolve(urlparse(image_path).hostname)
+            logging.info("Installing image {} on DUT".format(image_path))
+            self.target_version = install_sonic(self.duthost, image_path, self.tbinfo)
             self.is_new_image = True
-            logging.info(
-                "Image to be installed on DUT - {}".format(image_path))
-        self.advancedReboot.imageInstall()
-        if self.advancedReboot.newImage:
             # The image upgrade will delete all the preexisting cores
             self.pre_existing_cores = 0
 
@@ -307,7 +393,7 @@ class ContinuousReboot:
             reboot_type = self.reboot_type + "-reboot"
             try:
                 self.advancedReboot = AdvancedReboot(request, duthosts, duthost, ptfhost, localhost, vmhost, tbinfo,
-                                                     creds, rebootType=reboot_type, moduleIgnoreErrors=True)
+                                                     creds, rebootType=reboot_type)
             except Exception:
                 self.sub_test_result = False
                 self.test_failures = self.test_failures + 1
@@ -324,7 +410,6 @@ class ContinuousReboot:
             self.test_report = get_test_report()
             self.sub_test_result = all(
                 [check is True for check in list(self.test_report.values())])
-            self.advancedReboot.newSonicImage = None
             self.test_end_time = datetime.now()
             self.create_test_report()
             logging.info(
@@ -378,7 +463,7 @@ def test_continuous_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_h
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     continuous_reboot = ContinuousReboot(
-        request, duthost, ptfhost, localhost, conn_graph_facts)
+        request, duthost, ptfhost, localhost, conn_graph_facts, tbinfo)
     continuous_reboot.start_continuous_reboot(
         request, duthosts, duthost, ptfhost, localhost, vmhost, tbinfo, creds)
     continuous_reboot.test_teardown()
