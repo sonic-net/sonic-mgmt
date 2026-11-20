@@ -4075,6 +4075,12 @@ packet_trimming/test_packet_trimming_asymmetric.py::TestPacketTrimmingAsymmetric
     conditions:
       - "asic_gen in ['th5']"
 
+packet_trimming/test_packet_trimming_asymmetric.py::TestPacketTrimmingAsymmetric::test_trimming_during_warm_reboot:
+  skip:
+    reason: "Warm reboot is not supported on this platform, same as platform_tests/test_advanced_reboot.py (tracking sonic-net/sonic-mgmt#29444)."
+    conditions:
+      - "'7060X6' in hwsku"
+
 packet_trimming/test_packet_trimming_asymmetric.py::TestPacketTrimmingAsymmetric::test_trimming_with_srv6:
   xfail:
     reason: "vlan decap is disabled in 202412 image"
@@ -4133,9 +4139,11 @@ packet_trimming/test_packet_trimming_symmetric.py::TestPacketTrimmingSymmetric::
 
 packet_trimming/test_packet_trimming_symmetric.py::TestPacketTrimmingSymmetric::test_trimming_during_warm_reboot:
   skip:
-    reason: "Warm reboot is unsupported on sonic-vpp; uninterrupted packet trimming during warm reboot is outside the initial dataplane enablement (tracking sonic-net/sonic-buildimage#25789)."
+    reason: "Warm reboot is unsupported on sonic-vpp; uninterrupted packet trimming during warm reboot is outside the initial dataplane enablement (tracking sonic-net/sonic-buildimage#25789). Warm reboot is not supported on this platform, same as platform_tests/test_advanced_reboot.py (tracking sonic-net/sonic-mgmt#29444)."
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
+      - "'7060X6' in hwsku"
 
 packet_trimming/test_packet_trimming_symmetric.py::TestPacketTrimmingSymmetric::test_trimming_with_reload_and_reboot:
   skip:
