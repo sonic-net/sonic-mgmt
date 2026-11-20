@@ -88,7 +88,7 @@ HFT Phase 1 supports key AI data center statistics across four object types:
   on the DUT. It records the original container ID, feature state and collector configuration.
   On the same management controller, the next HFT run can recover automatically after a killed
   pytest process: it must acquire the previous owner's kernel file lock and match its saved token.
-  Recovery waits for in-flight container operations, stops a surviving test container by identity,
+  Recovery waits for in-flight DUT helper operations, stops a surviving test container by identity,
   and restores the original ID (or absence), collector and test-owned sink before starting again.
   A reload or reboot alone is not a rollback. The lock's age is not evidence that the controller is dead.
 - If a controller or its cache was lost, first confirm the old job is stopped. Rerun against the
@@ -103,6 +103,10 @@ HFT Phase 1 supports key AI data center statistics across four object types:
   unrelated `FEATURE|otel` fields and verifies the original collector's supervisor state, without
   requiring its configuration to listen on the test-only gRPC port. An unavailable PTF blocks
   sink cleanup only; completed DUT recovery steps are checkpointed and are not repeated.
+- The saved systemd boot policy of an initially disabled feature is checked separately from
+  whether its container is stopped: `disabled`, persistent `masked` and `masked-runtime` differ.
+  Recovery compares local ownership and the expected value atomically before changing feature
+  state. A deliberate operator write of the *same* state cannot be distinguished from the test's write.
 - The DUT must provide the `otel` container image.
 - InfluxDB 3 Core (`influxdb3`) must be installed on the PTF host.
 - HFT CLI commands (`config hft add/del/enable/disable`) must be available on the DUT.

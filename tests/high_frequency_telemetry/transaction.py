@@ -85,7 +85,7 @@ def claim(dut, request, recover):
         pytest.fail("A legacy HFT run holds /run/lock/sonic-mgmt-hft; verify its owner and journal before retrying")
     if previous:
         owner = read_record(dut, previous / "owner.json")
-        if owner.get("version") != 2:
+        if owner.get("version") != 3:
             raise RuntimeError(f"Unrecognized HFT journal version at {previous}; use its matching recovery code")
         if owner["id"] not in previous_tokens and os.environ.get("SONIC_MGMT_HFT_RECOVER_OWNER") != owner["id"]:
             pytest.fail(f"HFT run {previous.name} is owned by {owner['controller']}. If that job is confirmed dead, "

@@ -21,6 +21,7 @@ OTEL_CONFIG = Path("/etc/sonic/otel_config.yml")
 OTEL_LABEL = "sonic-mgmt.otel-test"
 CREATED_OTEL_FIELDS = {"state": "enabled", "auto_restart": "enabled", "has_global_scope": "True",
                        "has_per_asic_scope": "False"}
+UNIT_POLICIES = {"disabled", "enabled", "enabled-runtime", "masked", "masked-runtime"}
 
 
 def command(*args):
@@ -69,24 +70,51 @@ def start_service():
         command("systemctl", "start", "hft.service")
 
 
-def unit_policy():
-    return command("systemctl", "show", "hft.service", "-p", "UnitFileState", "--value")
+def unit_policy(service):
+    return command("systemctl", "show", service + ".service", "-p", "UnitFileState", "--value")
 
 
-def restore_disabled_policy(original):
-    # featured may still cache 'disabled' after a failed first start and omit
-    # its normal disable/mask. Do not leave a newly enabled boot unit behind.
-    if original not in ("disabled", "masked", "masked-runtime"):
-        return
-    current = unit_policy()
-    if current in ("enabled", "enabled-runtime"):
-        flags = ["--runtime"] if current.endswith("-runtime") else []
-        command("systemctl", *flags, "disable", "hft.service")
-    if original.startswith("masked") and not unit_policy().startswith("masked"):
-        flags = ["--runtime"] if original.endswith("-runtime") else []
-        command("systemctl", *flags, "mask", "hft.service")
-    if unit_policy() in ("enabled", "enabled-runtime"):
-        raise RuntimeError("Original disabled hft unit is still enabled for boot")
+def disabled_policy(service):
+    policy = unit_policy(service)
+    if policy not in UNIT_POLICIES:
+        raise RuntimeError(f"Cannot restore non-standard {service} UnitFileState {policy!r}")
+    return policy
+
+
+def restore_disabled_policy(service, original, *, allow_missing=False):
+    # featured may finish a normal disable asynchronously, or cache 'disabled'
+    # after a failed first start. Its reported failure is not ours to overwrite.
+    deadline = time.monotonic() + 60
+    unit, key = service + ".service", "FEATURE|" + service
+    while time.monotonic() < deadline:
+        configured = command("sonic-db-cli", "CONFIG_DB", "HGET", key, "state")
+        missing = allow_missing and not configured
+        if configured != "disabled" and not missing:
+            raise RuntimeError(f"{service} feature changed during unit recovery")
+        reported = command("sonic-db-cli", "STATE_DB", "HGET", key, "state")
+        active = command("systemctl", "show", unit, "-p", "ActiveState", "--value")
+        if (missing or reported in ("", "disabled", "failed")) and active in ("inactive", "failed"):
+            break
+        time.sleep(1)
+    else:
+        raise RuntimeError(f"{service} did not settle after disable; keeping recovery record")
+
+    # Remove the currently effective policy at *its* level, then apply the
+    # saved policy at the original level. Unmasking /etc may uncover a /run mask.
+    for _ in range(8):
+        current = unit_policy(service)
+        if current == original:
+            return
+        if current not in UNIT_POLICIES or original not in UNIT_POLICIES:
+            break
+        if current != "disabled":
+            flags = ["--runtime"] if current.endswith("-runtime") else []
+            action = "unmask" if current.startswith("masked") else "disable"
+        else:
+            flags = ["--runtime"] if original.endswith("-runtime") else []
+            action = "mask" if original.startswith("masked") else "enable"
+        command("systemctl", *flags, action, unit)
+    raise RuntimeError(f"{unit} UnitFileState is {unit_policy(service)!r}, expected {original!r}; keeping journal")
 
 
 def stop_owned(container, token, label=OWNER_LABEL):
@@ -196,8 +224,8 @@ def install(client, work, state, args):
     record = work / "before.json"
     if record.exists():
         raise RuntimeError("HFT install already attempted; recover this run first")
-    save(record, {"state": state, "original": original.id if original else None,
-                  "unit_policy": unit_policy() if state == "disabled" else None})
+    policy = disabled_policy(SERVICE) if state == "disabled" else None
+    save(record, {"state": state, "original": original.id if original else None, "unit_policy": policy})
     if original is None:
         # Label at Docker create, before SONiC is allowed to start the feature. An
         # interrupted/failed bootstrap never requires adopting an unlabelled hft.
@@ -246,7 +274,7 @@ def restore(client, work):
     if source and source.name != SERVICE:
         source.rename(SERVICE)
     if before["state"] == "disabled":
-        restore_disabled_policy(before["unit_policy"])
+        restore_disabled_policy(SERVICE, before["unit_policy"])
     else:
         check_hwsku(source)
         start_service()
@@ -331,25 +359,27 @@ def stop_collector(container):
         raise RuntimeError(f"Could not stop the original OTEL collector: {output!r}")
 
 
-def remove_created_feature(expected):
-    # Compare and delete atomically: a late operator edit must not be lost.
+def undo_otel_state(expected_state, restore_state, *, created):
+    # For a temporary hash, compare *all* fields before either writing or deleting.
+    # For an existing hash, compare state and local ownership in the same Redis
+    # operation and leave every other field (including later operator edits) alone.
+    expected = {**CREATED_OTEL_FIELDS, "state": expected_state} if created else {"state": expected_state}
     fields = [v for item in expected.items() for v in item]
-    result = command("redis-cli", "-n", "4", "--raw", "EVAL",
-                     "if redis.call('HLEN',KEYS[1]) ~= #ARGV/2 then return 0 end; "
-                     "for i=1,#ARGV,2 do if redis.call('HGET',KEYS[1],ARGV[i]) ~= ARGV[i+1] then return 0 end end; "
-                     "return redis.call('DEL',KEYS[1])", "1", "FEATURE|otel", *fields)
-    if result != "1":
-        raise RuntimeError("FEATURE|otel changed during recovery; refusing deletion")
-
-
-def undo_otel_state(expected, *original):
-    # On a local single-ASIC DUT `config feature state` modifies just this field.
-    # Compare and restore it atomically; do not replay the rest of the operator's hash.
-    result = command("redis-cli", "-n", "4", "--raw", "EVAL",
-                     "if redis.call('HGET',KEYS[1],'state') ~= ARGV[1] then return 0 end; "
-                     "if #ARGV == 1 then redis.call('HDEL',KEYS[1],'state') "
-                     "else redis.call('HSET',KEYS[1],'state',ARGV[2]) end; return 1",
-                     "1", "FEATURE|otel", expected, *original)
+    script = """
+        local row = ARGV[1] == 'row'
+        local owner = redis.call('HGET', KEYS[1], 'set_owner')
+        if owner and owner ~= '' and owner ~= 'local' then return 0 end
+        if row and redis.call('HLEN', KEYS[1]) ~= (#ARGV - 2) / 2 then return 0 end
+        for i = 3, #ARGV, 2 do
+            if redis.call('HGET', KEYS[1], ARGV[i]) ~= ARGV[i+1] then return 0 end
+        end
+        if ARGV[2] ~= '' then redis.call('HSET', KEYS[1], 'state', ARGV[2])
+        elseif row then redis.call('DEL', KEYS[1])
+        else redis.call('HDEL', KEYS[1], 'state') end
+        return 1
+    """
+    result = command("redis-cli", "-n", "4", "--raw", "EVAL", script, "1", "FEATURE|otel",
+                     "row" if created else "state", restore_state or "", *fields)
     if result != "1":
         raise RuntimeError("OTEL feature state changed during recovery; keeping recovery record")
 
@@ -367,14 +397,18 @@ def restore_otel(client, work, snapshot):
             stop_owned_unit("otel")
             stop_by_id(current)
         if armed and fields.get("state") == "enabled":
-            undo_otel_state("enabled", "disabled")
+            undo_otel_state("enabled", "disabled", created=not snapshot["original_feature"])
         current = wait_otel(client, work, snapshot, lambda c: c is None or c.status in ("created", "exited"), "stop")
+        # Let featured act on 'disabled' before removing a temporary row; once
+        # the row is gone it can no longer reconcile the unit's boot policy.
+        restore_disabled_policy("otel", snapshot["unit_policy"],
+                                allow_missing="state" not in snapshot["original_feature"])
         fields = otel_fields()
         check_otel_fields(snapshot, fields, armed)
         if armed and fields and not snapshot["original_feature"]:
-            remove_created_feature({**CREATED_OTEL_FIELDS, "state": "disabled"})
+            undo_otel_state("disabled", None, created=True)
         elif armed and "state" not in snapshot["original_feature"] and fields.get("state") == "disabled":
-            undo_otel_state("disabled")
+            undo_otel_state("disabled", None, created=False)
         if current and snapshot["container_id"] is None:
             current.remove()  # The tagged test container has positively stopped.
     elif snapshot["original_collector_running"]:
@@ -461,7 +495,7 @@ def transaction(action, work, owner, args):
                         and points_to(LEGACY_LOCK, work)):
                     return
                 raise RuntimeError("HFT claim already attempted; refusing to overwrite its owner")
-            save(path, {"version": 2, "id": owner, "controller": args[0]})
+            save(path, {"version": 3, "id": owner, "controller": args[0]})
             try:
                 ACTIVE.symlink_to(work)
                 sync_directory(ACTIVE.parent)
@@ -526,8 +560,13 @@ def transaction(action, work, owner, args):
                     if (current.id if current else None) != snapshot["container_id"]:
                         raise RuntimeError("OTEL identity changed before setup")
                     check_otel_fields(snapshot, otel_fields(), False)
+                    if snapshot["original_state"] == "disabled":
+                        snapshot["unit_policy"] = disabled_policy("otel")
                 finally:
                     client.close()
+                save(work / name, snapshot)
+                pending.unlink()
+                return
             # Do not put collector configuration in a command line or Ansible log.
             with pending.open() as stream:
                 os.fsync(stream.fileno())

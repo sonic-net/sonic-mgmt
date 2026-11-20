@@ -143,11 +143,11 @@ def _recover_transaction(tx, request):
 
     def stop_sink():
         ptf = getattr(tx, "ptf", None)
-        if ptf is None:
+        if not ptf:
             if str(request.getfixturevalue("tbinfo")["ptf_ip"]) != sink["ptf_ip"]:
                 pytest.fail(f"Recover HFT run {tx.work.name} on its original PTF host {sink['ptf_ip']}")
             ptf = request.getfixturevalue("ptfhost")
-        if ptf is None:
+        if not ptf:
             pytest.fail(f"Original PTF host {sink['ptf_ip']} is unavailable for HFT sink cleanup")
         stop_owned_influxdb(ptf, tx.work.name)
 
@@ -314,7 +314,7 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname,
 @pytest.fixture(scope="module")
 def hft_influxdb_server(ptfhost, tbinfo, skip_unsupported_hft_platform):
     """The transaction token identifies this sink even if the controller loses its PID."""
-    if ptfhost is None or not tbinfo.get("ptf_ip"):
+    if not ptfhost or not tbinfo.get("ptf_ip"):
         pytest.skip("HFT export tests require a PTF host for InfluxDB")
     tx = skip_unsupported_hft_platform["transaction"]
     tx.ptf = ptfhost
