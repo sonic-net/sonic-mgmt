@@ -266,6 +266,52 @@ def test_operator_config_edit_during_publication_survives_setup_and_recovery(tmp
     assert config.read_text() == "operator\n"
 
 
+def test_rollback_after_chmod_reloads_original_bytes_with_operator_permissions(tmp_path, monkeypatch):
+    config = tmp_path / "otel.yml"
+    config.write_text("operator endpoint\n")
+    config.chmod(0o644)
+    monkeypatch.setattr(hft, "OTEL_CONFIG", config)
+    snapshot = {"otel_config": [config.read_text(), "0644"], "original_feature": {"state": "enabled"},
+                "original_state": "enabled", "original_collector_running": True}
+    hft.save(tmp_path / "otel.json", snapshot)
+    (tmp_path / "config.owner").write_text("test endpoint\n")
+    hft.install_collector_config(tmp_path, "owner")
+    hft.check_service_config(tmp_path)
+    hft.save(tmp_path / "collector-activity.json", True)
+    config.chmod(0o440)  # The bytes still point at the fixture sink.
+    loaded = []
+
+    def systemctl(*args):
+        if args == ("systemctl", "restart", "otel.service"):
+            loaded.append((config.read_text(), config.stat().st_mode & 0o777))
+        return "enabled"
+
+    monkeypatch.setattr(hft, "command", systemctl)
+    monkeypatch.setattr(hft, "check_otel", lambda *a: Mock(status="running"))
+    monkeypatch.setattr(hft, "otel_fields", lambda: {"state": "enabled"})
+    monkeypatch.setattr(hft, "collector_running", lambda c: True)
+    hft.restore_otel(None, tmp_path, snapshot)
+    assert loaded == [("operator endpoint\n", 0o440)]
+
+
+def test_rollback_does_not_checkpoint_an_unverified_managed_file(tmp_path, monkeypatch):
+    config = tmp_path / "otel.yml"
+    operator = tmp_path / "managed.yml"
+    operator.write_text("test endpoint\n")
+    config.symlink_to(operator)
+    monkeypatch.setattr(hft, "OTEL_CONFIG", config)
+    snapshot = {"otel_config": ["original\n", "0644"], "original_feature": {"state": "enabled"},
+                "original_state": "enabled", "original_collector_running": True}
+    hft.save(tmp_path / "otel.json", snapshot)
+    hft.save(tmp_path / "collector-target.json", hft.config_digest(operator.read_bytes()))
+    monkeypatch.setattr(hft, "check_otel", lambda *a: Mock(status="running"))
+    monkeypatch.setattr(hft, "otel_fields", lambda: {"state": "enabled"})
+    monkeypatch.setattr(hft, "collector_running", lambda c: True)
+    with pytest.raises(hft.CollectorConfigChanged, match="managed"):
+        hft.restore_otel(None, tmp_path, snapshot)
+    assert config.is_symlink() and operator.read_text() == "test endpoint\n"
+
+
 @pytest.mark.parametrize("ident,label", [
     ("original-id", None), ("foreign-id", "sonic-mgmt-hft-unit"), ("candidate-id", "someone-else"),
 ])
@@ -297,6 +343,7 @@ def test_failed_start_must_not_acknowledge_a_pending_disable(monkeypatch):
             return "inactive" if "ActiveState" in argv else state["policy"]
         assert argv == ("systemctl", "unmask", "hft.service")
         state["policy"] = "disabled"
+        return ""
 
     monkeypatch.setattr(hft, "command", command)
     monkeypatch.setattr(hft.time, "sleep", finish_disable)

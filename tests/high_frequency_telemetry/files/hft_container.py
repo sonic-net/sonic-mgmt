@@ -496,12 +496,7 @@ def restore_otel(client, work, snapshot):
     fields = otel_fields()
     check_otel_fields(snapshot, fields, armed)
     if (work / "collector-target.json").exists():
-        try:
-            install_collector_config(work, None)
-        except CollectorConfigChanged:
-            # A later operator file is authoritative. Preserve it and recover
-            # service liveness independently of whether we can restore the file.
-            pass
+        install_collector_config(work, None)  # Unverified paths or publication races retain the journal.
     if snapshot["original_state"] == "disabled":
         if current:
             # Also covers a pre-existing, originally stopped container left running
@@ -583,10 +578,21 @@ def install_collector_config(work, owner, before_replace=None):
     """Publish the allowed content digest and atomically install it under the owner fence."""
     st, current = collector_file()
     original, original_mode = json.loads((work / "otel.json").read_text())["otel_config"]
-    if st and stat.S_IMODE(st.st_mode) != (int(original_mode, 8) if original_mode else 0o644):
+    baseline = original.encode() if original is not None else None
+    baseline_mode = int(original_mode, 8) if original_mode else 0o644
+    mode = stat.S_IMODE(st.st_mode) if st else 0o644
+    stage = OTEL_CONFIG.parent / ("." + work.name + ".otel.tmp")
+    pending = work / ("config." + owner) if owner is not None else None
+    if pending is None:
+        stage.unlink(missing_ok=True)
+    elif st and mode != baseline_mode:
         raise CollectorConfigChanged("OTEL config permissions changed outside the HFT transaction")
-    if current != (original.encode() if original is not None else None):
-        if current is None or not (work / ("config-" + config_digest(current))).exists():
+    if current != baseline:
+        if current is None:
+            raise CollectorConfigChanged("OTEL config was removed outside this transaction")
+        if not (work / ("config-" + config_digest(current))).exists():
+            if pending is None:
+                return  # Stable, single-link file with other contents: leave the operator's replacement intact.
             raise CollectorConfigChanged("OTEL config was changed outside this transaction")
 
     def revalidate_file():
@@ -595,20 +601,19 @@ def install_collector_config(work, owner, before_replace=None):
                 (latest and file_identity(latest) != file_identity(st))):
             raise CollectorConfigChanged("OTEL config changed before publication")
 
-    stage = OTEL_CONFIG.parent / ("." + work.name + ".otel.tmp")
-    if owner is None:
-        stage.unlink(missing_ok=True)
-        if original is None:
+    if pending is None:
+        if current == baseline:
+            return
+        if baseline is None:
+            if mode != baseline_mode:
+                raise CollectorConfigChanged("Cannot remove test-created OTEL config with changed permissions")
             revalidate_file()
             OTEL_CONFIG.unlink(missing_ok=True)
+            sync_directory(OTEL_CONFIG.parent)
             return
-        data, mode = original.encode(), int(original_mode, 8)
-        if current == data and st and stat.S_IMODE(st.st_mode) == mode:
-            return
+        data = baseline  # Restore the original content, preserving the current owner and permissions.
     else:
-        pending = work / ("config." + owner)
         data = pending.read_bytes()
-        mode = stat.S_IMODE(st.st_mode) if st else 0o644
         save(work / ("config-" + config_digest(data)), True)
         save(work / "collector-target.json", config_digest(data))  # write ahead of rename
     fd = os.open(stage, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
@@ -627,7 +632,7 @@ def install_collector_config(work, owner, before_replace=None):
         sync_directory(OTEL_CONFIG.parent)
     finally:
         stage.unlink(missing_ok=True)
-    if owner is not None:
+    if pending is not None:
         pending.unlink()
 
 

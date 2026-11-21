@@ -107,7 +107,9 @@ HFT Phase 1 supports key AI data center statistics across four object types:
   file with a single hard link. Recovery checks the OTEL container identity and only restores
   a configuration that still belongs to the test or matches the original snapshot. Setup verifies the destination
   file again immediately before replacing it and does not stop the original collector to prepare an empty database.
-  Recovery leaves a later operator configuration in place and restores process liveness if the fixture touched it. It preserves
+  Recovery leaves a later operator configuration in place and restores process liveness if the fixture touched it.
+  If just the permissions on the test file changed, recovery restores the original contents with the new permissions.
+  An unverified file (for example, a managed link) keeps the journal for inspection. Recovery preserves
   unrelated `FEATURE|otel` fields and verifies the original collector's supervisor state, without
   requiring its configuration to listen on the test-only gRPC port. An unavailable PTF blocks
   sink cleanup only; completed DUT recovery steps are checkpointed and are not repeated.
@@ -427,7 +429,7 @@ cadence validation to two port series.
 
 **Test Steps**
 1. **Start isolated infrastructure**: Reuse the module's test-owned in-memory InfluxDB process on port 8181.
-2. **Isolate the case**: Stop the collector, create a unique empty database, and install an OTEL configuration targeting it.
+2. **Isolate the case**: Create and verify a unique empty database with the original collector left running if it was running. Then install the case's OTEL configuration targeting that database.
 3. **Restart OTEL safely**: Restart the systemd-managed `otel.service` and require its critical collector process to become healthy.
 4. **Verify countersyncd**: Check that supervisor reports `countersyncd` as running in `hft`.
 5. **Configure HFT**: Get available ports (desired: 2, minimum: 1). Atomically create the case's HFT profile (poll interval 10ms, stream `enabled`) and its PORT group monitoring `IF_IN_OCTETS`.
