@@ -52,15 +52,6 @@ class TelnetConsoleConn(BaseConsoleConn):
         kwargs.setdefault('global_delay_factor', DEFAULT_DELAY_FACTOR)
         super(TelnetConsoleConn, self).__init__(**kwargs)
 
-    def set_base_prompt(self, *args, delay_factor=DEFAULT_DELAY_FACTOR, **kwargs):
-        return super(TelnetConsoleConn, self).set_base_prompt(*args, delay_factor=delay_factor, **kwargs)
-
-    def disable_paging(self, *args, delay_factor=DEFAULT_DELAY_FACTOR, **kwargs):
-        return super(TelnetConsoleConn, self).disable_paging(*args, delay_factor=delay_factor, **kwargs)
-
-    def find_prompt(self, delay_factor=DEFAULT_DELAY_FACTOR, **kwargs):
-        return super(TelnetConsoleConn, self).find_prompt(delay_factor, **kwargs)
-
     def _try_session_preparation(self, force_data=True):
         # netmiko writes a RETURN before session preparation; an attach-only console must not.
         return super(TelnetConsoleConn, self)._try_session_preparation(force_data=force_data and not self.attach_only)

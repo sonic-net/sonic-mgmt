@@ -132,9 +132,14 @@ class BaseConsoleConn(CiscoBaseConnection):
             else:
                 break
 
-    # No delay_factor default: SSH and telnet override these three methods to pass their own.
+    def select_delay_factor(self, delay_factor):
+        # None means the connection's delay factor, the constructor's global_delay_factor.
+        if delay_factor is None:
+            return self.global_delay_factor
+        return super(BaseConsoleConn, self).select_delay_factor(delay_factor)
+
     def set_base_prompt(self, pri_prompt_terminator=PRI_PROMPT_TERMINATOR,
-                        alt_prompt_terminator=ALT_PROMPT_TERMINATOR, *, delay_factor):
+                        alt_prompt_terminator=ALT_PROMPT_TERMINATOR, delay_factor=None):
         return super(BaseConsoleConn, self).set_base_prompt(
             pri_prompt_terminator=pri_prompt_terminator,
             alt_prompt_terminator=alt_prompt_terminator,
@@ -147,11 +152,11 @@ class BaseConsoleConn(CiscoBaseConnection):
         self.write_channel(command + self.RETURN)
         self.read_until_pattern(pattern=pattern)
 
-    def disable_paging(self, command="", *, delay_factor):
+    def disable_paging(self, command="", delay_factor=None):
         # not supported
         pass
 
-    def find_prompt(self, delay_factor, **kwargs):
+    def find_prompt(self, delay_factor=None, **kwargs):
         return super(BaseConsoleConn, self).find_prompt(delay_factor, **kwargs)
 
     def clear_buffer(self):

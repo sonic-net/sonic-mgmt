@@ -164,15 +164,6 @@ class SSHConsoleConn(BaseConsoleConn):
         kwargs.setdefault('global_delay_factor', DEFAULT_DELAY_FACTOR)
         super(SSHConsoleConn, self).__init__(**kwargs)
 
-    def set_base_prompt(self, *args, delay_factor=DEFAULT_DELAY_FACTOR, **kwargs):
-        return super(SSHConsoleConn, self).set_base_prompt(*args, delay_factor=delay_factor, **kwargs)
-
-    def disable_paging(self, *args, delay_factor=DEFAULT_DELAY_FACTOR, **kwargs):
-        return super(SSHConsoleConn, self).disable_paging(*args, delay_factor=delay_factor, **kwargs)
-
-    def find_prompt(self, delay_factor=DEFAULT_DELAY_FACTOR, **kwargs):
-        return super(SSHConsoleConn, self).find_prompt(delay_factor, **kwargs)
-
     def write_channel(self, out):
         """Single chokepoint for every byte we send to the DUT serial line.
 
