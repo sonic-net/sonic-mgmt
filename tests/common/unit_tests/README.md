@@ -102,6 +102,10 @@ unchanged propagation of `SystemExit`, `KeyboardInterrupt`, and `pytest.exit`.
 Mixed-group coverage also checks independent same-scope finalizers and errors
 raised before the group, so completing ancestor scopes alone is not sufficient.
 
+## QoS database callers
+
+`unit_test_qos_database_callers.py` checks buffer and PFC command arguments, database selection and ASIC handling. It also checks that local QoS configuration commands use the named database CLI. Feature behavior still requires the corresponding QoS and buffer suites on a testbed.
+
 ## gNMI AAA TLS reuse
 
 ```bash
