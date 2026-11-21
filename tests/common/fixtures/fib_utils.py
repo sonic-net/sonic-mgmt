@@ -187,15 +187,40 @@ def merge_fib_infos(fib_infos):
     return combined
 
 
-def get_fib_info(duthost, dut_cfg_facts, duts_mg_facts, testname=None):
+def is_multi_asic_isolated(duthost, dut_cfg_facts):
+    """Check if a DUT has multiple ASICs that are not connected to each other.
+
+    Each ASIC of such a DUT is an independent router: it has no backend ASIC, no internal
+    (backplane) ports and is not part of a chassis, so a packet can only leave on a port of
+    the ASIC it entered.
+
+    Args:
+        duthost (MultiAsicSonicHost): Object for interacting with DUT.
+        dut_cfg_facts (list): Running config facts of the DUT, one (asic_index, facts) tuple per ASIC.
+    """
+    if not duthost.is_multi_asic or len(dut_cfg_facts) < 2:
+        return False
+    if duthost.facts.get('switch_type') in ['voq', 'chassis-packet'] or duthost.get_backend_asic_ids():
+        return False
+    for _, asic_cfg_facts in dut_cfg_facts:
+        for port in asic_cfg_facts.get('PORT', {}).values():
+            if port.get('role') == 'Int':
+                return False
+    return True
+
+
+def get_fib_info(duthost, dut_cfg_facts, duts_mg_facts, testname=None, per_asic=False):
     """Get parsed FIB information from redis DB.
 
     Args:
         duthost (SonicHost): Object for interacting with DUT.
         duts_cfg_facts (dict): Running config facts of all DUT hosts.
         duts_mg_facts (dict): Minigraph facts of all DUT hosts.
+        per_asic (bool): Return one FIB per ASIC instead of merging the ASICs. Use it for DUTs
+            whose ASICs are not connected to each other (see is_multi_asic_isolated).
 
     Returns:
+        list: If per_asic is True, one dict as below per ASIC, in dut_cfg_facts order.
         dict: Map of prefix to PTF ports that are connected to DUT output ports.
             {
                 '192.168.0.0/21': [],
@@ -209,6 +234,7 @@ def get_fib_info(duthost, dut_cfg_facts, duts_mg_facts, testname=None):
     """
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     fib_info = {}
+    fib_infos = []
     route_key = 'ROUTE_TABLE:*'
     if 'test_ecmp_group_member_flap' in testname:
         route_key = r'ROUTE_TABLE:0\.0\.0\.0*'
@@ -216,6 +242,9 @@ def get_fib_info(duthost, dut_cfg_facts, duts_mg_facts, testname=None):
     for list_index, asic_cfg_facts_tuple in enumerate(dut_cfg_facts):
 
         asic_index, asic_cfg_facts = asic_cfg_facts_tuple
+        if per_asic:
+            fib_info = {}
+            fib_infos.append(fib_info)
 
         asic = duthost.asic_instance(asic_index)
 
@@ -274,11 +303,11 @@ def get_fib_info(duthost, dut_cfg_facts, duts_mg_facts, testname=None):
                         fib_info[prefix] += oports
                     else:
                         fib_info[prefix] = oports
-                # For single_asic device, add empty list for directly connected subnets
-                elif skip and not duthost.is_multi_asic:
+                # For single_asic device or a per-ASIC FIB, add empty list for directly connected subnets
+                elif skip and (per_asic or not duthost.is_multi_asic):
                     fib_info[prefix] = []
 
-    return fib_info
+    return fib_infos if per_asic else fib_info
 
 
 def gen_fib_info_file(ptfhost, fib_info, filename):

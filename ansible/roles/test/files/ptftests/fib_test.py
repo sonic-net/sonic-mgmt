@@ -116,6 +116,8 @@ class FibTest(BaseTest):
          - dst_vid                vlan tag id of dst pkts. Default: None(untag)
          - ignore_ttl:            mask the ttl field in the expected packet
          - single_fib_for_duts:   have a single fib file for all DUTs in multi-dut case. Default: False
+         - fib_asic_indexes:      ASIC index of each fib file, for a DUT whose ASICs are not connected.
+                                  The fib of the ingress port's ASIC is used. Default: None
         '''
         self.dataplane = ptf.dataplane_instance
         self.asic_type = self.test_params.get('asic_type')
@@ -128,6 +130,13 @@ class FibTest(BaseTest):
         self.fibs = []
         for fib_info_file in self.test_params.get('fib_info_files'):
             self.fibs.append(fib.Fib(fib_info_file))
+
+        # One FIB per ASIC of a DUT whose ASICs are not connected: maps ASIC index to FIB index
+        self.fib_index_by_asic = {}
+        fib_asic_indexes = self.test_params.get('fib_asic_indexes')
+        if fib_asic_indexes:
+            self.fib_index_by_asic = {int(asic_index): fib_index
+                                      for fib_index, asic_index in enumerate(fib_asic_indexes)}
 
         ptf_test_port_map = self.test_params.get('ptf_test_port_map')
         with open(ptf_test_port_map) as f:
@@ -201,11 +210,31 @@ class FibTest(BaseTest):
             random.shuffle(covered_ip_ranges)
             self.check_balancing(covered_ip_ranges, dut_index, ipv4)
 
-    def get_src_and_exp_ports(self, dst_ip):
+    def get_fib_src_ports(self, fib_index):
+        """Return the source ports on the ASIC whose FIB is fib_index"""
+        return [port for port in self.src_ports
+                if self.fib_index_by_asic.get(self.ptf_test_port_map[str(port)].get('asic_idx')) == fib_index]
+
+    def get_src_and_exp_ports(self, dst_ip, fib_index=None):
+        src_ports = self.src_ports
+        per_asic_fib = bool(self.fib_index_by_asic) and fib_index is not None
+        if per_asic_fib:
+            # Enter on the ASIC whose FIB is under test, so that FIB's routes are the ones checked
+            src_ports = self.get_fib_src_ports(fib_index)
+            if not src_ports:
+                raise ValueError("No source port on the ASIC of FIB {}".format(fib_index))
+            if dst_ip not in self.fibs[fib_index]:
+                raise ValueError("{} is not routed by FIB {}".format(dst_ip, fib_index))
         while True:
-            src_port = int(random.choice(self.src_ports))
+            src_port = int(random.choice(src_ports))
             active_dut_indexes = [0]
-            if self.single_fib == "multiple-fib":
+            if self.fib_index_by_asic:
+                # A packet can only use the routes of the ASIC it enters
+                fib_index = self.fib_index_by_asic.get(self.ptf_test_port_map[str(src_port)].get('asic_idx'))
+                if fib_index is None or dst_ip not in self.fibs[fib_index]:
+                    continue
+                active_dut_indexes = [fib_index]
+            elif self.single_fib == "multiple-fib":
                 active_dut_indexes = self.ptf_test_port_map[str(
                     src_port)]['target_dut']
 
@@ -216,8 +245,11 @@ class FibTest(BaseTest):
             # On FT2 topo, since all the ports are in the next hop list of default route,
             # we need to skip check if the src_port is in exp_port_list. Otherwise, it will
             # cause the function to stuck in infinite loop.
+            # The same applies to a per-ASIC FIB whose route uses every source port of the ASIC.
             lt2_default_route = False
-            if self.topo_type == 'ft2' and len(exp_port_lists) == 1 and len(self.src_ports) == len(exp_port_lists[0]):
+            if self.topo_type == 'ft2' and len(exp_port_lists) == 1 and len(src_ports) == len(exp_port_lists[0]):
+                lt2_default_route = True
+            elif per_asic_fib and len(exp_port_lists) == 1 and set(src_ports) <= set(exp_port_lists[0]):
                 lt2_default_route = True
             for exp_port_list in exp_port_lists:
                 if src_port in exp_port_list and not lt2_default_route:
@@ -249,7 +281,7 @@ class FibTest(BaseTest):
             dst_ips.append(ip_range.get_random_ip())
 
         for dst_ip in dst_ips:
-            src_port, exp_port_lists, _ = self.get_src_and_exp_ports(dst_ip)
+            src_port, exp_port_lists, _ = self.get_src_and_exp_ports(dst_ip, dut_index)
             # if dst_ip is local to DUT, the nexthops will be empty.
             # for active-active dualtor testbed, if the dst_ip is local to the upper ToR and src_port is an
             # active-active port, the expect egress ports of upper ToR will be empty, exp_port_lists will be
@@ -270,8 +302,11 @@ class FibTest(BaseTest):
         if self.test_balancing and self.pkt_action == self.ACTION_FWD:
             for ip_range in ip_ranges:
                 dst_ip = ip_range.get_random_ip()
+                if self.fib_index_by_asic and dst_ip not in self.fibs[dut_index]:
+                    # Address gap without a route in this ASIC's FIB
+                    continue
                 src_port, exp_port_lists, next_hops = self.get_src_and_exp_ports(
-                    dst_ip)
+                    dst_ip, dut_index)
                 if self.single_fib == "single-fib-multi-hop":
                     updated_exp_port_list = []
                     # assume only test `single-fib-multi-hop` scenario on a single DUT testbed
