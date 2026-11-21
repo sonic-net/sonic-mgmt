@@ -628,11 +628,21 @@ def get_reboot_cause(dut):
     # On Arista-7260CX3 platforms, power-loss detection hardware occasionally
     # reports "CPU (cpu-s3, description: gpi 2 detailed fault - CPU state S3" instead of "Power Loss".
     # This is a confirmed hardware limitation. See https://github.com/sonic-net/sonic-mgmt/issues/24475
-    # The platform string is lowercase (e.g. x86_64-arista_7260cx3_64), so compare case-insensitively.
-    if "7260cx3" in dut.facts.get("platform", "").lower() and re.search(r"CPU.*cpu-s3.*gpi 2 detailed fault", cause):
+    if is_7260cx3_cpu_s3_power_loss(dut, cause):
         return REBOOT_TYPE_POWEROFF
 
     return REBOOT_TYPE_UNKNOWN
+
+
+def is_7260cx3_cpu_s3_power_loss(dut, cause):
+    """
+    @summary: Check whether a reboot cause string is the 7260CX3 "cpu-s3" report of a power loss.
+    @param dut: The AnsibleHost object of DUT.
+    @param cause: The reboot cause string from 'show reboot-cause [history]'.
+    """
+    # The platform string is lowercase (e.g. x86_64-arista_7260cx3_64), so compare case-insensitively.
+    return "7260cx3" in dut.facts.get("platform", "").lower() and \
+        bool(re.search(r"CPU.*cpu-s3.*gpi 2 detailed fault", cause))
 
 
 def check_reboot_cause(dut, reboot_cause_expected):
@@ -778,11 +788,12 @@ def check_reboot_cause_history(dut, reboot_type_history_queue):
             logger.info("index:  %d, reboot cause: %s, reboot cause from DUT: %s" %
                         (index, reboot_ctrl_dict[reboot_type]["cause"],
                          reboot_cause_history_got[reboot_type_history_len - index - 1]["cause"]))
-            if not re.search(reboot_ctrl_dict[reboot_type]["cause"],
-                             reboot_cause_history_got[reboot_type_history_len - index - 1]["cause"]):
+            actual_cause = reboot_cause_history_got[reboot_type_history_len - index - 1]["cause"]
+            if not re.search(reboot_ctrl_dict[reboot_type]["cause"], actual_cause):
+                if reboot_type == REBOOT_TYPE_POWEROFF and is_7260cx3_cpu_s3_power_loss(dut, actual_cause):
+                    continue
                 logger.error("The {} reboot-cause not match. expected_reboot type={}, actual_reboot_cause={}".format(
-                    index, reboot_ctrl_dict[reboot_type]["cause"],
-                    reboot_cause_history_got[reboot_type_history_len - index - 1]["cause"]))
+                    index, reboot_ctrl_dict[reboot_type]["cause"], actual_cause))
                 return False
         return True
     logger.error("The number of expected reboot-cause:{} is more than that of actual reboot-cuase:{}".format(
