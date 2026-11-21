@@ -167,33 +167,9 @@ def get_running_countersyncd_pid(duthost):
     return int(match.group(1)) if match else None
 
 
-def restart_countersyncd_daemon(duthost, timeout=30):
-    """Restart only countersyncd and verify its supervisor-owned process."""
-    old_pid = get_running_countersyncd_pid(duthost)
-    pytest_assert(
-        old_pid is not None,
-        "Unable to determine the running countersyncd PID before restart",
-    )
-    result = duthost.shell(
-        "docker exec hft supervisorctl restart countersyncd",
-        module_ignore_errors=True,
-    )
-    pytest_assert(
-        result.get("rc") == 0,
-        f"Failed to restart countersyncd: {result}",
-    )
-
-    new_pid = None
-
-    def restarted():
-        nonlocal new_pid
-        new_pid = get_running_countersyncd_pid(duthost)
-        return new_pid is not None and new_pid != old_pid
-
-    pytest_assert(
-        wait_until(timeout, 1, 0, restarted),
-        f"countersyncd did not restart from PID {old_pid}",
-    )
+def restart_countersyncd_daemon(tx):
+    """Restart only the run-owned daemon, inside the same fence as recovery."""
+    old_pid, new_pid = json.loads(tx.call("restart-countersyncd"))
     logger.info("Restarted countersyncd from PID %d to PID %d", old_pid, new_pid)
     return old_pid, new_pid
 

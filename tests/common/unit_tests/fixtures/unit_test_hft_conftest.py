@@ -134,6 +134,28 @@ def test_multi_asic_gate_precedes_transaction(hft_conftest, monkeypatch):
     dut.command.assert_not_called()
 
 
+@pytest.mark.parametrize("pending", [False, True])
+def test_down_port_case_recovers_only_a_pending_transaction(hft_conftest, monkeypatch, pending):
+    dut = MagicMock(is_multi_asic=False)
+    dut.interface_facts.return_value = {"ansible_facts": {"ansible_interface_link_down_ports": ["Ethernet0"]}}
+    req = MagicMock()
+    req.node.get_closest_marker.return_value = types.SimpleNamespace(
+        args=(hft_conftest.CounterObjectType.PORT,), kwargs={"oper_up_port": True})
+    monkeypatch.setattr(hft_conftest.transaction, "active_work", lambda host: object() if pending else None)
+    events = []
+    req.getfixturevalue.side_effect = events.append
+
+    def ports(*args, **kwargs):
+        events.append("check ports")
+        return ["Ethernet0"]
+
+    monkeypatch.setattr(hft_conftest, "get_available_ports", ports)
+    monkeypatch.setattr(hft_conftest, "get_support_counter_list", lambda *a: ["IF_IN_OCTETS"])
+    with pytest.raises(pytest.skip.Exception, match="No operationally up"):
+        hft_conftest.skip_unsupported_hft_test.__wrapped__(req, {"dut": dut}, "dut", {})
+    assert events == (["skip_unsupported_hft_platform"] if pending else []) + ["check ports"]
+
+
 def test_profile_cleanup_failure_keeps_original_exporters_isolated(hft_conftest):
     tx = MagicMock()
     tx.load.return_value = {"ptf_ip": "127.0.0.1"}

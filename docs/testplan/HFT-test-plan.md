@@ -82,7 +82,7 @@ HFT Phase 1 supports key AI data center statistics across four object types:
   Ambiguous clustered short options are refused before the original container is stopped.
   SONiC starts this container through `hft.service`; the original is stopped first and restored
   afterwards. `/etc/sonic/hft/hft.env` is never modified. The Queue case restarts just
-  `countersyncd`, then checks that supervisor reports a new running PID.
+  `countersyncd` under the transaction lock, by the recorded test container ID, and checks the new supervisor PID.
   A new container gets its run label and both arguments at **create** time, even when
   HFT was initially disabled and no stock container existed. The module locks the DUT
   before taking its recovery baseline or changing the collector. Each case gets a run-unique profile
@@ -105,7 +105,9 @@ HFT Phase 1 supports key AI data center statistics across four object types:
   and original container ID rather than automatically taking over a potentially live operator.
 - The fixture temporarily rewrites `/etc/sonic/otel_config.yml`; when present it must be a regular
   file with a single hard link. Recovery checks the OTEL container identity and only restores
-  a configuration that still belongs to the test or matches the original snapshot. It preserves
+  a configuration that still belongs to the test or matches the original snapshot. Setup verifies the destination
+  file again immediately before replacing it and does not stop the original collector to prepare an empty database.
+  Recovery leaves a later operator configuration in place and restores process liveness if the fixture touched it. It preserves
   unrelated `FEATURE|otel` fields and verifies the original collector's supervisor state, without
   requiring its configuration to listen on the test-only gRPC port. An unavailable PTF blocks
   sink cleanup only; completed DUT recovery steps are checkpointed and are not repeated.
@@ -152,7 +154,7 @@ monitoring remains enabled for all HFT cases.
 
 Each case declares its counter, object, and port prerequisites with the
 `hft_requirements` marker. Before that case can request HFT infrastructure, the
-`skip_unsupported_hft_test` fixture checks those prerequisites and returns the
+`skip_unsupported_hft_test` fixture first recovers any pending transaction on the DUT, checks those prerequisites, and returns the
 validated objects and counters. A capability-skipped case therefore performs no
 InfluxDB startup, OTEL change, or HFT cleanup of its own. Infrastructure already
 owned by an earlier supported case remains module-scoped until module teardown.

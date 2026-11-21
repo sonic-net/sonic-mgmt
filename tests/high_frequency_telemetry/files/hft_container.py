@@ -218,7 +218,8 @@ def with_otel_args(original, overrides):
 
 
 def create_from_launcher(client, work, service, label, args):
-    cid = command("bash", str(work / "create_container.sh"), service, label + "=" + work.name, *args)
+    cid = command("bash", str(work / "create_container.sh"), service, label + "=" + work.name,
+                  f"/usr/bin/{service}.sh", *args)
     candidate = client.containers.get(cid)
     if candidate.name != service or candidate.labels.get(label) != work.name:
         raise RuntimeError(f"Platform launcher did not create the requested {service} test container")
@@ -272,6 +273,9 @@ def install(client, work, state, args):
         candidate = create_from_launcher(client, work, SERVICE, OWNER_LABEL, args)
     else:
         candidate = create_with_args(client, original, work.name, args)
+    before["candidate"] = candidate.id
+    save(record, before)
+    if original is not None:
         stop_service(original)
         original.rename(work.name + "-original")
         candidate.rename(SERVICE)
@@ -290,6 +294,31 @@ def install(client, work, state, args):
     running = client.containers.get(SERVICE)
     if running.id != candidate.id or running.attrs["Config"]["Cmd"] != args:
         raise RuntimeError("SONiC did not start the hft container with the requested Docker CMD")
+
+
+def restart_countersyncd(client, work):
+    candidate_id = json.loads((work / "before.json").read_text()).get("candidate")
+    current = lookup(client, SERVICE)
+    if (not current or current.id != candidate_id or current.labels.get(OWNER_LABEL) != work.name or
+            current.status != "running" or feature_state() not in ("enabled", "always_enabled") or
+            command("sonic-db-cli", "CONFIG_DB", "HGET", "FEATURE|hft", "set_owner") not in ("", "local")):
+        raise RuntimeError("Refusing to restart countersyncd outside this run's HFT container")
+
+    def pid():
+        value = command("docker", "exec", candidate_id, "supervisorctl", "pid", "countersyncd")
+        return int(value) if value.isdecimal() else 0
+
+    old = pid()
+    if not old:
+        raise RuntimeError("countersyncd was not running before restart")
+    command("docker", "exec", candidate_id, "supervisorctl", "restart", "countersyncd")
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        new = pid()
+        if new and new != old:
+            return old, new
+        time.sleep(1)
+    raise RuntimeError(f"countersyncd did not restart from PID {old}")
 
 
 def restore(client, work):
@@ -460,7 +489,13 @@ def restore_otel(client, work, snapshot):
     armed = (work / "otel-enable.json").exists()
     fields = otel_fields()
     check_otel_fields(snapshot, fields, armed)
-    install_collector_config(work, None)  # Restore only the original or test-written file.
+    if (work / "collector-target.json").exists():
+        try:
+            install_collector_config(work, None)
+        except CollectorConfigChanged:
+            # A later operator file is authoritative. Preserve it and recover
+            # service liveness independently of whether we can restore the file.
+            pass
     if snapshot["original_state"] == "disabled":
         if current:
             # Also covers a pre-existing, originally stopped container left running
@@ -483,8 +518,10 @@ def restore_otel(client, work, snapshot):
         if current and snapshot["container_id"] is None:
             current.remove()  # The tagged test container has positively stopped.
     elif snapshot["original_collector_running"]:
-        if not any(work.glob("config-*")) and current.status == "running" and collector_running(current):
-            return  # HFT setup failed before installing any test collector configuration.
+        if (not (work / "collector-activity.json").exists() and
+                current.status == "running" and collector_running(current)):
+            return  # We did not stop or restart this original process.
+        require_restartable("otel")
         command("systemctl", "reset-failed", "otel.service")
         command("systemctl", "restart", "otel.service")
         # The operator's valid original collector may have no gRPC :4317 receiver.
@@ -500,25 +537,63 @@ def config_digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
+class CollectorConfigChanged(RuntimeError):
+    """The installed OTEL file is no longer the file we are allowed to replace."""
+
+
+def file_identity(st):
+    return (st.st_dev, st.st_ino, st.st_mode, st.st_uid, st.st_gid, st.st_nlink, st.st_ctime_ns, st.st_mtime_ns)
+
+
+def collector_file():
+    try:
+        st = OTEL_CONFIG.lstat()
+    except FileNotFoundError:
+        return None, None
+    if not stat.S_ISREG(st.st_mode) or st.st_nlink != 1:
+        raise CollectorConfigChanged(f"Refusing to replace managed {OTEL_CONFIG}")
+
+    def open_file(name, flags):
+        return os.open(name, flags | os.O_NOFOLLOW | os.O_NONBLOCK)
+
+    with open(OTEL_CONFIG, "rb", opener=open_file) as stream:
+        if file_identity(os.fstat(stream.fileno())) != file_identity(st):
+            raise CollectorConfigChanged("OTEL config identity changed while opening it")
+        data = stream.read()
+        if file_identity(os.fstat(stream.fileno())) != file_identity(st):
+            raise CollectorConfigChanged("OTEL config changed while reading it")
+    return st, data
+
+
+def check_service_config(work):
+    """A rejected installation must never stop/restart the original collector."""
+    _, data = collector_file()
+    target = work / "collector-target.json"
+    if not target.exists() or data is None or config_digest(data) != json.loads(target.read_text()):
+        raise CollectorConfigChanged("OTEL config is not this case's installed test configuration")
+
+
 def install_collector_config(work, owner, before_replace=None):
     """Publish the allowed content digest and atomically install it under the owner fence."""
-    if os.path.lexists(OTEL_CONFIG):
-        st = OTEL_CONFIG.lstat()
-        if not stat.S_ISREG(st.st_mode) or st.st_nlink != 1:
-            raise RuntimeError(f"Refusing to overwrite managed {OTEL_CONFIG}")
-    else:
-        st = None
+    st, current = collector_file()
     original, original_mode = json.loads((work / "otel.json").read_text())["otel_config"]
-    current = OTEL_CONFIG.read_bytes() if st else None
     if st and stat.S_IMODE(st.st_mode) != (int(original_mode, 8) if original_mode else 0o644):
-        raise RuntimeError("OTEL config permissions changed outside the HFT transaction")
+        raise CollectorConfigChanged("OTEL config permissions changed outside the HFT transaction")
     if current != (original.encode() if original is not None else None):
         if current is None or not (work / ("config-" + config_digest(current))).exists():
-            raise RuntimeError("OTEL config was changed outside this transaction")
+            raise CollectorConfigChanged("OTEL config was changed outside this transaction")
+
+    def revalidate_file():
+        latest, contents = collector_file()
+        if (contents != current or (latest is None) != (st is None) or
+                (latest and file_identity(latest) != file_identity(st))):
+            raise CollectorConfigChanged("OTEL config changed before publication")
+
     stage = OTEL_CONFIG.parent / ("." + work.name + ".otel.tmp")
     if owner is None:
         stage.unlink(missing_ok=True)
         if original is None:
+            revalidate_file()
             OTEL_CONFIG.unlink(missing_ok=True)
             return
         data, mode = original.encode(), int(original_mode, 8)
@@ -529,6 +604,7 @@ def install_collector_config(work, owner, before_replace=None):
         data = pending.read_bytes()
         mode = stat.S_IMODE(st.st_mode) if st else 0o644
         save(work / ("config-" + config_digest(data)), True)
+        save(work / "collector-target.json", config_digest(data))  # write ahead of rename
     fd = os.open(stage, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
     try:
         with os.fdopen(fd, "wb") as tmp:
@@ -540,6 +616,7 @@ def install_collector_config(work, owner, before_replace=None):
             os.fsync(tmp.fileno())
         if before_replace is not None:
             before_replace()
+        revalidate_file()
         os.replace(stage, OTEL_CONFIG)
         sync_directory(OTEL_CONFIG.parent)
     finally:
@@ -571,7 +648,7 @@ def transaction(action, work, owner, args):
                         and points_to(LEGACY_LOCK, work)):
                     return
                 raise RuntimeError("HFT claim already attempted; refusing to overwrite its owner")
-            save(path, {"version": 5, "id": owner, "controller": args[0]})
+            save(path, {"version": 6, "id": owner, "controller": args[0]})
             try:
                 ACTIVE.symlink_to(work)
                 sync_directory(ACTIVE.parent)
@@ -665,7 +742,7 @@ def transaction(action, work, owner, args):
                 profile.set_state(*args)
             else:
                 profile.remove(*args)
-        elif action in ("install", "restore", "prepare-otel", "configure", "restart-otel",
+        elif action in ("install", "restore", "restart-countersyncd", "prepare-otel", "configure", "restart-otel",
                         "stop-collector", "restore-otel"):
             if not points_to(LEGACY_LOCK, work):
                 raise RuntimeError("HFT runtime lock is missing or has changed")
@@ -679,6 +756,8 @@ def transaction(action, work, owner, args):
             try:
                 if action == "install":
                     install(client, work, args[0], args[1:])
+                elif action == "restart-countersyncd":
+                    print(json.dumps(restart_countersyncd(client, work)))
                 elif action == "restore":
                     print(restore(client, work) or "")
                 elif action == "restore-otel":
@@ -704,11 +783,19 @@ def transaction(action, work, owner, args):
                                 raise RuntimeError("OTEL is not enabled and running; refusing config replacement")
 
                         install_collector_config(work, owner, before_replace=check_destination)
-                    elif action == "restart-otel":
-                        command("systemctl", "reset-failed", "otel.service")
-                        command("systemctl", "restart", "otel.service")
                     else:
-                        stop_collector(current)
+                        fields = otel_fields()
+                        check_otel_fields(snapshot, fields, (work / "otel-enable.json").exists())
+                        if fields.get("state") not in ("enabled", "always_enabled"):
+                            raise RuntimeError("OTEL is no longer enabled; refusing to interrupt the collector")
+                        require_restartable("otel")
+                        check_service_config(work)
+                        save(work / "collector-activity.json", True)  # before the first process change
+                        if action == "restart-otel":
+                            command("systemctl", "reset-failed", "otel.service")
+                            command("systemctl", "restart", "otel.service")
+                        else:
+                            stop_collector(current)
             finally:
                 client.close()
         else:

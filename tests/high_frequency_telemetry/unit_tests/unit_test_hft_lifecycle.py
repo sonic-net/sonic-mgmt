@@ -231,3 +231,52 @@ def test_child_process_inherits_directory_fence(tmp_path):
         thread.join(5)
         for fd in (started_r, started_w, release_r):
             os.close(fd)
+
+
+def test_operator_config_edit_during_publication_survives_setup_and_recovery(tmp_path, monkeypatch):
+    work = tmp_path / "sonic-mgmt-hft-case"
+    work.mkdir()
+    config = tmp_path / "otel-config.yml"
+    config.write_text("original\n")
+    config.chmod(0o640)
+    monkeypatch.setattr(hft, "OTEL_CONFIG", config)
+    (work / "otel.json").write_text(json.dumps({"otel_config": ["original\n", "0640"]}))
+    (work / "config.owner").write_text("test\n")
+    with pytest.raises(hft.CollectorConfigChanged):
+        hft.install_collector_config(work, "owner", before_replace=lambda: config.write_text("operator\n"))
+    with pytest.raises(hft.CollectorConfigChanged):
+        hft.check_service_config(work)
+
+    snapshot = {"original_state": "enabled", "original_feature": {"state": "enabled"},
+                "original_collector_running": True}
+    current = Mock(status="running")
+    monkeypatch.setattr(hft, "check_otel", lambda *a: current)
+    monkeypatch.setattr(hft, "otel_fields", lambda: {"state": "enabled"})
+    monkeypatch.setattr(hft, "collector_running", lambda c: True)
+    service = Mock(return_value="enabled")
+    monkeypatch.setattr(hft, "command", service)
+    hft.restore_otel(None, work, snapshot)
+    service.assert_not_called()
+    assert config.read_text() == "operator\n"
+
+    # Once this run has touched the process, restore liveness but keep the operator's file.
+    hft.save(work / "collector-activity.json", True)
+    hft.restore_otel(None, work, snapshot)
+    assert ("systemctl", "restart", "otel.service") in [call.args for call in service.call_args_list]
+    assert config.read_text() == "operator\n"
+
+
+@pytest.mark.parametrize("ident,label", [
+    ("original-id", None), ("foreign-id", "sonic-mgmt-hft-unit"), ("candidate-id", "someone-else"),
+])
+def test_queue_restart_refuses_wrong_identity(tmp_path, monkeypatch, ident, label):
+    work = tmp_path / "sonic-mgmt-hft-unit"
+    work.mkdir()
+    hft.save(work / "before.json", {"candidate": "candidate-id"})
+    ct = Mock(id=ident, labels={hft.OWNER_LABEL: label}, status="running")
+    monkeypatch.setattr(hft, "lookup", lambda *a: ct)
+    commands = Mock()
+    monkeypatch.setattr(hft, "command", commands)
+    with pytest.raises(RuntimeError, match="outside this run"):
+        hft.restart_countersyncd(None, work)
+    commands.assert_not_called()

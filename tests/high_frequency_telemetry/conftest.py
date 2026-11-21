@@ -230,6 +230,12 @@ def skip_unsupported_hft_test(request, duthosts,
                               enum_rand_one_per_hwsku_hostname, tbinfo):
     """Skip unsupported cases before starting InfluxDB or changing OTEL."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if duthost.is_multi_asic:
+        pytest.skip("The HFT fixture requires a single ASIC; per-ASIC hft instances are not supported")
+    # A skipped successor must not strand the previous run. On a clean DUT,
+    # leave capability skips read-only; do not claim a transaction just to skip.
+    if transaction.active_work(duthost) is not None:
+        request.getfixturevalue("skip_unsupported_hft_platform")
     marker = request.node.get_closest_marker("hft_requirements")
     if marker is None:
         pytest.fail("Tests using hft_influxdb must declare hft_requirements")
@@ -337,6 +343,7 @@ def hft_influxdb(request, ptfhost, skip_unsupported_hft_test,
     sink = InfluxDbSink(ptfhost, bucket=bucket, port=INFLUXDB_PORT, profile=profile)
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     database_created = False
+    configured = False
 
     def verify_countersyncd():
         if get_running_countersyncd_pid(duthost) is None:
@@ -344,7 +351,6 @@ def hft_influxdb(request, ptfhost, skip_unsupported_hft_test,
 
     try:
         verify_countersyncd()
-        tx.call("stop-collector")
         setup_influxdb(ptfhost, port=INFLUXDB_PORT, bucket=bucket)
         database_created = True
         if not sink.is_empty():
@@ -359,6 +365,7 @@ def hft_influxdb(request, ptfhost, skip_unsupported_hft_test,
             influxdb_bucket=bucket,
         )
         tx.configure_otel(rendered_config)
+        configured = True
         restart_otel_service(duthost, tx)
         time.sleep(2)
         if not sink.is_empty():
@@ -380,7 +387,8 @@ def hft_influxdb(request, ptfhost, skip_unsupported_hft_test,
                 (f"drain HFT export into InfluxDB database {bucket}",
                  sink.wait_until_drained)
             )
-        cleanup_steps.append(("stop OTEL collector", partial(tx.call, "stop-collector")))
+        if configured:
+            cleanup_steps.append(("stop test OTEL collector", partial(tx.call, "stop-collector")))
         if database_created:
             cleanup_steps.append(
                 (f"drop InfluxDB database {bucket}", sink.drop)
@@ -394,13 +402,11 @@ def hft_influxdb(request, ptfhost, skip_unsupported_hft_test,
 
 
 @pytest.fixture(scope="function")
-def hft_queue_influxdb(hft_influxdb, duthosts,
-                       enum_rand_one_per_hwsku_hostname):
+def hft_queue_influxdb(hft_influxdb):
     """Reset countersyncd after the exhaustive Queue export is removed."""
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     yield hft_influxdb
     hft_influxdb.profile.remove()
-    restart_countersyncd_daemon(duthost)
+    restart_countersyncd_daemon(hft_influxdb.profile.tx)
 
 
 @pytest.fixture(autouse=True)
