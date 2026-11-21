@@ -86,9 +86,21 @@ def clone(client, source_id, flags):
 
 
 def start_service():
-    if command("systemctl", "show", "hft.service", "-p", "Result", "--value") == "start-limit-hit":
+    try:
+        command("systemctl", "start", "hft.service")
+    except subprocess.CalledProcessError:
+        if command("systemctl", "show", "hft.service", "-p", "Result", "--value") != "start-limit-hit":
+            raise
         command("systemctl", "reset-failed", "hft.service")
-    command("systemctl", "start", "hft.service")
+        command("systemctl", "start", "hft.service")
+
+
+def wait_for_feature(*states):
+    for _ in range(60):
+        if command("sonic-db-cli", "STATE_DB", "HGET", "FEATURE|hft", "state") in states:
+            return
+        time.sleep(1)
+    raise RuntimeError(f"HFT did not reach {states}; retaining recovery record")
 
 
 def install(client, flags):
@@ -103,6 +115,8 @@ def install(client, flags):
     policy = command("systemctl", "show", "hft.service", "-p", "UnitFileState", "--value")
     if policy not in ("masked", "disabled", "enabled") or (state != "disabled" and policy == "masked"):
         raise RuntimeError(f"Cannot safely restart hft with unit policy {policy!r}")
+    if state == "disabled":
+        wait_for_feature("", "disabled")
     # Keep the original container and its ID, including its writable layer, until teardown.
     with RECORD.open("x") as record:
         json.dump({"state": state, "original": source.id if source else None, "policy": policy}, record)
@@ -133,21 +147,12 @@ def install(client, flags):
 
 
 def restore_disabled_policy(policy):
-    # featured finishes disabling/masking asynchronously. Restore the original boot policy last.
-    for _ in range(60):
-        current = command("systemctl", "show", "hft.service", "-p", "UnitFileState", "--value")
-        if feature() != "disabled" or feature("set_owner") not in ("", "local"):
-            raise RuntimeError("HFT feature changed during restoration")
-        if current == policy == "masked":
-            return
-        if command("sonic-db-cli", "STATE_DB", "HGET", "FEATURE|hft", "state") == "disabled":
-            if current != policy:
-                command("systemctl", "unmask", "hft.service")
-                action = {"masked": "mask", "enabled": "enable", "disabled": "disable"}[policy]
-                command("systemctl", action, "hft.service")
-            return
-        time.sleep(1)
-    raise RuntimeError("HFT disable did not settle; retaining recovery record")
+    wait_for_feature("disabled")  # featured acknowledges disable after stopping and masking the unit.
+    if feature() != "disabled" or feature("set_owner") not in ("", "local"):
+        raise RuntimeError("HFT feature changed during restoration")
+    if command("systemctl", "show", "hft.service", "-p", "UnitFileState", "--value") != policy:
+        command("systemctl", "unmask", "hft.service")
+        command("systemctl", {"masked": "mask", "enabled": "enable", "disabled": "disable"}[policy], "hft.service")
 
 
 def restore(client):
@@ -164,6 +169,8 @@ def restore(client):
         raise RuntimeError("HFT owner or state changed; retaining recovery record")
     if current and current.labels.get(LABEL) != WORK.name and current.id != source_id:
         raise RuntimeError("Unrecognized hft container; retaining recovery record")
+    if enabled and feature() == "enabled":
+        wait_for_feature("enabled", "failed")  # Don't undo an enable that featured hasn't processed yet.
     if current and current.labels.get(LABEL) == WORK.name:
         command("systemctl", "stop", "hft.service")
         current.reload()
@@ -184,7 +191,8 @@ def restore(client):
         if before["state"] != "disabled" and source.status != "running":
             check_hwsku(source)
             start_service()
-            if client.containers.get("hft").id != source_id:
+            restored = client.containers.get("hft")
+            if restored.id != source_id or restored.status != "running":
                 raise RuntimeError("Original hft container was not restored")
     RECORD.unlink()
 

@@ -1,5 +1,6 @@
 import base64
 import itertools
+import json
 import logging
 import os
 import sys
@@ -137,6 +138,8 @@ def hft_container_work(duthosts, enum_rand_one_per_hwsku_hostname):
         yield helper
     finally:
         if helper:
+            if duthost.stat(path=f"{work}/otel-before.json", get_checksum=False, get_mime=False)["stat"]["exists"]:
+                pytest.fail(f"OTEL recovery incomplete; inspect the saved configuration in {work}")
             duthost.command(argv=[*helper, "restore"])  # Keep the record and exclusion directory if this fails.
         if work:
             duthost.file(path=work, state="absent")
@@ -276,8 +279,9 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname,
     ]
 
     def restore_config():
-        test_config = skip_unsupported_hft_platform.get("test_config")
-        if test_config is None or _otel_config(duthost) != test_config:
+        current = _otel_config(duthost)
+        own_configs = (skip_unsupported_hft_platform.get(k) for k in ("test_config", "pending_config"))
+        if current is None or current not in own_configs:
             return  # No test config was installed, or someone replaced its contents.
         if original_config is not None:
             duthost.copy(content=original_config, dest=OTEL_CONFIG_PATH, verbose=False)
@@ -335,9 +339,15 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname,
         pytest.fail("countersyncd did not start in the standalone hft container")
     if duthost.command(argv=["docker", "ps", "-q", "--no-trunc", "--filter", "name=^/hft$"])["stdout"] != hft_id:
         pytest.fail("hft.service did not start the test container")
+    backup = os.path.join(os.path.dirname(helper[-1]), "otel-before.json")
+    duthost.copy(dest=backup, content=json.dumps(skip_unsupported_hft_platform), mode="0600", verbose=False)
     try:
         if original_state not in enabled_states:
             enable_otel_collector(duthost, check_image=False)
+        skip_unsupported_hft_platform["otel_id"] = duthost.command(
+            argv=["docker", "ps", "-q", "--no-trunc", "--filter", "name=^/otel$"])["stdout"]
+        if not skip_unsupported_hft_platform["otel_id"]:
+            pytest.fail("Expected a running OTEL container")
         yield hft_id
     finally:
         # Setup failures are active here; pytest reports call-phase failures
@@ -360,7 +370,9 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname,
                 ("stop and remove created OTEL feature", remove_created_feature)
             )
         cleanup_error = _run_cleanup_steps(cleanup_steps)
-        if cleanup_error is not None and original_error is None:
+        if cleanup_error is None:
+            duthost.file(path=backup, state="absent")
+        elif original_error is None:
             raise cleanup_error
 
 
@@ -412,11 +424,15 @@ def hft_influxdb(request, ptfhost, skip_unsupported_hft_test,
             influxdb_port=INFLUXDB_PORT,
             influxdb_bucket=bucket,
         )
-        if (_otel_config(duthost) != baseline.get("test_config", baseline["original_config"]) or
-                _feature_fields(duthost, "otel").get("set_owner", "local") not in ("", "local")):
+        otel = _feature_fields(duthost, "otel")
+        running = duthost.command(argv=["docker", "ps", "-q", "--no-trunc", "--filter", "name=^/otel$"])["stdout"]
+        if (running != baseline["otel_id"] or otel.get("set_owner", "local") not in ("", "local") or
+                otel.get("state") not in ("enabled", "always_enabled") or
+                _otel_config(duthost) != baseline.get("test_config", baseline["original_config"])):
             pytest.fail("OTEL configuration or owner changed; refusing to overwrite it")
-        baseline["test_config"] = rendered_config  # A lost copy reply does not prove the file was untouched.
+        baseline["pending_config"] = rendered_config  # Until copy succeeds, either case's config may be on disk.
         install_otel_collector_config(duthost, rendered_config)
+        baseline["test_config"] = baseline.pop("pending_config")
         configured = True
         restart_otel_service(duthost)
         time.sleep(2)

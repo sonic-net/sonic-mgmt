@@ -76,7 +76,7 @@ HFT Phase 1 supports key AI data center statistics across four object types:
 - The fixture temporarily runs `hft` with Docker `Cmd` arguments `--enable-otel` and
   `--otel-endpoint=http://localhost:4317`. It leaves `hft.env` alone and restores the saved
   container and feature state on teardown. Use an exclusive testbed with no existing HFT profiles.
-  Tests keep it continuous except for one explicit restart after the exhaustive
+  Tests keep `countersyncd` running except for one explicit restart after the exhaustive
   Queue case, once that case's configuration and STATE_DB session are gone.
 - The DUT must provide the `otel` container image.
 - InfluxDB 3 Core (`influxdb3`) must be installed on the PTF host.
@@ -87,6 +87,8 @@ HFT Phase 1 supports key AI data center statistics across four object types:
 
 If the controller is killed, new runs do not take over `/var/lib/sonic-mgmt-hft`. First confirm
 the old run is stopped, inspect its saved `before.json`, and quiesce any remaining test profiles.
+The private `otel-before.json` contains the original collector configuration, feature fields and
+process state for manual recovery. Check the original PTF host for the test's `influxdb3` process.
 To restore HFT, run `flock -F -w 120 "$work" python3 "$work/hft_container.py" restore` as root,
 where `$work` is that run's subdirectory. After verifying HFT, OTEL and the PTF sink, remove this
 run's files and the empty reservation directory before releasing the testbed.
@@ -166,7 +168,7 @@ boundary.
 5. Validate complete series/tag coverage, nonnegative values, and average source interval and CPS within 10%.
 6. Disable the profile and wait for the session to stop, then delete the group
    and profile.
-7. Restart only `countersyncd`, require a new running PID with `--enable-otel`,
+7. Restart only `countersyncd` in the test HFT container and require a new running PID,
    and leave the SWSS container and forwarding state intact.
 
 **Expected Results**
@@ -396,7 +398,7 @@ cadence validation to two port series.
 1. **Start isolated infrastructure**: Reuse the module's test-owned in-memory InfluxDB process on port 8181.
 2. **Isolate the case**: Create a unique empty database, then install the OTEL configuration targeting it.
 3. **Restart OTEL safely**: Restart the systemd-managed `otel.service` and require its critical collector process to become healthy.
-4. **Verify countersyncd**: Require the supervisor daemon to be running with `--enable-otel`; do not alter it.
+4. **Verify countersyncd**: Check that supervisor reports the daemon running in the test's OTEL-enabled `hft` container.
 5. **Configure HFT**: Get available ports (desired: 2, minimum: 1). Atomically create HFT profile `e2e_port_profile` (poll interval 10ms, stream `enabled`) and its PORT group monitoring `IF_IN_OCTETS`.
 6. **Poll InfluxDB for metrics**: Query the exact expected measurements and object tags.
 7. **Verify data arrived**: Require complete series coverage, values, interval, and CPS within 5%.

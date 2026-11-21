@@ -16,5 +16,6 @@ docker() {
         *) echo "Unexpected docker operation in hft.sh: $1" >&2; exit 1 ;;
     esac
 }
+# /usr/local/bin/hft.sh is the systemd wrapper; it calls this generated Docker launcher.
 source /usr/bin/hft.sh start
 exit 1
