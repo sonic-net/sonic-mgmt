@@ -1030,31 +1030,31 @@ class SonicHost(AnsibleHostBase):
         Returns:
             A list contains ids of namespace such as [DEFAULT_ASIC_ID, "0", "1", ...]}
         """
-        has_global_scope = ""
-        has_per_asic_scope = ""
         namespace_ids = []
 
         num_asics = int(self.facts["num_asic"])
-        command_config_entry = "sonic-db-cli CONFIG_DB hgetall \"FEATURE|{}\"".format(container_name)
-        command_output = self.shell(command_config_entry)
-        exit_code = command_output["rc"]
-        if exit_code != 0:
-            return namespace_ids, False
-
-        config_info = command_output["stdout_lines"]
-        for index, item in enumerate(config_info):
-            if item == "has_global_scope":
-                has_global_scope = config_info[index + 1]
-            elif item == "has_per_asic_scope":
-                has_per_asic_scope = config_info[index + 1]
-
         if num_asics > 1:
-            if has_global_scope == "True":
+            command_output = self.shell("sonic-cfggen -d --var-json FEATURE", module_ignore_errors=True)
+            if command_output["rc"] != 0:
+                logger.error("Failed to read FEATURE scope for %s on %s: %s",
+                             container_name, self.hostname, command_output.get("stderr", ""))
+                return namespace_ids, False
+
+            feature = json.loads(command_output["stdout"]).get(container_name)
+            if not isinstance(feature, dict):
+                logger.error("Missing or invalid FEATURE entry for %s on %s", container_name, self.hostname)
+                return namespace_ids, False
+
+            if feature.get("has_global_scope") in (True, "True"):
                 namespace_ids.append(DEFAULT_ASIC_ID)
-            if has_per_asic_scope == "True":
+            if feature.get("has_per_asic_scope") in (True, "True"):
                 for asic_id in range(0, num_asics):
                     namespace_ids.append(str(asic_id))
         else:
+            command_config_entry = "sonic-db-cli CONFIG_DB hgetall \"FEATURE|{}\"".format(container_name)
+            command_output = self.shell(command_config_entry)
+            if command_output["rc"] != 0:
+                return namespace_ids, False
             namespace_ids.append(DEFAULT_ASIC_ID)
 
         return namespace_ids, True
