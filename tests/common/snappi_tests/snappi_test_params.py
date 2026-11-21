@@ -84,3 +84,6 @@ class SnappiTestParams():
         # Stop the data flows (only) after in-flight stats, so a flow held under a
         # continuous pause storm reaches 'stopped' instead of timing out the wait loop.
         self.stop_data_flows_before_final_stats: bool = False
+        self.egress_offset = 0
+        # Bytes to retain per captured frame (IxNetwork slicing); 0 disables slicing.
+        self.capture_slice_size = 0

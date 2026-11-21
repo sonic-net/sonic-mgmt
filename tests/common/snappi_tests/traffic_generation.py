@@ -858,14 +858,23 @@ def run_traffic(duthost,
     in_flight_flow_metrics = None
 
     if pcap_type != packet_capture.NO_CAPTURE:
+        if snappi_extra_params.capture_slice_size:
+            # IxNetwork frame slicing; must follow set_config() and precede capture start.
+            slice_size = snappi_extra_params.capture_slice_size
+            ixnetwork = api._ixnetwork
+            ixnetwork.Traffic.EnableMinFrameSize = True
+            cap_port = ixnetwork.Vport.find().Capture.find(HardwareEnabled=True)
+            cap_port.SliceSize = slice_size
+            cap_port.update(HardwareEnabled=True, SoftwareEnabled=True)
+            logger.info("Enabled capture slicing: SliceSize=%d bytes", slice_size)
         logger.info("Starting packet capture ...")
         cs = api.control_state()
         cs.port.capture.port_names = snappi_extra_params.packet_capture_ports
         cs.port.capture.state = cs.port.capture.START
         api.set_control_state(cs)
 
-    for host in set([*snappi_extra_params.multi_dut_params.ingress_duthosts,
-                     *snappi_extra_params.multi_dut_params.egress_duthosts, duthost]):
+    for host in {*snappi_extra_params.multi_dut_params.ingress_duthosts,
+                 *snappi_extra_params.multi_dut_params.egress_duthosts, duthost}:
         clear_dut_interface_counters(host)
         clear_dut_que_counters(host)
         clear_dut_pfc_counters(host)
@@ -1807,10 +1816,11 @@ def run_traffic_and_collect_stats(rx_duthost,
     api.set_control_state(cs)
 
     stormed = False
+    check_list = [[rx_duthost, [x['rx_port_config'].peer_port for x in snappi_extra_params.base_flow_config_list][0]]]
     if tx_duthost.facts["platform_asic"] == 'cisco-8000' and enable_pfcwd_drop:
         retry = 3
         while retry > 0 and not stormed:
-            for dut, port in dutport_list:
+            for dut, port in check_list:
                 for pri in switch_tx_lossless_prios:
                     stormed = clear_pfc_counter_after_storm(dut, port, pri)
                     if stormed:
