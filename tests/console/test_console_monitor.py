@@ -370,7 +370,7 @@ def ensure_dce_service_running(duthost, configured_lines: list[int]):
     """
     # Check if console feature is enabled in CONFIG_DB
     console_switch_config = duthost.shell(
-        "sonic-db-cli CONFIG_DB HGET 'CONSOLE_SWITCH|console_mgmt' 'enabled'",
+        "sonic-db-cli -s CONFIG_DB HGET 'CONSOLE_SWITCH|console_mgmt' 'enabled'",
         module_ignore_errors=True
     )
     pytest_assert(

@@ -60,7 +60,11 @@ def _load_target_module():
     ):
         setattr(utilities, name, lambda *args, **kwargs: None)
 
+    sonic_db = types.ModuleType("tests.common.helpers.sonic_db")
+    sonic_db.redis_cli_command = MagicMock()
+
     stubs = {
+        "tests.common.helpers.sonic_db": sonic_db,
         "tests.common.utilities": common_utilities,
         "tests.high_frequency_telemetry.counter_profiles": counter_profiles,
         "tests.high_frequency_telemetry.utilities": utilities,

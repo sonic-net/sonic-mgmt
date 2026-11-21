@@ -67,12 +67,12 @@ def check_expected_daemon_status(duthost, expected_daemon_status):
 
 def collect_data(duthost):
     keys = duthost.shell(
-        'sonic-db-cli STATE_DB KEYS "EEPROM_INFO|*"')['stdout_lines']
+        'sonic-db-cli -s STATE_DB KEYS "EEPROM_INFO|*"')['stdout_lines']
 
     dev_data = {}
     for k in keys:
         data = duthost.shell(
-            'sonic-db-cli STATE_DB HGETALL "{}"'.format(k))['stdout']
+            'sonic-db-cli -s STATE_DB HGETALL "{}"'.format(k))['stdout']
         data = compose_dict_from_cli(data)
         dev_data[k] = data
 

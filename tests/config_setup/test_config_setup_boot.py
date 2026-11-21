@@ -480,7 +480,7 @@ class TestRealConfigSetupMinigraphFallback:
         # Remove config_db.json
         logger.info("Removing %s to trigger config initialization", CONFIG_DB_JSON)
         duthost.shell("rm -f {}".format(CONFIG_DB_JSON))
-        duthost.shell('sonic-db-cli CONFIG_DB DEL "CONFIG_DB_INITIALIZED"',
+        duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB DEL "CONFIG_DB_INITIALIZED"',
                       module_ignore_errors=True)
 
         # Run actual config-setup boot
@@ -525,14 +525,14 @@ class TestRealConfigSetupMinigraphFallback:
 
         # Set warm boot flag in STATE_DB
         duthost.shell(
-            'sonic-db-cli STATE_DB HSET "WARM_RESTART_ENABLE_TABLE|system" enable true',
+            'sonic-db-cli -s --authenticate STATE_DB HSET "WARM_RESTART_ENABLE_TABLE|system" enable true',
             module_ignore_errors=True
         )
 
         try:
             # Remove config_db.json
             duthost.shell("rm -f {}".format(CONFIG_DB_JSON))
-            duthost.shell('sonic-db-cli CONFIG_DB DEL "CONFIG_DB_INITIALIZED"',
+            duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB DEL "CONFIG_DB_INITIALIZED"',
                           module_ignore_errors=True)
 
             # Run actual config-setup boot
@@ -557,6 +557,6 @@ class TestRealConfigSetupMinigraphFallback:
 
         finally:
             duthost.shell(
-                'sonic-db-cli STATE_DB HSET "WARM_RESTART_ENABLE_TABLE|system" enable false',
+                'sonic-db-cli -s --authenticate STATE_DB HSET "WARM_RESTART_ENABLE_TABLE|system" enable false',
                 module_ignore_errors=True
             )
