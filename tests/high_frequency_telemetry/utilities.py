@@ -5,14 +5,16 @@ import json
 import logging
 import re
 import shlex
+import sys
 import threading
 import time
 from collections import namedtuple
+from collections.abc import Iterable
 from datetime import datetime
-from pathlib import Path
 
 import ptf.testutils as testutils
 import pytest
+from _pytest.outcomes import OutcomeException
 from natsort import natsorted
 
 from tests.common.helpers.assertions import pytest_assert
@@ -155,21 +157,340 @@ def get_configured_buffer_pools(duthost):
     ))
 
 
-def get_running_countersyncd_pid(duthost):
-    """Return the PID if supervisor reports countersyncd as RUNNING in hft, otherwise None."""
-    status = duthost.shell(
-        "docker exec hft supervisorctl status countersyncd",
+def _stringify_sequence(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, Iterable):
+        return ",".join(str(item) for item in value)
+    return str(value)
+
+
+def _normalize_hft_group_type(group_name):
+    key = re.sub(r"[\s\-]+", "_", str(group_name).strip()).upper()
+    mapping = {
+        "PORT": "PORT",
+        "QUEUE": "QUEUE",
+        "BUFFER": "BUFFER_POOL",
+        "BUFFER_POOL": "BUFFER_POOL",
+        "INGRESS_PRIORITY_GROUP": "INGRESS_PRIORITY_GROUP",
+        "PG": "INGRESS_PRIORITY_GROUP",
+        "IPG": "INGRESS_PRIORITY_GROUP",
+    }
+    group_type = mapping.get(key)
+    pytest_assert(group_type is not None, f"Unsupported HFT group: {group_name}")
+    return group_type
+
+
+def _get_hft_config_keys(duthost):
+    def query_keys(pattern):
+        result = duthost.shell(
+            f"redis-cli -n 4 --raw KEYS {shlex.quote(pattern)}",
+            module_ignore_errors=True,
+        )
+        lines = [
+            line for line in result.get("stdout_lines", []) if line
+        ]
+        redis_errors = [
+            line for line in lines
+            if line.startswith("ERR ") or line.startswith("(error)")
+        ]
+        pytest_assert(
+            result.get("rc") == 0 and not redis_errors,
+            f"Failed to query CONFIG_DB keys for {pattern}: {result}",
+        )
+        return lines
+
+    return (
+        query_keys("HIGH_FREQUENCY_TELEMETRY_PROFILE|*"),
+        query_keys("HIGH_FREQUENCY_TELEMETRY_GROUP|*"),
+    )
+
+
+def _apply_hft_patch(duthost, operations):
+    payload = shlex.quote(json.dumps(operations, separators=(",", ":")))
+    return duthost.shell(
+        "patch_file=$(mktemp /tmp/hft-test-XXXXXX.json) && "
+        f"printf '%s' {payload} > \"$patch_file\" && "
+        "sudo config apply-patch \"$patch_file\"; "
+        "rc=$?; rm -f \"$patch_file\"; exit $rc",
+        module_ignore_errors=False,
+    )
+
+
+def setup_hft_config(duthost, profile_name, group_name, object_names,
+                     object_counters, poll_interval=10000,
+                     stream_state="enabled"):
+    """Create an HFT profile and group in one validated config patch."""
+    state = (stream_state or "").strip().lower()
+    pytest_assert(
+        state in {"enabled", "disabled"},
+        f"Invalid HFT stream state: {state}",
+    )
+    group_type = _normalize_hft_group_type(group_name)
+    objects = [
+        item.strip() for item in _stringify_sequence(object_names).split(",")
+        if item.strip()
+    ]
+    counters = [
+        item.strip() for item in _stringify_sequence(object_counters).split(",")
+        if item.strip()
+    ]
+    profiles, groups = _get_hft_config_keys(duthost)
+    pytest_assert(
+        not profiles and not groups,
+        "An HFT configuration already exists: "
+        f"profiles={profiles}, groups={groups}",
+    )
+    result = _apply_hft_patch(duthost, [
+        {
+            "op": "add",
+            "path": "/HIGH_FREQUENCY_TELEMETRY_PROFILE",
+            "value": {
+                profile_name: {
+                    "stream_state": state,
+                    "poll_interval": str(int(poll_interval)),
+                },
+            },
+        },
+        {
+            "op": "add",
+            "path": "/HIGH_FREQUENCY_TELEMETRY_GROUP",
+            "value": {
+                f"{profile_name}|{group_type}": {
+                    "object_names": objects,
+                    "object_counters": counters,
+                },
+            },
+        },
+    ])
+    logger.info(
+        "Created HFT profile/group %s/%s (poll_interval=%s, stream_state=%s)",
+        profile_name,
+        group_type,
+        poll_interval,
+        state,
+    )
+    return result
+
+
+def setup_hft_stream_state(duthost, profile_name, stream_state):
+    """Enable or disable an HFT profile."""
+    profile_arg = shlex.quote(str(profile_name))
+    state = (stream_state or "").strip().lower()
+    action_map = {
+        "enabled": "enable",
+        "enable": "enable",
+        "disabled": "disable",
+        "disable": "disable",
+    }
+    pytest_assert(state in action_map, f"Invalid HFT stream state: {state}")
+    return duthost.shell(
+        f"sudo config hft {action_map[state]} {profile_arg}",
+        module_ignore_errors=False,
+    )
+
+
+def cleanup_hft_config(duthost, profile_name, group_names=None):
+    """Stop the stream, delete its groups, then delete the profile."""
+    original_error = sys.exc_info()[1]
+    first_cleanup_error = None
+
+    def cleanup_step(step_name, callback):
+        nonlocal first_cleanup_error
+        try:
+            callback()
+            return True
+        except (Exception, OutcomeException) as error:
+            logger.exception("HFT cleanup step '%s' failed", step_name)
+            if first_cleanup_error is None:
+                first_cleanup_error = error
+            return False
+
+    def run_command(command, failure_message):
+        result = duthost.shell(command, module_ignore_errors=True)
+        pytest_assert(result.get("rc") == 0, f"{failure_message}: {result}")
+
+    profile_arg = shlex.quote(str(profile_name))
+    profile_keys = []
+    group_keys = []
+    config_known = False
+
+    def inspect_config():
+        nonlocal profile_keys, group_keys, config_known
+        profile_keys, group_keys = _get_hft_config_keys(duthost)
+        config_known = True
+
+    cleanup_step("inspect HFT configuration", inspect_config)
+
+    if group_names is None:
+        group_names = [
+            key.split("|", 2)[2] for key in group_keys
+            if key.startswith(f"HIGH_FREQUENCY_TELEMETRY_GROUP|{profile_name}|")
+        ]
+    elif isinstance(group_names, str):
+        group_names = [group_names]
+
+    requested_groups = [
+        _normalize_hft_group_type(group_name) for group_name in group_names
+    ]
+    if config_known:
+        configured_groups = [
+            group_type for group_type in requested_groups
+            if f"HIGH_FREQUENCY_TELEMETRY_GROUP|{profile_name}|{group_type}"
+            in group_keys
+        ]
+    else:
+        configured_groups = requested_groups
+
+    profile_key = f"HIGH_FREQUENCY_TELEMETRY_PROFILE|{profile_name}"
+    profile_may_exist = not config_known or profile_key in profile_keys
+    if profile_may_exist:
+        cleanup_step(
+            f"disable profile {profile_name}",
+            lambda: run_command(
+                f"sudo config hft disable {profile_arg}",
+                f"Failed to disable HFT profile {profile_name}",
+            ),
+        )
+
+    def wait_for_session_state(group_type, expected_state):
+        session_key = shlex.quote(
+            "HIGH_FREQUENCY_TELEMETRY_SESSION_TABLE|"
+            f"{profile_name}|{group_type}"
+        )
+        if expected_state == "disabled":
+            condition = '[ "$state" = disabled ] || [ "$state" = missing ]'
+        else:
+            condition = '[ "$state" = missing ]'
+        command = (
+            "for i in $(seq 1 30); do "
+            "state=$(redis-cli -n 6 --raw EVAL "
+            "'if redis.call(\"EXISTS\", KEYS[1]) == 0 then "
+            "return \"missing\" end; return redis.call(\"HGET\", KEYS[1], "
+            "ARGV[1]) or \"invalid\"' "
+            f"1 {session_key} stream_status) || exit 2; "
+            f"if {condition}; then exit 0; fi; "
+            "sleep 1; done; exit 1"
+        )
+        run_command(
+            command,
+            f"HFT session {profile_name}|{group_type} did not reach "
+            f"{expected_state}",
+        )
+
+    stopped_groups = {}
+    for group_type in configured_groups:
+        stopped_groups[group_type] = cleanup_step(
+            f"wait for session {profile_name}|{group_type} to stop",
+            lambda group_type=group_type: wait_for_session_state(
+                group_type, "disabled"
+            ),
+        )
+    removed_groups = {}
+    for group_type in configured_groups:
+        if not stopped_groups[group_type]:
+            logger.error(
+                "Not deleting HFT group %s|%s because its session did not stop",
+                profile_name,
+                group_type,
+            )
+            removed_groups[group_type] = False
+            continue
+        group_deleted = cleanup_step(
+            f"delete group {profile_name}|{group_type}",
+            lambda group_type=group_type: run_command(
+                f"sudo config hft del group {profile_arg} {group_type}",
+                f"Failed to delete HFT group {profile_name}|{group_type}",
+            ),
+        )
+        removed_groups[group_type] = group_deleted and cleanup_step(
+                f"wait for session {profile_name}|{group_type} removal",
+                lambda group_type=group_type: wait_for_session_state(
+                    group_type, "removed"
+                ),
+            )
+
+    groups_removed = all(removed_groups.values())
+    if profile_may_exist and groups_removed:
+        cleanup_step(
+            f"delete profile {profile_name}",
+            lambda: run_command(
+                f"sudo config hft del profile {profile_arg}",
+                f"Failed to delete HFT profile {profile_name}",
+            ),
+        )
+    elif profile_may_exist:
+        logger.error(
+            "Not deleting HFT profile %s because group cleanup was incomplete",
+            profile_name,
+        )
+
+    def verify_config_removed():
+        remaining_profiles, remaining_groups = _get_hft_config_keys(duthost)
+        stale_groups = [
+            key for key in remaining_groups
+            if key.startswith(
+                f"HIGH_FREQUENCY_TELEMETRY_GROUP|{profile_name}|"
+            )
+        ]
+        pytest_assert(
+            profile_key not in remaining_profiles and not stale_groups,
+            f"HFT configuration remains after cleanup: profile="
+            f"{profile_key in remaining_profiles}, groups={stale_groups}",
+        )
+
+    cleanup_step("verify HFT configuration removal", verify_config_removed)
+    if first_cleanup_error is not None:
+        if original_error is None:
+            raise first_cleanup_error
+        logger.error(
+            "Preserving active test failure after HFT cleanup also failed: %s",
+            first_cleanup_error,
+        )
+        return
+    logger.info("Cleaned HFT profile %s", profile_name)
+
+
+def ensure_countersyncd_daemon(duthost):
+    """Supervisor checks liveness; the native HFT cases verify the OTEL data path."""
+    pytest_assert(_get_running_countersyncd_pid(duthost) is not None, "countersyncd is not running in hft")
+    return True
+
+
+def _get_running_countersyncd_pid(duthost, container="hft"):
+    status = duthost.command(
+        argv=["docker", "exec", container, "supervisorctl", "status", "countersyncd"],
         module_ignore_errors=True,
     )
-    if status.get("rc") != 0:
-        return None
     match = re.match(r"countersyncd\s+RUNNING\s+pid ([1-9]\d*),", status.get("stdout", "").strip())
-    return int(match.group(1)) if match else None
+    return int(match.group(1)) if status.get("rc") == 0 and match else None
 
 
-def restart_countersyncd_daemon(tx):
-    """Restart only the run-owned daemon, inside the same fence as recovery."""
-    old_pid, new_pid = json.loads(tx.call("restart-countersyncd"))
+def restart_countersyncd_daemon(duthost, container, timeout=30):
+    """Restart only countersyncd and verify its supervisor-owned process."""
+    old_pid = _get_running_countersyncd_pid(duthost, container)
+    pytest_assert(
+        old_pid is not None,
+        "Unable to determine the running countersyncd PID before restart",
+    )
+    result = duthost.command(
+        argv=["docker", "exec", container, "supervisorctl", "restart", "countersyncd"],
+        module_ignore_errors=True,
+    )
+    pytest_assert(
+        result.get("rc") == 0,
+        f"Failed to restart countersyncd: {result}",
+    )
+
+    def restarted():
+        pid = _get_running_countersyncd_pid(duthost, container)
+        return pid is not None and pid != old_pid
+
+    pytest_assert(
+        wait_until(timeout, 1, 0, restarted),
+        f"countersyncd did not restart from PID {old_pid}",
+    )
+    new_pid = _get_running_countersyncd_pid(duthost, container)
     logger.info("Restarted countersyncd from PID %d to PID %d", old_pid, new_pid)
     return old_pid, new_pid
 
@@ -186,8 +507,16 @@ def render_otel_collector_config(template_path, **kwargs):
     return template.render(**kwargs)
 
 
+def install_otel_collector_config(duthost, rendered_config,
+                                  dest_path="/etc/sonic/otel_config.yml"):
+    duthost.copy(content=rendered_config, dest=dest_path)
+
+
 def _is_otel_collector_ready(duthost):
-    if not duthost.critical_processes_running("otel"):
+    if (
+        not duthost.is_service_fully_started("otel")
+        or not duthost.critical_processes_running("otel")
+    ):
         return False
 
     result = duthost.shell(
@@ -197,9 +526,12 @@ def _is_otel_collector_ready(duthost):
     return result.get("rc") == 0
 
 
-def restart_otel_service(duthost, tx, timeout=60):
-    """Restart the test collector and wait for the test configuration's OTLP listener."""
-    tx.call("restart-otel")
+def restart_otel_service(duthost, timeout=60):
+    """Restart otel.service and wait for the collector's OTLP listener."""
+    duthost.shell(
+        "sudo systemctl reset-failed otel && sudo systemctl restart otel",
+        module_ignore_errors=False,
+    )
     ready = wait_until(timeout, 2, 10, _is_otel_collector_ready, duthost)
     diagnostics = ""
     if not ready:
@@ -220,6 +552,18 @@ def restart_otel_service(duthost, tx, timeout=60):
     )
 
 
+def stop_otel_collector(duthost):
+    """Stop only the OTEL collector process inside its container."""
+    result = duthost.shell(
+        "docker exec otel supervisorctl stop otel",
+        module_ignore_errors=True,
+    )
+    pytest_assert(
+        result.get("rc") == 0 or "not running" in result.get("stdout", "").lower(),
+        f"Failed to stop the OTEL collector process: {result}",
+    )
+
+
 def is_otel_image_available(duthost, attempts=6, retry_interval=10):
     """Return whether the DUT has the OTEL container image."""
     for attempt in range(attempts):
@@ -235,12 +579,42 @@ def is_otel_image_available(duthost, attempts=6, retry_interval=10):
     return False
 
 
-def _sink_command(action, node_id, port=8181):
-    helper = Path(__file__).with_name("files") / "hft_sink.py"
-    return shlex.join(["python3", "-c", helper.read_text(), action, node_id, str(port)])
+def enable_otel_collector(duthost, timeout=60, check_image=True):
+    """Enable the OTEL feature and wait for its container."""
+    if check_image and not is_otel_image_available(duthost):
+        pytest.skip("docker-sonic-otel is not available on this platform")
+
+    exists = duthost.shell(
+        "sonic-db-cli CONFIG_DB exists 'FEATURE|otel'",
+        module_ignore_errors=True,
+    )
+    if exists.get("stdout", "").strip() == "0":
+        duthost.shell(
+            "sonic-db-cli CONFIG_DB hmset 'FEATURE|otel' "
+            "state enabled auto_restart enabled "
+            "has_global_scope True has_per_asic_scope False",
+            module_ignore_errors=False,
+        )
+    duthost.shell(
+        "sudo config feature state otel enabled",
+        module_ignore_errors=False,
+    )
+
+    end_time = time.time() + timeout
+    while time.time() < end_time:
+        running = duthost.shell(
+            r"docker inspect -f \{\{.State.Running\}\} otel",
+            module_ignore_errors=True,
+        )
+        if running.get("rc") == 0 \
+                and running.get("stdout", "").strip() == "true":
+            return True
+        time.sleep(2)
+    raise AssertionError("OTEL container did not become ready")
 
 
-def start_influxdb(ptfhost, node_id, *, before_start, port=8181, timeout=30):
+def start_influxdb(ptfhost, port=8181, timeout=30,
+                   log_path="/tmp/hft_influxdb3.log"):
     """Start an owned in-memory InfluxDB 3 process and return its PID."""
     binary = ptfhost.shell("command -v influxdb3", module_ignore_errors=True)
     pytest_assert(
@@ -259,15 +633,21 @@ def start_influxdb(ptfhost, node_id, *, before_start, port=8181, timeout=30):
         listener.get("rc") != 0,
         f"TCP port {port} is already in use on the PTF host",
     )
-    ptfhost.shell(_sink_command("prepare", node_id, port))
+    result = ptfhost.shell(
+        "nohup influxdb3 serve --object-store memory --node-id hft-test "
+        f"--http-bind=0.0.0.0:{int(port)} --without-auth "
+        f"> {shlex.quote(log_path)} 2>&1 < /dev/null & echo $!",
+        module_ignore_errors=False,
+    )
     try:
-        before_start()  # The reservation already exists; 'start' itself may never create one.
-        result = ptfhost.shell(f"nohup {_sink_command('start', node_id, port)} >/dev/null 2>&1 </dev/null & echo $!")
         pid = int(result.get("stdout", "").strip().splitlines()[-1])
+    except (ValueError, IndexError) as exc:
+        raise RuntimeError(f"Failed to capture InfluxDB PID: {result}") from exc
+
+    try:
         end_time = time.time() + timeout
         while time.time() < end_time:
             health = ptfhost.shell(
-                f"ss -lntp 'sport = :{int(port)}' | grep -q 'pid={pid},' && "
                 f"curl -sf --max-time 5 http://localhost:{int(port)}/health",
                 module_ignore_errors=True,
             )
@@ -276,11 +656,11 @@ def start_influxdb(ptfhost, node_id, *, before_start, port=8181, timeout=30):
                 return pid
             time.sleep(2)
         server_log = ptfhost.shell(
-            f"tail -100 {shlex.quote('/tmp/' + node_id + '-sink/influx.log')}", module_ignore_errors=True
+            f"tail -100 {shlex.quote(log_path)}", module_ignore_errors=True
         ).get("stdout", "")
         raise RuntimeError(f"InfluxDB did not become healthy:\n{server_log}")
     except BaseException:
-        stop_owned_influxdb(ptfhost, node_id)
+        ptfhost.shell(f"kill {pid}", module_ignore_errors=True)
         raise
 
 
@@ -327,9 +707,27 @@ def query_influxdb(ptfhost, influxql_query, port=8181, db="home"):
     return ptfhost.shell(command, module_ignore_errors=True)
 
 
-def stop_owned_influxdb(ptfhost, node_id):
-    """Stop this run's sink under the same PTF lock used to start it."""
-    ptfhost.shell(_sink_command("stop", node_id))
+def stop_influxdb(ptfhost, pid):
+    """Stop only the InfluxDB process owned by this test."""
+    process = ptfhost.shell(
+        f"ps -p {int(pid)} -o args=", module_ignore_errors=True
+    )
+    if process.get("rc") != 0:
+        return
+    pytest_assert(
+        "influxdb3 serve" in process.get("stdout", ""),
+        f"Refusing to terminate unexpected PID {pid}: {process.get('stdout', '')}",
+    )
+    ptfhost.shell(f"kill {int(pid)}", module_ignore_errors=True)
+    end_time = time.time() + 10
+    while time.time() < end_time:
+        status = ptfhost.shell(
+            f"ps -p {int(pid)} -o stat=", module_ignore_errors=True
+        )
+        if status.get("rc") != 0 or status.get("stdout", "").lstrip().startswith("Z"):
+            return
+        time.sleep(1)
+    ptfhost.shell(f"kill -9 {int(pid)}", module_ignore_errors=True)
 
 
 def parse_influxdb_json(json_text):
@@ -379,9 +777,8 @@ def _parse_rfc3339_timestamp(value):
 class InfluxDbSink:
     """Query and validate counters exported by the countersyncd daemon."""
 
-    def __init__(self, ptfhost, *, profile, bucket="hft_test", port=8181):
+    def __init__(self, ptfhost, bucket="hft_test", port=8181):
         self.ptfhost = ptfhost
-        self.profile = profile
         self.bucket = bucket
         self.port = port
 
