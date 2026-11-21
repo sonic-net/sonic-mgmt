@@ -2918,6 +2918,12 @@ generic_config_updater/test_pg_headroom_update.py:
       - "topo_type in ['bmc', 'm0', 'm1', 'mx']"
       - "asic_type in ['cisco-8000'] and topo_type in ['t2', 'lrh', 'urh']"
 
+generic_config_updater/test_pg_headroom_update.py::test_pg_headroom_update:
+  skip:
+    reason: "Full-lossy SKUs do not have lossless buffer profiles."
+    conditions:
+      - "hwsku in constants['FULL_LOSSY_HWSKUS']"
+
 generic_config_updater/test_srv6:
   skip:
     reason: "SRv6 is not supported on older ASICs (TH/TH2/TD3, SPC1-3). Skip for unsupported topologies and platforms."
