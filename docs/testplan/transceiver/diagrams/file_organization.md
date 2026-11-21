@@ -243,8 +243,11 @@ tests/transceiver/
 │
 ├── port_config/
 │   ├── __init__.py
-│   ├── conftest.py                          # Port config-specific fixtures
-│   └── test_port_config.py                  # Port speed, FEC, MTU, autoneg, DOM polling, subport
+│   ├── conftest.py                          # Port selection over port_attributes_dict; no session
+│   │                                        #   prerequisite gates (tests are read-only CONFIG_DB queries)
+│   ├── port_config_helpers.py               # CONFIG_DB PORT table checks returning failure lists
+│   └── test_port_config.py                  # TC 1: admin status (speed, FEC, MTU, autoneg, DOM polling,
+│                                            #   subport to follow)
 │
 ├── vdm/
 │   ├── __init__.py
