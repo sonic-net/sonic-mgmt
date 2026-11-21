@@ -117,19 +117,9 @@ def setup_env(duthosts, rand_one_dut_front_end_hostname, enum_rand_one_frontend_
                                  duthost, original_iptable_rules, ip_netns_namespace_prefix),
                       "The current iptable rules doesn't match the original one")
 
-        current_cacl_tables = get_cacl_tables(duthost, ip_netns_namespace_prefix)
-        logger.info("original cacl tables: {}, current cacl tables: {}".format(
-            original_cacl_tables, current_cacl_tables)
-        )
-        cacl_tables_diff = [
-            li for li in difflib.ndiff(original_cacl_tables, current_cacl_tables) if li[0] != ' '
-        ]
-        logger.info("cacl_tables_diff {}".format(cacl_tables_diff))
-        pytest_assert(
-            set(original_cacl_tables) == set(current_cacl_tables),
-            "cacl tables are not suppose to change after test. diff: {}".format(
-                cacl_tables_diff)
-        )
+        pytest_assert(wait_until(5, 1, 0, check_original_and_current_cacl_tables,
+                                 duthost, original_cacl_tables, ip_netns_namespace_prefix),
+                      "The current cacl tables don't match the original ones")
     finally:
         delete_checkpoint(duthost)
 
@@ -149,6 +139,23 @@ def check_original_and_current_iptable_rule(duthost, original_iptable_rules, ip_
     else:
         logger.error(f"iptable rules are not suppose to change after test. diff: {iptable_rules_diff}")
         return False
+
+
+def check_original_and_current_cacl_tables(duthost, original_cacl_tables, ip_netns_namespace_prefix):
+    current_cacl_tables = get_cacl_tables(duthost, ip_netns_namespace_prefix)
+    logger.info("original cacl tables: {}, current cacl tables: {}".format(
+        original_cacl_tables, current_cacl_tables)
+    )
+    cacl_tables_diff = [
+        li for li in difflib.ndiff(original_cacl_tables, current_cacl_tables) if li[0] != ' '
+    ]
+    logger.info("cacl_tables_diff {}".format(cacl_tables_diff))
+
+    if set(original_cacl_tables) == set(current_cacl_tables):
+        return True
+
+    logger.error(f"cacl tables are not suppose to change after test. diff: {cacl_tables_diff}")
+    return False
 
 
 def expect_acl_table_match(duthost, table_name, expected_content_list, ip_netns_namespace_prefix):
