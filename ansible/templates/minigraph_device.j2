@@ -24,10 +24,6 @@
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
           <Priority>0</Priority>
-{% set intf = port_name[index] %}
-{% if subtype is defined and subtype == 'SmartSwitch' and intf[8:]|int >= 224 %}
-          <role>Dpc</role>
-{% endif %}
 {# An explicit per-port speed wins, but a platform default must not override the connection graph. #}
 {% if port_speed[port_alias[index]] is defined and not (port_speed_is_platform_default | default(false)) %}
           <Speed>{{ port_speed[port_alias[index]] }}</Speed>
