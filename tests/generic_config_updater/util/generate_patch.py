@@ -511,6 +511,9 @@ def find_acl_table_bindings_for_ports(full_config, no_leaf_config, namespace, po
     no_leaf_acl_table = get_table_from_config(no_leaf_config, namespace, "ACL_TABLE", is_multi_asic)
 
     for acl_name, full_acl_entry in full_acl_table.items():
+        if acl_name not in no_leaf_acl_table:
+            # The raw whole-entry/table addition already carries these bindings.
+            continue
         full_ports = full_acl_entry.get("ports", [])
         if not full_ports:
             continue
@@ -859,6 +862,10 @@ def generate_single_asic_config_patch(full_config_path, no_leaf_config_path, buf
     added_interface_keys = set()
 
     for namespace, local_addrs in bgp_local_addrs.items():
+        no_leaf_namespace = no_leaf_config.get(namespace, {}) if is_multi_asic else no_leaf_config
+        if 'INTERFACE' not in no_leaf_namespace:
+            # The raw table addition supplies the parent and all its children.
+            continue
         for local_addr in local_addrs:
             interface_entries = find_interface_entries_for_bgp(full_config, namespace, local_addr, is_multi_asic)
             for interface_key, value in interface_entries:

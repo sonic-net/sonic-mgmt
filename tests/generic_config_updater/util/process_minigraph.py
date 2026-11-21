@@ -132,6 +132,7 @@ class SingleAsicMinigraphRefactor(MinigraphRefactor):
 
     def remove_device_interface_links(self, root):
         """Remove target links and collect their local port names."""
+        alias_to_name = {alias: name for name, alias in self.port_name_to_alias_map.items()}
         device_links = root.find(f".//{NS}PngDec/{NS}DeviceInterfaceLinks")
         removed_links = 0
         if device_links:
@@ -144,6 +145,8 @@ class SingleAsicMinigraphRefactor(MinigraphRefactor):
                     else:
                         local_port = link.find(f"{NS}StartPort").text
                     if local_port:
+                        if local_port not in self.port_name_to_alias_map:
+                            local_port = alias_to_name.get(local_port, local_port)
                         self.affected_ports.add(local_port)
                     device_links.remove(link)
                     removed_links += 1

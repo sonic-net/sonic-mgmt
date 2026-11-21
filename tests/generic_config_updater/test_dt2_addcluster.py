@@ -589,6 +589,7 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
             port for port, fields in config.get('PORT_QOS_MAP', {}).items()
             if is_front_panel_port(port) and fields.get('pfc_enable')
             and config.get('PORT', {}).get(port, {}).get('admin_status') == 'up'
+            and port in config.get('CABLE_LENGTH', {}).get('AZURE', {})
         }
         try:
             validate_lossless_pg_baseline(config, ports)
@@ -866,9 +867,18 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
         logger.info(f"Verified port {port} exists in CONFIG_DB with admin_status=up")
 
     # Verify MIRROR ACL bindings
-    patch_has_acl_ops = any('/ACL_TABLE' in entry.get('path', '') for entry in patch_data)
-    pytest_assert(not patch_has_acl_ops or acl_bound_ports,
-                  "Patch contains ACL_TABLE operations but no MIRROR-bound ports were "
+    acl_binding_ops = []
+    for entry in patch_data:
+        parts = entry.get('path', '').split('/')[1:]
+        if (entry.get('op') in ('add', 'replace') and parts[:1] == ['ACL_TABLE']
+                and (len(parts) <= 2 or parts[2] == 'ports')):
+            acl_binding_ops.append(entry)
+    patch_has_mirror_acl_ops = any(
+        baseline_config.get('ACL_TABLE', {}).get(name, {}).get('type') in ('MIRROR', 'MIRRORV6')
+        and any(is_front_panel_port(port) for port in baseline_config['ACL_TABLE'][name].get('ports', []))
+        for name in patch_touched_entries(acl_binding_ops).get('ACL_TABLE', ()))
+    pytest_assert(not patch_has_mirror_acl_ops or acl_bound_ports,
+                  "Patch contains MIRROR ACL_TABLE operations but no MIRROR-bound ports were "
                   "extracted from it. The extraction is out of sync with the patch format, "
                   "which would silently skip ACL verification.")
     if acl_bound_ports:
@@ -959,6 +969,7 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
         # cable length has the wrong headroom, and checking only for "some lossless PG"
         # would pass it.
         expected_profiles = {}
+        zero_cable_ports = set()
         for port in sorted(lossless_ports):
             cable_length = get_config_db_field(duthost, "CABLE_LENGTH|AZURE", port)
             if cable_length == '0m':
@@ -970,7 +981,8 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
                 # lossless buffers is worth seeing in the log, since "0m by mistake" and
                 # "0m on purpose" look identical from here.
                 logger.warning("Port %s has cable length 0m, so it gets no lossless "
-                               "BUFFER_PG. Skipping its lossless buffer checks.", port)
+                               "BUFFER_PG. Verifying their absence.", port)
+                zero_cable_ports.add(port)
                 continue
             pytest_assert(
                 expected_pg_priorities.get(port),
@@ -995,6 +1007,15 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
 
         def check_lossless_pgs_created():
             ports_without_lossless_pg.clear()
+            for port in sorted(zero_cable_ports):
+                try:
+                    found = get_lossless_pg_entries(
+                        duthost, port, AUTOGEN_BUFFER_PG_PROFILE_PREFIX, strict=True)
+                except ValueError as error:
+                    ports_without_lossless_pg[port] = str(error)
+                else:
+                    if found:
+                        ports_without_lossless_pg[port] = "unexpected lossless PGs on zero-cable port: {}".format(found)
             for port, expected in sorted(expected_profiles.items()):
                 found = get_lossless_pg_entries(
                     duthost, port, AUTOGEN_BUFFER_PG_PROFILE_PREFIX)
@@ -1046,6 +1067,14 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
                         profile,
                         "present" if in_config_db else "MISSING",
                         "present" if in_appl_db else "MISSING")
+
+        for port in sorted(zero_cable_ports):
+            found = get_lossless_pg_entries(
+                duthost, port, AUTOGEN_BUFFER_PG_PROFILE_PREFIX, strict=True)
+            pytest_assert(
+                not found,
+                "Unexpected lossless BUFFER_PG entries on zero-cable port {} during final verification: {}.".format(
+                    port, found))
 
         pytest_assert(
             not wrong_profile,
