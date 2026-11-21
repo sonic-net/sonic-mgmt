@@ -31,7 +31,8 @@ class TestPacketTrimmingAsymmetric(BasePacketTrimming):
             size = PacketTrimmingConfig.get_trim_size(duthost)
         queue = PacketTrimmingConfig.get_trim_queue(duthost)
         asym_tc = PacketTrimmingConfig.get_asym_tc(duthost)
-        configure_trimming_global(duthost, size=size, queue=queue, dscp='from-tc', tc=asym_tc)
+        pytest_assert(configure_trimming_global(duthost, size=size, queue=queue, dscp='from-tc', tc=asym_tc),
+                      "Failed to configure global trimming in asymmetric mode")
 
     def get_extra_trimmed_packet_kwargs(self):
         return dict(
