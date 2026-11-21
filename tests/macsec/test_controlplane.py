@@ -63,9 +63,8 @@ class TestControlPlane():
             return True
         assert wait_until(300, 5, 3, _test_mka_session)
 
+    @pytest.mark.macsec_rekey(enabled=True)
     def test_rekey_by_period(self, duthost, ctrl_links, upstream_links, rekey_period, wait_mka_establish):
-        if rekey_period == 0:
-            pytest.skip("If the rekey period is 0 which means rekey by period isn't active.")
         assert len(ctrl_links) > 0
         # Only pick one link to test
         port_name, nbr = list(ctrl_links.items())[0]
