@@ -852,6 +852,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                self.mirror_type(),
                                expect_receive=True,
                                test_name="everflow_policer_test.EverflowPolicerTest",
+                               egress_mirror_payload_unchanged=self.egress_mirror_payload_unchanged(everflow_dut),
                                src_port=rx_port_ptf_id,
                                dst_mirror_ports=mirror_port_id,
                                dst_ports=tx_port_ptf_id,
