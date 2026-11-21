@@ -3,6 +3,7 @@ import logging
 import pytest
 import allure
 
+from contextlib import contextmanager
 from tests.common.plugins.loganalyzer.loganalyzer import DisableLogrotateCronContext
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
@@ -21,6 +22,22 @@ FAKE_IP = '10.20.30.40'
 FAKE_MAC = 'aa:bb:cc:dd:11:22'
 SYSLOG_BACKUP_FILE = '/tmp/syslog_bk'
 LOGROTATE_TEST_STATE_FILE = '/tmp/logrotate-test.status'
+SDK_DUMP_CONFIG = '/etc/logrotate.d/sdk-dump'
+SDK_DUMP_ROOTS = [
+    '/var/log/sdk_dbg',
+    '/var/log/sai_failure_dump',
+    '/var/log/mellanox/sdk-dumps',
+    '/var/log/bluefield/sdk-dumps',
+]
+# Just past the minage of the config, so that reclaiming these while the dumps written
+# during the test are held back pins that minage to a day rather than bracketing it
+SDK_DUMP_STALE_AGE = '25 hours ago'
+# Any past date does, it only has to be far enough back that the hourly schedule of the
+# config has elapsed by the time the run under test reads it
+SDK_DUMP_LAST_ROTATED = '2020-1-1-1:0:0'
+# Only the NVIDIA/Mellanox SDK produces these dumps, so only these platforms have
+# anything for the config to clean up
+SDK_DUMP_ASIC_TYPES = ['mellanox', 'nvidia-bluefield']
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -563,3 +580,178 @@ def test_logrotate_full_partition_no_archives_cleanup(rand_selected_dut, simulat
         wait_until(30, 1, 0, syslog_contains_marker, duthost, marker),
         "Expected syslog to be writable after cleanup, but marker not found"
     )
+
+
+def get_existing_paths(duthost, paths):
+    """
+    Return the subset of the given paths that exist on the DUT
+    :param duthost: DUT host object
+    :param paths: list of absolute paths
+    :return: set of the paths that exist
+    """
+    result = duthost.shell(
+        """sudo sh -c 'for f in {}; do [ -e "$f" ] && echo "$f"; done; exit 0'""".format(" ".join(paths)))
+    return set(result["stdout_lines"])
+
+
+def build_sdk_dump_tree(root, unique):
+    """
+    Build the paths of the dumps one SDK dump run leaves under a dump root
+    :param root: dump root the run writes under
+    :param unique: token that keeps this run's paths clear of any other dump on the DUT
+    :return: one dump at each of the depths the config globs cover, and the directories
+        holding them
+    """
+    dump = '{}/sai_sdk_dump_{}'.format(root, unique)
+    extras = '{}/sai_sdk_dump_{}_extras'.format(dump, unique)
+    dumps = ['{}/sdk_dump_ext_{}_dev1_summary.txt'.format(root, unique),
+             '{}/sai_sdk_dump_{}.json'.format(dump, unique),
+             '{}/PORT_0.json'.format(extras),
+             '{}/subdir/VLAN_1.json'.format(extras)]
+    dirs = [dump, extras, '{}/subdir'.format(extras)]
+    return dumps, dirs
+
+
+@contextmanager
+def sdk_dump_files_created(duthost):
+    """
+    Create a stale and a fresh SDK dump at every depth the config globs, under every
+    dump root
+
+    The two runs are identical apart from their unique token, so a dump and the dump
+    held against it are matched by exactly the same globs, and every glob in the config
+    ends up with a dump on each side of its minage to read its decision from.
+
+    Cleanup only removes the paths created here, and any dump root or root parent it
+    had to create. Dumps that were already on the DUT are not restored, as the logrotate
+    run under test reclaims those too.
+
+    :param duthost: DUT host object
+    :return: the dump directories the config must leave in place, the dumps backdated
+        past its minage, and the dumps left inside it
+    """
+    unique = 'sonicmgmt{}'.format(int(time.time()))
+    stale_unique = '{}stale'.format(unique)
+    fresh_unique = '{}fresh'.format(unique)
+    parents = [parent for parent in {root.rsplit('/', 1)[0] for root in SDK_DUMP_ROOTS} if parent != LOG_FOLDER]
+    preexisting = get_existing_paths(duthost, SDK_DUMP_ROOTS + parents)
+    stale, fresh, dirs = [], [], list(SDK_DUMP_ROOTS)
+    for root in SDK_DUMP_ROOTS:
+        stale_dumps, stale_dirs = build_sdk_dump_tree(root, stale_unique)
+        fresh_dumps, fresh_dirs = build_sdk_dump_tree(root, fresh_unique)
+        # `rotate 0` deletes by renaming first, so without `dateext` rotating a dump
+        # clobbers its own `.1` sibling, which fails the run and orphans a `.2`
+        collide = '{}/sdk_dump_ext_{}_dev1_collide.txt'.format(root, stale_unique)
+        stale += stale_dumps + [collide, '{}.1'.format(collide)]
+        fresh += fresh_dumps
+        dirs += stale_dirs + fresh_dirs
+
+    try:
+        with allure.step('Create stale and fresh SDK dumps at every depth under every dump root'):
+            logger.info('Create temp SDK dump files under {}'.format(SDK_DUMP_ROOTS))
+            duthost.shell('sudo mkdir -p {}'.format(' '.join(dirs)))
+            duthost.shell("""sudo sh -c 'for f in {}; do head -c 4096 /dev/urandom > "$f"; done'""".format(
+                ' '.join(stale + fresh)))
+            duthost.shell('sudo touch -d "{}" {}'.format(SDK_DUMP_STALE_AGE, ' '.join(stale)))
+
+        yield dirs, stale, fresh
+    finally:
+        with allure.step('Remove the temp SDK dump files'):
+            logger.info('Remove the temp SDK dump files')
+            for root in SDK_DUMP_ROOTS:
+                duthost.shell("sudo find {} -name '*{}*' -exec rm -rf {{}} +".format(root, unique),
+                              module_ignore_errors=True)
+                if root not in preexisting:
+                    duthost.shell('sudo rm -rf {}'.format(root), module_ignore_errors=True)
+            # Removing a root can leave the directory holding it behind, as `mkdir -p`
+            # creates that too. `rmdir` keeps one that is still in use on the DUT
+            for parent in parents:
+                if parent not in preexisting:
+                    duthost.shell('sudo rmdir {}'.format(parent), module_ignore_errors=True)
+            # Back to the empty state the module starts from, so that a state seeded for
+            # the dumps here does not decide the runs of the tests that follow
+            duthost.shell('sudo rm -f {}'.format(LOGROTATE_TEST_STATE_FILE), module_ignore_errors=True)
+
+
+@pytest.mark.disable_loganalyzer
+def test_sdk_dump_logrotate_minage(rand_selected_dut):
+    """
+    Test case of the sdk-dump logrotate config holding back the dumps inside its minage
+
+    The other case forces the run, which overrides the minage, so this is where a
+    config that reclaims a dump still being collected would be caught.
+
+    :param rand_selected_dut: The fixture returns a randomly selected DUT
+    """
+    duthost = rand_selected_dut
+    if duthost.shell('test -f {}'.format(SDK_DUMP_CONFIG), module_ignore_errors=True)['rc'] != 0:
+        pytest.skip('{} is not present on this image, nothing to test'.format(SDK_DUMP_CONFIG))
+
+    # Checked here rather than in a conditional mark, as the conditional mark plugin
+    # evaluates asic_type against the first DUT of the testbed, not the selected one
+    asic_type = duthost.facts['asic_type']
+    if asic_type not in SDK_DUMP_ASIC_TYPES:
+        pytest.skip('{} does not produce SDK dumps, nothing for the config to clean up'.format(asic_type))
+
+    with sdk_dump_files_created(duthost) as (_, stale_dumps, fresh_dumps):
+        with allure.step('Run logrotate without force so the minage of the config applies'):
+            # The config rotates hourly, so a dump logrotate holds no state for is stamped
+            # at the current hour and held as already rotated, short of the minage check
+            state = ['logrotate state -- version 2']
+            state += ['"{}" {}'.format(dump, SDK_DUMP_LAST_ROTATED) for dump in stale_dumps + fresh_dumps]
+            duthost.copy(content='\n'.join(state) + '\n', dest=LOGROTATE_TEST_STATE_FILE)
+            logrotate_result = run_logrotate(duthost)
+            assert_logrotate_success(duthost, logrotate_result)
+
+        remaining = get_existing_paths(duthost, stale_dumps + fresh_dumps)
+
+        with allure.step('Check the dumps past the minage are reclaimed'):
+            kept = sorted(set(stale_dumps) & remaining)
+            pytest_assert(not kept, 'dumps backdated to {} were not reclaimed: {}'.format(
+                repr(SDK_DUMP_STALE_AGE), kept))
+
+        with allure.step('Check the dumps inside the minage are held back'):
+            reclaimed = sorted(set(fresh_dumps) - remaining)
+            pytest_assert(not reclaimed, 'dumps written just now were reclaimed: {}'.format(reclaimed))
+
+
+@pytest.mark.disable_loganalyzer
+def test_sdk_dump_logrotate(rand_selected_dut):
+    """
+    Test case of the sdk-dump logrotate config reclaiming SDK dumps
+
+    The globs do not recurse, so the config carries one pattern per depth per dump
+    root, and a depth missing from that list is silently never cleaned up. The check
+    walks the roots rather than the seeded paths, so if the SDK ever starts dumping
+    deeper than the globs reach, that dump is left behind and fails this test, which
+    is the signal to add the next depth to the config. The minage is not covered
+    here, as forcing overrides it.
+
+    :param rand_selected_dut: The fixture returns a randomly selected DUT
+    """
+    duthost = rand_selected_dut
+    if duthost.shell('test -f {}'.format(SDK_DUMP_CONFIG), module_ignore_errors=True)['rc'] != 0:
+        pytest.skip('{} is not present on this image, nothing to test'.format(SDK_DUMP_CONFIG))
+
+    # Checked here rather than in a conditional mark, as the conditional mark plugin
+    # evaluates asic_type against the first DUT of the testbed, not the selected one
+    asic_type = duthost.facts['asic_type']
+    if asic_type not in SDK_DUMP_ASIC_TYPES:
+        pytest.skip('{} does not produce SDK dumps, nothing for the config to clean up'.format(asic_type))
+
+    with sdk_dump_files_created(duthost) as (dirs, _, _):
+        with allure.step('Run logrotate with force option to reclaim the SDK dumps'):
+            logrotate_result = run_logrotate(duthost, force=True)
+            assert_logrotate_success(duthost, logrotate_result)
+
+        with allure.step('Check no dumps are left under any dump root'):
+            # Walking the roots rather than the seeded paths, so leftovers from a suffix
+            # collision and dumps nested deeper than the globs reach are caught too
+            find_result = duthost.shell('sudo find {} -type f'.format(' '.join(SDK_DUMP_ROOTS)),
+                                        module_ignore_errors=True)
+            remaining = [path for path in find_result['stdout_lines'] if path.strip()]
+            pytest_assert(not remaining, 'SDK dumps were not cleaned up: {}'.format(sorted(remaining)))
+
+        with allure.step('Check the dump directories are preserved'):
+            deleted = set(dirs) - get_existing_paths(duthost, dirs)
+            pytest_assert(not deleted, 'SDK dump directories were removed: {}'.format(sorted(deleted)))
