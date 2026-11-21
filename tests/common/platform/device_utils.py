@@ -275,6 +275,72 @@ def toggle_one_link(dut, dut_port, fanout, fanout_port, watch=False, check_statu
                 wait_until(sleep_time, 1, 0, __check_if_status, dut, dut_port, 'up', True)
 
 
+def __check_ports_status(dut, ports, expected_state):
+    """
+    Check interface status on the DUT for multiple ports.
+
+    Args:
+        dut: DUT host object
+        ports: List of DUT ports
+        expected_state: State of DUT ports ('up' or 'down')
+
+    Returns:
+        Bool value which confirm all ports state
+    """
+    status = __get_dut_if_status(dut)
+    mismatched = {port: status[port]['oper_state'] for port in ports
+                  if status[port]['oper_state'] != expected_state}
+    if mismatched:
+        logger.info("DUT ports expected %s, actual states: %s", expected_state, mismatched)
+    return not mismatched
+
+
+def toggle_fanout_links(dut, fanout, ports, watch=False):
+    """
+    Toggle multiple links on a fanout.
+
+    Args:
+        dut: DUT host object
+        fanout: Fanout host object
+        ports: List of (DUT port, fanout port) pairs
+        watch: Logging system state
+    """
+
+    sleep_time = 90
+    dut_ports, fanout_ports = map(list, zip(*ports))
+    logger.info("Testing link flap on DUT ports %s via fanout %s", dut_ports, fanout.hostname)
+    pytest_assert(__check_ports_status(dut, dut_ports, 'up'),
+                  "Fail: dut ports {}: link operational down".format(dut_ports))
+
+    logger.info("Shutting down fanout switch %s ports %s connecting to %s", fanout.hostname, fanout_ports, dut_ports)
+
+    need_recovery = True
+    try:
+        fanout.shutdown(fanout_ports)
+        pytest_assert(wait_until(sleep_time, 1, 0, __check_ports_status, dut, dut_ports, 'down'),
+                      "dut ports {} didn't go down as expected".format(dut_ports))
+
+        if watch:
+            time.sleep(1)
+            watch_system_status(dut)
+
+        logger.info("Bring up fanout switch %s ports %s connecting to %s", fanout.hostname, fanout_ports, dut_ports)
+        fanout.no_shutdown(fanout_ports)
+        pytest_assert(wait_until(sleep_time, 1, 0, __check_ports_status, dut, dut_ports, 'up'),
+                      "dut ports {} didn't go up as expected".format(dut_ports))
+        need_recovery = False
+    finally:
+        if need_recovery:
+            # Restore all ports individually in case the multiport operation partially failed.
+            for port in fanout_ports:
+                try:
+                    fanout.no_shutdown(port)
+                except Exception:
+                    logger.exception("Failed to restore fanout %s port %s", fanout.hostname, port)
+            if not wait_until(sleep_time, 1, 0, __check_ports_status, dut, dut_ports, 'up'):
+                logger.error("dut ports %s did not recover", dut_ports)
+
+
 class RebootHealthError(Exception):
     def __init__(self, message):
         self.message = message
