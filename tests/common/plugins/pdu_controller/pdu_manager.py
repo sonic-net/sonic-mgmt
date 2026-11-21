@@ -145,22 +145,26 @@ class PduManager():
 
     def get_unreachable_psus(self):
         """
-            @summary: Return PSUs that were configured (in inventory or
-                      connection graph) but whose PDU controller could not be
-                      built. The most common cause is the peer PDU being
-                      unreachable over SNMP, but it can also be missing
-                      pdu_info / pdu_vars or unsupported protocol.
+            @summary: Return configured PSUs that were not fully initialized,
+                      including missing feeds or feeds without setup outlets.
+                      Inspect saved setup data only; do not read current status.
 
-            @return: dict mapping unreachable psu_name -> list of unique peer
-                     PDU device names configured for that PSU. Returns an
-                     empty dict when every configured PSU is reachable.
+            @return: dict mapping unreachable psu_name -> list of unique peer PDU
+                     device names. Returns an empty dict when setup is complete.
         """
         unreachable = {}
         for psu_name, psu_peer in self.configured_psu_peers.items():
-            if psu_name in self.PSUs:
+            psu = self.PSUs.get(psu_name)
+            missing_feeds = []
+            for feed_name, feed_info in psu_peer.items():
+                feed = psu.feeds.get(feed_name) if psu else None
+                if feed and feed.outlets:
+                    continue
+                missing_feeds.append(feed_info)
+            if psu and not missing_feeds:
                 continue
             pdu_devices = []
-            for feed_info in psu_peer.values():
+            for feed_info in missing_feeds:
                 peerdevice = feed_info.get("peerdevice")
                 if peerdevice and peerdevice not in pdu_devices:
                     pdu_devices.append(peerdevice)
@@ -206,15 +210,17 @@ class PduManager():
                         ret = ret and rc
             return ret
 
-    def get_outlet_status(self, outlet=None):
+    def get_outlet_status(self, outlet=None, power_state=None):
         """
             Getting outlet status. The outlet contains enough information
             to identify the pdu controller + outlet ID.
             when outlet is None, status of all outlets will be returned.
+            If power_state is set, read optional wattage only when that state flag is true.
         """
         status = []
         if outlet is not None:
-            outlets = self._get_controller(outlet).get_outlet_status(outlet=outlet['outlet_id'])
+            outlets = self._get_controller(outlet).get_outlet_status(
+                outlet=outlet['outlet_id'], power_state=power_state)
             pdu_name = outlet['pdu_name']
             psu_name = outlet['psu_name']
             feed_name = outlet['feed_name']
@@ -229,7 +235,7 @@ class PduManager():
                 for feed_name, feed in psu.feeds.items():
                     for outlet in feed.outlets:
                         pdu_name = outlet['pdu_name']
-                        outlets = feed.controller.get_outlet_status(outlet=outlet['outlet_id'])
+                        outlets = feed.controller.get_outlet_status(outlet=outlet['outlet_id'], power_state=power_state)
                         for outlet in outlets:
                             outlet['pdu_name'] = pdu_name
                             outlet['psu_name'] = psu_name
