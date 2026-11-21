@@ -9,6 +9,7 @@ from _pytest.outcomes import OutcomeException
 from tests.common.dhcp_relay_utils import init_dhcpmon_counters, validate_dhcpmon_counters, restart_dhcpmon_in_debug
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder         # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
 from tests.common.gcu_utils import generate_tmpfile, create_checkpoint, \
     apply_patch, expect_op_success, delete_tmpfile, \
@@ -26,7 +27,7 @@ from tests.common.dhcp_relay_utils import restart_dhcp_service, wait_dhcp_relay_
 from tests.common.dhcp_relay_utils import enable_sonic_dhcpv4_relay_agent  # noqa: F401
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0'),
+    pytest.mark.topology('t0', 'm0', 'dualtor'),
     pytest.mark.device_type('vs'),
     pytest.mark.parametrize("relay_agent", ["isc-relay-agent", "sonic-relay-agent"]),
 ]
@@ -266,6 +267,11 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                 loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="dhcpmon counter")
                 marker = loganalyzer.init()
                 loganalyzer.expect_regex = [expected_agg_counter_message]
+
+            standby_uplink_port_indices = []
+            if testing_mode == DUAL_TOR_MODE and relay_agent == "sonic-relay-agent":
+                standby_uplink_port_indices = dhcp_relay['standby_uplink_port_indices']
+
             # Run the DHCP relay test on the PTF host
             ptf_runner(ptfhost,
                        "ptftests",
@@ -278,6 +284,7 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                                "other_client_port": repr(dhcp_relay['other_client_ports']),
                                "client_iface_alias": str(dhcp_relay['client_iface']['alias']),
                                "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
+                               "standby_leaf_port_indices": repr(standby_uplink_port_indices),
                                "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs']),
                                "server_ip": dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'],
                                "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
