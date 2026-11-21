@@ -87,9 +87,11 @@ acl/test_acl.py:
       - "'isolated-v6' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/18077"
       - "asic_type in ['broadcom']"
   xfail:
-    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    reason: "Test case has issue on t0-isolated-d256u256s2 topo or t1-d96u4 where port classification does not account for backend neighbor groups"
+    conditions_logical_operator: or
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26832 and 't1-d96u4' in topo_name"
 
 acl/test_acl.py::.*_forwarded\[ipv6-.*uplink->downlink:
   regex: true
@@ -154,6 +156,10 @@ acl/test_stress_acl.py:
     reason: "skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+  xfail:
+    reason: "Port classification does not account for backend neighbor groups on t1-d96u4"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26832 and 't1-d96u4' in topo_name"
 
 acl/test_stress_acl.py::test_acl_add_del_stress:
   xfail:
