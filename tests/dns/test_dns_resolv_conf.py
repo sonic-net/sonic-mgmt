@@ -4,7 +4,7 @@ from tests.common.constants import RESOLV_CONF_NAMESERVERS
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import get_image_type
 from tests.common.config_reload import config_reload, config_reload_minigraph_with_rendered_golden_config_override
-from tests.common.utilities import backup_config, restore_config
+from tests.common.utilities import backup_config, restore_config, wait_until
 
 pytestmark = [
     pytest.mark.topology("any"),
@@ -68,22 +68,31 @@ def test_dns_resolv_conf(duthost):
 
     logger.info("expected nameservers: [{}]".format(" ".join(expected_nameservers)))
 
-    resolv_conf = duthost.shell("cat /etc/resolv.conf", module_ignore_errors=True)
-    pytest_assert(resolv_conf["rc"] == 0, "Failed to read /etc/resolf.conf!")
-    current_nameservers = []
-    for resolver_line in resolv_conf["stdout_lines"]:
-        if not resolver_line.startswith("nameserver"):
-            continue
-        current_nameservers.append(resolver_line.split()[1])
+    def host_nameservers_match():
+        result = duthost.shell(
+            "cat /etc/resolv.conf", module_ignore_errors=True
+        )
+        current_nameservers = {
+            line.split()[1]
+            for line in result.get("stdout_lines", [])
+            if line.startswith("nameserver") and len(line.split()) >= 2
+        }
 
-    current_nameservers = set(current_nameservers)
+        logger.info(
+            "DNS poll: expected=%s current=%s rc=%s contents=%r",
+            sorted(expected_nameservers),
+            sorted(current_nameservers),
+            result["rc"],
+            result.get("stdout", ""),
+        )
+        return result["rc"] == 0 and current_nameservers == expected_nameservers
 
-    logger.info("current nameservers: [{}]".format(" ".join(current_nameservers)))
-
-    pytest_assert(not (current_nameservers ^ expected_nameservers),
-                  "Mismatch between expected and current nameservers! Expected: [{}]. Current: [{}].".format(
-                  " ".join(expected_nameservers), " ".join(current_nameservers)))
-
+    pytest_assert(
+        wait_until(30, 5, 0, host_nameservers_match),
+        "Host /etc/resolv.conf did not match expected nameservers "
+        "within 30 seconds; see DNS poll logs.",
+    )
+    
     containers = duthost.get_running_containers()
     for container in containers:
         resolv_conf = duthost.shell("docker exec %s cat /etc/resolv.conf" % container, module_ignore_errors=True)
