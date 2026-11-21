@@ -188,7 +188,7 @@ def db_hget(duthost, cli_namespace_prefix, db_name, key, field):
     """
     Return one Redis DB hash field value, or None on command failure.
     """
-    cmd = "sonic-db-cli {} {} HGET {} {}".format(
+    cmd = "sonic-db-cli -s {} {} HGET {} {}".format(
         cli_namespace_prefix,
         db_name,
         shlex.quote(key),
@@ -213,7 +213,7 @@ def db_hgetall(duthost, cli_namespace_prefix, db_name, key):
     """
     Return one Redis DB hash as a dictionary, or None on command/parse failure.
     """
-    cmd = "sonic-db-cli {} {} HGETALL {}".format(
+    cmd = "sonic-db-cli -s {} {} HGETALL {}".format(
         cli_namespace_prefix,
         db_name,
         shlex.quote(key),
@@ -259,7 +259,7 @@ def db_keys(duthost, cli_namespace_prefix, db_name, pattern):
     """
     Return Redis keys matching a pattern.
     """
-    cmd = "sonic-db-cli {} {} KEYS {}".format(
+    cmd = "sonic-db-cli -s {} {} KEYS {}".format(
         cli_namespace_prefix,
         db_name,
         shlex.quote(pattern),

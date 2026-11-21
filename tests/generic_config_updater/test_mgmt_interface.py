@@ -51,7 +51,7 @@ def update_forced_mgmt_route(duthost, interface_address, interface_key, routes):
     else:
         json_patch[0]["value"] = routes
         # Replace if forced_mgmt_routes already exist
-        current_config = duthost.command("sonic-db-cli CONFIG_DB HGET '{}' forced_mgmt_routes@"
+        current_config = duthost.command("sonic-db-cli -s CONFIG_DB HGET '{}' forced_mgmt_routes@"
                                          .format(interface_key))['stdout']
         if current_config != "":
             json_patch[0]["op"] = "replace"
@@ -92,7 +92,7 @@ def update_and_check_forced_mgmt_routes(duthost, forced_mgmt_routes, interface_a
 
 def test_forced_mgmt_routes_update(duthost, ensure_dut_readiness):
     # Get interface and check config generate correct
-    mgmt_interface_keys = duthost.command("sonic-db-cli  CONFIG_DB keys 'MGMT_INTERFACE|eth0|*'")['stdout']
+    mgmt_interface_keys = duthost.command("sonic-db-cli -s  CONFIG_DB keys 'MGMT_INTERFACE|eth0|*'")['stdout']
     logging.debug("mgmt_interface_keys: {}".format(mgmt_interface_keys))
 
     for interface_key in mgmt_interface_keys.split('\n'):
@@ -100,7 +100,7 @@ def test_forced_mgmt_routes_update(duthost, ensure_dut_readiness):
         interface_address = interface_key.split('|')[2]
 
         # Get current forced mgmt routes
-        forced_mgmt_routes_config = duthost.command("sonic-db-cli CONFIG_DB HGET '{}' forced_mgmt_routes@"
+        forced_mgmt_routes_config = duthost.command("sonic-db-cli -s CONFIG_DB HGET '{}' forced_mgmt_routes@"
                                                     .format(interface_key))['stdout']
 
         original_forced_mgmt_routes = []

@@ -19,6 +19,7 @@ from tests.common.dhcp_relay_utils import (
 )
 from tests.common.dhcp_relay_utils import enable_sonic_dhcpv4_relay_agent  # noqa: F401
 import json
+from tests.common.helpers.sonic_db import redis_cli_command
 
 
 def _save_interface_ip_entries(duthost, table, interface):
@@ -30,12 +31,12 @@ def _save_interface_ip_entries(duthost, table, interface):
     # Save the base entry (e.g. VLAN_INTERFACE|Vlan1000) and all IP entries
     # Use two queries: one for the base entry, one for IP sub-entries
     base_raw = duthost.shell(
-        'redis-cli -n 4 --json HGETALL "{}|{}"'.format(table, interface),
+        (redis_cli_command(duthost, 'CONFIG_DB') + ' --json HGETALL "{}|{}"'.format(table, interface)),
         verbose=False)['stdout'].strip()
     base_fields = json.loads(base_raw) if base_raw else {}
 
     ip_keys_raw = duthost.shell(
-        'redis-cli -n 4 --json keys "{}|{}|*"'.format(table, interface),
+        (redis_cli_command(duthost, 'CONFIG_DB') + ' --json keys "{}|{}|*"'.format(table, interface)),
         verbose=False)['stdout'].strip()
     ip_keys = json.loads(ip_keys_raw) if ip_keys_raw else []
 
@@ -44,7 +45,7 @@ def _save_interface_ip_entries(duthost, table, interface):
     saved["{}|{}".format(table, interface)] = base_fields
     for key in ip_keys:
         raw = duthost.shell(
-            'redis-cli -n 4 --json HGETALL "{}"'.format(key),
+            (redis_cli_command(duthost, 'CONFIG_DB') + ' --json HGETALL "{}"'.format(key)),
             verbose=False)['stdout'].strip()
         fields = json.loads(raw) if raw else {}
         saved[key] = fields
@@ -60,11 +61,11 @@ def _restore_interface_ip_entries(duthost, saved_entries):
     """
     for key, fields in saved_entries.items():
         if not fields or fields == {"NULL": "NULL"}:
-            duthost.shell('sonic-db-cli CONFIG_DB HSET "{}" "NULL" "NULL"'.format(key))
+            duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB HSET "{}" "NULL" "NULL"'.format(key))
         else:
             for field, value in fields.items():
                 duthost.shell(
-                    'sonic-db-cli CONFIG_DB HSET "{}" "{}" "{}"'.format(key, field, value))
+                    'sonic-db-cli -s --authenticate CONFIG_DB HSET "{}" "{}" "{}"'.format(key, field, value))
 
 
 pytestmark = [

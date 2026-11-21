@@ -55,28 +55,22 @@ def set_default_pfcwd_config(duthost):
     Args:
         duthost: DUT host object
     """
-    res = duthost.shell('sonic-db-dump -n CONFIG_DB -y -k \"DEVICE_METADATA|localhost\"')
+    res = duthost.shell('sonic-db-dump -t unix_socket -n CONFIG_DB -y -k \"DEVICE_METADATA|localhost\"')
     meta_data = json.loads(res["stdout"])
     pfc_status = meta_data["DEVICE_METADATA|localhost"]["value"].get("default_pfcwd_status", "")
     if pfc_status == 'disable':
-        cmd = 'sonic-db-cli CONFIG_DB hset \"DEVICE_METADATA|localhost\" default_pfcwd_status enable'
+        cmd = 'CONFIG_DB hset \"DEVICE_METADATA|localhost\" default_pfcwd_status enable'
         for asic_id in duthost.get_asic_ids():
-            if asic_id:
-                duthost.asic_instance(asic_id).command(cmd)
-            else:
-                duthost.shell(cmd)
+            duthost.asic_instance(asic_id).run_sonic_db_cli_cmd(cmd, authenticate=True)
 
     yield
 
     # Restore default config
     duthost.shell('config pfcwd stop')
     if pfc_status == 'disable':
-        cmd = 'sonic-db-cli CONFIG_DB hset \"DEVICE_METADATA|localhost\" default_pfcwd_status disable'
+        cmd = 'CONFIG_DB hset \"DEVICE_METADATA|localhost\" default_pfcwd_status disable'
         for asic_id in duthost.get_asic_ids():
-            if asic_id:
-                duthost.asic_instance(asic_id).command(cmd)
-            else:
-                duthost.shell(cmd)
+            duthost.asic_instance(asic_id).run_sonic_db_cli_cmd(cmd, authenticate=True)
     else:
         start_pfcwd = duthost.shell('config pfcwd start_default')
         pytest_assert(not start_pfcwd['rc'], "Failed to start default pfcwd config")
@@ -187,7 +181,7 @@ def get_flex_db_count(duthost, namespace=None):
         Number of PFCWD related flex db entries
     """
     ns_flag_prefix = '' if namespace is None else '-n ' + namespace
-    cmd = 'sonic-db-cli {} FLEX_COUNTER_DB keys *FLEX_COUNTER_TABLE:PFC_WD*'.format(ns_flag_prefix)
+    cmd = 'sonic-db-cli -s {} FLEX_COUNTER_DB keys *FLEX_COUNTER_TABLE:PFC_WD*'.format(ns_flag_prefix)
     db_entries = duthost.shell(cmd)["stdout"]
     if db_entries == '':
         return 0

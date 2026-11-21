@@ -220,7 +220,7 @@ def verify_failed_neighbor_request(duthost, vlan_name, neigh_ip):
         NEIGH_FAILED_TABLE, vlan_name, ip_address(neigh_ip)
     )
     result = duthost.shell(
-        "sonic-db-cli APPL_DB exists '{}'".format(key)
+        "sonic-db-cli -s APPL_DB exists '{}'".format(key)
     )
     return result['rc'] == 0 and result['stdout'].strip() == '1'
 

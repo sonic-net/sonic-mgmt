@@ -150,7 +150,7 @@ def test_migrate_dns_01(duthost):
 
     # Update database VERSIONS
     origin_version = "version_202305_01"
-    cmd = f"sonic-db-cli CONFIG_DB hset 'VERSIONS|DATABASE' VERSION {origin_version}"
+    cmd = f"sonic-db-cli -s --authenticate CONFIG_DB hset 'VERSIONS|DATABASE' VERSION {origin_version}"
     duthost.command(cmd, module_ignore_errors=True)
     # Cleanup DNS_NAMESERVER from config db
     dns_servers = get_nameserver_from_config_db(duthost)
@@ -191,7 +191,7 @@ def test_migrate_dns_02(duthost):
 
     # Update database VERSIONS
     origin_version = "version_202305_01"
-    cmd = f"sonic-db-cli CONFIG_DB hset 'VERSIONS|DATABASE' VERSION {origin_version}"
+    cmd = f"sonic-db-cli -s --authenticate CONFIG_DB hset 'VERSIONS|DATABASE' VERSION {origin_version}"
     duthost.command(cmd, module_ignore_errors=True)
     # Cleanup DNS_NAMESERVER from config db
     dns_servers = get_nameserver_from_config_db(duthost)
@@ -233,7 +233,7 @@ def test_migrate_dns_03(duthost):
 
     # Update database VERSIONS
     origin_version = "version_202305_01"
-    cmd = f"sonic-db-cli CONFIG_DB hset 'VERSIONS|DATABASE' VERSION {origin_version}"
+    cmd = f"sonic-db-cli -s --authenticate CONFIG_DB hset 'VERSIONS|DATABASE' VERSION {origin_version}"
     duthost.command(cmd, module_ignore_errors=True)
     # Cleanup DNS_NAMESERVER from config db
     dns_servers = get_nameserver_from_config_db(duthost)
@@ -272,7 +272,7 @@ def test_migrate_dns_04(duthost):
 
     # Update database VERSIONS
     origin_version = "version_202305_01"
-    cmd = f"sonic-db-cli CONFIG_DB hset 'VERSIONS|DATABASE' VERSION {origin_version}"
+    cmd = f"sonic-db-cli -s --authenticate CONFIG_DB hset 'VERSIONS|DATABASE' VERSION {origin_version}"
     duthost.command(cmd, module_ignore_errors=True)
     # Cleanup DNS_NAMESERVER from config db
     dns_servers = get_nameserver_from_config_db(duthost)

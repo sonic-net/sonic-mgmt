@@ -78,7 +78,7 @@ def set_sonic_db_cli(duthost, enum_frontend_asic_index):
     else:
         cli_options = ""
     global sonic_db_cli
-    sonic_db_cli = f"sonic-db-cli {cli_options}"
+    sonic_db_cli = f"sonic-db-cli -s {cli_options}"
 
 
 def count_keys(duthost, db, pattern):
@@ -307,17 +307,19 @@ def srv6_qos_setup(request, duthost, srv6_qos_module_setup):
 
     # Configure SRv6 locator + uN SID + static route towards next uSID slot
     duthost.command(
-        f"{sonic_db_cli} CONFIG_DB HSET SRV6_MY_LOCATORS\\|{LOCATOR_NAME} prefix {LOCATOR_PREFIX} func_len 0"
+        f"{sonic_db_cli} --authenticate CONFIG_DB HSET "
+        f"SRV6_MY_LOCATORS\\|{LOCATOR_NAME} prefix {LOCATOR_PREFIX} func_len 0"
     )
     sid_fields = "action uN"
     if decap_dscp_mode is not None:
         sid_fields += f" decap_dscp_mode {decap_dscp_mode}"
     # Remove the existing SRv6 SID entry (if it exists)
     duthost.command(
-        f"{sonic_db_cli} CONFIG_DB DEL SRV6_MY_SIDS\\|{LOCATOR_NAME}\\|{LOCATOR_SID_PREFIX}"
+        f"{sonic_db_cli} --authenticate CONFIG_DB DEL SRV6_MY_SIDS\\|{LOCATOR_NAME}\\|{LOCATOR_SID_PREFIX}"
     )
     duthost.command(
-        f"{sonic_db_cli} CONFIG_DB HSET SRV6_MY_SIDS\\|{LOCATOR_NAME}\\|{LOCATOR_SID_PREFIX} {sid_fields}"
+        f"{sonic_db_cli} --authenticate CONFIG_DB HSET "
+        f"SRV6_MY_SIDS\\|{LOCATOR_NAME}\\|{LOCATOR_SID_PREFIX} {sid_fields}"
     )
     duthost.command(f"sudo config route add prefix {NEXTHOP_PREFIX} nexthop {neighbor_ip}")
 

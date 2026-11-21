@@ -66,7 +66,7 @@ def get_namespace_option():
 @pytest.fixture(scope="module", autouse=True)
 def set_sonic_db_cli(set_namespace):  # noqa F811
     global sonic_db_cli
-    sonic_db_cli = f"sonic-db-cli {get_namespace_option()}"
+    sonic_db_cli = f"sonic-db-cli -s {get_namespace_option()}"
 
 
 # autouse=True so that we get the counts before any WRED profile or scheduler is created.
@@ -98,7 +98,7 @@ def enable_wred_counters(duthost):
 @pytest.fixture(scope="module")
 def create_blocking_scheduler(duthost):
     logger.info(f"Creating the blocking scheduler '{BLOCKING_SCHEDULER}' on the DUT.")
-    cmd = f"{sonic_db_cli} CONFIG_DB HSET 'SCHEDULER|{BLOCKING_SCHEDULER}' 'type' 'DWRR' 'weight' '15' \
+    cmd = f"{sonic_db_cli} --authenticate CONFIG_DB HSET 'SCHEDULER|{BLOCKING_SCHEDULER}' 'type' 'DWRR' 'weight' '15' \
           'pir' '1' 'cir' '1'"
     if duthost.facts["asic_type"] == "broadcom":
         cmd += " 'meter_type' 'packets'"
@@ -132,11 +132,11 @@ def configure_srv6(duthost, is_srv6_supported):
     if is_srv6_supported:
         logger.info("Configuring SRv6 on the DUT...")
         duthost.command(
-            f"{sonic_db_cli} CONFIG_DB HSET 'SRV6_MY_LOCATORS|{LOCATOR_NAME}' \
+            f"{sonic_db_cli} --authenticate CONFIG_DB HSET 'SRV6_MY_LOCATORS|{LOCATOR_NAME}' \
               'prefix' '{LOCATOR_PREFIX}' 'func_len' '0'"
         )
         duthost.command(
-            f"{sonic_db_cli} CONFIG_DB HSET 'SRV6_MY_SIDS|{LOCATOR_NAME}|{LOCATOR_SID_PREFIX}' \
+            f"{sonic_db_cli} --authenticate CONFIG_DB HSET 'SRV6_MY_SIDS|{LOCATOR_NAME}|{LOCATOR_SID_PREFIX}' \
               'action' 'uN' 'decap_dscp_mode' 'pipe'"
         )
         # Static route to NEXTHOP_PREFIX will be added later since it depends on the selected egress interface.
@@ -153,7 +153,8 @@ def create_wred_profile(duthost, request):
     else:
         ecn = "ecn_green"
     logger.info(f"Creating the WRED profile '{profile_name}' with action '{request.param}' on the DUT.")
-    duthost.shell(f"{sonic_db_cli} CONFIG_DB HSET 'WRED_PROFILE|{profile_name}' 'wred_green_enable' 'true'\
+    duthost.shell(f"{sonic_db_cli} --authenticate CONFIG_DB HSET "
+                  f"'WRED_PROFILE|{profile_name}' 'wred_green_enable' 'true'\
                     'ecn' '{ecn}' 'green_drop_probability' '100' 'green_max_threshold' '1'\
                     'green_min_threshold' '1'")
     # No need to wait here since we will wait in the "setup" fixture after applying the profile to the queue.
@@ -309,12 +310,14 @@ def setup(duthost, tbinfo, request, enable_wred_counters, create_blocking_schedu
     test_params["prev_scheduler"] = {}
     for port in egress_ports:
         logger.info(f"Setting the WRED profile of {port}|{QUEUE} to '{wred_profile_name}'.")
-        duthost.shell(f"{sonic_db_cli} CONFIG_DB HSET 'QUEUE|{port}|{QUEUE}' 'wred_profile' '{wred_profile_name}'")
+        duthost.shell(
+            f"{sonic_db_cli} --authenticate CONFIG_DB HSET 'QUEUE|{port}|{QUEUE}' 'wred_profile' '{wred_profile_name}'")
         test_params["prev_scheduler"][port] = \
             duthost.shell(f"{sonic_db_cli} CONFIG_DB HGET 'QUEUE|{port}|{QUEUE}' 'scheduler'")["stdout"].strip()
         logger.info(f"The original scheduler of {port}|{QUEUE} is '{test_params['prev_scheduler'][port]}'.")
         logger.info(f"Setting the scheduler of {port}|{QUEUE} to '{BLOCKING_SCHEDULER}'.")
-        duthost.shell(f"{sonic_db_cli} CONFIG_DB HSET 'QUEUE|{port}|{QUEUE}' 'scheduler' '{BLOCKING_SCHEDULER}'")
+        duthost.shell(
+            f"{sonic_db_cli} --authenticate CONFIG_DB HSET 'QUEUE|{port}|{QUEUE}' 'scheduler' '{BLOCKING_SCHEDULER}'")
 
     # Add a static route to NEXTHOP_PREFIX via the selected egress interface if testing with SRv6 packets.
     if is_srv6_test:
@@ -500,7 +503,8 @@ def restore_original_schedulers(duthost, prev_schedulers):
     for port, scheduler in prev_schedulers.items():
         if scheduler:
             logger.info(f"Restoring scheduler of {port}|{QUEUE} to '{scheduler}'.")
-            duthost.shell(f"{sonic_db_cli} CONFIG_DB HSET 'QUEUE|{port}|{QUEUE}' 'scheduler' '{scheduler}'")
+            duthost.shell(f"{sonic_db_cli} --authenticate CONFIG_DB HSET "
+                          f"'QUEUE|{port}|{QUEUE}' 'scheduler' '{scheduler}'")
     logger.info("Waiting 10 seconds for the configuration to take effect.")
     time.sleep(10)  # Wait for the configuration to take effect
 

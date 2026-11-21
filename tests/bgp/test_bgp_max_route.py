@@ -42,7 +42,7 @@ def configure_max_prefix(duthost, neighbor, max_prefix_limit, warning_only=False
         warning_flag = "true" if warning_only else "false"
 
         # Check if the neighbor exists in BGP_NEIGHBOR table
-        cmd = f"sonic-db-cli CONFIG_DB HGETALL \"BGP_NEIGHBOR|default|{neighbor}\""
+        cmd = f"sonic-db-cli -s CONFIG_DB HGETALL \"BGP_NEIGHBOR|default|{neighbor}\""
         result = duthost.shell(cmd)
         neighbor_exists = bool(result['stdout'].strip())
         logger.info(f"Neighbor exists in CONFIG_DB: {neighbor_exists}")
@@ -53,14 +53,14 @@ def configure_max_prefix(duthost, neighbor, max_prefix_limit, warning_only=False
             af_suffix = f"{af}_unicast"
 
             # Check if BGP_NEIGHBOR_AF table exists
-            cmd = "sonic-db-cli CONFIG_DB KEYS \"BGP_NEIGHBOR_AF*\""
+            cmd = "sonic-db-cli -s CONFIG_DB KEYS \"BGP_NEIGHBOR_AF*\""
             result = duthost.shell(cmd)
             has_bgp_neighbor_af = bool(result['stdout'].strip())
             logger.info(f"BGP_NEIGHBOR_AF exists: {has_bgp_neighbor_af}")
 
             if has_bgp_neighbor_af:
                 # Check if the specific AF entry exists
-                cmd = f"sonic-db-cli CONFIG_DB HGETALL \"BGP_NEIGHBOR_AF|default|{neighbor}|{af_suffix}\""
+                cmd = f"sonic-db-cli -s CONFIG_DB HGETALL \"BGP_NEIGHBOR_AF|default|{neighbor}|{af_suffix}\""
                 result = duthost.shell(cmd)
                 af_entry_exists = bool(result['stdout'].strip())
                 logger.info(f"AF entry exists: {af_entry_exists}")
@@ -148,13 +148,13 @@ def remove_max_prefix_config(duthost, neighbor, use_frr=None):
         af_suffix = f"{af}_unicast"
 
         # Check if BGP_NEIGHBOR_AF table exists
-        cmd = "sonic-db-cli CONFIG_DB KEYS \"BGP_NEIGHBOR_AF*\""
+        cmd = "sonic-db-cli -s CONFIG_DB KEYS \"BGP_NEIGHBOR_AF*\""
         result = duthost.shell(cmd)
         has_bgp_neighbor_af = bool(result['stdout'].strip())
 
         if has_bgp_neighbor_af:
             # Check if the specific AF entry exists
-            cmd = f"sonic-db-cli CONFIG_DB HGETALL \"BGP_NEIGHBOR_AF|default|{neighbor}|{af_suffix}\""
+            cmd = f"sonic-db-cli -s CONFIG_DB HGETALL \"BGP_NEIGHBOR_AF|default|{neighbor}|{af_suffix}\""
             result = duthost.shell(cmd)
             af_entry_exists = bool(result['stdout'].strip())
 

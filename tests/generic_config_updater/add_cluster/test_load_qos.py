@@ -122,7 +122,7 @@ def apply_patch_remove_qos_for_namespace(duthost,
 
                 def _appl_keys(appl_table):
                     """Current list of APPL_DB keys under `appl_table`."""
-                    cmd = "sonic-db-cli {} APPL_DB keys {}:*".format(
+                    cmd = "sonic-db-cli -s {} APPL_DB keys {}:*".format(
                         ns_prefix, appl_table)
                     return [
                         k for k in duthost.shell(cmd)["stdout"].splitlines()
@@ -285,7 +285,7 @@ def verify_qos_in_appl_db(duthost, namespace, qos_config, timeout=60, interval=5
     table_map = {'BUFFER_PG': 'BUFFER_PG_TABLE'}
 
     def _keys(appl_table):
-        cmd = "sonic-db-cli {} APPL_DB keys {}:*".format(ns_prefix, appl_table)
+        cmd = "sonic-db-cli -s {} APPL_DB keys {}:*".format(ns_prefix, appl_table)
         return [k for k in duthost.shell(cmd)["stdout"].splitlines() if k]
 
     for cfg_table, appl_table in table_map.items():

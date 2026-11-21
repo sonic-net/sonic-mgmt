@@ -42,7 +42,7 @@ def save_reload_config(duthost):
 
 @pytest.fixture
 def enable_zmq(duthost):
-    command = 'sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" subtype'
+    command = 'sonic-db-cli -s CONFIG_DB hget "DEVICE_METADATA|localhost" subtype'
     subtype = duthost.shell(command, module_ignore_errors=True)["stdout"]
     logger.debug("subtype: {}".format(subtype))
 
@@ -52,7 +52,7 @@ def enable_zmq(duthost):
         return
 
     # enable ZMQ
-    command = 'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" subtype SmartSwitch'
+    command = 'sonic-db-cli -s --authenticate CONFIG_DB hset "DEVICE_METADATA|localhost" subtype SmartSwitch'
     result = duthost.shell(command, module_ignore_errors=True)
     logger.debug("set subtype subtype: {}".format(result))
     save_reload_config(duthost)
@@ -70,7 +70,7 @@ def enable_zmq(duthost):
     yield
 
     # revert change
-    command = 'sonic-db-cli CONFIG_DB hdel "DEVICE_METADATA|localhost" subtype'
+    command = 'sonic-db-cli -s --authenticate CONFIG_DB hdel "DEVICE_METADATA|localhost" subtype'
     result = duthost.shell(command, module_ignore_errors=True)
     logger.debug("revert subtype subtype: {}".format(result))
     save_reload_config(duthost)
@@ -135,7 +135,7 @@ def test_gnmi_zmq(duthosts,
     update_list = ["/sonic-db:APPL_DB/localhost/DASH_VNET_TABLE:@/root/%s" % (file_name)]
     gnmi_set(duthost, ptfhost, [], update_list, [])
 
-    command = 'sonic-db-cli APPL_DB keys "*" | grep "DASH_VNET_TABLE:{}"'.format(vnet_key)
+    command = 'sonic-db-cli -s APPL_DB keys "*" | grep "DASH_VNET_TABLE:{}"'.format(vnet_key)
     appl_db_key = duthost.shell(command, module_ignore_errors=True)["stdout"]
     logger.debug("appl_db_key: {}".format(appl_db_key))
     assert appl_db_key == "DASH_VNET_TABLE:{}".format(vnet_key)

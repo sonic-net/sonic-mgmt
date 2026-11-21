@@ -573,7 +573,7 @@ def set_trusted_cnames(duthost, value):
     that service restarts. Pass None to remove the setting entirely.
     """
     if value is None:
-        duthost.shell('sonic-db-cli CONFIG_DB hdel "{}" client_crt_cname'.format(
+        duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB hdel "{}" client_crt_cname'.format(
             REDFISH_CERTS_TABLE), module_ignore_errors=True)
     else:
         db_set(duthost, "CONFIG_DB", REDFISH_CERTS_TABLE, client_crt_cname=value)

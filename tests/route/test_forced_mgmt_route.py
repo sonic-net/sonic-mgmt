@@ -182,7 +182,7 @@ def test_update_forced_mgmt(
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     # Get interface and check config generate correct
-    mgmt_interface_keys = duthost.command("sonic-db-cli  CONFIG_DB keys 'MGMT_INTERFACE|eth0|*'")['stdout']
+    mgmt_interface_keys = duthost.command("sonic-db-cli -s  CONFIG_DB keys 'MGMT_INTERFACE|eth0|*'")['stdout']
     logging.debug("mgmt_interface_keys: {}".format(mgmt_interface_keys))
 
     for interface_key in mgmt_interface_keys.split('\n'):
@@ -190,7 +190,7 @@ def test_update_forced_mgmt(
         interface_address = interface_key.split('|')[2]
 
         # Get current forced mgmt routes
-        original_forced_mgmt_routes = duthost.command("sonic-db-cli CONFIG_DB HGET '{}' forced_mgmt_routes@"
+        original_forced_mgmt_routes = duthost.command("sonic-db-cli -s CONFIG_DB HGET '{}' forced_mgmt_routes@"
                                                       .format(interface_key))['stdout']
         logging.debug("forced_mgmt_routes: {}, interface address: {}"
                       .format(original_forced_mgmt_routes, interface_address))
@@ -209,7 +209,7 @@ def test_update_forced_mgmt(
 
         # Update current forced mgmt routes
         logging.debug("updated_forced_mgmt_routes: {}".format(updated_forced_mgmt_routes))
-        command = "sonic-db-cli CONFIG_DB HSET '{}' forced_mgmt_routes@ '{}'"\
+        command = "sonic-db-cli -s --authenticate CONFIG_DB HSET '{}' forced_mgmt_routes@ '{}'"\
                   .format(interface_key, updated_forced_mgmt_routes)
 
         def update_interface_config(duthost, command):
@@ -237,7 +237,7 @@ def test_update_forced_mgmt(
 
         # Revert current forced mgmt routes
         logging.debug("updated_forced_mgmt_routes: {}".format(original_forced_mgmt_routes))
-        command = "sonic-db-cli CONFIG_DB HSET '{}' forced_mgmt_routes@ '{}'"\
+        command = "sonic-db-cli -s --authenticate CONFIG_DB HSET '{}' forced_mgmt_routes@ '{}'"\
                   .format(interface_key, original_forced_mgmt_routes)
         wait_for_file_changed(
                             duthost,
