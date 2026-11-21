@@ -13,6 +13,7 @@ from tests.common.helpers.syslog_helpers import add_syslog_server, del_syslog_se
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.memory_utilization.memory_utilization import MemoryMonitor
 from tests.common.reboot import reboot, SONIC_SSH_PORT, SONIC_SSH_REGEX
+from tests.common.mellanox_data import is_fast_reboot_supported, is_issu_enabled, is_mellanox_device
 from ipaddress import IPv4Address, IPv6Address, ip_address, ip_network, IPv6Network
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_duts  # noqa F401
 from tests.common.config_reload import config_reload
@@ -745,9 +746,14 @@ class TestSSIP:
             self.duthost.command("sudo config save -y")
 
         reboot_type = request.config.getoption("--ssip_reboot_type")
+        warm_unsupported = is_mellanox_device(self.duthost) and not is_issu_enabled(self.duthost)
+        unsupported = ({"warm"} if warm_unsupported else set()) | (
+            {"fast"} if not is_fast_reboot_supported(self.duthost) else set())
         if reboot_type == "random":
-            reboot_type_list = ["cold", "warm", "fast", "soft"]
-            reboot_type = random.choice(reboot_type_list)
+            reboot_type = random.choice([rt for rt in ("cold", "warm", "fast", "soft") if rt not in unsupported])
+        elif reboot_type in unsupported:
+            logger.info("Overriding {} reboot with cold reboot.".format(reboot_type))
+            reboot_type = "cold"
         with allure.step("Do {}".format(reboot_type)):
             reboot(self.duthost, localhost, reboot_type=reboot_type, reboot_helper=None, reboot_kwargs=None)
 

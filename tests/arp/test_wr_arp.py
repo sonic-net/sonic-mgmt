@@ -14,7 +14,8 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('t0'),
-    pytest.mark.disable_loganalyzer
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.usefixtures("skip_if_warm_reboot_unsupported"),
 ]
 
 

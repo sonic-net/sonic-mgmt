@@ -917,7 +917,8 @@ def test_monitoring_critical_processes(
                     raise
 
 
-def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container):
+def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container,
+                             skip_if_warm_reboot_unsupported):
     """Tests orchagent heartbeat after warm-restart
     """
     duthost = duthosts[rand_one_dut_hostname]

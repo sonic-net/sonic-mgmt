@@ -124,7 +124,8 @@ def test_warm_reboot(request, testing_config, get_advanced_reboot, verify_dut_he
                      duthosts, advanceboot_loganalyzer, consistency_checker_provider,           # noqa: F811
                      capture_interface_counters,
                      toggle_all_simulator_ports, enum_rand_one_per_hwsku_frontend_hostname,     # noqa: F811
-                     toggle_simulator_port_to_upper_tor):                                       # noqa: F811
+                     toggle_simulator_port_to_upper_tor,                                        # noqa: F811
+                     skip_if_warm_reboot_unsupported):
     '''
     Warm reboot test case is run using advacned reboot test fixture
 
@@ -152,7 +153,7 @@ def test_warm_reboot(request, testing_config, get_advanced_reboot, verify_dut_he
 
 def test_warm_reboot_mac_jump(request, get_advanced_reboot, verify_dut_health,          # noqa: F811
                               advanceboot_loganalyzer, consistency_checker_provider,    # noqa: F811
-                              capture_interface_counters):
+                              capture_interface_counters, skip_if_warm_reboot_unsupported):
     '''
     Warm reboot testcase with one MAC address (00-06-07-08-09-0A) jumping from
     all VLAN ports.
@@ -177,7 +178,8 @@ def test_warm_reboot_mac_jump(request, get_advanced_reboot, verify_dut_health,  
 def test_warm_reboot_sad(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts, vmhost, tbinfo,
                          get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,           # noqa: F811
                          consistency_checker_provider, backup_and_restore_config_db,                # noqa: F811
-                         advanceboot_neighbor_restore, sad_case_type):                              # noqa: F811
+                         advanceboot_neighbor_restore, sad_case_type,                               # noqa: F811
+                         skip_if_warm_reboot_unsupported):
     '''
     Warm reboot with sad path
     @param get_advanced_reboot: Fixture located in advanced_reboot.py
@@ -217,7 +219,8 @@ def test_cancelled_fast_reboot(request, add_fail_step_to_reboot,            # no
 
 
 def test_cancelled_warm_reboot(request, add_fail_step_to_reboot,            # noqa: F811
-                               verify_dut_health, get_advanced_reboot):     # noqa: F811
+                               verify_dut_health, get_advanced_reboot,      # noqa: F811
+                               skip_if_warm_reboot_unsupported):
     '''
     Negative warm reboot test case to verify DUT is left in stable state
     when warm reboot procedure abruptly ends.

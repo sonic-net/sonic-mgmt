@@ -887,7 +887,7 @@ class TestReboot():
             active_collectors="['collector0','collector1']")
 
     def testWarmreboot(self, sflowbase_config, duthosts, rand_one_dut_hostname,
-                       localhost, partial_ptf_runner, ptfhost):
+                       localhost, partial_ptf_runner, ptfhost, skip_if_warm_reboot_unsupported):
         duthost = duthosts[rand_one_dut_hostname]
 
         config_sflow(duthost, sflow_status='enable')

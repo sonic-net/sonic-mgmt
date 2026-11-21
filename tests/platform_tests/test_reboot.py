@@ -249,7 +249,8 @@ def test_fast_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_warm_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                     localhost, conn_graph_facts, xcvr_skip_list, invocation_type, gnmi_tls):      # noqa: F811
+                     localhost, conn_graph_facts, xcvr_skip_list, invocation_type, gnmi_tls,      # noqa: F811
+                     skip_if_warm_reboot_unsupported):
     """
     @summary: This test case is to perform warm reboot and check platform status
     """
@@ -258,14 +259,6 @@ def test_warm_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
 
     if duthost.is_multi_asic:
         pytest.skip("Multi-ASIC devices not supporting warm reboot")
-
-    asic_type = duthost.facts["asic_type"]
-
-    if asic_type in ["mellanox"]:
-        issu_capability = duthost.command("show platform mlnx issu")["stdout"]
-        if "disabled" in issu_capability:
-            pytest.skip(
-                "ISSU is not supported on this DUT, skip this test case")
 
     reboot_and_check(localhost, duthost, conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {}),
                      xcvr_skip_list, reboot_type=REBOOT_TYPE_WARM, duthosts=duthosts,

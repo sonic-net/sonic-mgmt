@@ -682,7 +682,7 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
     @pytest.mark.disable_loganalyzer
     def test_dscp_to_queue_mapping(self, ptfadapter, rand_selected_dut, localhost, dscp_config, dscp_mode,
                                    toggle_all_simulator_ports_to_rand_selected_tor, completeness_level,  # noqa F811
-                                   setup_standby_ports_on_rand_unselected_tor, route_config,
+                                   setup_standby_ports_on_rand_unselected_tor, route_config, is_warm_reboot_enabled,
                                    tbinfo, downstream_links, upstream_links, dut_qos_maps_module, loganalyzer, rotate_syslog):  # noqa F811
         """
             Test QoS SAI DSCP to queue mapping for IP-IP packets in DSCP "uniform" and "pipe" mode
@@ -708,6 +708,7 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
             and not is_th5_device
             and "dualtor" not in topo_name
             and "t1" not in topo_name
+            and is_warm_reboot_enabled
         ):
             with allure.step("Do warm-reboot"):
                 reboot(duthost, localhost, reboot_type="warm", safe_reboot=True, check_intf_up_ports=True,

@@ -37,7 +37,8 @@ ACTIONS = {'detect': 0,
            }
 
 pytestmark = [pytest.mark.disable_loganalyzer,
-              pytest.mark.topology('t0')
+              pytest.mark.topology('t0'),
+              pytest.mark.usefixtures("skip_if_warm_reboot_unsupported")
               ]
 
 logger = logging.getLogger(__name__)
