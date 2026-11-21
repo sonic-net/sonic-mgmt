@@ -83,6 +83,45 @@ def fanout_switch_port_lookup(fanout_switches, dut_name, dut_port):
     return None, None
 
 
+def get_primary_fanout(dut, fanouthosts):
+    """
+    The ports of a DUT may be spread over several fanouts.
+
+    Return the fanout holding most of the links of the DUT, None when the DUT has no fanout.
+    """
+    dut_port_prefix = encode_dut_port_name(dut.hostname, '')
+    link_counts = {}
+    for fanout_name, fanout in fanouthosts.items():
+        # Map may list each DUT port twice (name + alias); count unique peers.
+        peer_ports = {peer_port for dut_port, peer_port in fanout.host_to_fanout_port_map.items()
+                      if dut_port.startswith(dut_port_prefix)}
+        if peer_ports:
+            link_counts[fanout_name] = len(peer_ports)
+
+    logging.info("Number of links per fanout of {}: {}".format(dut.hostname, link_counts))
+    if not link_counts:
+        return None
+
+    return fanouthosts[max(link_counts, key=link_counts.get)]
+
+
+def get_primary_fanout_peer(dut, interface, fanouthosts):
+    """
+    Return the (fanout, fanout_port) peer of an interface on the primary fanout.
+
+    Returns (None, None) when the interface is wired to any other fanout.
+    """
+    primary_fanout = get_primary_fanout(dut, fanouthosts)
+    primary_fanouthosts = {primary_fanout.hostname: primary_fanout} if primary_fanout else {}
+
+    fanout, fanout_port = fanout_switch_port_lookup(primary_fanouthosts, dut.hostname, interface)
+    # The connection graph may hold the port alias, sfputil needs the SONiC name
+    if fanout:
+        fanout_port = fanout.fanout_port_alias_to_name.get(fanout_port, fanout_port)
+
+    return fanout, fanout_port
+
+
 def get_dut_psu_line_pattern(dut):
     if "201811" in dut.os_version or "201911" in dut.os_version:
         psu_line_pattern = re.compile(r"PSU\s+(\d)+\s+(OK|NOT OK|NOT PRESENT)")
