@@ -373,7 +373,8 @@ def bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, duthost,
 
     logger.info("run ptf test")
     expecte_packet_num = 3
-    packet_size = mtu + 4
+    # PTF uses the Ethernet frame length without FCS. VPP counts L3 bytes.
+    packet_size = mtu - 14 if asic_type == 'vpp' else mtu + 4
     with RouteFlowCounterTestContext(is_route_flow_counter_supported, duthost, [prefix], {prefix:
                                      {'packets': expecte_packet_num, 'bytes': packet_size * expecte_packet_num}}):
         ptf_runner(ptfhost,
