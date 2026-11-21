@@ -41,22 +41,18 @@ def _load_target_module():
     utilities = types.ModuleType("tests.high_frequency_telemetry.utilities")
     utilities.InfluxDbSink = object
     for name in (
-        "cleanup_hft_config",
-        "enable_otel_collector",
-        "ensure_countersyncd_daemon",
         "get_available_ports",
         "get_configured_buffer_pools",
         "get_configured_buffer_queue_objects",
         "get_configured_queue_objects",
-        "install_otel_collector_config",
+        "get_running_countersyncd_pid",
         "is_otel_image_available",
         "render_otel_collector_config",
         "restart_countersyncd_daemon",
         "restart_otel_service",
         "setup_influxdb",
         "start_influxdb",
-        "stop_influxdb",
-        "stop_otel_collector",
+        "stop_owned_influxdb",
     ):
         setattr(utilities, name, lambda *args, **kwargs: None)
 
@@ -107,27 +103,91 @@ def test_collector_status_recognizes_running(hft_conftest):
     assert hft_conftest._collector_running_from_status(status) is True
 
 
-@pytest.mark.parametrize("result,expected", [
-    ({"rc": 0, "stdout": "true", "stderr": ""}, True),
-    ({"rc": 0, "stdout": "false", "stderr": ""}, False),
-    ({"rc": 1, "stdout": "", "stderr": "No such object: otel"}, False),
+@pytest.mark.parametrize("output,expected", [
+    ("1234:running", ("1234", "running")),
+    ("1234:exited", ("1234", "exited")),
+    ("1234:paused", ("1234", "paused")),
+    ("1234:restarting", ("1234", "restarting")),
+    ("", (None, "absent")),
 ])
 def test_otel_container_status_recognizes_explicit_results(
-        hft_conftest, result, expected):
+        hft_conftest, output, expected):
     duthost = MagicMock()
-    duthost.shell.return_value = result
-    assert hft_conftest._get_otel_container_running(duthost) is expected
+    duthost.shell.return_value = {"stdout": output}
+    assert tuple(hft_conftest._otel_container(duthost)) == expected
 
 
 def test_otel_container_status_rejects_probe_errors(hft_conftest):
     duthost = MagicMock()
-    duthost.shell.return_value = {
-        "rc": 1,
-        "stdout": "",
-        "stderr": "Cannot connect to the Docker daemon",
-    }
-    with pytest.raises(AssertionError):
-        hft_conftest._get_otel_container_running(duthost)
+    duthost.shell.side_effect = RuntimeError("Cannot connect to the Docker daemon")
+    with pytest.raises(RuntimeError, match="Cannot connect"):
+        hft_conftest._otel_container(duthost)
+
+
+def test_multi_asic_gate_precedes_transaction(hft_conftest, monkeypatch):
+    dut = MagicMock(is_multi_asic=True)
+    claim = MagicMock()
+    monkeypatch.setattr(hft_conftest.transaction, "claim", claim)
+    with pytest.raises(pytest.skip.Exception, match="single ASIC"):
+        next(hft_conftest.skip_unsupported_hft_platform.__wrapped__(MagicMock(), {"dut": dut}, "dut"))
+    claim.assert_not_called()
+    dut.command.assert_not_called()
+
+
+@pytest.mark.parametrize("pending", [False, True])
+def test_down_port_case_recovers_only_a_pending_transaction(hft_conftest, monkeypatch, pending):
+    dut = MagicMock(is_multi_asic=False)
+    dut.interface_facts.return_value = {"ansible_facts": {"ansible_interface_link_down_ports": ["Ethernet0"]}}
+    req = MagicMock()
+    req.node.get_closest_marker.return_value = types.SimpleNamespace(
+        args=(hft_conftest.CounterObjectType.PORT,), kwargs={"oper_up_port": True})
+    monkeypatch.setattr(hft_conftest.transaction, "active_work", lambda host: object() if pending else None)
+    events = []
+    req.getfixturevalue.side_effect = events.append
+
+    def ports(*args, **kwargs):
+        events.append("check ports")
+        return ["Ethernet0"]
+
+    monkeypatch.setattr(hft_conftest, "get_available_ports", ports)
+    monkeypatch.setattr(hft_conftest, "get_support_counter_list", lambda *a: ["IF_IN_OCTETS"])
+    with pytest.raises(pytest.skip.Exception, match="No operationally up"):
+        hft_conftest.skip_unsupported_hft_test.__wrapped__(req, {"dut": dut}, "dut", {})
+    assert events == (["skip_unsupported_hft_platform"] if pending else []) + ["check ports"]
+
+
+def test_profile_cleanup_failure_keeps_original_exporters_isolated(hft_conftest, monkeypatch):
+    tx = MagicMock()
+    log_error = MagicMock()
+    monkeypatch.setattr(hft_conftest.logger, "exception", log_error)
+    tx.load.return_value = {"ptf_ip": "127.0.0.1"}
+
+    def call(action, *args):
+        if action == "clean-profiles":
+            raise RuntimeError("profile conflict")
+        return ""
+
+    tx.call.side_effect = call
+    with pytest.raises(RuntimeError, match="profile conflict"):
+        hft_conftest._recover_transaction(tx, MagicMock())
+    calls = [c.args[0] for c in tx.call.call_args_list]
+    assert "restore" not in calls and "restore-otel" not in calls and "finish" not in calls
+    assert log_error.call_args_list[0].args[-1] == "profiles"
+
+
+@pytest.mark.parametrize("masked", ["otel", "hft"])
+def test_masked_enabled_unit_skips_before_setup(hft_conftest, monkeypatch, masked):
+    dut = MagicMock()
+
+    def read(argv):
+        return {"stdout": "masked-runtime" if masked + ".service" in argv else ""}
+
+    dut.command.side_effect = read
+    monkeypatch.setattr(hft_conftest, "_supported_hft_state", lambda _: "enabled")
+    monkeypatch.setattr(hft_conftest, "_read_feature", lambda *a: {"state": "enabled"})
+    with pytest.raises(pytest.skip.Exception, match=f"Enabled {masked} unit is masked"):
+        hft_conftest._snapshot_platform(dut, MagicMock())
+    dut.shell.assert_not_called()
 
 
 @pytest.mark.parametrize("status", [
