@@ -4,7 +4,7 @@ import os
 import logging
 import re
 import tempfile
-from tests.common.mellanox_data import is_mellanox_device
+from tests.common.mellanox_data import is_mellanox_device, SIMX_UNSUPPORTED_PLATFORM_EMULATION
 from .args.counterpoll_cpu_usage_args import add_counterpoll_cpu_usage_args
 from .args.sfp_utils_args import add_limited_sfp_ports_args
 from tests.common.helpers.mellanox_thermal_control_test_helper import suspend_hw_tc_service, resume_hw_tc_service
@@ -20,9 +20,7 @@ logger = logging.getLogger(__name__)
 def skip_on_simx(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     platform = duthost.facts["platform"]
-    hwsku = duthost.facts['hwsku']
-    support_platform_simx_hwsku_list = ['ACS-MSN4700', 'ACS-SN4280', 'ACS-SN5640', 'ACS-SN6600', 'ACS-SN6600_LD']
-    if "simx" in platform and hwsku not in support_platform_simx_hwsku_list:
+    if platform in SIMX_UNSUPPORTED_PLATFORM_EMULATION:
         pytest.skip('skipped on this platform: {}'.format(platform))
 
 
