@@ -8,11 +8,9 @@ from .base_console_conn import (
     CONSOLE_SSH_TO_PORT,
     CONSOLE_SSH_CISCO_CONFIG,
     CONSOLE_SSH_SONIC_CONFIG,
+    DutLoginFailed,
+    NetMikoAuthenticationException,
 )
-try:
-    from netmiko.ssh_exception import NetMikoAuthenticationException
-except ImportError:
-    from netmiko.exceptions import NetMikoAuthenticationException
 from netmiko.exceptions import ReadTimeout
 from paramiko.ssh_exception import SSHException
 
@@ -306,7 +304,7 @@ class SSHConsoleConn(BaseConsoleConn):
                                    defer_on_bootloader=True)
             except NetMikoAuthenticationException as e:
                 if i == len(self.sonic_password) - 1:
-                    raise e
+                    raise DutLoginFailed(str(e)) from e
                 # Drain any leftover "Login incorrect" output and wait until the
                 # getty presents a clean login prompt before trying the next
                 # password in the list.
@@ -467,7 +465,7 @@ class SSHConsoleConn(BaseConsoleConn):
                     return
             except EOFError:
                 self.remote_conn.close()
-                raise NetMikoAuthenticationException(
+                raise DutLoginFailed(
                     "Login failed: {}".format(self.host))
             i += 1
         # Best effort: leave the buffer clean for the next attempt.

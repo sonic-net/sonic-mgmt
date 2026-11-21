@@ -1,10 +1,6 @@
 import time
 import re
-from .base_console_conn import BaseConsoleConn
-try:
-    from netmiko.ssh_exception import NetMikoAuthenticationException
-except ImportError:
-    from netmiko.exceptions import NetMikoAuthenticationException
+from .base_console_conn import BaseConsoleConn, DutLoginFailed
 
 
 class TelnetConsoleConn(BaseConsoleConn):
@@ -102,7 +98,7 @@ class TelnetConsoleConn(BaseConsoleConn):
                     msg = "Login failed - Password required, but none set: {}".format(
                         self.host
                     )
-                    raise NetMikoAuthenticationException(msg)
+                    raise DutLoginFailed(msg)
 
                 # Check if proper data received
                 if re.search(pri_prompt_terminator, output, flags=re.M) or re.search(
@@ -123,7 +119,7 @@ class TelnetConsoleConn(BaseConsoleConn):
                     # Wait a short time or the next login will be refused
                     time.sleep(1 * delay_factor)
                     msg = "Login failed: {}".format(self.host)
-                    raise NetMikoAuthenticationException(msg)
+                    raise DutLoginFailed(msg)
 
                 self.write_channel(self.TELNET_RETURN)
                 time.sleep(0.5 * delay_factor)
@@ -131,7 +127,7 @@ class TelnetConsoleConn(BaseConsoleConn):
             except EOFError:
                 self.remote_conn.close()
                 msg = "Login failed: {}".format(self.host)
-                raise NetMikoAuthenticationException(msg)
+                raise DutLoginFailed(msg)
 
         # Last try to see if we already logged in
         self.write_channel(self.TELNET_RETURN)
@@ -145,4 +141,4 @@ class TelnetConsoleConn(BaseConsoleConn):
 
         self.remote_conn.close()
         msg = "Login failed: {}".format(self.host)
-        raise NetMikoAuthenticationException(msg)
+        raise DutLoginFailed(msg)

@@ -42,6 +42,11 @@ CONSOLE_CONSERVER = "console_conserver"
 CONSOLE_SSH_RARITAN_CONFIG = "console_ssh_to_port_raritan_config"
 
 
+class DutLoginFailed(NetMikoAuthenticationException):
+    """The console login succeeded, but the login on the DUT behind it failed."""
+    pass
+
+
 class BaseConsoleConn(CiscoBaseConnection):
 
     def __init__(self, **kwargs):
@@ -113,6 +118,9 @@ class BaseConsoleConn(CiscoBaseConnection):
             kwargs['password'] = all_passwords[i]
             try:
                 super(BaseConsoleConn, self).__init__(**kwargs)
+            except DutLoginFailed:
+                # One way: the console login succeeded, so the next console password would not help.
+                raise
             except NetMikoAuthenticationException as e:
                 if i == len(all_passwords) - 1:
                     raise e
