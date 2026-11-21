@@ -116,20 +116,20 @@ def gen_ports_cable_info(ports_with_config_exceed_max_headroom_ports, map_port_t
 
 @pytest.fixture(scope="function")
 def update_cable_len_for_all_ports(duthost, skip_traditional_model):
-    if is_mellanox_device(duthost):
-        ports_cable_len_map_with_config_exceed_max_headroom, original_ports_cable_len_map = \
-            get_ports_with_config_exceed_max_headroom(duthost)
+    ports_cable_len_map_with_config_exceed_max_headroom = {}
+    try:
+        if is_mellanox_device(duthost):
+            ports_cable_len_map_with_config_exceed_max_headroom, original_ports_cable_len_map = \
+                get_ports_with_config_exceed_max_headroom(duthost)
 
+            if ports_cable_len_map_with_config_exceed_max_headroom:
+                # Shorter cables avoid exceeding the maximum headroom during the test.
+                new_cable_len = "50m"
+                ports_cable_info = gen_ports_cable_info(
+                    ports_cable_len_map_with_config_exceed_max_headroom, original_ports_cable_len_map, new_cable_len)
+                change_ports_cable_len(duthost, ports_cable_info)
+
+        yield
+    finally:
         if ports_cable_len_map_with_config_exceed_max_headroom:
-            # change cable length to a smaller one than 200m
-            new_cable_len = "50m"
-            ports_cable_info = gen_ports_cable_info(ports_cable_len_map_with_config_exceed_max_headroom,
-                                                    original_ports_cable_len_map, new_cable_len)
-            change_ports_cable_len(duthost, ports_cable_info)
-
-    yield
-
-    if is_mellanox_device(duthost):
-        if ports_cable_len_map_with_config_exceed_max_headroom:
-            # recover the cable length
             change_ports_cable_len(duthost, original_ports_cable_len_map)
