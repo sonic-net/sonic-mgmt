@@ -903,7 +903,10 @@ def _merged_bgp_neighbor_table(config_facts):   # noqa: F811
     return nbrs
 
 
-def _tgen_ports_from_portchannel(duthost, conn_graph_facts, fanout_graph_facts, config_facts):       # noqa: F811
+# Added for multi-asic support: new optional args (default_dut_asn, log_tag, allow_mixed_speed) keep the
+# previous behaviour when not passed. allow_mixed_speed is only set by the multi-asic opt-in path.
+def _tgen_ports_from_portchannel(duthost, conn_graph_facts, fanout_graph_facts, config_facts,       # noqa: F811
+                                 default_dut_asn=None, log_tag='', allow_mixed_speed=False):
     """
     Build tgen_ports list from config_db PORTCHANNEL and PORTCHANNEL_INTERFACE.
     Used when --bgp_pc_config is set (port-channels preconfigured on testbed).
@@ -912,6 +915,11 @@ def _tgen_ports_from_portchannel(duthost, conn_graph_facts, fanout_graph_facts, 
     pc_interface = config_facts.get('PORTCHANNEL_INTERFACE') or {}
     pc_member = config_facts.get('PORTCHANNEL_MEMBER') or {}
     if not pc_interface or not pc_member:
+        # Added for multi-asic support
+        logger.warning(
+            '%sNo PORTCHANNEL_INTERFACE (%s entries) / PORTCHANNEL_MEMBER (%s entries) in config_db. '
+            'On multi-ASIC devices these tables live in the per-ASIC config_db, not the host one.',
+            log_tag, len(pc_interface), len(pc_member))
         return None
     # Normalize PORTCHANNEL_INTERFACE: keys may be "PortChannel1" or "PortChannel1|1.1.1.1/24"
     pc_ips = {}
@@ -933,6 +941,8 @@ def _tgen_ports_from_portchannel(duthost, conn_graph_facts, fanout_graph_facts, 
     )
     snappi_fanouts = get_peer_snappi_chassis(conn_data=conn_graph_facts, dut_hostname=duthost.hostname)
     if snappi_fanouts is None:
+        # Added for multi-asic support
+        logger.warning('%sNo snappi chassis peered with %s in conn_graph_facts', log_tag, duthost.hostname)
         return None
     snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
     for snappi_fanout in snappi_fanouts:
@@ -941,9 +951,12 @@ def _tgen_ports_from_portchannel(duthost, conn_graph_facts, fanout_graph_facts, 
         snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
         break
     else:
+        # Added for multi-asic support
+        logger.warning('%sSnappi fanout list is empty for %s', log_tag, duthost.hostname)
         return None
     port_speeds = {int(p['speed']) for p in snappi_ports}
-    if len(port_speeds) != 1:
+    # Added for multi-asic support: mixed port speeds are accepted only on the opt-in path
+    if len(port_speeds) != 1 and not allow_mixed_speed:
         return None
     port_speed = port_speeds.pop()
     peer_port_to_snappi = {p['peer_port']: p for p in snappi_ports}
@@ -959,6 +972,9 @@ def _tgen_ports_from_portchannel(duthost, conn_graph_facts, fanout_graph_facts, 
     bgp_merged = _merged_bgp_neighbor_table(config_facts)
     dm_local = (config_facts.get('DEVICE_METADATA') or {}).get('localhost') or {}
     dut_asn_global = _normalize_sonic_config_asn(dm_local.get('bgp_asn'))
+    # Added for multi-asic support: per-ASIC config_db may lack DEVICE_METADATA bgp_asn; use the host value
+    if dut_asn_global is None:
+        dut_asn_global = default_dut_asn
     pytest_assert(
         dut_asn_global is not None,
         'DEVICE_METADATA localhost bgp_asn missing; cannot attach ASN fields to tgen_ports')
@@ -971,10 +987,16 @@ def _tgen_ports_from_portchannel(duthost, conn_graph_facts, fanout_graph_facts, 
             members = list(members.keys()) if isinstance(members, dict) else members
         # Skip portchannel if it has no ports or has more than 2 ports as members.
         if (not members) or (len(members) >= 2):
+            # Added for multi-asic support
+            logger.info('%sSkipping %s: %s member(s) %s', log_tag, pc_name, len(members or []), members)
             continue
         pc_port_member = members[0]
         sp = peer_port_to_snappi.get(pc_port_member)
         if sp is None:
+            # Added for multi-asic support
+            logger.info(
+                '%sSkipping %s: member %s is not connected to the snappi chassis (conn_graph peer ports: %s)',
+                log_tag, pc_name, pc_port_member, sorted(peer_port_to_snappi.keys()))
             continue
         addrs = pc_ips.get(pc_name, [])
         peer_ip = peer_ipv6 = prefix = ipv6_prefix = None
@@ -993,6 +1015,9 @@ def _tgen_ports_from_portchannel(duthost, conn_graph_facts, fanout_graph_facts, 
             'port_id': str(port_id),
             'speed': speed_type.get(str(port_speed), sp.get('speed', 'speed_400_gbps')),
         }
+        # Added for multi-asic support: per-port speed when mixed port speeds are allowed (opt-in path only)
+        if allow_mixed_speed:
+            entry['speed'] = speed_type.get(sp.get('speed')) or str(port_speed) or 'speed_400_gbps'
         if peer_ip:
             entry['peer_ip'] = peer_ip
             entry['prefix'] = prefix
@@ -1028,11 +1053,164 @@ def _tgen_ports_from_portchannel(duthost, conn_graph_facts, fanout_graph_facts, 
         entry['dut_asn'] = dut_asn_global
         entry['peer_asn'] = peer_asn
         result.append(entry)
-    return result if result else None
+    if not result:
+        # Added for multi-asic support
+        logger.warning('%sNo usable port-channel found among %s', log_tag, pc_names)
+        return None
+    return result
+
+
+# Added for multi-asic support
+def _portchannel_config_facts_by_namespace(duthost):
+    """Yield ``(namespace, config_facts)`` for every namespace that can hold port-channel config.
+
+    PORTCHANNEL_INTERFACE / PORTCHANNEL_MEMBER / BGP_NEIGHBOR are stored in the per-ASIC config_db
+    on multi-ASIC devices, so the host config_db alone yields nothing there.
+    """
+    if not duthost.is_multi_asic:
+        yield None, duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+        return
+    for asic in (duthost.frontend_asics or duthost.asics):
+        yield asic.namespace, asic.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+
+
+# Added for multi-asic support
+def _tgen_ports_from_portchannel_all_asics(duthost, conn_graph_facts, fanout_graph_facts,       # noqa: F811
+                                           allow_mixed_speed=False):
+    """Build tgen_ports from port-channels across every (front-end) ASIC namespace of a DUT."""
+    host_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    host_asn = _normalize_sonic_config_asn(
+        ((host_facts.get('DEVICE_METADATA') or {}).get('localhost') or {}).get('bgp_asn'))
+    merged = []
+    for namespace, config_facts in _portchannel_config_facts_by_namespace(duthost):
+        log_tag = '{}{}: '.format(duthost.hostname, '/' + namespace if namespace else '')
+        part = _tgen_ports_from_portchannel(
+            duthost, conn_graph_facts, fanout_graph_facts, config_facts,
+            default_dut_asn=host_asn, log_tag=log_tag, allow_mixed_speed=allow_mixed_speed)
+        if not part:
+            continue
+        for entry in part:
+            entry['duthost'] = duthost
+            entry['asic_value'] = namespace
+        logger.info('%sbuilt %s tgen port(s) from port-channels: %s',
+                    log_tag, len(part), [e['peer_port'] for e in part])
+        merged.extend(part)
+    return merged or None
+
+
+# Added for multidut / line-card support: --bgp_pc_config flow only (port-channels preconfigured
+# on every line card). The non --bgp_pc_config modular-chassis flow is intentionally not ported.
+def _tgen_ports_modular_chassis_bgp_pc(duthosts, conn_graph_facts, fanout_graph_facts_multidut,    # noqa: F811
+                                       allow_mixed_speed=False):
+    """Build merged tgen_ports from preconfigured port-channels on every line card / DUT."""
+    merged = []
+    for dh in duthosts:
+        part = _tgen_ports_from_portchannel_all_asics(
+            dh, conn_graph_facts, fanout_graph_facts_multidut, allow_mixed_speed=allow_mixed_speed)
+        if part:
+            merged.extend(part)
+    pytest_assert(
+        merged,
+        'Failed to build tgen_ports from port-channel on modular chassis '
+        '(try --bgp_pc_config with preconfigured PortChannels per LC)',
+    )
+    return merged
+
+
+# Added for multi-asic support: non --bgp_pc_config flow. True when the test ports span more than one
+# DUT / line card, or any of those DUTs is multi-ASIC. Single-asic single-DUT setups keep the original flow.
+def _ports_need_per_asic_flow(duthost, snappi_ports):
+    hosts = {duthost.hostname: duthost}
+    for port in snappi_ports:
+        port_dut = port.get('duthost')
+        if port_dut is not None:
+            hosts[port_dut.hostname] = port_dut
+    return len(hosts) > 1 or any(dh.is_multi_asic for dh in hosts.values())
+
+
+# Added for multi-asic support: running config_facts of the ASIC namespace owning the port (host level
+# facts for a single-asic DUT). Cached per (DUT, namespace).
+def _port_asic_config_facts(dut, port, cache):
+    namespace = port.get('asic_value')
+    if dut.is_multi_asic and not namespace:
+        namespace = dut.get_port_asic_instance(port['peer_port']).namespace
+        port['asic_value'] = namespace
+    key = (dut.hostname, namespace if dut.is_multi_asic else None)
+    if key not in cache:
+        if dut.is_multi_asic:
+            asic = dut.asic_instance_from_namespace(namespace)
+            cache[key] = asic.config_facts(host=dut.hostname, source="running")['ansible_facts']
+        else:
+            cache[key] = dut.config_facts(host=dut.hostname, source="running")['ansible_facts']
+    return cache[key]
+
+
+# Added for multi-asic support: BGP_NEIGHBOR local_addr (DUT IP) -> neighbor (TGEN) IP, lower-cased
+def _local_to_neighbor_map(config_facts):
+    mapping = {}
+    for neighbor_ip, props in (config_facts.get('BGP_NEIGHBOR') or {}).items():
+        local_addr = (props or {}).get('local_addr')
+        if local_addr:
+            mapping[local_addr.lower()] = neighbor_ip.lower()
+    return mapping
+
+
+# Added for multi-asic support: non --bgp_pc_config flow for multi-ASIC DUTs and for ports spread over several
+# DUTs / line cards. It only *plans* ports (IPs, speed, link settings read from the ASIC owning each port) and
+# never touches the DUT: removing the ports from PortChannel/VLAN, removing IPs and building PortChannel + BGP is
+# done afterwards by the convergence helper, i.e. after the config_db backup of the test fixture.
+def _tgen_ports_non_pc_all_asics(duthost, snappi_ports):
+    pytest_assert(snappi_ports, 'No snappi ports found for {}'.format(duthost.hostname))
+    total = len(snappi_ports)
+    dut_ips = create_ip_list(dut_ip_start, total, mask=prefix_length)
+    tgen_ips = create_ip_list(snappi_ip_start, total, mask=prefix_length)
+    dut_v6_ips = create_ip_list(dut_ipv6_start, total, mask=v6_prefix_length)
+    tgen_v6_ips = create_ip_list(snappi_ipv6_start, total, mask=v6_prefix_length)
+    facts_cache = {}
+    for idx, port in enumerate(snappi_ports):
+        port_dut = port.get('duthost') or duthost
+        port['duthost'] = port_dut
+        port['port_id'] = str(idx + 1)
+        port['multi_asic_flow'] = True
+        facts = _port_asic_config_facts(port_dut, port, facts_cache)
+        peer_port = port['peer_port']
+        dut_port_info = (facts.get('PORT') or {}).get(peer_port, {})
+        port['autoneg'] = dut_port_info.get('autoneg') == 'on'
+        port['fec'] = str(dut_port_info.get('fec', '')).strip().lower().startswith('rs')
+        link_training_value = str(dut_port_info.get('link_training', '')).strip().lower()
+        port['link_training'] = link_training_value in ['on', 'true', 'yes', '1']
+        port['speed'] = speed_type.get(str(port['speed']), port['speed'])
+        existing = (facts.get('INTERFACE') or {}).get(peer_port) or {}
+        existing_addrs = [a for a in existing if '/' in a] if isinstance(existing, dict) else []
+        local_to_neighbor = _local_to_neighbor_map(facts)
+        for ipver in ('ipv4', 'ipv6'):
+            if ipver == 'ipv4':
+                dut_list, tgen_list, mask = dut_ips, tgen_ips, prefix_length
+                peer_ip_key, prefix_key, ip_key = 'peer_ip', 'prefix', 'ip'
+            else:
+                dut_list, tgen_list, mask = dut_v6_ips, tgen_v6_ips, v6_prefix_length
+                peer_ip_key, prefix_key, ip_key = 'peer_ipv6', 'ipv6_prefix', 'ipv6'
+            addr = next((a for a in existing_addrs if (':' in a) == (ipver == 'ipv6')), None)
+            if addr is None:
+                port[peer_ip_key] = dut_list[idx]
+                port[prefix_key] = mask
+                port[ip_key] = tgen_list[idx]
+            else:
+                dut_ip, port[prefix_key] = addr.split('/')
+                port[peer_ip_key] = dut_ip
+                # Prefer the BGP neighbor (TGEN side) already configured for this DUT IP
+                port[ip_key] = local_to_neighbor.get(dut_ip.lower()) or get_addrs_in_subnet(
+                    addr, 1, exclude_ips=[dut_ip])[0]
+        logger.info('Planned tgen port %s: %s/%s asic=%s peer_ip=%s/%s ip=%s peer_ipv6=%s/%s ipv6=%s speed=%s',
+                    port['port_id'], port_dut.hostname, peer_port, port.get('asic_value'),
+                    port['peer_ip'], port['prefix'], port['ip'],
+                    port['peer_ipv6'], port['ipv6_prefix'], port['ipv6'], port['speed'])
+    return snappi_ports
 
 
 @pytest.fixture(scope="module")
-def tgen_ports(duthost, get_snappi_ports, conn_graph_facts, fanout_graph_facts, request):      # noqa: F811
+def tgen_ports(duthost, get_snappi_ports, conn_graph_facts, fanout_graph_facts, request,       # noqa: F811
+               duthosts):
     """
     Populate tgen ports info of T0 testbed and returns as a list
     Args:
@@ -1067,6 +1245,34 @@ def tgen_ports(duthost, get_snappi_ports, conn_graph_facts, fanout_graph_facts, 
         'speed': 'speed_400_gbps'}]
     """
     use_bgp_pc_config = request.config.getoption("--bgp_pc_config", default=False)
+
+    # Added for multi-asic support: opt-in per test module (TGEN_PORTS_MULTI_ASIC_SUPPORT = True). Reads the
+    # port-channel/BGP config from every ASIC namespace (and every DUT/line card when multidut). When the
+    # module does not opt in, the code below behaves exactly as before.
+    if use_bgp_pc_config and getattr(request.module, 'TGEN_PORTS_MULTI_ASIC_SUPPORT', False):
+        if is_snappi_multidut(duthosts):
+            # Added for multidut / line-card support
+            tgen_ports_list = _tgen_ports_modular_chassis_bgp_pc(
+                duthosts, conn_graph_facts, request.getfixturevalue('fanout_graph_facts_multidut'),
+                allow_mixed_speed=True)
+        else:
+            tgen_ports_list = _tgen_ports_from_portchannel_all_asics(
+                duthost, conn_graph_facts, fanout_graph_facts, allow_mixed_speed=True)
+            pytest_assert(tgen_ports_list is not None,
+                          'Failed to build tgen_ports from port-channel (PORTCHANNEL_INTERFACE / PORTCHANNEL_MEMBER) '
+                          'on {} (namespaces searched: {}). See the warnings above for the per-namespace '
+                          'reason.'.format(duthost.hostname, duthost.get_frontend_asic_namespace_list()))
+        for idx, port in enumerate(tgen_ports_list):
+            port['port_id'] = str(idx + 1)
+        return tgen_ports_list
+
+    # Added for multi-asic support: without --bgp_pc_config, multi-ASIC DUTs and ports spread over several DUTs /
+    # line cards are planned per ASIC and left untouched here (see _tgen_ports_non_pc_all_asics). Single-asic
+    # single-DUT setups fall through to the original flow below.
+    if (not use_bgp_pc_config and getattr(request.module, 'TGEN_PORTS_MULTI_ASIC_SUPPORT', False)
+            and _ports_need_per_asic_flow(duthost, get_snappi_ports)):
+        return _tgen_ports_non_pc_all_asics(duthost, get_snappi_ports)
+
     config_facts = duthost.config_facts(host=duthost.hostname,
                                         source="running")['ansible_facts']
 
