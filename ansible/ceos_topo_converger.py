@@ -144,6 +144,13 @@ class SonicTopoConverger:
         ptf_bp_addr_offset = 101
         base_v4_addr = "10.10.246.0"
         base_v6_addr = "fc0a::"
+
+        # Compute the offsets that correspond to nhipv4 so we can skip
+        common_props = self.topo.get("configuration_properties", {}).get("common", {})
+        _nhipv4 = common_props.get("nhipv4", self.modify_l3_address(base_v4_addr, 254))
+        _nhipv4_offset = int(ip_address(_nhipv4)) - int(ip_address(base_v4_addr))
+        # The /31 pair that must be avoided: the even offset and odd offset.
+        _skip_peer_offset = _nhipv4_offset if _nhipv4_offset % 2 == 0 else _nhipv4_offset - 1
         for prime_dev, peer_list in self.prime_device_mapping.items():
             intf_counter_base = 1
             eth_intf_index = 1
@@ -233,6 +240,11 @@ class SonicTopoConverger:
                 offset += 1
                 peer_bp_addr_offset += 2
                 ptf_bp_addr_offset += 2
+
+                # Skip the /31 pair that collides with nhipv4 (ExaBGP address).
+                if peer_bp_addr_offset == _skip_peer_offset:
+                    peer_bp_addr_offset += 2
+                    ptf_bp_addr_offset += 2
 
         convergence_data["converged_peers"] = new_peers
         convergence_data["convergence_mapping"] = deepcopy(self.prime_device_mapping)
