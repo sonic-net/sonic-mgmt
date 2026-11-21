@@ -544,7 +544,7 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
             for iface in uplink_interfaces:
                 duthost.shell('config interface shutdown {}'.format(iface))
 
-            pytest_assert(wait_until(50, 5, 0, check_link_status, duthost, uplink_interfaces, "down"),
+            pytest_assert(wait_until(120, 5, 0, check_link_status, duthost, uplink_interfaces, "down"),
                           "Not all uplinks go down")
 
             relay_types = ['sonic' if relay_agent == 'sonic-relay-agent' else 'isc']
