@@ -32,17 +32,19 @@ class MinigraphRefactor:
     are no longer referenced in the minigraph configuration.
     """
 
-    def __init__(self, leaf_router, port_name_to_alias_map=None):
+    def __init__(self, leaf_router, port_name_to_alias_map=None, asic_port_name_maps=None):
         self.leafrouter_name = leaf_router
         # Ports connected to the target neighbor, collected during link removal
         self.affected_ports = set()
         # PortChannels that use the affected ports, collected during PortChannel removal
         self.affected_portchannels = set()
+        self.affected_portchannels_by_dpg = {}
         # Maps port name -> alias, e.g. {"Ethernet256": "etp33a"}. Supply
         # mg_facts['minigraph_port_name_to_alias_map']. See _affected_port_identifiers().
         self.port_name_to_alias_map = port_name_to_alias_map or {}
+        self.asic_port_name_maps = {name.lower(): mapping for name, mapping in (asic_port_name_maps or {}).items()}
 
-    def _affected_port_identifiers(self):
+    def _affected_port_identifiers(self, dpg_name=None):
         """Return the affected ports under every name the minigraph may use for them.
 
         DeviceInterfaceLinks under PngDec reference ports by SONiC name
@@ -62,6 +64,9 @@ class MinigraphRefactor:
             alias = self.port_name_to_alias_map.get(port)
             if alias:
                 identifiers.add(alias)
+        # ASIC-local names can repeat in other namespaces; translate only in this DPG.
+        asic_names = self.asic_port_name_maps.get((dpg_name or "").lower(), {})
+        identifiers.update(asic_names[name] for name in list(identifiers) if name in asic_names)
         return identifiers
 
     def remove_bgp_sessions(self, root):
@@ -150,11 +155,12 @@ class MinigraphRefactor:
         if not self.affected_ports:
             return 0
 
-        affected_identifiers = self._affected_port_identifiers()
         removed_portchannels = 0
 
         # Find all DeviceDataPlaneInfo elements (there may be multiple for multi-ASIC)
         for dpg_info in root.findall(f".//{NS}DeviceDataPlaneInfo"):
+            dpg_name = dpg_info.findtext(f"{NS}Hostname")
+            affected_identifiers = self._affected_port_identifiers(dpg_name)
             portchannel_interfaces = dpg_info.find(f"{NS}PortChannelInterfaces")
             if portchannel_interfaces is None:
                 continue
@@ -173,6 +179,7 @@ class MinigraphRefactor:
                 if attached_ports & affected_identifiers:
                     pc_name = name_elem.text if name_elem is not None else "unknown"
                     self.affected_portchannels.add(pc_name)
+                    self.affected_portchannels_by_dpg.setdefault(dpg_name, set()).add(pc_name)
                     portchannel_interfaces.remove(portchannel)
                     logger.info("Removed PortChannel: %s (AttachTo: %s)", pc_name, attach_to_elem.text)
                     removed_portchannels += 1
@@ -190,14 +197,12 @@ class MinigraphRefactor:
         Returns:
             int: Number of IPInterface entries removed
         """
-        # Combine affected ports (under either naming form) and portchannels for lookup
-        affected_attachments = self._affected_port_identifiers() | self.affected_portchannels
-        if not affected_attachments:
-            return 0
-
         removed_interfaces = 0
 
         for dpg_info in root.findall(f".//{NS}DeviceDataPlaneInfo"):
+            dpg_name = dpg_info.findtext(f"{NS}Hostname")
+            affected_attachments = (self._affected_port_identifiers(dpg_name) |
+                                    self.affected_portchannels_by_dpg.get(dpg_name, set()))
             ip_interfaces = dpg_info.find(f"{NS}IPInterfaces")
             if ip_interfaces is None:
                 continue
