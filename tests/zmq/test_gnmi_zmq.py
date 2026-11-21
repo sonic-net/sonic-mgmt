@@ -79,7 +79,8 @@ def enable_zmq(duthost):
 def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
     ip = duthost.mgmt_ip
     port = 8080
-    cmd = '/root/env-python3/bin/python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd = ('timeout --kill-after=5s 60s /root/env-python3/bin/python '
+           '/root/gnxi/gnmi_cli_py/py_gnmicli.py ')
     cmd += '--timeout 30 -g -o example.com '
     cmd += '-t %s -p %u ' % (ip, port)
     cmd += '-xo sonic-db '
@@ -107,6 +108,8 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
     cmd += ' '
     cmd += '--value ' + xvalue
     output = ptfhost.shell(cmd, module_ignore_errors=True)
+    pytest_assert(output.get('rc') == 0,
+                  "gNMI command failed: {}".format(output))
     error = "GRPC error\n"
     if error in output['stdout']:
         result = output['stdout'].split(error, 1)
