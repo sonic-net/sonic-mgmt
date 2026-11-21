@@ -5,6 +5,11 @@ import time
 
 LINECARD_CLI_PROMPT = r"admin@[a-zA-Z0-9\-]{1,20}:~\$"
 LINECARD_DEBUG_FILE = "/tmp/linecard_console_debug.log"
+LOGIN_USERNAME_PATTERN = "login:"
+LOGIN_PWD_PATTERN = "[Pp]assword:"
+LOGIN_FAILURE_PATTERN = "Login incorrect"
+PICOCOM_READY_PATTERN = "Terminal ready"
+PICOCOM_EXIT_PATTERN = "Thanks for using picocom"
 
 
 class UnsupportedPlatformError(Exception):
@@ -63,7 +68,7 @@ class LinecardConsoleConn():
         console_cli.logfile = open(LINECARD_DEBUG_FILE, "wb")
 
         # Authenticate to supervisor
-        console_cli.expect('[Pp]assword:')
+        console_cli.expect(LOGIN_PWD_PATTERN)
         console_cli.sendline(sonic_password)
         console_cli.expect(LINECARD_CLI_PROMPT)
 
@@ -77,17 +82,17 @@ class LinecardConsoleConn():
 
         # Launch picocom to connect to linecard
         console_cli.sendline(f"sudo /usr/bin/picocom /dev/ttySCD{self.linecard_number}")
-        console_cli.expect('Terminal ready', timeout=20)
+        console_cli.expect(PICOCOM_READY_PATTERN, timeout=20)
         console_cli.sendline('\n')
 
         # Authenticate to linecard
         try:
-            match = console_cli.expect(['login:', LINECARD_CLI_PROMPT], timeout=20)
+            match = console_cli.expect([LOGIN_USERNAME_PATTERN, LINECARD_CLI_PROMPT], timeout=20)
             if match == 0:
                 console_cli.sendline(sonic_username)
-                console_cli.expect('[Pp]assword:', timeout=10)
+                console_cli.expect(LOGIN_PWD_PATTERN, timeout=10)
                 console_cli.sendline(sonic_password)
-                if console_cli.expect([LINECARD_CLI_PROMPT, 'Login incorrect'], timeout=30) == 1:
+                if console_cli.expect([LINECARD_CLI_PROMPT, LOGIN_FAILURE_PATTERN], timeout=30) == 1:
                     raise Exception(f"Failed to authenticate to linecard {self.linecard_number}")
         except pexpect.exceptions.TIMEOUT:
             raise Exception(f"Timeout waiting for login prompt on linecard {self.linecard_number}")
@@ -183,7 +188,7 @@ class LinecardConsoleConn():
 
         # Wait for picocom exit confirmation or supervisor prompt
         try:
-            self.console_cli.expect([LINECARD_CLI_PROMPT, 'Thanks for using picocom'], timeout=20)
+            self.console_cli.expect([LINECARD_CLI_PROMPT, PICOCOM_EXIT_PATTERN], timeout=20)
         except pexpect.exceptions.TIMEOUT:
             self.logger.warning("Timeout waiting for picocom exit confirmation")
 
