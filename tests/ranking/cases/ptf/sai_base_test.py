@@ -556,7 +556,7 @@ class SaiHelperBase(ThriftInterfaceDataPlane):
         self._result_collector.start_time = time.time()
         sai_capture.set_sink(self._result_collector.record_attr_row)
 
-        # Load spec registry (authoritative unit / result_type / direction)
+        # Load authoritative metric metadata.
         self._spec_registry = SpecRegistry()
 
         self._result_collector.set_metadata(
@@ -572,8 +572,8 @@ class SaiHelperBase(ThriftInterfaceDataPlane):
     def _record_measurement(self, m, result=None):
         """Translate a Measurement into a spec_result entry.
 
-        Resolves the authoritative unit / result_type / direction from the
-        spec registry and delegates the PASS/FAIL decision to the collector.
+        Resolves authoritative unit, metric category, and comparison direction
+        from the registry, then delegates result collection.
         """
         if not self._result_collector:
             return
@@ -604,8 +604,8 @@ class SaiHelperBase(ThriftInterfaceDataPlane):
                     extra=None):
         """Record one spec measurement result.
 
-        The unit / result_type / direction come from the spec registry;
-        callers must NOT hand-write units.
+        Unit, metric category, and direction come from the spec registry;
+        callers must not duplicate them at the call site.
 
         Args:
             spec_name: Spec identifier (e.g., 'ipv4_route_scale')
@@ -619,8 +619,8 @@ class SaiHelperBase(ThriftInterfaceDataPlane):
         """
         if self._spec_registry and not self._spec_registry.is_known(spec_name):
             raise AssertionError(
-                "spec '%s' is not in spec_registry.json; register it (unit / "
-                "result_type / direction) before recording." % spec_name)
+                "spec '%s' is not in spec_registry.json; register its metric "
+                "metadata before recording." % spec_name)
         if not self._result_collector:
             return
         m = Measurement(spec_name, operation, count, extra or {})

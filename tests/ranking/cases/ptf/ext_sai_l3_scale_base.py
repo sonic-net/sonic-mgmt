@@ -2267,8 +2267,8 @@ class L3VrfScaleTest(SaiHelperScaleL3):
         self.skip_syslog_verify = True
 
         print("\n==== L3VrfScaleTest Start ====")
-        # Route ops here only exercise multi-VRF install; report them as
-        # incidental so they never overwrite the pure-route scale metric.
+        # Hide auxiliary multi-VRF route measurements in the registry so they
+        # do not compete with the dedicated route performance metric.
         self._spec_name = "vrf_route_scale"
         # 1. Get the maximum number of VRFs and define test parameters
         max_vrf = sai_thrift_get_switch_attribute(self.client, max_virtual_routers=True)["max_virtual_routers"]

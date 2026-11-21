@@ -386,7 +386,8 @@ class L3IPv4NexthopScaleTest(SaiHelperScaleNexthop):
         print("\n==== L3IPv4NexthopScaleTest Start ====")
 
         # Routes here are only a vehicle for the nexthop test; the base bulk
-        # route helpers record self._spec_name, so tag them as incidental.
+        # Route helpers also record self._spec_name; the registry hides this
+        # auxiliary measurement from the report.
         self._spec_name = "nexthop_route_scale"
 
         # Step 1: Determine the test scale based on available device resources.
@@ -498,7 +499,8 @@ class L3IPv6NexthopScaleTest(SaiHelperScaleNexthop):
         print("\n==== L3IPv6NexthopScaleTest Start ====")
 
         # Routes here are only a vehicle for the nexthop test; the base bulk
-        # route helpers record self._spec_name, so tag them as incidental.
+        # Route helpers also record self._spec_name; the registry hides this
+        # auxiliary measurement from the report.
         self._spec_name = "nexthop_route_scale"
 
         # Step 1: Determine the test scale based on available device resources.
@@ -609,7 +611,8 @@ class L3IPv4IPv6NexthopScaleTest(SaiHelperScaleNexthop):
         print("\n==== L3IPv4IPv6NexthopScaleTest Start ====")
 
         # Routes here are only a vehicle for the nexthop test; the base bulk
-        # route helpers record self._spec_name, so tag them as incidental.
+        # Route helpers also record self._spec_name; the registry hides this
+        # auxiliary measurement from the report.
         self._spec_name = "nexthop_route_scale"
 
         # Step 1: Determine the test scale for both IPv4 and IPv6.

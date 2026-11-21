@@ -367,7 +367,7 @@ def test_performance_separates_throughput_and_latency_units():
     assert '0.50</span><span class="unit">ms</span>' in section
 
 
-def test_scale_table_summarizes_one_spec_and_expands_scenarios():
+def test_scale_and_fill_validation_render_as_separate_sections():
     actual = {
         ('ipv4_prefix', '', 'scale.RouteCase', '', 0): {'value': 1000},
     }
@@ -400,13 +400,16 @@ def test_scale_table_summarizes_one_spec_and_expands_scenarios():
     table = render_spec._scale_table(scale_rows, fill_rows, actual)
 
     assert '<h2>Scale</h2>' in table
-    assert '<th>Spec name</th>' in table
-    assert '>Reported scale</th>' in table
-    assert '<th>Installed</th><th>Fill rate</th>' in table
+    assert '<h2>Fill Validation</h2>' in table
+    scale_section, fill_section = table.split('<h2>Fill Validation</h2>')
+    assert '>Reported scale</th>' in scale_section
+    assert '<th>Installed</th>' not in scale_section
+    assert '<th>Fill rate</th>' not in scale_section
+    assert '<th>Installed</th><th>Fill rate</th>' in fill_section
     assert 'Capacity' not in table
     assert 'Attempted' not in table
     assert 'attempted' not in table
-    assert table.count('IPv4 route scale') == 1
+    assert table.count('IPv4 route scale') >= 2
     assert '2 scenarios' in table
     assert 'aria-expanded="false"' in table
     assert 'scale.Sequential' in table
@@ -614,3 +617,29 @@ def test_fill_rate_rows_are_selected_by_metric_type_not_spec_name_suffix():
     assert rows[0]['fill'] == 90.0
     assert rows[0]['installed'] == 900
     assert rows[0]['order'] == 'sequential'
+
+
+def test_fill_rate_rows_preserve_fdb_success_count():
+    registry = {
+        'fdb_fill_rate': {
+            'display_name': 'FDB entry scale',
+            'metric_type': 'fill_rate',
+            'operations': ['learn'],
+            'unit': 'percent',
+            'direction': 'higher_better',
+        },
+    }
+    definitions = render_spec.build_registry_definitions(registry)
+    results = [{
+        'case': 'scale.Fdb',
+        'spec_results': [{
+            'spec_name': 'fdb_fill_rate',
+            'operation': 'learn',
+            'actual_value': 93.82,
+            'extra': {'success_count': 7685},
+        }],
+    }]
+
+    rows = render_spec.build_fill_rate_rows(results, definitions)
+
+    assert rows[0]['installed'] == 7685

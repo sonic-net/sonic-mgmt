@@ -121,7 +121,7 @@ class CollectPortCountersTest(SaiHelperScaleL3):
         perf = self._report_counter_perf( active_ports ,real_time)
 
         self.record_spec("port_counter_read", "read", count=active_ports,
-                         actual_value=round(perf, 6),
+                         actual_value=round(real_time * 1000, 3),
                          duration=round(real_time, 3))
 
         result = {
@@ -246,7 +246,7 @@ class CollectQueueCountersTest(SaiHelperScaleL3):
 
         self.record_spec("queue_counter_read", "read",
                          count=len(self.queue_list_new),
-                         actual_value=round(perf, 6),
+                         actual_value=round(real_time * 1000, 3),
                          duration=round(real_time, 3))
 
         result = {
@@ -356,7 +356,7 @@ class CollectQueueWaterMarkCountersTest(SaiHelperScaleL3):
 
         self.record_spec("queue_watermark_counter_read", "read",
                          count=len(self.queue_list_new),
-                         actual_value=round(perf, 6),
+                         actual_value=round(real_read_time * 1000, 3),
                          duration=round(real_read_time, 3))
 
         result = {
@@ -401,7 +401,8 @@ class CollectQueueWaterMarkCountersTest(SaiHelperScaleL3):
         # existing perf computation and the registry description.
         self.record_spec("queue_watermark_counter_read", "clear",
                          count=len(self.queue_list_new),
-                         actual_value=round(perf, 6),
+                         actual_value=round(
+                             (real_read_time + real_clear_time) * 1000, 3),
                          duration=round(real_read_time + real_clear_time, 3))
 
         result = {
@@ -512,7 +513,7 @@ class CollectPGCountersTest(SaiHelperScaleL3):
 
         self.record_spec("pg_counter_read", "read",
                          count=len(self.ingress_priority_group_list_news),
-                         actual_value=round(perf, 6),
+                         actual_value=round(real_time * 1000, 3),
                          duration=round(real_time, 3))
 
         result = {
@@ -618,7 +619,7 @@ class CollectPGWaterMarkCountersTest(SaiHelperScaleL3):
 
         self.record_spec("pg_watermark_counter_read", "read",
                          count=len(self.ingress_priority_group_list_news),
-                         actual_value=round(perf, 6),
+                         actual_value=round(real_read_time * 1000, 3),
                          duration=round(real_read_time, 3))
 
         result = {
@@ -661,7 +662,8 @@ class CollectPGWaterMarkCountersTest(SaiHelperScaleL3):
         # existing perf computation and the registry description.
         self.record_spec("pg_watermark_counter_read", "clear",
                          count=len(self.ingress_priority_group_list_news),
-                         actual_value=round(perf, 6),
+                         actual_value=round(
+                             (real_read_time + real_clear_time) * 1000, 3),
                          duration=round(real_read_time + real_clear_time, 3))
 
         result = {
@@ -856,7 +858,7 @@ class CollectPolicerCountersTest(SaiHelperScaleL3):
         perf = self._report_counter_perf( len(pol_ids) ,real_time)
 
         self.record_spec("policer_counter_read", "read", count=len(pol_ids),
-                         actual_value=round(perf, 6),
+                         actual_value=round(real_time * 1000, 3),
                          duration=round(real_time, 3))
 
         result = {
@@ -1057,7 +1059,7 @@ class CollectACLCountersTest(SaiHelperScaleL3):
 
         self.record_spec("acl_counter_read", "read",
                          count=len(acl_counter_list),
-                         actual_value=round(perf, 6),
+                         actual_value=round(real_read_time * 1000, 3),
                          duration=round(real_read_time, 3))
 
         result = {

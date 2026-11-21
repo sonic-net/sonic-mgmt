@@ -34,3 +34,6 @@ tests/priority/*.json
 /tests/ranking/artifacts/
 # Current controller output.
 /tests/ranking/output/
+
+# Local Ranking case provenance reference.
+/tests/ranking/cases/patches.json

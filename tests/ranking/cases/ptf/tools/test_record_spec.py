@@ -142,6 +142,11 @@ class RecordSpecTest(unittest.TestCase):
                          registry.get_result_type(PERF_SPEC))
         self.assertEqual(entry['direction'], registry.get_direction(PERF_SPEC))
 
+    def test_reportable_spec_exposes_explicit_metric_type(self):
+        registry = self.host._spec_registry
+
+        self.assertEqual(registry.get_metric_type(PERF_SPEC), 'throughput')
+
     def test_measure_context_manager_is_gone(self):
         self.assertFalse(hasattr(sai_base_test.SaiHelperBase, 'measure'))
         self.assertTrue(hasattr(sai_base_test.SaiHelperBase, 'record_spec'))

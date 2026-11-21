@@ -1,11 +1,19 @@
 import io
 import json
+from pathlib import Path
 
 import pytest
 
 from tests.ranking.cases import generate_manifest as manifest_generator
 from tests.ranking.common.case_selection import load_case_manifest, select_ranking_cases
 from tests.ranking.cases.generate_manifest import build_manifest
+
+
+def test_case_selection_defers_annotations_for_python38():
+    source = (Path(__file__).resolve().parents[2]
+              / 'common/case_selection.py').read_text(encoding='utf-8')
+
+    assert source.startswith('from __future__ import annotations\n')
 
 
 def test_manifest_sorting_and_default_priority(manifest):
@@ -28,6 +36,8 @@ def test_manifest_sorting_and_default_priority(manifest):
     ('case:sairoute.RouteB,sairoute.RouteA',
      ['sairoute.RouteA', 'sairoute.RouteB']),
     ('case:saivlan.VlanA', ['saivlan.VlanA']),
+    ('case:   saivlan.VlanA', ['saivlan.VlanA']),
+    ('module:  saivlan', ['saivlan.VlanA']),
     ('case: sairoute.RouteA', ['sairoute.RouteA']),
     ('module:sairoute', ['sairoute.RouteA', 'sairoute.RouteB']),
     ('module: sairoute', ['sairoute.RouteA', 'sairoute.RouteB']),

@@ -20,8 +20,8 @@ Provides vendor-agnostic structured result output for SAI tests.
 Generates JSON result files that can be parsed by Jenkins or other CI systems.
 
 Components:
-    - SpecRegistry: Loads spec definitions (unit/result_type/direction) from
-      spec_registry.json; provides authoritative unit and comparison direction
+    - SpecRegistry: Loads spec definitions (unit/metric_type/direction) from
+      spec_registry.json; provides authoritative metric metadata
     - Measurement: Lightweight data carrier used by record_spec()
     - TestResultCollector: Collects test results and writes JSON output
 
@@ -57,8 +57,8 @@ class Measurement:
 class SpecRegistry:
     """Load spec definitions from spec_registry.json.
 
-    Provides authoritative unit / result_type / direction for each spec_name,
-    so callers never hand-write units (avoids mismatches like 'ECMP groups/s').
+    Provides authoritative unit / metric_type / direction for each spec_name,
+    so callers never hand-write report metadata.
 
     is_known() backs the hard check in record_spec: an unregistered spec name
     aborts the test instead of vanishing from the report.
@@ -66,7 +66,15 @@ class SpecRegistry:
 
     DEFAULT_UNIT = "unknown"
     DEFAULT_RESULT_TYPE = "performance"
+    DEFAULT_METRIC_TYPE = "throughput"
     DEFAULT_DIRECTION = "higher_better"
+    RESULT_TYPES = {
+        "throughput": "performance",
+        "latency": "performance",
+        "counter": "performance",
+        "scale": "scale",
+        "fill_rate": "fill_rate",
+    }
 
     def __init__(self, registry_file_path=None):
         self.specs = {}
@@ -112,7 +120,16 @@ class SpecRegistry:
 
     def get_result_type(self, spec_name):
         spec = self.specs.get(spec_name, {})
-        return spec.get('result_type', self.DEFAULT_RESULT_TYPE)
+        if spec.get('result_type') == 'capability':
+            return 'capability'
+        return self.RESULT_TYPES.get(
+            spec.get('metric_type'), self.DEFAULT_RESULT_TYPE)
+
+    def get_metric_type(self, spec_name):
+        spec = self.specs.get(spec_name, {})
+        if spec.get('result_type') == 'capability':
+            return 'capability'
+        return spec.get('metric_type', self.DEFAULT_METRIC_TYPE)
 
     def get_direction(self, spec_name):
         spec = self.specs.get(spec_name, {})

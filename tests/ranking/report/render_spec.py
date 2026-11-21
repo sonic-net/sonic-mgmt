@@ -149,9 +149,11 @@ def build_fill_rate_rows(results, definitions) -> List[Dict[str, Any]]:
                 "spec_name": name,
                 "display_name": definition.get("display_name", name),
                 "fill": spec.get("value"),
-                "installed": details.get(
-                    "success_route_cnt", details.get("completed_count")),
-                "order": details.get("order", details.get("scenario")),
+                "installed": next((details[key] for key in (
+                    "completed_count", "success_route_cnt", "success_count")
+                    if key in details), None),
+                "order": next((details[key] for key in (
+                    "scenario", "order") if key in details), None),
                 "result": _decide_result(spec.get("value"),
                                          spec.get("threshold"),
                                          "higher_better"),
@@ -757,59 +759,71 @@ def _capacity_of(spec_name, actual, test_class=None):
 
 
 def _scale_table(scale_rows, fill_rows, actual) -> str:
-    """Render one conservative summary row per scale specification.
-
-    Fill-rate observations remain available as expandable evidence instead of
-    repeating the same user-facing spec name for every case and order.
-    """
+    """Render reported scale separately from scenario fill validation."""
     aggregated = _aggregate_metric_rows(scale_rows, max)
     units = {row.spec_name: row.unit for row in aggregated}
-    replaced_scale_specs = set()
+    out = ["<h2>Scale</h2>",
+           "<div class=\"table-scroll\"><table><thead><tr>",
+           "<th>Spec name</th>",
+           f"<th title=\"{_CAPACITY_NOTE}\">Reported scale</th>",
+           "</tr></thead><tbody>"]
+    scale_entries = []
+    scale_names = set()
+    for row in aggregated:
+        name = row.display_name or row.spec_name
+        scale_entries.append((name.casefold(), name, row.value, row.unit,
+                              row.result, None))
+        scale_names.add(name)
+
     for fill in fill_rows:
-        backing = _CAPACITY_OF.get(fill["spec_name"], ())
-        if len(backing) == 1:
-            replaced_scale_specs.update(backing)
+        name = fill.get("display_name") or fill["spec_name"]
+        if name in scale_names:
+            continue
+        cap, cap_src = _capacity_of(fill["spec_name"], actual)
+        cap_unit = next(
+            (units.get(spec_name, "") for spec_name in cap_src), "")
+        scale_entries.append((name.casefold(), name, cap, cap_unit,
+                              fill.get("result", "MEASURED"), cap_src))
+        scale_names.add(name)
+
+    for _sort_name, name, value, unit, result, cap_src in sorted(scale_entries):
+        if isinstance(value, (int, float)):
+            scale = _num_unit(_fmt_num(value), unit)
+            scale_class = {"PASS": "pass", "FAIL": "fail",
+                           "MEASURED": "measured"}.get(result, "")
+        else:
+            scale = '<span class="na">n/m</span>'
+            scale_class = "fail"
+        source = ""
+        if cap_src:
+            source = ', '.join(cap_src)
+            if len(cap_src) > 1:
+                source = "min of " + source
+        title = f' title="from {_html(source)}"' if source else ""
+        out.append(
+            f"<tr><td><strong>{_html(name)}</strong></td>"
+            f'<td class="{scale_class}"{title}>{scale}</td></tr>')
+    out.append("</tbody></table></div>")
+
+    if not fill_rows:
+        return "\n".join(out)
 
     fill_groups = {}
     for fill in fill_rows:
         key = (fill["spec_name"], fill.get("display_name") or fill["spec_name"])
         fill_groups.setdefault(key, []).append(fill)
 
-    entries = []
-    for row in aggregated:
-        if row.spec_name not in replaced_scale_specs:
-            entries.append((
-                (row.display_name or row.spec_name).casefold(), "scale",
-                len(entries), row))
-    for (_spec_name, display_name), group in fill_groups.items():
-        entries.append((display_name.casefold(), "fill", len(entries), group))
-
-    out = ["<h2>Scale</h2>",
-           "<div class=\"table-scroll\"><table><thead><tr>",
-           "<th>Spec name</th>",
-           f"<th title=\"{_CAPACITY_NOTE}\">Reported scale</th>",
-           "<th>Installed</th><th>Fill rate</th>",
-           "</tr></thead><tbody>"]
+    out.extend([
+        "<h2>Fill Validation</h2>",
+        "<div class=\"table-scroll\"><table><thead><tr>",
+        "<th>Spec name</th>",
+        f"<th title=\"{_CAPACITY_NOTE}\">Reported scale</th>",
+        "<th>Installed</th><th>Fill rate</th>",
+        "</tr></thead><tbody>",
+    ])
     detail_index = 0
-    for _name_key, kind, _entry_index, item in sorted(entries):
-        if kind == "scale":
-            row = item
-            name = row.display_name or row.spec_name
-            if isinstance(row.value, (int, float)):
-                scale = _num_unit(_fmt_num(row.value), row.unit)
-                scale_class = {"PASS": "pass", "FAIL": "fail",
-                               "MEASURED": "measured"}.get(row.result, "")
-            else:
-                scale = '<span class="na">n/m</span>'
-                scale_class = "fail"
-            out.append(
-                f"<tr><td><strong>{_html(name)}</strong></td>"
-                f'<td class="{scale_class}">{scale}</td>'
-                '<td class="na-slash">／</td>'
-                '<td class="na-slash">／</td></tr>')
-            continue
-
-        group = item
+    for (_spec_name, _display_name), group in sorted(
+            fill_groups.items(), key=lambda item: item[0][1].casefold()):
         fill = min(group, key=lambda candidate: (
             candidate.get("fill")
             if isinstance(candidate.get("fill"), (int, float)) else float("inf"),
@@ -881,8 +895,7 @@ def _scale_table(scale_rows, fill_rows, actual) -> str:
                 f'<td><span class="val">{fill_detail}</span></td></tr>')
         out.append("</tbody></table></div></td></tr>")
     out.append("</tbody></table></div>")
-    if fill_groups:
-        out.append("""
+    out.append("""
 <script>
 document.addEventListener("click", function (event) {
   var button = event.target.closest(".scale-toggle");
