@@ -5,6 +5,17 @@ import time
 
 CONSERVER_CLI_PROMPT = "admin@[a-zA-Z0-9]{1,10}:~\\$"
 CONSERVER_DEBUG_FILE = "/tmp/conserver_console_debug.log"
+LOGIN_USERNAME_PATTERN = "login"
+LOGIN_PWD_PATTERN = "Password:"
+# The login at connect waits up to DEFAULT_TIMEOUT_S for each prompt. send_command() and
+# read_until_pattern() wait up to read_timeout (DEFAULT_TIMEOUT_S by default), and
+# send_command() waits max_loops * delay_factor seconds instead if that is longer
+# (delay_factor is DEFAULT_DELAY_FACTOR by default). send_command_timing() reads until
+# the line is quiet for last_read (DEFAULT_LAST_READ_S by default), up to read_timeout
+# (DEFAULT_TIMEOUT_S by default).
+DEFAULT_DELAY_FACTOR = 1
+DEFAULT_TIMEOUT_S = 30
+DEFAULT_LAST_READ_S = 1.0
 
 
 class ConserverConsoleConn():
@@ -22,8 +33,8 @@ class ConserverConsoleConn():
         self.conserver_name = conserver_info[1]
         self.device_type = "_conserver"
         self.port = kwargs['console_port']
-        self.delay_factor = 1
-        self.default_timeout = 30
+        self.delay_factor = DEFAULT_DELAY_FACTOR
+        self.default_timeout = DEFAULT_TIMEOUT_S
 
         console_cli = pexpect.spawn(
             'console', ["-f", "-M", self.conserver_host,
@@ -35,10 +46,10 @@ class ConserverConsoleConn():
         console_cli.logfile = open(CONSERVER_DEBUG_FILE, "wb")
 
         console_cli.sendline()
-        match = console_cli.expect(["login", CONSERVER_CLI_PROMPT])
+        match = console_cli.expect([LOGIN_USERNAME_PATTERN, CONSERVER_CLI_PROMPT])
         if match == 0:
             console_cli.sendline(self.sonic_username)
-            console_cli.expect("Password:")
+            console_cli.expect(LOGIN_PWD_PATTERN)
             console_cli.sendline(self.sonic_password)
             console_cli.expect(CONSERVER_CLI_PROMPT)
 
@@ -83,7 +94,7 @@ class ConserverConsoleConn():
         self.console_cli.close(force=True)
         self.logger.debug("Conserver connection closed.")
 
-    def send_command_timing(self, cmd, read_timeout=30, last_read=1.0):
+    def send_command_timing(self, cmd, read_timeout=DEFAULT_TIMEOUT_S, last_read=DEFAULT_LAST_READ_S):
         """Send command and read output until no data for 'last_read' seconds."""
         self.logger.debug("send_command_timing: cmd='%s'", cmd[:80])
 

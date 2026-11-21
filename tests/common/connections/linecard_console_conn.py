@@ -5,6 +5,36 @@ import time
 
 LINECARD_CLI_PROMPT = r"admin@[a-zA-Z0-9\-]{1,20}:~\$"
 LINECARD_DEBUG_FILE = "/tmp/linecard_console_debug.log"
+LOGIN_USERNAME_PATTERN = "login:"
+LOGIN_PWD_PATTERN = "[Pp]assword:"
+LOGIN_FAILURE_PATTERN = "Login incorrect"
+PICOCOM_READY_PATTERN = "Terminal ready"
+PICOCOM_EXIT_PATTERN = "Thanks for using picocom"
+# How the connect workflow uses the timeouts below.
+#   a. SSH to the supervisor and log in, waiting up to DEFAULT_TIMEOUT_S for each prompt.
+#   b. Kill any picocom left running and wait up to PICOCOM_KILL_TIMEOUT_S for the shell
+#      prompt; if it does not come, send a newline and wait once more.
+#   c. Start picocom on the linecard's serial port and wait up to PICOCOM_READY_TIMEOUT_S
+#      for "Terminal ready".
+#   d. Send a newline and wait up to LOGIN_USERNAME_TIMEOUT_S for a login or shell prompt.
+#      At a login prompt, send the username, wait up to LOGIN_PWD_TIMEOUT_S for the
+#      password prompt, send the password, then wait up to LOGIN_RESULT_TIMEOUT_S for the
+#      shell prompt or a login failure.
+# disconnect() exits picocom and waits up to PICOCOM_EXIT_TIMEOUT_S for it to finish.
+# send_command() and read_until_pattern() wait up to read_timeout (DEFAULT_TIMEOUT_S by
+# default), and send_command() waits max_loops * delay_factor seconds instead if that is
+# longer (delay_factor is DEFAULT_DELAY_FACTOR by default). send_command_timing() reads
+# until the line is quiet for last_read (DEFAULT_LAST_READ_S by default), up to
+# read_timeout (DEFAULT_TIMEOUT_S by default).
+DEFAULT_DELAY_FACTOR = 1
+DEFAULT_TIMEOUT_S = 30
+DEFAULT_LAST_READ_S = 1.0
+PICOCOM_KILL_TIMEOUT_S = 5
+PICOCOM_READY_TIMEOUT_S = 20
+LOGIN_USERNAME_TIMEOUT_S = 20
+LOGIN_PWD_TIMEOUT_S = 10
+LOGIN_RESULT_TIMEOUT_S = 30
+PICOCOM_EXIT_TIMEOUT_S = 20
 
 
 class UnsupportedPlatformError(Exception):
@@ -25,8 +55,8 @@ class LinecardConsoleConn():
 
     def __init__(self, **kwargs):
         self.logger = logging.getLogger(__name__)
-        self.delay_factor = 1
-        self.default_timeout = 30
+        self.delay_factor = DEFAULT_DELAY_FACTOR
+        self.default_timeout = DEFAULT_TIMEOUT_S
 
         # Validate hwsku FIRST before doing anything else
         hwsku = kwargs.get('hwsku', '').lower()
@@ -63,31 +93,32 @@ class LinecardConsoleConn():
         console_cli.logfile = open(LINECARD_DEBUG_FILE, "wb")
 
         # Authenticate to supervisor
-        console_cli.expect('[Pp]assword:')
+        console_cli.expect(LOGIN_PWD_PATTERN)
         console_cli.sendline(sonic_password)
         console_cli.expect(LINECARD_CLI_PROMPT)
 
         # Kill any existing picocom sessions
         console_cli.sendline('sudo pkill -9 picocom || true')
         try:
-            console_cli.expect(LINECARD_CLI_PROMPT, timeout=5)
+            console_cli.expect(LINECARD_CLI_PROMPT, timeout=PICOCOM_KILL_TIMEOUT_S)
         except pexpect.exceptions.TIMEOUT:
             console_cli.sendline('')
-            console_cli.expect(LINECARD_CLI_PROMPT, timeout=5)
+            console_cli.expect(LINECARD_CLI_PROMPT, timeout=PICOCOM_KILL_TIMEOUT_S)
 
         # Launch picocom to connect to linecard
         console_cli.sendline(f"sudo /usr/bin/picocom /dev/ttySCD{self.linecard_number}")
-        console_cli.expect('Terminal ready', timeout=20)
+        console_cli.expect(PICOCOM_READY_PATTERN, timeout=PICOCOM_READY_TIMEOUT_S)
         console_cli.sendline('\n')
 
         # Authenticate to linecard
         try:
-            match = console_cli.expect(['login:', LINECARD_CLI_PROMPT], timeout=20)
+            match = console_cli.expect([LOGIN_USERNAME_PATTERN, LINECARD_CLI_PROMPT], timeout=LOGIN_USERNAME_TIMEOUT_S)
             if match == 0:
                 console_cli.sendline(sonic_username)
-                console_cli.expect('[Pp]assword:', timeout=10)
+                console_cli.expect(LOGIN_PWD_PATTERN, timeout=LOGIN_PWD_TIMEOUT_S)
                 console_cli.sendline(sonic_password)
-                if console_cli.expect([LINECARD_CLI_PROMPT, 'Login incorrect'], timeout=30) == 1:
+                if console_cli.expect([LINECARD_CLI_PROMPT, LOGIN_FAILURE_PATTERN],
+                                      timeout=LOGIN_RESULT_TIMEOUT_S) == 1:
                     raise Exception(f"Failed to authenticate to linecard {self.linecard_number}")
         except pexpect.exceptions.TIMEOUT:
             raise Exception(f"Timeout waiting for login prompt on linecard {self.linecard_number}")
@@ -129,7 +160,7 @@ class LinecardConsoleConn():
         # Remove the command echo (first line)
         return output.split(linesep, 1)[1].strip() if linesep in output else output.strip()
 
-    def send_command_timing(self, cmd, read_timeout=30, last_read=1.0):
+    def send_command_timing(self, cmd, read_timeout=DEFAULT_TIMEOUT_S, last_read=DEFAULT_LAST_READ_S):
         """Send command and read output until no data arrives for last_read seconds."""
         self.logger.debug("send_command_timing: cmd='%s'", cmd[:80])
 
@@ -183,7 +214,7 @@ class LinecardConsoleConn():
 
         # Wait for picocom exit confirmation or supervisor prompt
         try:
-            self.console_cli.expect([LINECARD_CLI_PROMPT, 'Thanks for using picocom'], timeout=20)
+            self.console_cli.expect([LINECARD_CLI_PROMPT, PICOCOM_EXIT_PATTERN], timeout=PICOCOM_EXIT_TIMEOUT_S)
         except pexpect.exceptions.TIMEOUT:
             self.logger.warning("Timeout waiting for picocom exit confirmation")
 

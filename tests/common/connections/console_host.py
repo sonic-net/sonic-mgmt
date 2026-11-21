@@ -41,12 +41,14 @@ def ConsoleHost(console_type,
                 console_direct_ssh_port=None,
                 timeout_s=100,
                 supervisor_ip=None,
-                linecard_number=None,
                 slot_num=None,
                 hwsku=None,
-                cancel_event=None):
+                cancel_event=None,
+                attach_only=False):
     if console_type not in ConsoleTypeMapper:
         raise ValueError("console type {} is not supported yet".format(console_type))
+    if attach_only and not issubclass(ConsoleTypeMapper[console_type], (SSHConsoleConn, TelnetConsoleConn)):
+        raise ValueError("attach_only is not supported for console type {}".format(console_type))
     params = {
         "console_host": console_host,
         "console_port": console_port,
@@ -66,12 +68,12 @@ def ConsoleHost(console_type,
     # resolved class so non-SSH console types are unaffected.
     if cancel_event is not None and issubclass(ConsoleTypeMapper[console_type], SSHConsoleConn):
         params["cancel_event"] = cancel_event
+    if attach_only:
+        params["attach_only"] = True
 
     # Add linecard-specific parameters if provided
     if supervisor_ip is not None:
         params["supervisor_ip"] = supervisor_ip
-    if linecard_number is not None:
-        params["linecard_number"] = linecard_number
     if slot_num is not None:
         params["slot_num"] = slot_num
     if hwsku is not None:
