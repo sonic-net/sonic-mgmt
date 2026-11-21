@@ -267,8 +267,8 @@ def get_physical_port_indices(duthost, logical_intfs=None):
         interfaces_per_asic = {k: v for k, v in list(interface_list.items()) if k in logical_intfs}
         logging.debug("ASIC index={} interfaces = {}".format(asic_index, interfaces_per_asic))
         asic_subcommand = f'-n asic{asic_index}' if asic_index is not None else ''
-        cmd_keys = f'sonic-db-cli {asic_subcommand} CONFIG_DB KEYS "PORT|Ethernet*"'
-        cmd_hget = f'sonic-db-cli {asic_subcommand} CONFIG_DB HGET $key index'
+        cmd_keys = f'sonic-db-cli -s {asic_subcommand} CONFIG_DB KEYS "PORT|Ethernet*"'
+        cmd_hget = f'sonic-db-cli -s {asic_subcommand} CONFIG_DB HGET $key index'
         cmd = f'for key in $({cmd_keys}); do echo "$key : $({cmd_hget})" ; done'  # noqa: E702,E203
         cmd_out = duthost.command(cmd, _uses_shell=True)["stdout_lines"]
         cmd_out_dict = {}

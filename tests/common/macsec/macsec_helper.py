@@ -74,15 +74,15 @@ def get_sci(macaddress, port_identifer=1):
     return sci
 
 
-QUERY_MACSEC_PORT = "sonic-db-cli {} APPL_DB HGETALL 'MACSEC_PORT_TABLE:{}'"
+QUERY_MACSEC_PORT = "sonic-db-cli -s {} APPL_DB HGETALL 'MACSEC_PORT_TABLE:{}'"
 
-QUERY_MACSEC_INGRESS_SC = "sonic-db-cli {} APPL_DB HGETALL 'MACSEC_INGRESS_SC_TABLE:{}:{}'"
+QUERY_MACSEC_INGRESS_SC = "sonic-db-cli -s {} APPL_DB HGETALL 'MACSEC_INGRESS_SC_TABLE:{}:{}'"
 
-QUERY_MACSEC_EGRESS_SC = "sonic-db-cli {} APPL_DB HGETALL 'MACSEC_EGRESS_SC_TABLE:{}:{}'"
+QUERY_MACSEC_EGRESS_SC = "sonic-db-cli -s {} APPL_DB HGETALL 'MACSEC_EGRESS_SC_TABLE:{}:{}'"
 
-QUERY_MACSEC_INGRESS_SA = "sonic-db-cli {} APPL_DB HGETALL 'MACSEC_INGRESS_SA_TABLE:{}:{}:{}'"
+QUERY_MACSEC_INGRESS_SA = "sonic-db-cli -s {} APPL_DB HGETALL 'MACSEC_INGRESS_SA_TABLE:{}:{}:{}'"
 
-QUERY_MACSEC_EGRESS_SA = "sonic-db-cli {} APPL_DB HGETALL 'MACSEC_EGRESS_SA_TABLE:{}:{}:{}'"
+QUERY_MACSEC_EGRESS_SA = "sonic-db-cli -s {} APPL_DB HGETALL 'MACSEC_EGRESS_SA_TABLE:{}:{}:{}'"
 
 
 def getns_prefix(host, intf):

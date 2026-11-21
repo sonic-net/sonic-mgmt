@@ -130,6 +130,10 @@ ztp() {
 }
 
 sonic-db-cli() {
+    # Connection options do not change the stubbed database operation.
+    while [ "$1" = "-s" ] || [ "$1" = "--authenticate" ]; do
+        shift
+    done
     if [ "$1" = "STATE_DB" ] && [ "$2" = "hget" ]; then
         if [ "$3" = "WARM_RESTART_ENABLE_TABLE|system" ] && \
            [ "$4" = "enable" ]; then

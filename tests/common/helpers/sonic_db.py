@@ -9,6 +9,35 @@ from tests.common.devices.sonic_asic import SonicAsic
 logger = logging.getLogger(__name__)
 
 
+def redis_cli_argv(host, database):
+    """Select a native CLI endpoint without changing its arguments or output."""
+    metadata = ["cat", "/var/run/redis/sonic-db/database_config.json"]
+    if isinstance(host, SonicAsic):
+        configuration = json.loads("\n".join(host.run_redis_cmd(argv=metadata)))
+    else:
+        configuration = json.loads(host.command(argv=metadata)["stdout"])
+    databases = configuration["DATABASES"]
+    if isinstance(database, int) or str(database).isdigit():
+        primary = databases["CONFIG_DB"]["instance"]
+        database = next((name for name, settings in databases.items()
+                         if int(settings["id"]) == int(database) and settings["instance"] == primary), None)
+        if database is None:
+            raise ValueError("Database ID is not configured in the local primary Redis instance")
+    db = databases[database]
+    instance = configuration["INSTANCES"][db["instance"]]
+    port = int(instance.get("port", 6379))
+    if port == 0:
+        endpoint = ["-s", instance["unix_socket_path"]]
+    else:
+        endpoint = ["-h", instance.get("hostname", "localhost"), "-p", str(port)]
+    return ["redis-cli"] + endpoint + ["-n", str(db["id"])]
+
+
+def redis_cli_command(host, database):
+    """Quote the configured native CLI prefix for a shell command."""
+    return " ".join(shlex.quote(argument) for argument in redis_cli_argv(host, database))
+
+
 def get_chassis_db_address_from_dut(host):
     """Return chassis DB / supervisor midplane IP configured on the DUT."""
     paths = [
@@ -33,6 +62,8 @@ class SonicDbCli(object):
             database: database number.
         """
 
+    USE_TCP = False
+
     def __init__(self, host, database='APPL_DB'):
         """Initializes base class with defaults"""
         self.host = host
@@ -55,7 +86,7 @@ class SonicDbCli(object):
 
         """
         logger.debug("SONIC-DB-CLI: %s", cmd)
-        result = self.host.run_sonic_db_cli_cmd(cmd)
+        result = self.host.run_sonic_db_cli_cmd(cmd, use_tcp=self.USE_TCP)
 
         if len(result["stdout_lines"]) == 0:
             logger.error("No command response: %s" % cmd)
@@ -78,7 +109,7 @@ class SonicDbCli(object):
 
         """
         logger.debug("SONIC-DB-CLI: %s", cmd)
-        result = self.host.run_sonic_db_cli_cmd(cmd)
+        result = self.host.run_sonic_db_cli_cmd(cmd, use_tcp=self.USE_TCP)
 
         if len(result["stdout_lines"]) == 0:
             logger.warning("No command response: %s" % cmd)
@@ -204,7 +235,8 @@ class SonicDbCli(object):
         cli = "sonic-db-dump"
         cmd_str = ""
 
-        cmd_str += "-n {db} -y -k *{t}*".format(db=self.database, t=table)
+        transport = 'tcp' if self.USE_TCP else 'unix_socket'
+        cmd_str += "-t {transport} -n {db} -y -k *{t}*".format(transport=transport, db=self.database, t=table)
 
         # We are on an asic, it could be single asic card, or multiasic and need a namespace.
         if isinstance(self.host, SonicAsic):
@@ -238,9 +270,15 @@ CONFIG_DB = 'CONFIG_DB'
 STATE_DB = 'STATE_DB'
 
 
-def _run_sonic_db_cli(duthost, command):
-    """Run sonic-db-cli in the host's ASIC namespace without raising on failure"""
-    cli = duthost.sonic_db_cli if isinstance(duthost, SonicAsic) else 'sonic-db-cli'
+def _run_sonic_db_cli(duthost, command, authenticate=False):
+    """Run local DBs on their ASIC socket and chassis DBs over TCP"""
+    database = command.split(None, 1)[0]
+    if database in ('CHASSIS_APP_DB', 'CHASSIS_STATE_DB'):
+        cli = 'sonic-db-cli'
+    else:
+        cli = duthost.sonic_db_cli if isinstance(duthost, SonicAsic) else 'sonic-db-cli -s'
+        if authenticate:
+            cli += ' --authenticate'
     return duthost.shell(
         "{} {}".format(cli, command),
         module_ignore_errors=True
@@ -298,6 +336,7 @@ def redis_hset(duthost, db, key, **fields):
             key=shlex.quote(str(key)),
             parts=parts,
         ),
+        authenticate=True,
     )
 
 
@@ -312,6 +351,7 @@ def redis_hdel(duthost, db, key, *fields):
             key=shlex.quote(str(key)),
             fields=' '.join(shlex.quote(str(field)) for field in fields),
         ),
+        authenticate=True,
     )
 
 
@@ -326,6 +366,7 @@ def redis_del(duthost, db, *keys):
                     db=db,
                     key=shlex.quote(str(k)),
                 ),
+                authenticate=True,
             )
         )
     return results
@@ -627,6 +668,8 @@ class VoqDbCli(SonicDbCli):
         host: a SonicHost instance for a supervisor card.  Commands will be run on this shell.
 
     """
+    USE_TCP = True
+
     SYSTEM_LAG_TABLE = "SYSTEM_LAG_TABLE"
     SYSTEM_LAG_MEMBER_TABLE = "SYSTEM_LAG_MEMBER_TABLE"
     SYSTEM_NEIGHBOR_TABLE = "SYSTEM_NEIGH"
@@ -717,7 +760,7 @@ def redis_get_keys(duthost, db_id, pattern):
     :param pattern: Redis key pattern
     :return: A list of key name in string
     """
-    cmd = 'sonic-db-cli {} KEYS \"{}\"'.format(db_id, pattern)
+    cmd = 'sonic-db-cli -s {} KEYS \"{}\"'.format(db_id, pattern)
     logger.debug('Getting keys from redis by command: {}'.format(cmd))
     output = duthost.shell(cmd)
     content = output['stdout'].strip()
