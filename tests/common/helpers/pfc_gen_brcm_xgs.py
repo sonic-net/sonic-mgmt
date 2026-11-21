@@ -17,6 +17,8 @@ import time
 logger = logging.getLogger('MyLogger')
 logger.setLevel(logging.DEBUG)
 
+PFC_TX_ENABLE_TIMEOUT_S = 30
+
 
 class SignalCleanup():
     def __init__(self, fanoutPfcStorm, endMsg):
@@ -167,34 +169,88 @@ class FanoutPfcStorm():
                 if (1 << prio) & self.priority:
                     self._cliCmd(f"en\nconf\n\nint {intf}\nno priority-flow-control priority {prio} no-drop")
 
-    def startPfcStorm(self, intf):
-        if intf in self.intfsEnabled:
-            return
-        # Backpressure lives in the ASIC, so a generator that died without
-        # running its cleanup left this interface asserting PFC. Starting from
-        # that state emits nothing new and the watchdog never sees a storm
-        # begin, so drop it before asserting our own.
-        self._clearPfcBackpressure(intf)
-        self.intfsEnabled.append(intf)
-
-        mmuPort = self.intfToMmuPort[intf]
+    def _pfcTxEnabled(self, intf):
+        '''
+        Return True or False for PC_PFC ENABLE_TX on the port, or None if the read failed.
+        '''
         port = self.intfToPort[intf]
-        if self.os == 'sonic':
-            self._shellCmd(f"redis-cli -n 4 HSET \"PORT_QOS_MAP|{intf}\" \"pfc_enable\" \"\"")
-            for prio in range(8):
-                if (1 << prio) & self.priority:
-                    self._shellCmd(f"config interface pfc priority {intf} {prio} on")
-        else:
-            self._cliCmd(f"en\nconf\n\nint {intf}\npriority-flow-control on")
-            for prio in range(8):
-                if (1 << prio) & self.priority:
-                    self._cliCmd(f"en\nconf\n\nint {intf}\npriority-flow-control priority {prio} no-drop")
+        match = re.search(r'\bENABLE_TX=([01])\b', self._bcmltshellCmd(f"lt PC_PFC lookup PORT_ID={port}"))
+        return match.group(1) == '1' if match else None
 
-        if self.switchChip.startswith(("Tomahawk6", "Tomahawk5", "Tomahawk4")):
-            self._bcmltshellCmd(f"pt MMU_INTFO_XPORT_BKP_HW_UPDATE_DISr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP=1")
-            self._bcmltshellCmd(f"pt MMU_INTFO_TO_XPORT_BKPr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP={self.priority}")
-        else:
-            self._bcmshellCmd(f"setreg CHFC2PFC_STATE.{port} PRI_BKP={self.priority}")
+    def _waitPfcTx(self, intf, enabled, deadline):
+        '''
+        Wait until orchagent has set PFC transmit on the port in the ASIC to the given state.
+
+        Backpressure asserted while PFC transmit is off sends nothing, and keeps
+        sending nothing after transmit is enabled, so it must be asserted after.
+        '''
+        while self._pfcTxEnabled(intf) != enabled:
+            if time.time() > deadline:
+                state = "enabled" if enabled else "disabled"
+                raise RuntimeError(
+                    f"PFC transmit not {state} on {intf} within the {PFC_TX_ENABLE_TIMEOUT_S}s "
+                    "shared by the waits for transmit off and on")
+            time.sleep(0.2)
+
+    def startPfcStorm(self, intfs):
+        '''
+        Configure PFC on every interface before asserting backpressure on any,
+        so the waits for PFC transmit overlap across interfaces.
+
+        The waits share one PFC_TX_ENABLE_TIMEOUT_S, which a caller's wait after
+        start_storm() must allow for (see test_pfcwd_stat_history). The priority-on
+        commands between the waits do not count against it, because their time grows
+        with the number of interfaces.
+        '''
+        xgsSonic = self.os == 'sonic' and self.switchChip.startswith(("Tomahawk6", "Tomahawk5", "Tomahawk4"))
+        intfs = [intf for intf in dict.fromkeys(intfs) if intf not in self.intfsEnabled]
+        txWasEnabled = []
+        for intf in intfs:
+            # Backpressure lives in the ASIC, so a generator that died without
+            # running its cleanup left this interface asserting PFC. Starting from
+            # that state emits nothing new and the watchdog never sees a storm
+            # begin, so drop it before asserting our own.
+            self._clearPfcBackpressure(intf)
+            self.intfsEnabled.append(intf)
+
+            if self.os == 'sonic':
+                if xgsSonic:
+                    oldPfcEnable = self._shellCmd(f"redis-cli -n 4 HGET \"PORT_QOS_MAP|{intf}\" \"pfc_enable\"")
+                    if oldPfcEnable.strip() and self._pfcTxEnabled(intf) is not False:
+                        txWasEnabled.append(intf)
+                self._shellCmd(f"redis-cli -n 4 HSET \"PORT_QOS_MAP|{intf}\" \"pfc_enable\" \"\"")
+            else:
+                self._cliCmd(f"en\nconf\n\nint {intf}\npriority-flow-control on")
+                for prio in range(8):
+                    if (1 << prio) & self.priority:
+                        self._cliCmd(f"en\nconf\n\nint {intf}\npriority-flow-control priority {prio} no-drop")
+
+        # Otherwise the wait for transmit to come on could see the old ENABLE_TX=1
+        # before the clear above reaches the ASIC and turns transmit off.
+        waitStart = time.time()
+        for intf in txWasEnabled:
+            self._waitPfcTx(intf, False, waitStart + PFC_TX_ENABLE_TIMEOUT_S)
+        waitLeft = PFC_TX_ENABLE_TIMEOUT_S - (time.time() - waitStart)
+
+        if self.os == 'sonic':
+            for intf in intfs:
+                for prio in range(8):
+                    if (1 << prio) & self.priority:
+                        self._shellCmd(f"config interface pfc priority {intf} {prio} on")
+
+        deadline = time.time() + waitLeft
+        for intf in intfs:
+            mmuPort = self.intfToMmuPort[intf]
+            port = self.intfToPort[intf]
+            if self.switchChip.startswith(("Tomahawk6", "Tomahawk5", "Tomahawk4")):
+                if self.os == 'sonic':
+                    self._waitPfcTx(intf, True, deadline)
+                self._bcmltshellCmd(
+                    f"pt MMU_INTFO_XPORT_BKP_HW_UPDATE_DISr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP=1")
+                self._bcmltshellCmd(
+                    f"pt MMU_INTFO_TO_XPORT_BKPr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP={self.priority}")
+            else:
+                self._bcmshellCmd(f"setreg CHFC2PFC_STATE.{port} PRI_BKP={self.priority}")
 
     def endAllPfcStorm(self):
         '''
@@ -255,15 +311,17 @@ def main():
 
     logger.debug('PFC_STORM_DEBUG')
     try:
-        for intf in interfaces:
-            if options.os == 'eos':
-                intf = frontPanelIntfFromKernelIntfName(intf)
-            fs.startPfcStorm(intf)
+        if options.os == 'eos':
+            interfaces = [frontPanelIntfFromKernelIntfName(intf) for intf in interfaces]
+        fs.startPfcStorm(interfaces)
         logger.debug('PFC_STORM_START')
 
         # wait forever until stop
         while True:
             time.sleep(100)
+    except Exception as e:
+        logger.error(f'PFC_STORM_ERROR {e}')
+        raise
     finally:
         # An interface missing from the portmap raises part way through the
         # loop; without this the ones already started stay asserted.
