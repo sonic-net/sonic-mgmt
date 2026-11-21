@@ -137,12 +137,18 @@ class BaseConsoleConn(CiscoBaseConnection):
                 kwargs.update(conn_timeout=time_left, banner_timeout=time_left, auth_timeout=time_left)
             try:
                 super(BaseConsoleConn, self).__init__(**kwargs)
-            except DutLoginFailed:
-                # One way: the console login succeeded, so the next console password would not help.
-                raise
-            except NetMikoAuthenticationException as e:
-                if i == len(all_passwords) - 1:
-                    raise e
+            except Exception as e:
+                if self._connect_deadline is not None and time.monotonic() >= self._connect_deadline:
+                    # Out of time, whatever failed: close without writing to the line.
+                    self._close_transport()
+                    if isinstance(e, ConsoleConnectTimeout):
+                        raise
+                    raise ConsoleConnectTimeout() from e
+                # Only a rejected console password moves on to the next one. One way: after a
+                # failed DUT login the console login succeeded, so the next one would not help.
+                if isinstance(e, DutLoginFailed) or not isinstance(e, NetMikoAuthenticationException) \
+                        or i == len(all_passwords) - 1:
+                    raise
             else:
                 break
         self._connect_deadline = None
@@ -160,6 +166,16 @@ class BaseConsoleConn(CiscoBaseConnection):
         # Every wait during the connect reads the channel, so this check bounds the whole connect.
         self._connect_time_left()
         return super(BaseConsoleConn, self).read_channel()
+
+    def _close_transport(self):
+        """Close the connection without writing to the line."""
+        try:
+            if self.protocol == "ssh":
+                self.paramiko_cleanup()
+            elif self.remote_conn is not None:
+                self.remote_conn.close()
+        except Exception as e:
+            self.logger.debug("Error closing console transport: %s", e)
 
     def select_delay_factor(self, delay_factor):
         # None means the connection's delay factor, the constructor's global_delay_factor.
