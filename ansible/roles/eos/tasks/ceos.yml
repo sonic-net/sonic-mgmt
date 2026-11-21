@@ -93,8 +93,8 @@
     capabilities:
       - net_admin
     privileged: yes
-    memory: "{{ '10G' if use_converged_peers|bool else '2G' }}"
-    memory_swap: "{{ '20G' if use_converged_peers|bool else '4G' }}"
+    memory: "{{ (custom_vm_mem_size | string) if (custom_vm_mem_size is defined and custom_vm_mem_size | string | length > 0 and custom_vm_mem_size | string != 'None') else ('10G' if use_converged_peers|bool else '2G') }}"
+    memory_swap: "{{ (custom_vm_mem_swap_size | string) if (custom_vm_mem_swap_size is defined and custom_vm_mem_swap_size | string | length > 0 and custom_vm_mem_swap_size | string != 'None') else ('20G' if use_converged_peers|bool else '4G') }}"
     env:
       CEOS=1
       container=docker
