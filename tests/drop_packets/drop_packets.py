@@ -674,13 +674,24 @@ def log_pkt_params(dut_iface, mac_dst, mac_src, ip_dst, ip_src):
     logger.info("Packet IP SRC - {}".format(ip_src))
 
 
-def send_packets(pkt, ptfadapter, ptf_tx_port_id, num_packets=1):
+def send_packets(pkt, ptfadapter, ptf_tx_port_id, num_packets=1, burst_size=None, burst_interval=0):
+    if burst_size is not None and burst_size <= 0:
+        raise ValueError(f"burst_size must be a positive integer, got {burst_size}")
     # Clear packets buffer on PTF
     ptfadapter.dataplane.flush()
     time.sleep(1)
 
     # Send packets
-    testutils.send(ptfadapter, ptf_tx_port_id, pkt, count=num_packets)
+    if burst_size is None:
+        testutils.send(ptfadapter, ptf_tx_port_id, pkt, count=num_packets)
+    else:
+        packets_sent = 0
+        while packets_sent < num_packets:
+            packets_to_send = min(burst_size, num_packets - packets_sent)
+            testutils.send(ptfadapter, ptf_tx_port_id, pkt, count=packets_to_send)
+            packets_sent += packets_to_send
+            if packets_sent < num_packets:
+                time.sleep(burst_interval)
     time.sleep(1)
 
 
