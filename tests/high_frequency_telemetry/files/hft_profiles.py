@@ -130,10 +130,14 @@ class OwnedProfile:
 
     def wait_session(self, spec, *, removed):
         key = "|".join((SESSION, spec["name"], spec["type"]))
+        # Other fields in the session can be binary. Read only the status and
+        # distinguish a missing row from an existing row with no status yet.
+        probe = ("if redis.call('EXISTS',KEYS[1]) == 0 then return 'absent' end; "
+                 "return redis.call('HGET',KEYS[1],'stream_status') or 'unknown'")
         deadline = time.monotonic() + 30
         while True:
-            row = json.loads(self.command("redis-cli", "-n", "6", "--json", "HGETALL", key))
-            if not row or (not removed and row.get("stream_status") == "disabled"):
+            state = self.command("redis-cli", "-n", "6", "--raw", "EVAL", probe, "1", key)
+            if state == "absent" or (not removed and state == "disabled"):
                 return
             if time.monotonic() >= deadline:
                 raise RuntimeError(f"HFT session {key} did not {'disappear' if removed else 'stop'}")
