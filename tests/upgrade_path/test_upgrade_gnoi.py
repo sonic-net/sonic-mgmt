@@ -4,6 +4,7 @@ import pytest
 from tests.common.fixtures.grpc_fixtures import gnmi_tls, ptf_grpc, ptf_gnoi, setup_gnoi_tls_server  # noqa: F401
 from tests.upgrade_path.test_upgrade_path import setup_upgrade_test
 from tests.common.helpers.upgrade_helpers import perform_gnoi_upgrade, GnoiUpgradeConfig
+from tests.common.fixtures.gnoi_download_policy import gnoi_download_policy  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ def test_upgrade_via_gnoi(
     localhost, duthosts, ptfhost, rand_one_dut_hostname,
     nbrhosts, fanouthosts, tbinfo, request,
     gnoi_upgrade_path_lists, gnmi_tls, ptf_gnoi,  # noqa: F811
-    conn_graph_facts, xcvr_skip_list
+    conn_graph_facts, xcvr_skip_list, gnoi_download_policy  # noqa: F811
 ):
     duthost = duthosts[rand_one_dut_hostname]
 
@@ -41,15 +42,12 @@ def test_upgrade_via_gnoi(
     cur = duthost.shell("show version", module_ignore_errors=False)["stdout"]
     logger.info("Pre-upgrade show version:\n%s", cur)
 
-    duthost.shell(f"rm -f {dut_image_path}", module_ignore_errors=True)
-
-    assert to_image, "target_image_list must be set (used as to_image for gNOI TransferToRemote)"
+    assert to_image, "target_image_list must be set (SetPackage remote_download URL)"
 
     cfg = GnoiUpgradeConfig(
         to_image=to_image,
         dut_image_path=dut_image_path,
         upgrade_type=upgrade_type,
-        protocol="HTTP",
         allow_fail=False,
         to_version=to_version,
     )
@@ -64,7 +62,7 @@ def test_upgrade_via_gnoi(
         # Installing the base image replaces the DUT rootfs, so the gnmi_tls
         # fixture's server certs under /etc/sonic/telemetry/ and its CONFIG_DB
         # entries are lost. Re-push certs and re-apply TLS config so the
-        # subsequent gNOI TransferToRemote/SetPackage calls can validate the
+        # subsequent gNOI SetPackage calls can validate the
         # server cert (which needs the DUT mgmt IP in its SAN).
         gnmi_tls.reinstall_certs_after_upgrade()
 
@@ -78,4 +76,5 @@ def test_upgrade_via_gnoi(
         conn_graph_facts=conn_graph_facts,
         xcvr_skip_list=xcvr_skip_list,
         duthosts=duthosts,
+        download_policy=gnoi_download_policy,
     )
