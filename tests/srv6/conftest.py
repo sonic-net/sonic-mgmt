@@ -298,3 +298,40 @@ def pytest_generate_tests(metafunc):
 @pytest.fixture(scope="class")
 def srv6_packet_type(request):
     return request.param
+
+
+@pytest.fixture(scope="module", params=["frrcfgd", "bgpcfgd"], ids=["frrcfgd", "bgpcfgd"])
+def grt_config_backend(request, nbrhosts, duthosts, rand_one_dut_hostname):
+    """Exercise both CONFIG_DB-to-FRR backends on the two GRT endpoints."""
+    from tests.srv6.bgp_srv6_grt_helpers import ConfigDBPatch
+
+    assert "PE1" in nbrhosts, "7-node SRv6 test topology must include egress PE1"
+    ingress_pe = duthosts[rand_one_dut_hostname]
+    egress_pe = nbrhosts["PE1"]["host"]
+    endpoints = [ingress_pe, egress_pe]
+    patches = [ConfigDBPatch(host) for host in endpoints]
+    changed = []
+    desired = "true" if request.param == "frrcfgd" else None
+
+    def restart_bgp(host):
+        host.restart_service("bgp")
+        assert wait_until(
+            180, 10, 0, host.is_service_fully_started_per_asic_or_host, "bgp"
+        ), "BGP did not return to service on {}".format(host)
+
+    try:
+        for host, patch in zip(endpoints, patches):
+            key = "DEVICE_METADATA|localhost"
+            field = "frr_mgmt_framework_config"
+            current = patch._command("HGET {} {}".format(key, field))
+            current = None if current in ("", "(nil)", "None") else current
+            patch.set(key, field, desired)
+            if current != desired:
+                changed.append(host)
+                restart_bgp(host)
+        yield request.param
+    finally:
+        for patch in reversed(patches):
+            patch.restore()
+        for host in reversed(changed):
+            restart_bgp(host)
