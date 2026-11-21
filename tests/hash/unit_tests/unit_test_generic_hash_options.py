@@ -31,6 +31,9 @@ def helper():
         "remove_add_portchannel_member", "shutdown_interface", "startup_interface",
         "flap_interfaces", "ignore_expected_vpp_link_churn",
         "check_vpp_fib_paths", "check_vpp_nexthop_paths",
+        "get_asic_gen", "filter_hash_fields_for_environment",
+        "filter_hash_params_for_collection", "generate_hash_param_tuples", "skip_if_hash_param_unsupported",
+        "is_hash_param_supported",
     }
     nodes = [
         node for node in tree.body
@@ -55,6 +58,9 @@ def helper():
         "get_tbinfo": Mock(return_value=("testbed", tbinfo)),
         "get_specified_duts": Mock(return_value=tbinfo["duts"]),
         "get_basic_facts": Mock(),
+        "get_dut_name": Mock(return_value="dut"),
+        "read_asic_name": Mock(return_value=""),
+        "TestbedInfo": Mock(),
         "random": random,
         "contextmanager": contextmanager,
         "shlex": shlex,
@@ -70,6 +76,7 @@ def helper():
         "get_updated_balancing_test_times_and_range": Mock(return_value=(480, 0.3)),
     }
     exec(compile(ast.Module(body=nodes, type_ignores=[]), str(path), "exec"), namespace)
+    namespace["get_topology_name"] = lambda request: tbinfo["topo"]["name"]
     return SimpleNamespace(namespace=namespace, metadata=metadata, tbinfo=tbinfo, facts=facts, request=request)
 
 
@@ -109,7 +116,8 @@ def test_offline_collection_preserves_legacy_defaults_without_metadata(helper, t
     helper.namespace["get_testbed_metadata"].return_value = None
     assert helper.namespace["get_asic_type"](helper.request) == "unknown"
     assert helper.namespace["get_hash_fields_from_option"](helper.request, "ecmp", "all") == (
-        helper.namespace["HASH_CAPABILITIES"]["default"]["ecmp"])
+        helper.namespace["filter_hash_fields_for_environment"](
+            helper.namespace["HASH_CAPABILITIES"]["default"]["ecmp"], "ecmp", "unknown", topology))
     helper.namespace["get_basic_facts"].assert_not_called()
     helper.namespace["get_specified_duts"].assert_not_called()
 
@@ -161,7 +169,8 @@ def test_valid_platform_options_are_preserved(helper, topology, asic, algorithms
     assert helper.namespace["get_reboot_type_from_option"](helper.request, "all") == reboots
     fields = helper.namespace["HASH_CAPABILITIES"].get(asic, helper.namespace["HASH_CAPABILITIES"]["default"])
     for kind in ("ecmp", "lag"):
-        assert helper.namespace["get_hash_fields_from_option"](helper.request, kind, "all") == fields[kind]
+        expected = helper.namespace["filter_hash_fields_for_environment"](fields[kind], kind, asic, topology)
+        assert helper.namespace["get_hash_fields_from_option"](helper.request, kind, "all") == expected
 
 
 @pytest.mark.parametrize("reboot", ["warm", "fast", "watchdog"])
@@ -295,6 +304,7 @@ def test_vpp_protocol_cannot_be_misreported_as_lag_only(helper):
 
 @pytest.mark.parametrize("name", ["test_lag_member_flap", "test_lag_member_remove_add"])
 def test_only_vpp_protocol_member_disruption_is_skipped(helper, name):
+    helper.namespace["skip_if_hash_param_unsupported"] = Mock()
     with pytest.raises(pytest.skip.Exception, match="not LAG-member entropy"):
         helper.namespace["fine_params"](
             "CRC-IP_PROTOCOL-ipv4-None-None", {"ecmp_algo": ["CRC"]},
@@ -312,6 +322,7 @@ def test_only_vpp_protocol_member_disruption_is_skipped(helper, name):
 def test_supported_cases_keep_their_parameters_and_report_scope(helper, asic, topology, field, name, recorded):
     params = f"CRC-{field}-ipv6-None-None"
     record = Mock()
+    helper.namespace["skip_if_hash_param_unsupported"] = Mock()
     helper.tbinfo["topo"]["name"] = topology
     assert helper.namespace["fine_params"](
         params, {"ecmp_algo": ["CRC"]}, SimpleNamespace(node=SimpleNamespace(originalname=name)),
