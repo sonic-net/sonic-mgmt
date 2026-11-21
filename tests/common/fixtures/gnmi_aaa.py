@@ -173,7 +173,6 @@ class _RoleTlsOwner:
         duthost = fixture.duthost
         try:
             try:
-                fixture.pygnmi_client.close()
                 if (_running_config(duthost) != self.expected
                         or _principal_mapping(duthost) != self.mapping):
                     raise AssertionError("Unexpected configuration before shared AAA case")
@@ -183,23 +182,16 @@ class _RoleTlsOwner:
             try:
                 yield fixture
             finally:
-                # Nested finally guarantees restoration if client close fails.
                 try:
-                    fixture.pygnmi_client.close()
+                    _restore_case(duthost, self.expected, self.mapping)
+                    if (_running_config(duthost) != self.expected
+                            or _principal_mapping(duthost) != self.mapping):
+                        raise AssertionError("Unrelated configuration leak in shared AAA case")
                 except BaseException:
+                    # Do not let a later case hide failed restoration or an
+                    # unrelated leak even if the outer rollback succeeds.
                     self.broken = True
                     raise
-                finally:
-                    try:
-                        _restore_case(duthost, self.expected, self.mapping)
-                        if (_running_config(duthost) != self.expected
-                                or _principal_mapping(duthost) != self.mapping):
-                            raise AssertionError("Unrelated configuration leak in shared AAA case")
-                    except BaseException:
-                        # Do not let a later case hide failed restoration or an
-                        # unrelated leak even if the outer rollback succeeds.
-                        self.broken = True
-                        raise
         except BaseException:
             # Report the mismatch before the full TLS rollback can hide it.
             self.close()

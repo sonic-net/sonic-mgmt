@@ -2,6 +2,7 @@ import ipaddress
 import logging
 import re
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -12,6 +13,9 @@ logger = logging.getLogger(__name__)
 
 GNMI_CERT_NAME = "test.client.gnmi.sonic"
 REVOKED_GNMICERT_NAME = "test.client.revoked.gnmi.sonic"
+GNMI_LOG_TAIL_LINES = 500
+# Applies to each log, after the line limit: a few long lines must not flood the test log.
+GNMI_LOG_MAX_BYTES = 64 * 1024
 
 # Backdate notBefore on test certs to absorb clock skew between the
 # sonic-mgmt runner, the DUT, and the PTF docker. Without this, even a
@@ -463,20 +467,73 @@ def dump_gnmi_log(duthost):
     return res['stdout']
 
 
-def dump_system_status(duthost):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    dut_command = "docker exec %s ps -efwww" % (env.gnmi_container)
-    res = duthost.shell(dut_command, module_ignore_errors=True)
-    logger.info("GNMI process: " + res['stdout'])
-    dut_command = "docker exec %s date" % (env.gnmi_container)
-    res = duthost.shell(dut_command, module_ignore_errors=True)
-    logger.info("System time: " + res['stdout'] + res['stderr'])
-
-
 def verify_tcp_port(localhost, ip, port):
     command = "ssh  -o ConnectTimeout=3 -v -p %s %s" % (port, ip)
     res = localhost.shell(command, module_ignore_errors=True)
     logger.info("TCP: " + res['stdout'] + res['stderr'])
+
+
+def dump_gnmi_debug_state(duthost, localhost=None, error: Optional[BaseException] = None,
+                          gnmi_log_lines: Optional[int] = None) -> None:
+    """
+    Log the gNMI server's processes and logs, and if localhost is given, probe its port.
+
+    Logs the last gnmi_log_lines lines of /root/gnmi.log, or all of it if None; the syslogs are always tailed.
+    Each log is then cut to its last GNMI_LOG_MAX_BYTES bytes, with a note saying so.
+    If the dump succeeds and error is given, mark error with this DUT, so the failure hook doesn't dump it again.
+    Never raises, so that a failing dump cannot hide the failure being debugged.
+    """
+    try:
+        logger.info("Dumping gNMI state for DUT %s", duthost.hostname)
+        env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+        read_gnmi_log = "cat" if gnmi_log_lines is None else f"tail -n {gnmi_log_lines}"
+        commands = [
+            # Only the container's own processes: "docker exec ... ps" can list every process on the host.
+            ("GNMI process", f"docker top {env.gnmi_container} -efwww"),
+            ("System time", f"docker exec {env.gnmi_container} date"),
+            # Written by the server that apply_cert_config starts with -v=10.
+            ("GNMI log", _capped(f"docker exec {env.gnmi_container} {read_gnmi_log} /root/gnmi.log")),
+            ("gnmi-native syslog", _capped(f"sudo tail -n {GNMI_LOG_TAIL_LINES} /var/log/gnmi.log")),
+            ("Telemetry/dialout syslog", _capped(f"sudo tail -n {GNMI_LOG_TAIL_LINES} /var/log/telemetry.log")),
+        ]
+        # One round trip; ";" so that a failing command doesn't stop the rest.
+        script = "; ".join(f"echo '=== {title} ==='; {{ {command}; }} 2>&1" for title, command in commands)
+        res = duthost.shell(script, module_ignore_errors=True, verbose=False)
+        logger.info("gNMI state for DUT %s:\n%s%s", duthost.hostname, res["stdout"], res["stderr"])
+        if localhost is not None:
+            verify_tcp_port(localhost, duthost.mgmt_ip, env.gnmi_port)
+        if error is not None:
+            error._gnmi_dumped_hosts = getattr(error, "_gnmi_dumped_hosts", set()) | {duthost.hostname}
+    except Exception as e:
+        logger.warning("Failed to dump gNMI state for DUT %s: %s", duthost.hostname, e)
+
+
+def _capped(read_log: str) -> str:
+    """A shell command that prints the last GNMI_LOG_MAX_BYTES bytes of read_log's output, noting any cut."""
+    # Reads the log twice, both times on the DUT, so that only the capped output crosses the network.
+    return (
+        f"size=$({read_log} 2>/dev/null | wc -c); "
+        f'[ "$size" -gt {GNMI_LOG_MAX_BYTES} ] && echo "(truncated: last {GNMI_LOG_MAX_BYTES} of $size bytes)"; '
+        f"{read_log} | tail -c {GNMI_LOG_MAX_BYTES}"
+    )
+
+
+def gnmi_state_dumped(error: BaseException, hostname: str) -> bool:
+    """
+    Whether gNMI state of DUT hostname was dumped for error, or for an exception in the chain that pytest
+    reports with it.
+
+    A failure raised while handling a dumped one, e.g. in cleanup, counts too: it is usually a wrapper or a
+    consequence of the first failure, which is the one to debug.
+    """
+    seen = set()
+    while error is not None and id(error) not in seen:
+        if hostname in getattr(error, "_gnmi_dumped_hosts", ()):
+            return True
+        seen.add(id(error))
+        # Follow the chain the way Python prints it: "raise ... from None" hides the context.
+        error = error.__cause__ or (None if error.__suppress_context__ else error.__context__)
+    return False
 
 
 def gnmi_capabilities(duthost, localhost):
@@ -494,9 +551,7 @@ def gnmi_capabilities(duthost, localhost):
     cmd += "-logtostderr -capabilities"
     output = duthost.shell(cmd, module_ignore_errors=True)
     if output['stderr']:
-        dump_gnmi_log(duthost)
-        dump_system_status(duthost)
-        verify_tcp_port(localhost, ip, port)
+        dump_gnmi_debug_state(duthost, localhost)
         return -1, output['stderr']
     else:
         return 0, output['stdout']
