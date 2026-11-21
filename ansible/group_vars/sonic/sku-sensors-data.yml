@@ -3847,9 +3847,6 @@ sensors_checks:
       - bnxt_en-pci-0300/temp1/temp1_max_alarm
       - bnxt_en-pci-0300/temp1/temp1_crit_alarm
       - bnxt_en-pci-0300/temp1/temp1_emergency_alarm
-      - bnxt_en-pci-0301/temp1/temp1_max_alarm
-      - bnxt_en-pci-0301/temp1/temp1_crit_alarm
-      - bnxt_en-pci-0301/temp1/temp1_emergency_alarm
     compares:
       fan: []
       power: []
@@ -3888,8 +3885,6 @@ sensors_checks:
         - nvme-pci-0400/Composite/temp1_max
       - - bnxt_en-pci-0300/temp1/temp1_input
         - bnxt_en-pci-0300/temp1/temp1_max
-      - - bnxt_en-pci-0301/temp1/temp1_input
-        - bnxt_en-pci-0301/temp1/temp1_max
     non_zero:
       fan:
       - h6_fan-i2c-145-32/fan1/fan1_input
