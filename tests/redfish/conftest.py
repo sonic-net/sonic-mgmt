@@ -19,16 +19,19 @@ from tests.redfish.redfish_utils import (
     configured_port,
     db_set,
     deliver_certs,
+    DEFAULT_PORT,
     DELIVERED_CA_CRT,
     DELIVERED_SERVER_CRT,
     DELIVERED_SERVER_KEY,
     DELIVERY_DIR,
     listening_port,
     REDFISH_CERTS_TABLE,
+    REDFISH_CONFIG_TABLE,
     REDFISH_ROOT,
     redfish_url,
     RedfishClient,
     reset_to_bootstrap,
+    restore_redfish_config,
     SERVER_CERT_NAME,
     SERVER_KEY_NAME,
     set_trusted_cnames,
@@ -192,6 +195,31 @@ def bmc_tls_certs(request, bmc_duthost, bmc_ip, bmc_clock_in_sync, redfish_featu
         reset_to_bootstrap(bmc_duthost, snapshot, saved)
     request.addfinalizer(restore)
 
+    certificate_module = request.module.__name__.endswith("test_redfish_certificates")
+    if certificate_module:
+        # The live listener can differ from a pending CONFIG_DB port. Keep
+        # future cleanup restarts on the selected test endpoint; the untouched
+        # snapshot above remains the module-original restoration target.
+        cleanup_port = snapshot[REDFISH_CONFIG_TABLE, "port"]
+        # bmcweb-start.sh (buildimage ff1d809c) uses command substitution:
+        # only trailing LF disappears; spaces/tabs/non-ASCII digits are invalid.
+        value = (cleanup_port or "").rstrip("\n")
+        effective_port = DEFAULT_PORT
+        if value and all("0" <= char <= "9" for char in value):
+            # Do not emulate shell integer overflow. Unknown long values are
+            # canonicalized to the selected test port, never accepted as 443.
+            effective_port = None
+            if len(value) <= 18:  # within signed64 shell comparison range
+                number = int(value)
+                effective_port = number if 1 <= number <= 65535 else DEFAULT_PORT
+        if effective_port != redfish_port:
+            cleanup_port = str(redfish_port)
+        # The snapshot strips trailing LF whereas cleanup compares raw values.
+        # Apply the test representation even when its effective port matches,
+        # so a clean first body cannot inherit an unverifiable raw port.
+        # Use the checked, quoted owned-field writer (None means absent).
+        restore_redfish_config(bmc_duthost, {(REDFISH_CONFIG_TABLE, "port"): cleanup_port})
+
     cert_dir = tmp_path_factory.mktemp("bmc_certs")
     logger.info("Generating TLS certificates in {}".format(cert_dir))
 
@@ -217,7 +245,7 @@ def bmc_tls_certs(request, bmc_duthost, bmc_ip, bmc_clock_in_sync, redfish_featu
                   STAGING_TIMEOUT, cert_status(bmc_duthost, "last_error")))
     logger.info("Certificates staged and mTLS enforced")
 
-    yield {
+    certs = {
         "cert": str(cert_dir / CLIENT_CERT_NAME),
         "key": str(cert_dir / CLIENT_KEY_NAME),
         "ca": str(cert_dir / CA_CERT_NAME),
@@ -227,3 +255,9 @@ def bmc_tls_certs(request, bmc_duthost, bmc_ip, bmc_clock_in_sync, redfish_featu
         "generator": generator,
         "port": redfish_port,
     }
+
+    if certificate_module:
+        from tests.redfish.certificate_cleanup import freeze_expected
+        certs["cleanup_expected"] = freeze_expected(
+            certs, cert_dir / "cleanup-original", cleanup_port)
+    yield certs
