@@ -11,16 +11,14 @@ class TelnetConsoleConn(BaseConsoleConn):
     def __init__(self, **kwargs):
         # Attach to the console line only: no DUT login and no write to the line.
         self.attach_only = kwargs.pop("attach_only", False)
-        # For telnet console, neither console username or password is needed
-        # so we assign sonic_username/sonic_password to username/password
+        # A telnet console has no console server login: the connection reaches the DUT
+        # serial line directly, and telnet_login() tries the DUT passwords on it.
+        self.sonic_password = kwargs['sonic_password']
         kwargs['host'] = kwargs['console_host']
         kwargs['port'] = kwargs['console_port']
-        # Don't set the value of password here because we will loop
-        # among all passwords in __init__
         kwargs['username'] = kwargs['sonic_username']
         kwargs['console_username'] = kwargs['sonic_username']
-        # An attach-only console does not log in, so it may have no password
-        kwargs['console_password'] = kwargs['sonic_password'] or [None]
+        kwargs['console_password'] = [None]
         kwargs['device_type'] = "_telnet"
         super(TelnetConsoleConn, self).__init__(**kwargs)
 
@@ -57,6 +55,7 @@ class TelnetConsoleConn(BaseConsoleConn):
         login_failure_prompt = r".*incorrect"
         username_sent = False
         password_sent = False
+        password_index = 0
         i = 1
         while i <= max_loops:
             try:
@@ -73,7 +72,7 @@ class TelnetConsoleConn(BaseConsoleConn):
 
                 # Search for password pattern / send password
                 if username_sent and not password_sent and re.search(pwd_pattern, output, flags=re.I):
-                    self.write_channel(self.password + self.TELNET_RETURN)
+                    self.write_channel(self.sonic_password[password_index] + self.TELNET_RETURN)
                     time.sleep(0.5 * delay_factor)
                     password_sent = True
                     output = self.read_channel()
@@ -113,10 +112,17 @@ class TelnetConsoleConn(BaseConsoleConn):
 
                 #  Check if login failed
                 if re.search(login_failure_prompt, output, flags=re.M):
+                    if password_index < len(self.sonic_password) - 1:
+                        # Try the next password at the DUT's next login prompt, on this connection
+                        password_index += 1
+                        username_sent = password_sent = False
+                        i = 1
+                        time.sleep(1 * delay_factor)
+                        continue
                     self.remote_conn.close()
                     # Wait a short time or the next login will be refused
                     time.sleep(1 * delay_factor)
-                    msg = "Login failed: {} password: {}".format(self.host, self.password)
+                    msg = "Login failed: {}".format(self.host)
                     raise NetMikoAuthenticationException(msg)
 
                 self.write_channel(self.TELNET_RETURN)
