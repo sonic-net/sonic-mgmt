@@ -1,4 +1,15 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["local>sonic-net/sonic-pipelines//renovate/default"]
+  "extends": ["local>sonic-net/sonic-pipelines//renovate/default"],
+  "packageRules": [
+    {
+      "description": "Renovate merges the security updates the preset labels automerge itself, once every check on the head commit has passed, with the renovate-approve app's approval. The condition repeats the preset's automerge rule, and the two change together.",
+      "matchJsonata": ["isVulnerabilityAlert = true and $not('patched-module' in addLabels)"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": false,
+      "assignAutomerge": true
+    }
+  ]
 }
