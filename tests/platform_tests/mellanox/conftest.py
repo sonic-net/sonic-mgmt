@@ -56,3 +56,13 @@ def is_cpo_supported(duthosts, rand_one_dut_hostname):
             if hwsku_info['interfaces'][intf].get('port_type') == CPO_PORT_TYPE:
                 return True
     return False
+
+
+def get_cpo_ports(duthost):
+    """Return the set of port names whose Type is CPO per "show interface status".
+
+    The "show interface status" output has a Type column; ports whose Type is
+    "CPO" are CPO ports.  Returns an empty set if no CPO ports are found.
+    """
+    intf_status = duthost.show_and_parse("show interface status")
+    return {row["interface"] for row in intf_status if row.get("type") == CPO_PORT_TYPE}
