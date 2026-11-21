@@ -1277,10 +1277,12 @@ dhcp_relay/test_dhcp_relay.py::test_interface_binding:
 
 dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_restart_with_stress:
   skip:
-    reason: "Skip due to flaky issue"
+    reason: "1. Skip due to flaky issue
+             2. Unstable on sonic-vpp KVM, same low-performance reason as the vs skip below"
+    conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vs']"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/16450"
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16450"
+      - "asic_type in ['vpp'] and topo_name in ['t0']"
 
 dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress:
   skip:
