@@ -186,6 +186,13 @@ class PygnmiClient:
             if not os.path.isfile(path):
                 raise PygnmiClientCallError(f"{name} file not found: {path}")
 
+    def _grpc_host(self) -> str:
+        """Wrap an IPv6 host in brackets: pygnmi builds "host:port" and grpc drops the port otherwise."""
+        host = self.host
+        if ":" in host and not host.startswith(("[", "unix:")):
+            return f"[{host}]"
+        return host
+
     def _build_client(self) -> gNMIclient:
         """
         Build a pygnmi client bound to this instance's target and credentials.
@@ -194,7 +201,7 @@ class PygnmiClient:
             An unconnected ``gNMIclient`` configured for either an insecure
             (plaintext) channel or mutual TLS using the configured cert paths.
         """
-        kwargs = {"target": (self.host, self.port), "gnmi_timeout": self.timeout}
+        kwargs = {"target": (self._grpc_host(), self.port), "gnmi_timeout": self.timeout}
         if self.plaintext:
             kwargs["insecure"] = True
         else:
