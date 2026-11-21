@@ -37,6 +37,19 @@ function usage
   echo "    $0 [options] install-dpu-image <testbed-name> <inventory> <image-url> [<dpu-index>]"
   echo "    $0 [options] collect-show-tech <testbed-name> <inventory> <vault-password-file>"
   echo "    $0 [options] update-breakout <testbed-name> <links-csv> <target-breakout> [--dry-run]"
+  echo "    $0 [-t <tbfile>] recover-generic <testbed-name> <inventory> <vault-password-file> [--print-data]"
+  echo "    Generic commands share plan/, prepared/, rendered/ under system temp/sonic-generic-UID/TESTBED."
+  echo "    add-topo plans, prepares PORT/PTF mappings, and attaches PTF to existing transport."
+  echo "    add-topo --exclude-managed-acls omits managed DATAACL/EVERFLOW bindings, preserving protected bindings/rules."
+  echo "    add-topo/remove-topo read vars/topo_<topo>.yml; a generic_topology section selects the generic workflow."
+  echo "    deploy-mg still requires --generic. Explicit --generic remains available to select this workflow."
+  echo "    Generic commands execute by default. --print-data previews changes without applying them."
+  echo "    Automatic generic add-topo prepares its workspace from the named recipe plus optional --overrides."
+  echo "    Fresh --print-data preparation/rendering may read devices, but never provisions, reloads, or saves."
+  echo "    deploy-mg --generic renders/YANG-validates the fixed layout, reloads both devices, and saves."
+  echo "    Successful deployment removes disposable artifacts; ownership metadata and recovery backups remain."
+  echo "    Generic commands leave root-fanout connections and shared trunks untouched."
+  echo "    Existing stages are never overwritten; remove-topo/recover-generic accept --scenario-dir for older runs."
   echo
   echo "Options:"
   echo "    -t <tbfile>     : testbed CSV file name (default: 'testbed.yaml')"
@@ -114,6 +127,17 @@ function usage
   echo "        --lanes-per-cage N    Lanes per physical cage (default: 8)"
   echo "        --mgmt-ports M        Comma-separated management port numbers (default: 512,513)"
   echo "        --dry-run             Preview changes without writing"
+  echo "To prepare and attach generic breakout/forwarding and PTF transport (--print-data previews only):"
+  echo "    $0 [-t <tbfile>] add-topo <testbed-name> <vault-password-file> --peer-hostname <leaf> \\"
+  echo "        --links-csv <path> [--inventory <path>] [--print-data]"
+  echo "    Missing platform/lookup snapshots are collected through Ansible inventory (default: testbed inv_name)."
+  echo "    Supply --platform-json, --peer-platform-json, and --pg-profile-lookup for fully offline use."
+  echo "    All wired eligible children participate; missing CSV VLANs mean physical-only coverage, without PTF transport."
+  echo "    Initial planning prioritizes one cage per advertised mode/operating combination, regardless of link roles."
+  echo "    Empty recipe uplinks select the first eight realized DUT ports in numeric order."
+  echo "    Matching mode/speed uplinks are not required by default; generated topology.yml records resolved roles."
+  echo "    --min-same-breakout-uplinks N is an optional legacy constraint for explicit nonempty uplink selectors."
+  echo "    deploy-mg <testbed-name> <inventory> <vault-password-file> --generic [--print-data]"
   echo
   echo "You should define your topology in testbed YAML file"
   echo
@@ -1301,6 +1325,37 @@ function config_vs_chassis
   echo Done
 }
 
+function generic_scenario_command
+{
+  local action="$1"
+  shift
+  local testbed_name="$1"
+  shift
+  local inventory
+  local passfile
+  if [[ "$action" == "add-topo" || "$action" == "remove-topo" ]]; then
+      passfile="$1"
+      shift
+      inventory="$(python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); from plan_generic_topology import resolve_testbed; print(resolve_testbed(sys.argv[2], sys.argv[3])[1]["inv_name"])' \
+          "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scripts" "$tbfile" "$testbed_name")" || return 1
+      if [[ "$inventory" != /* ]]; then
+        inventory="$(dirname "$tbfile")/$inventory"
+      fi
+  else
+      inventory="$1"
+      passfile="$2"
+      shift 2
+  fi
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if [[ "$action" == "add-topo" && -n "${generic_recipe:-}" ]]; then
+      set -- --recipe "$generic_recipe" "$@"
+  fi
+  python3 "$script_dir/scripts/generic_topology_cli.py" "$action" \
+      --testbed "$testbed_name" --testbed-file "$tbfile" --inventory "$inventory" \
+      --vm-inventory "$vmfile" --vault-password-file "$passfile" "$@"
+}
+
 vmfile=veos
 tbfile=testbed.yaml
 vm_type=ceos
@@ -1334,6 +1389,92 @@ while getopts "t:m:k:n:s:d:" OPTION; do
 done
 
 shift $((OPTIND-1))
+
+for argument in "$@"; do
+  if [[ "$argument" == "--apply" || "$argument" == --apply=* ]]; then
+    echo "Error: --apply was removed; generic commands execute by default. Use --print-data to preview changes." >&2
+    exit 1
+  fi
+  if [[ "$argument" == "--workspace" || "$argument" == --workspace=* ]]; then
+    echo "Error: --workspace was removed; generic artifact storage is automatic per testbed. Older-run cleanup/recovery may use --scenario-dir." >&2
+    exit 1
+  fi
+  if [[ "$argument" == "--output-dir" || "$argument" == --output-dir=* ]]; then
+    echo "Error: --output-dir was removed from testbed commands; generic artifact storage is automatic per testbed." >&2
+    exit 1
+  fi
+done
+
+case "${1:-}" in
+  plan-generic|finalize-generic|render-generic)
+    echo "Error: $1 was removed; use add-topo for generic preparation and deploy-mg --generic for deployment." >&2
+    exit 1
+    ;;
+  recover-generic)
+    generic_action="recover"
+    shift
+    if [[ $# -lt 3 ]]; then
+      echo "Error: recover-generic requires testbed, inventory, and vault-password-file." >&2
+      exit 1
+    fi
+    generic_scenario_command "$generic_action" "$@"
+    exit
+    ;;
+  add-topo|remove-topo|deploy-mg)
+    generic_action="$1"
+    generic_selected=false
+    generic_arguments=()
+    generic_options=false
+    generic_recipe=""
+    shift
+    for generic_argument in "$@"; do
+      if [[ "$generic_argument" == "--generic" ]]; then
+        generic_selected=true
+      else
+        generic_arguments+=("$generic_argument")
+      fi
+      if [[ "$generic_argument" == "--scenario-dir" || "$generic_argument" == --scenario-dir=* ||
+            "$generic_argument" == "--print-data" || "$generic_argument" == --print-data=* ||
+            "$generic_argument" == "--finalize-roles" ||
+            "$generic_argument" == "--exclude-managed-acls" ]]; then
+        generic_options=true
+      fi
+    done
+    set -- "${generic_arguments[@]}"
+    if [[ "$generic_selected" == false && "$generic_action" != "deploy-mg" ]]; then
+      if [[ $# -lt 2 ]]; then
+        echo "Error: missing standard testbed/vault arguments." >&2
+        exit 1
+      fi
+      script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+      generic_recipe="$(python3 -c '
+import sys
+import yaml
+sys.path.insert(0, sys.argv[1])
+from plan_generic_topology import generic_topology_recipe
+try:
+    print(generic_topology_recipe(sys.argv[2], sys.argv[3], sys.argv[4]) or "")
+except (OSError, ValueError, yaml.YAMLError) as error:
+    sys.exit("Cannot resolve topology lifecycle: {}".format(error))
+' "$script_dir/scripts" "$tbfile" "$1" "$script_dir/vars")" || exit 1
+      if [[ -n "$generic_recipe" ]]; then
+        generic_selected=true
+      fi
+    fi
+    if [[ "$generic_selected" == true ]]; then
+      if [[ $# -lt 2 || ( "$generic_action" == "deploy-mg" && $# -lt 3 ) ]]; then
+        echo "Error: missing standard testbed/inventory/vault arguments." >&2
+        exit 1
+      fi
+      generic_scenario_command "$generic_action" "$@"
+      exit
+    elif [[ "$generic_options" == true ]]; then
+      echo "Error: --generic is required with generic scenario/preview options." >&2
+      exit 1
+    fi
+    set -- "$generic_action" "$@"
+    ;;
+esac
 
 if [ $# -lt 3 ]
 then
