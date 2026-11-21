@@ -300,13 +300,20 @@ class PvstBpduTest(BaseTest):
         self.bpdu_type = 'config'
         self.vlan_id = self.test_params.get('vlan_id', self.DEFAULT_VLAN_ID)
 
-        for src_port in self.test_params['send_port']:
-            self.port_id = src_port
+        # One PTF run can stand in for a neighbour with a real hello cadence:
+        # send_count frames send_interval seconds apart on every send port.
+        count = int(self.test_params.get('send_count', 1))
+        interval = float(self.test_params.get('send_interval', 0))
+        for i in range(count):
+            for src_port in self.test_params['send_port']:
+                self.port_id = src_port
 
-            # Create BPDU packet
-            packet = self.create_pvst_bpdu_packet()
-            testutils.send_packet(self, src_port, packet)
-            self.logger.info(f"Sent BPDU on port {src_port} successfully")
+                # Create BPDU packet
+                packet = self.create_pvst_bpdu_packet()
+                testutils.send_packet(self, src_port, packet)
+                self.logger.info(f"Sent BPDU on port {src_port} successfully")
+            if interval and i < count - 1:
+                time.sleep(interval)
 
     def test_send_tcn_bpdu(self):
         """
@@ -436,18 +443,24 @@ class PvstBpduTest(BaseTest):
             self.logger.info(f"Captured BPDU: {bpdu_data}")
             self.captured_bpdus.append(bpdu_data)
 
-    def start_bpdu_capture(self, interface, timeout=30):
+    def start_bpdu_capture(self, interface, timeout=30, exclude_src_mac=None):
         """
         @summary: Start capturing BPDU packets on specified interface
 
         @param interface: Interface name to capture on
         @param timeout: Capture timeout in seconds
+        @param exclude_src_mac: Drop packets with this source MAC (optional)
         """
         self.captured_bpdus = []
         self.capture_timeout = timeout
 
         # Create packet filter for PVST BPDUs
         bpdu_filter = f"ether dst {self.BPDU_DST_MAC}"
+        # The PVST destination MAC is not IEEE-reserved, so a BPDU this PTF
+        # injects on one port can be flooded back out of the capture port by the
+        # DUT. Those are not DUT-originated and must not spend the sniff budget.
+        if exclude_src_mac:
+            bpdu_filter += f" and not ether src {exclude_src_mac}"
 
         self.logger.info(f"Starting BPDU capture on {interface} for {timeout} seconds")
 
@@ -476,11 +489,12 @@ class PvstBpduTest(BaseTest):
             # Wait for capture thread to finish
             self.capture_thread.join(timeout=5)
 
-    def get_captured_bpdus(self, vlan_id=None, bpdu_type=None):
+    def get_captured_bpdus(self, vlan_id=None, bpdu_type=None, bridge_mac=None):
         """
         @summary: Get captured BPDU packets with optional filtering
         @param vlan_id: Filter by VLAN ID (optional)
         @param bpdu_type: Filter by BPDU type (optional)
+        @param bridge_mac: Keep only BPDUs originated by this bridge (optional)
         @return: List of filtered BPDU data dictionaries
         """
         filtered_bpdus = self.captured_bpdus.copy()
@@ -490,6 +504,11 @@ class PvstBpduTest(BaseTest):
 
         if bpdu_type is not None:
             filtered_bpdus = [bpdu for bpdu in filtered_bpdus if bpdu.get('bpdu_type') == bpdu_type]
+
+        if bridge_mac is not None:
+            bridge_mac = bridge_mac.lower()
+            filtered_bpdus = [bpdu for bpdu in filtered_bpdus
+                              if bpdu.get('bridge_mac', '').lower() == bridge_mac]
 
         return filtered_bpdus
 
@@ -506,10 +525,14 @@ class PvstBpduTest(BaseTest):
         config_bpdus = self.get_captured_bpdus(vlan_id=vlan_id, bpdu_type=self.BPDU_TYPE_CONFIG)
 
         if not config_bpdus:
+            # Same shape as the success path - callers read ['errors'] and
+            # ['validated_bpdus'] unconditionally, so a short-form dict here
+            # turns a real "nothing captured" failure into a KeyError.
             return {
                 'success': False,
-                'error': f'No Configuration BPDUs captured for VLAN {vlan_id}',
-                'captured_count': 0
+                'captured_count': 0,
+                'validated_bpdus': [],
+                'errors': [f'No Configuration BPDUs captured for VLAN {vlan_id}']
             }
 
         validation_results = {
@@ -691,9 +714,11 @@ class PvstBpduTest(BaseTest):
 
         self.logger.info(f"BPDU capture completed. Captured {len(captured_bpdus)} BPDUs")
 
-        if not captured_bpdus:
-            self.logger.warning("No BPDUs captured for replay")
-            return
+        # Nothing captured means the DUT was not sending on this port, so the
+        # self-loop was never exercised. Returning here would let the caller
+        # read that as a pass.
+        assert captured_bpdus, "no BPDU captured on port {} in {}s, nothing to replay".format(
+            capture_port, capture_duration)
 
         # Wait before starting replay
         self.logger.info(f"Waiting {replay_delay} seconds before starting BPDU replay")
@@ -705,47 +730,28 @@ class PvstBpduTest(BaseTest):
 
         self.logger.info(f"Replaying {len(bpdus_to_replay)} BPDU(s) on port {replay_port}")
 
+        # Replay the captured frame BYTE-FOR-BYTE with scapy, on the raw
+        # interface
+        replay_interface = "eth{}".format(replay_port)
+        replay_count = int(self.test_params.get('replay_count', 20))
+        replay_interval = float(self.test_params.get('replay_interval', 0.4))
+
         for i, bpdu_info in enumerate(bpdus_to_replay):
             try:
-                # Get the original packet
                 original_packet = bpdu_info['packet']
                 bpdu_data = bpdu_info['bpdu_data']
-
-                # Create new packet with proper PVST structure
-                new_packet = Ether(
-                    dst=original_packet.dst,
-                    src=original_packet.src,
-                    type=0x8100
-                ) / Dot1Q(
-                    vlan=bpdu_data.get('vlan_id', 1),
-                    type=self.BPDU_LEN  # Use length field for PVST
-                ) / Raw(original_packet.payload)
-
-                # Create a copy for replay
-                replay_packet = new_packet.copy()
-
-                # Send the BPDU on the replay port
-                testutils.send_packet(self, replay_port, replay_packet)
-                self.logger.info(f"Replayed BPDU {i+1}/{len(bpdus_to_replay)} on port {replay_port}")
-                self.logger.info(f"Replayed BPDU details: VLAN {bpdu_data.get('vlan_id', 'Unknown')}, "
-                                 f"Bridge Priority {bpdu_data.get('bridge_priority', 'Unknown')}")
-
-                # Small delay between BPDU replays
-                if i < len(bpdus_to_replay) - 1:
-                    time.sleep(1)
-
-            except Exception as e:
-                self.logger.warning(f"Failed to reconstruct packet with VLAN tag: {e}")
-                self.logger.info("Using original packet for replay")
                 replay_packet = original_packet.copy()
-                testutils.send_packet(self, replay_port, replay_packet)
-                self.logger.info(f"Replayed BPDU {i+1}/{len(bpdus_to_replay)} on port {replay_port}")
-                self.logger.info(f"Replayed BPDU details: VLAN {bpdu_data.get('vlan_id', 'Unknown')}, "
-                                 f"Bridge Priority {bpdu_data.get('bridge_priority', 'Unknown')}")
 
-                # Small delay between BPDU replays
-                if i < len(bpdus_to_replay) - 1:
-                    time.sleep(1)
+                self.logger.info(
+                    "Replaying BPDU %d/%d verbatim on %s: %d copies every %.2fs "
+                    "(len=%d, VLAN %s, bridge priority %s)"
+                    % (i + 1, len(bpdus_to_replay), replay_interface, replay_count,
+                       replay_interval, len(bytes(replay_packet)),
+                       bpdu_data.get('vlan_id', 'Unknown'),
+                       bpdu_data.get('bridge_priority', 'Unknown')))
+
+                scapy2.sendp(replay_packet, iface=replay_interface,
+                             count=replay_count, inter=replay_interval, verbose=0)
 
             except Exception as e:
                 self.logger.error(f"Error replaying BPDU {i+1}: {e}")
@@ -766,13 +772,18 @@ class PvstBpduTest(BaseTest):
         capture_port = self.test_params.get('capture_port', 1)  # PTF port to capture on
         expected_root_path_cost = self.test_params.get('expected_root_path_cost', 0)
         capture_duration = self.test_params.get('capture_duration', 15)
+        # Bridge MAC of the DUT, when the caller knows it: the root path cost is
+        # a property of the BPDUs the DUT originates, so BPDUs from any other
+        # bridge seen on the capture port must be ignored rather than validated.
+        expected_bridge_mac = self.test_params.get('expected_bridge_mac', '')
 
         self.logger.info(f"Capturing BPDUs on port {capture_port} for VLAN {vlan_id}")
         self.logger.info(f"Expected root path cost: {expected_root_path_cost}")
 
         # Start packet capture
         capture_interface = f"eth{capture_port}"
-        self.start_bpdu_capture(capture_interface, timeout=capture_duration)
+        self.start_bpdu_capture(capture_interface, timeout=capture_duration,
+                                exclude_src_mac=self.BPDU_SRC_MAC)
 
         # Wait for BPDUs to be captured
         time.sleep(capture_duration)  # Extra time to ensure capture completes
@@ -787,6 +798,20 @@ class PvstBpduTest(BaseTest):
             error_msg = f'No Configuration BPDUs captured for VLAN {vlan_id}'
             self.logger.error(error_msg)
             raise AssertionError(error_msg)
+
+        if expected_bridge_mac:
+            dut_bpdus = self.get_captured_bpdus(vlan_id=vlan_id, bpdu_type=self.BPDU_TYPE_CONFIG,
+                                                bridge_mac=expected_bridge_mac)
+            if not dut_bpdus:
+                seen = sorted({bpdu.get('bridge_mac', 'N/A') for bpdu in config_bpdus})
+                error_msg = (f'No Configuration BPDUs from bridge {expected_bridge_mac} captured '
+                             f'for VLAN {vlan_id} (captured bridges: {seen})')
+                self.logger.error(error_msg)
+                raise AssertionError(error_msg)
+            if len(dut_bpdus) != len(config_bpdus):
+                self.logger.info(f"Ignoring {len(config_bpdus) - len(dut_bpdus)} Configuration "
+                                 f"BPDU(s) not originated by bridge {expected_bridge_mac}")
+            config_bpdus = dut_bpdus
 
         self.logger.info(f"Captured {len(config_bpdus)} Configuration BPDU(s) for validation")
 
@@ -1119,29 +1144,47 @@ class PvstBpduTest(BaseTest):
         self.logger.info(f"Successfully validated bridge MAC and priority "
                          f"in {validation_results['captured_count']} BPDU packet(s)")
 
-    def create_l2_packet(self, send_port, vlan_id):
-        self.dataplane.flush()
-        payload = f"Hello VLAN {vlan_id}".encode()
-        pkt = Ether(dst="ff:ff:ff:ff:ff:ff", src=f"00:11:22:33:55:{send_port}", type=0x8100) / \
-            Dot1Q(vlan=vlan_id) / \
-            payload
+    # Minimum Ethernet payload. Used as the 802.3 length field too: a frame with
+    # length/ethertype 0x0000 is malformed (it declares an empty payload) and the
+    # ASIC drops it - measured on a t0 testbed, 0/20 delivered at 0x0000 vs 20/20
+    # with a correct length. Do not "simplify" this back to 0.
+    L2_PAYLOAD_LEN = 46
 
-        return pkt
+    @classmethod
+    def _l2_payload(cls, vlan_id):
+        """Payload padded to the 46-byte Ethernet minimum, so the frame we send
+        is byte-identical to the one we expect back out of the peer port."""
+        payload = f"Hello VLAN {vlan_id}".encode()
+        return payload + b"\x00" * (cls.L2_PAYLOAD_LEN - len(payload))
+
+    def create_l2_packet(self, send_port, vlan_id):
+        """Untagged L2 probe frame.
+
+        The VLAN under test is the minigraph default VLAN, whose members are
+        *untagged* access ports. A Dot1Q-tagged frame is classified by the
+        port's PVID and the 802.1Q header stays in the payload, so the DUT
+        floods it back out the peer access port with the tag still embedded and
+        the next hop drops it - the frame never reaches the PTF. Measured on a
+        t0 testbed: tagged 0/20 received, untagged 20/20.
+        """
+        self.dataplane.flush()
+        return Ether(dst="ff:ff:ff:ff:ff:ff",
+                     src=f"00:11:22:33:55:{send_port}",
+                     type=self.L2_PAYLOAD_LEN) / self._l2_payload(vlan_id)
 
     def verify_l2_expected_packet(self, vlan_id, send_port):
-        payload = f"Hello VLAN {vlan_id}".encode()
-        pad_len = 46 - len(payload)
-        payload += b"\x00" * pad_len
-        pkt = Ether(
+        return Ether(
             dst="ff:ff:ff:ff:ff:ff",
             src=f"00:11:22:33:55:{send_port}",
-            type=0x0000
-        ) / payload
-        return pkt
+            type=self.L2_PAYLOAD_LEN
+        ) / self._l2_payload(vlan_id)
 
     def test_validate_l2_packet(self):
         send_port = int(self.test_params["send_port"])
-        recv_port = int(self.test_params["receive_port"])
+        # One port, or the member ports of a PortChannel: the DUT hashes the
+        # flow onto one of them, so the count runs over all of them.
+        recv = self.test_params["receive_port"]
+        recv_ports = [int(p) for p in recv] if isinstance(recv, (list, tuple)) else [int(recv)]
         vlan_id = int(self.test_params.get("vlan_id", 1))
         verify_packet = self.test_params.get("verify_packet", True)
         self.logger.info(f"verify_packet {verify_packet}")
@@ -1150,10 +1193,15 @@ class PvstBpduTest(BaseTest):
 
         expected_l2_packet = self.verify_l2_expected_packet(vlan_id, send_port)
         masked_pkt = Mask(expected_l2_packet)
-        masked_pkt.set_do_not_care(12, len(expected_l2_packet) - 12)
+        # Match on the dst+src MAC only. Mask offsets are in *bits*, not bytes:
+        # the previous (12, len-12) blanked bits 12..59
+        masked_pkt.set_do_not_care(12 * 8, (len(expected_l2_packet) - 12) * 8)
 
         count_to_send = 100
 
+        # PTF keeps at most 100 packets per port and drops the oldest when full,
+        # so the DUT's own BPDUs and LLDP on the receive port would push probes out.
+        self.dataplane.set_qlen(count_to_send * 10)
         # Flush dataplane before test
         self.dataplane.flush()
         for i in range(count_to_send):
@@ -1165,7 +1213,7 @@ class PvstBpduTest(BaseTest):
             matched_count = testutils.count_matched_packets_all_ports(
                 self,
                 masked_pkt,
-                [recv_port],
+                recv_ports,
                 timeout=5
             )
             self.logger.info(f"Matched packet count: {matched_count}")
@@ -1176,7 +1224,7 @@ class PvstBpduTest(BaseTest):
             matched_count = testutils.count_matched_packets_all_ports(
                 self,
                 masked_pkt,
-                [recv_port],
+                recv_ports,
                 timeout=5
             )
             self.logger.info(f"Matched packet count (expecting 0): {matched_count}")
