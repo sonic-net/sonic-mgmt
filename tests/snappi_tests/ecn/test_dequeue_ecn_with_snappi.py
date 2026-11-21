@@ -113,6 +113,7 @@ def test_dequeue_ecn(request,
             "flow_pkt_count": data_flow_pkt_count
         }
 
+    request.addfinalizer(lambda: cleanup_config(duthosts, snappi_ports))
     ip_pkts = run_ecn_test(api=snappi_api,
                            testbed_config=testbed_config,
                            port_config_list=port_config_list,
@@ -147,4 +148,3 @@ def test_dequeue_ecn(request,
     # Check if the last packet is not ECN marked
     pytest_assert(not is_ecn_marked(ip_pkts[-1]),
                   "The last packet should not be marked")
-    cleanup_config(duthosts, snappi_ports)
