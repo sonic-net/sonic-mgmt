@@ -41,6 +41,11 @@ CONSOLE_CONSERVER = "console_conserver"
 # Console login via SSH to Raritan
 CONSOLE_SSH_RARITAN_CONFIG = "console_ssh_to_port_raritan_config"
 
+DEFAULT_FAST_CLI = False
+# Prompt terminators set_base_prompt() accepts.
+PRI_PROMPT_TERMINATOR = '#'
+ALT_PROMPT_TERMINATOR = '$'
+
 
 class DutLoginFailed(NetMikoAuthenticationException):
     """The console login succeeded, but the login on the DUT behind it failed."""
@@ -72,7 +77,7 @@ class BaseConsoleConn(CiscoBaseConnection):
         # to 0.1, which shrinks login polling budgets too tightly for
         # serial-console getty timing. Default it off; callers can still
         # opt in via kwargs.
-        kwargs.setdefault('fast_cli', False)
+        kwargs.setdefault('fast_cli', DEFAULT_FAST_CLI)
 
         # Allow legacy KEX and host key algorithms for older console servers
         # (e.g. Cisco SSH-2.0-Cisco-1.25) that only support legacy crypto.
@@ -127,8 +132,8 @@ class BaseConsoleConn(CiscoBaseConnection):
             else:
                 break
 
-    def set_base_prompt(self, pri_prompt_terminator='#',
-                        alt_prompt_terminator='$', delay_factor=1):
+    def set_base_prompt(self, pri_prompt_terminator=PRI_PROMPT_TERMINATOR,
+                        alt_prompt_terminator=ALT_PROMPT_TERMINATOR, delay_factor=1):
         return super(BaseConsoleConn, self).set_base_prompt(
             pri_prompt_terminator=pri_prompt_terminator,
             alt_prompt_terminator=alt_prompt_terminator,
