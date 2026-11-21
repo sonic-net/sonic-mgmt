@@ -1,0 +1,11 @@
+name: "northbound_zmq"
+description: "Northbound ZMQ with default DB persistence"
+
+config:
+  DEVICE_METADATA:
+    localhost:
+      orch_northbond_route_zmq_enabled: "true"
+
+containers_to_restart:
+  - swss
+  - bgp
