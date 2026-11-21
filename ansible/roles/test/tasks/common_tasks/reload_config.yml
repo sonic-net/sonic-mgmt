@@ -15,7 +15,7 @@
   when: "config_source == 'minigraph'"
 
 - name: "Restore zebra_nexthop from minigraph into CONFIG_DB"
-  shell: 'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" zebra_nexthop {{ minigraph_device_metadata.zebra_nexthop }}'
+  shell: 'sonic-db-cli -s --authenticate CONFIG_DB hset "DEVICE_METADATA|localhost" zebra_nexthop {{ minigraph_device_metadata.zebra_nexthop }}'
   become: "yes"
   when:
     - "config_source == 'minigraph'"
