@@ -1,0 +1,89 @@
+{
+    "nvme": {
+        "defaults": {
+            "max_temperature_c": 85,
+            "max_wear_used_percent": 90,
+            "max_media_errors": 0
+        },
+        "models": {
+            "Virtium VTPM24CEXI080-BM110006": {
+                "vendor": "Virtium"
+            },
+            "SFPC020GM1EC2TO-I-5E-51P-STD": {
+                "vendor": "Swissbit"
+            },
+            "MD681GEEBC82": {
+                "vendor": "Silicon Motion"
+            },
+            "MD681GEFBC82": {
+                "vendor": "Silicon Motion"
+            },
+            "MD681GEGBC82": {
+                "vendor": "Silicon Motion"
+            }
+        }
+    },
+    "sata": {
+        "defaults": {
+            "max_temperature_c": 85,
+            "max_wear_used_percent": 90,
+            "max_media_errors": 0,
+            "media_error_ids": [5, 160, 187, 198]
+        },
+        "models": {
+            "StorFly VSFBM4XC030G-MLX1": {
+                "vendor": "Virtium"
+            },
+            "StorFly VSFBM4XI060G-MLX": {
+                "vendor": "Virtium"
+            },
+            "StorFly VSF302XC016G-MLX": {
+                "vendor": "Virtium"
+            },
+            "StorFly VSF302XC016G-MLX1": {
+                "vendor": "Virtium"
+            },
+            "VSFDM8XC240G-V11-T": {
+                "vendor": "Virtium",
+                "media_error_ids": [5, 187]
+            },
+            "VSFCM4XC030G-B201": {
+                "vendor": "Virtium"
+            },
+            "VSF304XC016G-B201": {
+                "vendor": "Virtium"
+            },
+            "VSFEM4XI060G-B201": {
+                "vendor": "Virtium"
+            },
+            "VSFEM4XI060G-B202": {
+                "vendor": "Virtium"
+            },
+            "VSFEM4XI060G-B203": {
+                "vendor": "Virtium"
+            },
+            "SFSA080GM2AK1TO-I-8C-12P-STD": {
+                "vendor": "Swissbit"
+            },
+            "SFSA016GM3AA1TO-I-LB-12P-STD": {
+                "vendor": "Swissbit"
+            },
+            "SFSA016GU4AA1TO-I-LB-22P-STD": {
+                "vendor": "Swissbit"
+            },
+            "SFSA160GM2AK2TO-I-8C-22K-NVI": {
+                "vendor": "Swissbit"
+            },
+            "SFSA160GM2AK2TO-I-8C-22K-STD": {
+                "vendor": "Swissbit"
+            },
+            "InnoDisk Corp. - mSATA 3IE4": {
+                "vendor": "InnoDisk"
+            },
+            "InnoDisk Corp. - mSATA 3ME": {
+                "vendor": "InnoDisk",
+                "media_error_ids": [5, 176, 235]
+            }
+        }
+    }
+}
