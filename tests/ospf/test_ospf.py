@@ -1,100 +1,144 @@
-import logging
-import re
-
 import pytest
-
-from tests.common.devices.eos import EosHost
-from tests.common.utilities import wait_until
+import logging
+import time
+import re
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.topology("t0")]
-
-
-def _full_neighbor_count(duthost):
-    output = duthost.shell('vtysh -c "show ip ospf neighbor"')["stdout"]
-    return sum(
-        1 for line in output.splitlines()
-        if len(line.split()) >= 7 and line.split()[2].startswith("Full")
-    )
-
-
-def _route_prefixes(duthost):
-    output = duthost.shell("show ip route ospf")["stdout"]
-    pattern = re.compile(r"^O[^\n]*?([0-9]+(?:\.[0-9]+){3}/[0-9]+)", re.MULTILINE)
-    return sorted(set(pattern.findall(output)))
-
-
-def _routes_match(duthost, expected):
-    return set(expected).issubset(set(_route_prefixes(duthost)))
-
-
-def _route_present(duthost, prefix, present):
-    return (prefix in _route_prefixes(duthost)) is present
+pytestmark = [
+    pytest.mark.topology('t0')
+]
 
 
 def test_ospf_neighborship(ospf_setup, duthosts, rand_one_dut_hostname):
+    setup_info_nbr_addr = ospf_setup['nbr_addr']
+    neigh_ip_addrs = list(setup_info_nbr_addr.values())
     duthost = duthosts[rand_one_dut_hostname]
-    expected_neighbors = len(ospf_setup["nbr_addr"])
-    expected_routes = ospf_setup["expected_routes"]
 
-    assert wait_until(
-        180, 5, 0, lambda: _full_neighbor_count(duthost) == expected_neighbors
-    ), "Expected {} Full OSPF neighbors, found {}".format(
-        expected_neighbors, _full_neighbor_count(duthost)
-    )
-    assert wait_until(
-        90, 5, 0, _routes_match, duthost, expected_routes
-    ), "OSPF routes {} do not contain cEOS loopbacks {}".format(
-        _route_prefixes(duthost), expected_routes
-    )
+    # Check get existing bgp routes on the DUT
+    original_prefixes = ospf_setup['bgp_routes']
+
+    # Configure OSPF neighbors in DUT if not already configured
+    ospf_configured = False
+    cmd = 'vtysh -c "show ip ospf neighbor"'
+    ospf_neighbors = duthost.shell(cmd)['stdout'].split("\n")
+    for neighbor in ospf_neighbors:
+        if ("ospfd is not running" not in neighbor) and (neighbor != "") and ("Neighbor ID" not in neighbor):
+            ospf_configured = True
+
+    if not ospf_configured:
+        cmd_list = [
+            'docker exec -it bgp bash',
+            'cd /usr/lib/frr',
+            './ospfd &',
+            'exit',
+            'vtysh',
+            'config t',
+            'no router bgp',
+            'router ospf'
+        ]
+
+        for ip_addr in neigh_ip_addrs:
+            cmd_list.append('network {}/31 area 0'.format(str(ip_addr)))
+
+        cmd_list.extend([
+            'do write',
+            'end',
+            'exit'
+        ])
+
+        duthost.shell_cmds(cmd_list)
+        time.sleep(5)
+
+    # Verify old BGP routes are available as OSPF routes in the DUT
+    cmd = 'vtysh -c "show ip ospf neighbor"'
+    ospf_neighbors = duthost.shell(cmd)['stdout'].split("\n")
+    for neighbor in ospf_neighbors:
+        if (neighbor != "") and ("Neighbor ID" not in neighbor):
+            assert "Full" in neighbor
+
+    # Compare new OSPF prefixes with old BGP prefixes
+    cmd = "show ip route ospf"
+    ospf_routes = duthost.shell(cmd)['stdout']
+    ospf_routes_pattern = re.compile(r'O>\*(\d+\.\d+\.\d+\.\d+/\d+)')
+    new_prefixes = ospf_routes_pattern.findall(ospf_routes).sort()
+
+    assert original_prefixes == new_prefixes
 
 
-def test_ospf_dynamic_routing(ospf_setup, duthosts, rand_one_dut_hostname):
+def test_ospf_dynamic_routing(ospf_setup, duthosts, rand_one_dut_hostname, nbrhosts):
+    setup_info_nbr_addr = ospf_setup['nbr_addr']
+    neigh_ip_addrs = list(setup_info_nbr_addr.values())
     duthost = duthosts[rand_one_dut_hostname]
-    neighbor = ospf_setup["neighbors"][sorted(ospf_setup["neighbors"])[0]]
-    host = neighbor["host"]
-    assert isinstance(host, EosHost), "SONiC-VPP OSPF qualification requires cEOS neighbors"
 
-    prefix = "192.168.10.1/32"
-    loopback_name = "Loopback1010" if host.bgp_vrf else "Loopback10"
-    loopback_added = False
+    # Add loopback interface in the first neighboring device
+    first_nbr = list(nbrhosts.keys())[0]
+    loopback_cmd = "config interface ip add Loopback10 192.168.10.1/32"
+    nbrhosts[first_nbr]["host"].shell(loopback_cmd)
 
-    try:
-        lines = []
-        if host.bgp_vrf:
-            lines.append("vrf {}".format(host.bgp_vrf))
-        lines.append("ip address {}".format(prefix))
-        result = host.eos_config(
-            lines=lines,
-            parents=["interface {}".format(loopback_name)],
-            module_ignore_errors=True,
-        )
-        assert not result.get("failed"), result
-        loopback_added = True
+    # Advertise newly created loopback network to the DUT via OSPF
+    advertise_network_cmd = "vtysh -c 'config terminal' -c 'router ospf' -c 'network 192.168.10.1/32 area 0'"
+    nbrhosts[first_nbr]["host"].shell(advertise_network_cmd)
 
-        result = host.eos_config(
-            lines=["ip ospf area 0.0.0.0"],
-            parents=["interface {}".format(loopback_name)],
-            module_ignore_errors=True,
-        )
-        assert not result.get("failed"), result
+    # Check OSPF already configured in DUT
+    ospf_configured = False
+    cmd = 'vtysh -c "show ip ospf neighbor"'
+    ospf_neighbors = duthost.shell(cmd)['stdout'].split("\n")
+    for neighbor in ospf_neighbors:
+        if ("ospfd is not running" not in neighbor) and (neighbor != "") and ("Neighbor ID" not in neighbor):
+            ospf_configured = True
 
-        assert wait_until(60, 3, 0, _route_present, duthost, prefix, True), \
-            "OSPF route {} was not installed".format(prefix)
+    # Configure OSPF neighbors in DUT if not already configured
+    if not ospf_configured:
+        cmd_list = [
+            'docker exec -it bgp bash',
+            'cd /usr/lib/frr',
+            './ospfd &',
+            'exit',
+            'vtysh',
+            'config t',
+            'no router bgp',
+            'router ospf'
+        ]
 
-        result = host.eos_config(
-            lines=["no interface {}".format(loopback_name)],
-            module_ignore_errors=True,
-        )
-        assert not result.get("failed"), result
-        loopback_added = False
+        for ip_addr in neigh_ip_addrs:
+            cmd_list.append('network {}/31 area 0'.format(str(ip_addr)))
 
-        assert wait_until(60, 3, 0, _route_present, duthost, prefix, False), \
-            "OSPF route {} was not withdrawn".format(prefix)
-    finally:
-        if loopback_added:
-            host.eos_config(
-                lines=["no interface {}".format(loopback_name)],
-                module_ignore_errors=True,
-            )
+        cmd_list.extend([
+            'do write',
+            'end',
+            'exit'
+        ])
+
+        duthost.shell_cmds(cmd_list)
+        time.sleep(5)
+
+    # Verify OSPF neighborship successfully established and loopback route shared to the DUT
+    cmd = 'vtysh -c "show ip ospf neighbor"'
+    ospf_neighbors = duthost.shell(cmd)['stdout'].split("\n")
+    for neighbor in ospf_neighbors:
+        if (neighbor != "") and ("Neighbor ID" not in neighbor):
+            assert "Full" in neighbor
+    route_found = False
+    cmd = 'show ip route ospf'
+    ospf_routes = duthost.shell(cmd)['stdout'].split("\n")
+    for route in ospf_routes:
+        if '192.168.10.1/32' in route:
+            route_found = True
+            break
+    assert route_found is True
+
+    # Simulate link down by removing loopback interface from neighbor
+    rem_loopback_cmd = "config interface ip remove Loopback10 192.168.10.1/32"
+    nbrhosts[first_nbr]["host"].shell(rem_loopback_cmd)
+    time.sleep(5)
+
+    # Verify that loopback route is not present in DUT
+    route_found = False
+    cmd = 'show ip route ospf'
+    ospf_routes = duthost.shell(cmd)['stdout'].split("\n")
+    for route in ospf_routes:
+        if '192.168.10.1/32' in route:
+            route_found = True
+            break
+    assert route_found is False
