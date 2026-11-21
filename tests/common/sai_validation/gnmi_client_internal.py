@@ -16,7 +16,7 @@ def _ensure_imports():
         import tests.common.sai_validation.generated.github.com.openconfig.gnmi.proto.gnmi.gnmi_pb2 as gnmi_pb2
         _gnmi_pb2 = gnmi_pb2
 
-def create_secure_channel(target, root_cert_path, client_cert_path, client_key_path):
+def create_secure_channel(target, root_cert_path, client_cert_path, client_key_path, options=None):
     logger.debug("Creating secure channel with target: %s", target)
     try:
         # Load the root certificate
@@ -43,7 +43,7 @@ def create_secure_channel(target, root_cert_path, client_cert_path, client_key_p
         logger.debug("SSL credentials created successfully")
 
         # Create a secure channel
-        channel = grpc.secure_channel(target, credentials)
+        channel = grpc.secure_channel(target, credentials, options=options)
         logger.debug("Secure channel created successfully")
         return channel
     except Exception as e:
