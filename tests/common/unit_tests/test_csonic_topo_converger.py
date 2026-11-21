@@ -1,9 +1,14 @@
 """Unit tests for the cSONiC-only topology converger."""
 
+import ast
 import importlib.util
+import os
 from pathlib import Path
+import shutil
+from types import ModuleType, SimpleNamespace
 
 import pytest
+import yaml
 
 
 pytestmark = [
@@ -16,6 +21,91 @@ MODULE_PATH = REPO_ROOT / "ansible" / "csonic_topo_converger.py"
 SPEC = importlib.util.spec_from_file_location("csonic_topo_converger", MODULE_PATH)
 CONVERGER = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CONVERGER)
+
+CONFTEST_PATH = REPO_ROOT / "tests" / "conftest.py"
+
+
+def _load_pytest_convergence_helpers():
+    """Load only the convergence helpers without importing pytest conftest."""
+    source = CONFTEST_PATH.read_text()
+    tree = ast.parse(source, filename=str(CONFTEST_PATH))
+    helper_names = {"_load_testbed_config", "converge_topo_if_needed"}
+    helper_nodes = [
+        node for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name in helper_names
+    ]
+    assert {node.name for node in helper_nodes} == helper_names
+
+    module = ModuleType("sonic_mgmt_pytest_convergence_helpers")
+    helper_logger = SimpleNamespace(
+        error=lambda *args, **kwargs: None,
+        info=lambda *args, **kwargs: None,
+        warning=lambda *args, **kwargs: None,
+    )
+    module.__dict__.update({
+        "__file__": str(CONFTEST_PATH),
+        "importlib": importlib,
+        "logger": helper_logger,
+        "os": os,
+        "pytest": pytest,
+        "shutil": shutil,
+        "yaml": yaml,
+    })
+    helpers = ast.Module(body=helper_nodes, type_ignores=[])
+    exec(compile(helpers, str(CONFTEST_PATH), "exec"), module.__dict__)
+    return module
+
+
+PYTEST_CONVERGENCE_HELPERS = _load_pytest_convergence_helpers()
+converge_pytest_topo_if_needed = (
+    PYTEST_CONVERGENCE_HELPERS.converge_topo_if_needed
+)
+
+
+class _PytestConfig:
+    def __init__(self, testbed_file, neighbor_type):
+        self._options = {
+            "testbed": "unit-testbed",
+            "testbed_file": str(testbed_file),
+            "--neighbor_type": neighbor_type,
+        }
+        self.invocation_params = SimpleNamespace(
+            args=("--neighbor_type={}".format(neighbor_type),)
+        )
+
+    def getoption(self, name):
+        return self._options[name]
+
+
+def _write_testbed(tmp_path, topo, use_converged_peers):
+    testbed_file = tmp_path / "testbed.yml"
+    testbed_file.write_text(yaml.safe_dump([{
+        "conf-name": "unit-testbed",
+        "topo": topo,
+        "use_converged_peers": use_converged_peers,
+    }]))
+    return testbed_file
+
+
+def test_pytest_rejects_unconverged_csonic_t1_lag(tmp_path):
+    config = _PytestConfig(
+        _write_testbed(tmp_path, "t1-lag", False), "csonic")
+
+    with pytest.raises(pytest.UsageError, match=(
+            "unconverged cSONiC T1-LAG is not supported")):
+        converge_pytest_topo_if_needed(config)
+
+
+@pytest.mark.parametrize(("topo", "neighbor_type"), [
+    ("t1-lag", "ceos"),
+    ("t0", "csonic"),
+])
+def test_unconverged_rejection_is_scoped_to_csonic_t1_lag(
+        tmp_path, topo, neighbor_type):
+    config = _PytestConfig(
+        _write_testbed(tmp_path, topo, False), neighbor_type)
+
+    converge_pytest_topo_if_needed(config)
 
 
 def test_vrf_names_are_schema_safe_stable_and_collision_resistant():
@@ -62,3 +152,68 @@ def test_prime_allocation_reserves_the_32nd_injected_port_for_backplane(tmp_path
     assert len(converger.prime_devices) == 2
     assert [len(converger.prime_device_mapping[prime])
             for prime in converger.prime_devices] == [31, 1]
+
+
+def test_prime_allocation_counts_front_panel_links_not_logical_peers(tmp_path):
+    configuration = {}
+    vms = {}
+    for index in range(16):
+        name = "ARISTA{:02d}T2".format(index + 1)
+        configuration[name] = {
+            "properties": ["spine"],
+            "bgp": {"asn": 65200, "peers": {}},
+            "interfaces": {},
+            "bp_interface": {},
+        }
+        vms[name] = {"vlans": [index * 2, index * 2 + 1],
+                     "vm_offset": index}
+
+    topology = {
+        "configuration_properties": {"spine": {"swrole": "spine"}},
+        "configuration": configuration,
+        "topology": {"VMs": vms},
+    }
+    converger = CONVERGER.CsonicTopoConverger(
+        topology, str(tmp_path / "converged.yml"))
+    converger.parse_properties()
+
+    assert len(converger.prime_devices) == 2
+    assert [len(converger.prime_device_mapping[prime])
+            for prime in converger.prime_devices] == [15, 1]
+    assert [sum(len(vms[peer]["vlans"])
+                for peer in converger.prime_device_mapping[prime])
+            for prime in converger.prime_devices] == [30, 2]
+
+
+def test_stock_t1_lag_converges_to_two_16_link_role_primes(tmp_path):
+    topo_path = REPO_ROOT / "ansible" / "vars" / "topo_t1-lag.yml"
+    # The session startup hook converges this shared file before collection on
+    # converged testbeds. Its backup is the canonical stock topology this unit
+    # test is intended to exercise; ordinary unit runs have no backup.
+    source_topo_path = topo_path.with_name(topo_path.name + ".bak")
+    if not source_topo_path.exists():
+        source_topo_path = topo_path
+    topology = CONVERGER.yaml.safe_load(source_topo_path.read_text())
+    converger = CONVERGER.CsonicTopoConverger(
+        topology, str(tmp_path / "converged.yml"))
+    converger.parse_properties()
+    converger.converge_topo()
+
+    result = converger.converged_topo
+    assert converger.prime_devices == ["ARISTA01T2", "ARISTA01T0"]
+    assert [len(converger.prime_device_mapping[prime])
+            for prime in converger.prime_devices] == [8, 16]
+    assert [len(result["topology"]["VMs"][prime]["vlans"])
+            for prime in converger.prime_devices] == [16, 16]
+    assert result["max_fp_num_provided"] == 16
+
+    spine = result["convergence_data"]["converged_peers"]["ARISTA01T2"]
+    for index, peer in enumerate(
+            result["convergence_data"]["convergence_mapping"]["ARISTA01T2"], 1):
+        vrf = spine["vrf"][peer]
+        portchannel = "Port-Channel{}".format(index)
+        members = [data for name, data in vrf.items()
+                   if name.startswith("Ethernet")]
+        assert portchannel in vrf
+        assert len(members) == 2
+        assert {member["lacp"] for member in members} == {index}

@@ -220,10 +220,15 @@ function converge_topo_if_needed
     topo_file="$VARS_DIR/topo_${topo}.yml"
     backup_file="${topo_file}".bak
 
+    if [[ "$vm_type" == "csonic" && "$topo" == "t1-lag" && "$use_converged_peers" != "True" ]]; then
+        echo "cSONiC topo='t1-lag' requires use_converged_peers=True; unconverged cSONiC T1-LAG is not supported." >&2
+        return 1
+    fi
+
     # Keep the cSONiC path independent from the established cEOS path below.
     if [[ "$use_converged_peers" == "True" && "$vm_type" == "csonic" ]]; then
-        if [[ "$topo" != "t0" ]]; then
-            echo "cSONiC converged peers currently support topo=t0 only; skipping topo '$topo'."
+        if [[ "$topo" != "t0" && "$topo" != "t1-lag" ]]; then
+            echo "cSONiC converged peers currently support topo=t0 and t1-lag only; skipping topo '$topo'."
             return
         fi
         echo "use_converged_peers is true, converging cSONiC topo..."
@@ -241,8 +246,9 @@ function converge_topo_if_needed
     fi
 
     if [[ "$use_converged_peers" == "True" ]]; then
-        # cSONiC T0 is handled by its dedicated branch above. This branch keeps
-        # the existing cEOS renderer strict: SONiC-VS and cisco neighbors have
+        # Supported cSONiC topologies are handled by their dedicated branch
+        # above. This branch keeps the existing cEOS renderer strict: SONiC-VS
+        # and cisco neighbors have
         # no equivalent render path, so reshaping their topology would make the
         # DUT minigraph disagree with the deployed peers.
         if [[ "$vm_type" != "ceos" ]]; then
