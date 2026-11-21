@@ -50,13 +50,33 @@ PORT_IN_USE_PATTERN = (
     r"(Port is in use. Closing connection...|Cannot connect: line \[\d{2}\] is busy|Sorry, port is busy!)")
 RARITAN_BANNER_PATTERN = r"(You are now master for the port|Escape Sequence is:)"
 RARITAN_LOGIN_PROMPT_PATTERN = r"(?:user:|username|login|user name)"
-RARITAN_LOGIN_PROMPT_TIMEOUT_S = 60
 SONIC_SHELL_PROMPT_PATTERNS = (
     r'admin@.*:.*[\$#]',
     r'root@.*:.*#',
     r'.*@sonic.*[\$#]',
 )
 LOGIN_FAILURE_PATTERN = r".*incorrect"
+# How the connect workflow uses the waits below. Once the SSH login to the console server
+# succeeds, netmiko's constructor runs session_preparation() on the DUT line. Most waits
+# are multiplied by the delay factor, which is 1 unless a caller raises it.
+#   a. Read the line without writing, READ_INTERVAL_S between reads, until anything
+#      arrives. A "port in use" notice ends the connect; attach_only stops here.
+#   b. *_config types: set the prompt and clear the buffer as in g, then stop.
+#   c. Raritan: send a CR and wait up to RARITAN_LOGIN_PROMPT_TIMEOUT_S for a login prompt.
+#   d. Menu port: select the line and log in to it with login_stage_2(), as in f.
+#   e. Recover: watch the line, reading every READ_INTERVAL_S. A silent line gets one CR;
+#      a leftover shell gets Ctrl-C and, READ_INTERVAL_S later, "exit", then a
+#      RESPONSE_WAIT_S pause for the login prompt.
+#   f. Log in (login_stage_2()): pause RESPONSE_WAIT_S at the start, after sending the
+#      username and after a failed login; otherwise read every READ_INTERVAL_S, sending a
+#      CR each time until the username goes out. After a rejected password, send a CR
+#      every READ_INTERVAL_S until a fresh login prompt appears.
+#   g. Set the prompt, pause FINALISE_WAIT_S, then clear the read buffer.
+# On disconnect, cleanup() reads every READ_INTERVAL_S while looking for a SONiC prompt.
+READ_INTERVAL_S = 0.5
+RESPONSE_WAIT_S = 1
+FINALISE_WAIT_S = 0.3
+RARITAN_LOGIN_PROMPT_TIMEOUT_S = 60
 
 
 class ConsoleRebootStartedError(Exception):
@@ -177,7 +197,7 @@ class SSHConsoleConn(BaseConsoleConn):
         passive "read first, classify, only then maybe nudge" idiom used by
         _recover_to_login_prompt() and _is_at_sonic_prompt().
 
-        The wait is deliberately short (max_reads*0.5s). Because we suppress
+        The wait is deliberately short (max_reads * READ_INTERVAL_S). Because we suppress
         netmiko's priming CR (see _try_session_preparation), a genuinely SILENT
         console now returns nothing here; stopping early is safe because a silent
         console is by definition NOT in an active autoboot window (autoboot prints
@@ -193,7 +213,7 @@ class SSHConsoleConn(BaseConsoleConn):
             output += self.read_channel()
             if output:
                 break
-            time.sleep(0.5 * delay_factor)
+            time.sleep(READ_INTERVAL_S * delay_factor)
         return output
 
     def session_preparation(self):
@@ -351,7 +371,7 @@ class SSHConsoleConn(BaseConsoleConn):
             self.set_base_prompt()
 
         # Clear the read buffer
-        time.sleep(0.3 * self.global_delay_factor)
+        time.sleep(FINALISE_WAIT_S * self.global_delay_factor)
         self.clear_buffer()
 
     def _recover_to_login_prompt(self, max_attempts=4, delay_factor=1):
@@ -389,7 +409,7 @@ class SSHConsoleConn(BaseConsoleConn):
                 # traps the DUT in the bootloader, so we must observe before nudging.
                 output = ""
                 for _ in range(4):
-                    time.sleep(0.5 * delay_factor)
+                    time.sleep(READ_INTERVAL_S * delay_factor)
                     output += self.read_channel()
                 # Only if the console stayed silent do we nudge it with a bare CR
                 # (never Ctrl-C) to coax a login prompt to echo. This rests on the
@@ -402,7 +422,7 @@ class SSHConsoleConn(BaseConsoleConn):
                 if not output.strip():
                     self.write_channel(self.RETURN)
                     for _ in range(4):
-                        time.sleep(0.5 * delay_factor)
+                        time.sleep(READ_INTERVAL_S * delay_factor)
                         output += self.read_channel()
             except Exception as e:
                 self.logger.warning(f"Error probing console state: {e}")
@@ -430,9 +450,9 @@ class SSHConsoleConn(BaseConsoleConn):
                     "to return to the login prompt")
                 try:
                     self.write_channel("\x03")
-                    time.sleep(0.5 * delay_factor)
+                    time.sleep(READ_INTERVAL_S * delay_factor)
                     self.write_channel("exit" + self.RETURN)
-                    time.sleep(1 * delay_factor)
+                    time.sleep(RESPONSE_WAIT_S * delay_factor)
                 except Exception as e:
                     self.logger.warning(f"Error sending exit during recovery: {e}")
                     return False
@@ -459,7 +479,7 @@ class SSHConsoleConn(BaseConsoleConn):
         while i <= max_loops:
             try:
                 self.write_channel(self.RETURN)
-                time.sleep(0.5 * delay_factor)
+                time.sleep(READ_INTERVAL_S * delay_factor)
                 output = self.read_channel()
                 # A fresh prompt ends with "login:" (with the colon); this does
                 # not match the "Login incorrect" failure banner.
@@ -620,7 +640,7 @@ class SSHConsoleConn(BaseConsoleConn):
             output = ""
             for i in range(4):
                 if i:
-                    time.sleep(0.5)
+                    time.sleep(READ_INTERVAL_S)
                 output += self.read_channel()
             if BOOTLOADER_BANNER_RE.search(output):
                 self.logger.warning(
@@ -629,7 +649,7 @@ class SSHConsoleConn(BaseConsoleConn):
             # Not a bootloader -> elicit the prompt (empty after login) with a CR.
             for _ in range(4):
                 self.write_channel(self.RETURN)
-                time.sleep(0.5)
+                time.sleep(READ_INTERVAL_S)
                 output += self.read_channel()
         except Exception as e:
             self.logger.warning(f"Error reading channel: {e}, assuming not at SONiC prompt")
