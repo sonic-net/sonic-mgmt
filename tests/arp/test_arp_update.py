@@ -132,7 +132,7 @@ def neighbor_learned(dut, target_ip):
 
 
 def appl_db_neighbor_syncd(dut, vlan_name, target_ip, exp_mac):
-    cmd = f"sonic-db-cli APPL_DB hget 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh'"  # noqa: E231
+    cmd = f"sonic-db-cli -s APPL_DB hget 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh'"  # noqa: E231
     asic_db_mac = dut.shell(cmd)['stdout']
     logger.info(f"DUT neighbor mac: {asic_db_mac} of entry {vlan_name}:{target_ip}")  # noqa: E231
     return exp_mac.lower() == asic_db_mac.lower()
@@ -183,10 +183,10 @@ def test_kernel_asic_mac_mismatch(
 
     logger.info("Manually setting APPL_DB MAC address")
     rand_selected_dut.shell(
-        f"sonic-db-cli APPL_DB hset 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh' '00:00:00:00:00:00'"  # noqa: E231
+        f"sonic-db-cli -s APPL_DB hset 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh' '00:00:00:00:00:00'"  # noqa: E231
     )
     asic_db_mac = rand_selected_dut.shell(
-        f"sonic-db-cli APPL_DB hget 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh'"  # noqa: E231
+        f"sonic-db-cli -s APPL_DB hget 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh'"  # noqa: E231
     )['stdout']
     pt_assert(target_mac.lower() != asic_db_mac.lower(),
               f"APPL_DB MAC was not corrupted: expected 00:00:00:00:00:00 but got {asic_db_mac}. "  # noqa: E231

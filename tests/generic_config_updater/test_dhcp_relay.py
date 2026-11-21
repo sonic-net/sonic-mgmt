@@ -98,7 +98,7 @@ def default_setup(duthost, vlan_intfs_list):
     # Generate 4 dhcp servers for each new created vlan
     for vlan in vlan_intfs_list:
         expected_content_dict[vlan] = []
-        cmds.append('sonic-db-cli CONFIG_DB hset "VLAN|Vlan{}" "dhcp_servers@" "{}"'
+        cmds.append('sonic-db-cli -s CONFIG_DB hset "VLAN|Vlan{}" "dhcp_servers@" "{}"'
                     .format(vlan, ",".join(["192.0.{}.{}".format(vlan, i) for i in range(1, 5)])))
         for i in range(1, 5):
             expected_content_dict[vlan].append('192.0.{}.{}'.format(vlan, i))
@@ -124,7 +124,7 @@ def get_dhcp_relay_info_from_all_vlans(duthost):
      'dhcpv6_servers@': 'fc02:2000::1,fc02:2000::2,fc02:2000::3,fc02:2000::4', 'vlanid': '1000'}
     {'vlanid': '109', 'dhcp_servers@': '192.0.109.1,192.0.109.2,192.0.109.3,192.0.109.4'}
     """
-    cmds = 'sonic-db-cli CONFIG_DB keys "VLAN|*" | xargs -I {} sonic-db-cli CONFIG_DB hgetall "{}"'
+    cmds = 'sonic-db-cli -s CONFIG_DB keys "VLAN|*" | xargs -I {} sonic-db-cli -s CONFIG_DB hgetall "{}"'
     dhcp_server_info = duthost.shell(cmds)
     pytest_assert(not dhcp_server_info['rc'], "Failed to get dhcp relay info from all vlan")
     return dhcp_server_info['stdout']
@@ -167,6 +167,7 @@ def setup_vlan(duthosts, rand_one_dut_hostname, vlan_intfs_dict, first_avai_vlan
         finally:
             logger.info("Rolled back to original checkpoint")
             rollback_or_reload(duthost)
+            wait_dhcp_relay_ready(duthost, ['isc'])
     finally:
         delete_checkpoint(duthost, SETUP_ENV_CP)
         delete_checkpoint(duthost)

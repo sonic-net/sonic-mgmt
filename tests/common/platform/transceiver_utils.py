@@ -44,7 +44,7 @@ def all_transceivers_detected(dut, asic_index, interfaces, xcvr_skip_list):
     """
     Check if transceiver information of all the specified interfaces have been detected.
     """
-    cmd = r"redis-cli --raw -n 6 keys TRANSCEIVER_INFO\*"
+    cmd = r"sonic-db-cli -s STATE_DB keys TRANSCEIVER_INFO\*"
     asichost = dut.asic_instance(asic_index)
     docker_cmd = asichost.get_docker_cmd(cmd, "database")
     db_output = dut.command(docker_cmd)["stdout_lines"]
@@ -63,7 +63,7 @@ def check_transceiver_basic(dut, asic_index, interfaces, xcvr_skip_list):
     @param interfaces: List of interfaces that need to be checked.
     """
     logging.info("Check whether transceiver information of all ports are in redis")
-    cmd = "redis-cli -n 6 keys TRANSCEIVER_INFO*"
+    cmd = "sonic-db-cli -s STATE_DB keys TRANSCEIVER_INFO*"
     asichost = dut.asic_instance(asic_index)
     docker_cmd = asichost.get_docker_cmd(cmd, "database")
     xcvr_info = dut.command(docker_cmd)
@@ -88,8 +88,8 @@ def check_transceiver_details(dut, asic_index, interfaces, xcvr_skip_list):
     else:
         expected_fields = ["type", "vendor_rev", "serial", "manufacturer", "model"]
 
-    cmd_keys = 'sonic-db-cli STATE_DB KEYS "TRANSCEIVER_INFO|Ethernet*"'
-    cmd_hgetall = 'sonic-db-cli STATE_DB HGETALL $key'
+    cmd_keys = 'sonic-db-cli -s STATE_DB KEYS "TRANSCEIVER_INFO|Ethernet*"'
+    cmd_hgetall = 'sonic-db-cli -s STATE_DB HGETALL $key'
     docker_cmd_keys = asichost.get_docker_cmd(cmd_keys, "database")
     docker_cmd_hgetall = asichost.get_docker_cmd(cmd_hgetall, "database")
 
@@ -117,7 +117,7 @@ def check_transceiver_dom_sensor_basic(dut, asic_index, interfaces, xcvr_skip_li
     @param interfaces: List of interfaces that need to be checked.
     """
     logging.info("Check whether TRANSCEIVER_DOM_SENSOR of all ports in redis")
-    cmd = "redis-cli -n 6 keys TRANSCEIVER_DOM_SENSOR*"
+    cmd = "sonic-db-cli -s STATE_DB keys TRANSCEIVER_DOM_SENSOR*"
     asichost = dut.asic_instance(asic_index)
     docker_cmd = asichost.get_docker_cmd(cmd, "database")
     xcvr_dom_sensor = dut.command(docker_cmd)
@@ -141,8 +141,8 @@ def check_transceiver_dom_sensor_details(dut, asic_index, interfaces, xcvr_skip_
     expected_fields = ["temperature", "voltage", "rx1power", "rx2power", "rx3power", "rx4power", "tx1bias",
                        "tx2bias", "tx3bias", "tx4bias", "tx1power", "tx2power", "tx3power", "tx4power"]
 
-    cmd_keys = 'sonic-db-cli STATE_DB KEYS "TRANSCEIVER_DOM_SENSOR|Ethernet*"'
-    cmd_hgetall = 'sonic-db-cli STATE_DB HGETALL $key'
+    cmd_keys = 'sonic-db-cli -s STATE_DB KEYS "TRANSCEIVER_DOM_SENSOR|Ethernet*"'
+    cmd_hgetall = 'sonic-db-cli -s STATE_DB HGETALL $key'
     docker_cmd_keys = asichost.get_docker_cmd(cmd_keys, "database")
     docker_cmd_hgetall = asichost.get_docker_cmd(cmd_hgetall, "database")
 

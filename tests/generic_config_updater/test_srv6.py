@@ -25,9 +25,9 @@ def setup_and_cleanup(duthosts, rand_one_dut_hostname, enum_frontend_asic_index)
     asic_index = enum_frontend_asic_index
     asic_namespace = duthost.get_namespace_from_asic_id(asic_index)
     if duthost.is_multi_asic:
-        sonic_db_cli = "sonic-db-cli" + " -n " + asic_namespace
+        sonic_db_cli = "sonic-db-cli -s" + " -n " + asic_namespace
     else:
-        sonic_db_cli = "sonic-db-cli"
+        sonic_db_cli = "sonic-db-cli -s"
     # add a locator configuration entry
     duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_LOCATORS\\|loc1 prefix fcbb:bbbb:1:: func_len 0")
     # add a uN sid configuration entry
@@ -98,9 +98,9 @@ def test_srv6_config_remove(duthosts, rand_one_dut_hostname, enum_frontend_asic_
     asic_index = enum_frontend_asic_index
     asic_namespace = duthost.get_namespace_from_asic_id(asic_index)
     if duthost.is_multi_asic:
-        sonic_db_cli = "sonic-db-cli" + " -n " + asic_namespace
+        sonic_db_cli = "sonic-db-cli -s" + " -n " + asic_namespace
     else:
-        sonic_db_cli = "sonic-db-cli"
+        sonic_db_cli = "sonic-db-cli -s"
 
     json_patch = [
         {

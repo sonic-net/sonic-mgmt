@@ -493,7 +493,7 @@ class TestSfpThermalStateDb:
                       "thermalctld is not running — cannot validate TEMPERATURE_INFO content")
 
         result = duthost.shell(
-            'sonic-db-cli STATE_DB KEYS "TEMPERATURE_INFO|*"',
+            'sonic-db-cli -s STATE_DB KEYS "TEMPERATURE_INFO|*"',
             module_ignore_errors=True
         )
         # If thermalctld is running but TEMPERATURE_INFO is empty, that's a failure —
@@ -525,7 +525,7 @@ class TestSfpThermalStateDb:
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
         result = duthost.shell(
-            'sonic-db-cli STATE_DB KEYS "TEMPERATURE_INFO|*"',
+            'sonic-db-cli -s STATE_DB KEYS "TEMPERATURE_INFO|*"',
             module_ignore_errors=True
         )
         if result["rc"] != 0 or not result["stdout"].strip():

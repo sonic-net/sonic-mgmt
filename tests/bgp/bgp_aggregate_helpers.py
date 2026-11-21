@@ -159,7 +159,7 @@ def db_add_multiple_aggregates(duthost, cfgs):
         so = "true" if cfg.summary_only else "false"
         as_set = "true" if cfg.as_set else "false"
         cmds.append(
-            f"sonic-db-cli CONFIG_DB HSET '{key}' "
+            f"sonic-db-cli -s CONFIG_DB HSET '{key}' "
             f"'bbr-required' '{bbr}' 'summary-only' '{so}' 'as-set' '{as_set}'"
         )
     # Execute in batches via a single SSH call per batch to minimize round-trips

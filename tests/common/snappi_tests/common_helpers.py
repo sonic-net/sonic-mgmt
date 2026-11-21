@@ -163,9 +163,9 @@ def get_pg_dropped_packets(duthost, phys_intf, prio, asic_value=None):
         total number of dropped packets (int)
     """
     if asic_value is None:
-        oid_cmd = "sonic-db-cli COUNTERS_DB HGET COUNTERS_QUEUE_NAME_MAP " + phys_intf + ":" + str(prio)
+        oid_cmd = "sonic-db-cli -s COUNTERS_DB HGET COUNTERS_QUEUE_NAME_MAP " + phys_intf + ":" + str(prio)
     else:
-        oid_cmd = "sudo ip netns exec {} sonic-db-cli COUNTERS_DB HGET COUNTERS_QUEUE_NAME_MAP ".format(asic_value) \
+        oid_cmd = "sudo ip netns exec {} sonic-db-cli -s COUNTERS_DB HGET COUNTERS_QUEUE_NAME_MAP ".format(asic_value) \
                   + phys_intf + ":" + str(prio)
     oid_out = duthost.command(oid_cmd)
     oid_str = str(oid_out["stdout_lines"][0] or 1)
@@ -174,9 +174,9 @@ def get_pg_dropped_packets(duthost, phys_intf, prio, asic_value=None):
         return None
 
     if asic_value is None:
-        cmd = "sonic-db-cli COUNTERS_DB HGET COUNTERS:" + oid_str + " SAI_QUEUE_STAT_DROPPED_PACKETS"
+        cmd = "sonic-db-cli -s COUNTERS_DB HGET COUNTERS:" + oid_str + " SAI_QUEUE_STAT_DROPPED_PACKETS"
     else:
-        cmd = "sudo ip netns exec {} sonic-db-cli COUNTERS_DB HGET COUNTERS:".format(asic_value) \
+        cmd = "sudo ip netns exec {} sonic-db-cli -s COUNTERS_DB HGET COUNTERS:".format(asic_value) \
               + oid_str + " SAI_QUEUE_STAT_DROPPED_PACKETS"
     out = duthost.command(cmd)
     dropped_packets = int(out["stdout_lines"][0] or -1)
