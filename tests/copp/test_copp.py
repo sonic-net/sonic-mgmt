@@ -87,6 +87,26 @@ PROTOCOL_TO_TRAP_ID = {
 logger = logging.getLogger(__name__)
 
 
+def _fanout_cannot_forward_udld(fanouthosts):
+    """
+        Return True if any fanout runs SONiC on a platform that only supports the trap action for
+        UDLD, so UDLD frames sent from the PTF are never forwarded to the DUT.
+
+        Arista 7060X6 (x86_64-arista_7060x6_64pe and its _b variant), Nokia H5/H6 (all port-count
+        variants, e.g. h5_32d, h5_64d, h5_64o, h6_64, h6_128) and Nexthop 4210 fanouts share this
+        Broadcom SAI/ASIC limitation.
+    """
+    for fanouthost in list(fanouthosts.values()):
+        if fanouthost.get_fanout_os() != 'sonic':
+            continue
+        fanout_platform = fanouthost.facts["platform"]
+        if ('arista_7060x6_64pe' in fanout_platform
+                or re.match(r'x86_64-nokia_ixr7220_h[56]_', fanout_platform)
+                or re.match(r'x86_64-nexthop_4210-', fanout_platform)):
+            return True
+    return False
+
+
 class TestCOPP(object):
     """
         Tests basic COPP functionality in SONiC.
@@ -109,22 +129,6 @@ class TestCOPP(object):
             Checks that the policer enforces the rate limit for protocols
             that have a set rate limit.
         """
-        # If fanout is running 7060x6 and running SONiC, the only supported action for UDLD is trap, which means
-        # UDLD packet will not be forwarded to DUT
-        # Nokia H5/H6 fanouts (all port-count variants, e.g. h5_32d, h5_64d, h5_64o, h6_64, h6_128) and
-        # Nexthop 4210 fanouts share the same Broadcom SAI/ASIC limitation and also only support trap
-        # (not forward) for UDLD.
-        if 'UDLD' == protocol:
-            for fanouthost in list(fanouthosts.values()):
-                fanout_platform = fanouthost.facts["platform"]
-                if fanouthost.get_fanout_os() == 'sonic' and (
-                    fanout_platform == 'arista_7060x6_64pe'
-                    or re.match(r'x86_64-nokia_ixr7220_h[56]_', fanout_platform)
-                    or re.match(r'x86_64-nexthop_4210-', fanout_platform)
-                ):
-                    pytest.skip("Skip UDLD test for Arista-7060x6, Nokia-H5/H6 and Nexthop-4210 "
-                                "fanout without UDLD forward support")
-
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         namespace = DEFAULT_NAMESPACE
         if duthost.is_multi_asic:
@@ -148,6 +152,12 @@ class TestCOPP(object):
                 else:
                     pytest_assert(not trap_installed,
                                   f"Trap {trap_ids[0]} for protocol {protocol} is unexpectedly installed")
+
+        # The UDLD trap installation on the DUT is verified above. The traffic check needs the leaf
+        # fanout to forward UDLD frames, which some SONiC fanouts cannot do.
+        if protocol == "UDLD" and _fanout_cannot_forward_udld(fanouthosts):
+            pytest.skip("UDLD trap is installed on DUT; skip UDLD traffic check because the SONiC "
+                        "fanout does not forward UDLD frames")
 
         is_smartswitch_light_mode = False
         if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
