@@ -30,7 +30,8 @@ from tests.common.macsec.macsec_config_helper import set_macsec_profile, enable_
     delete_macsec_profile
 from tests.common.snappi_tests.uhd.uhd_helpers import (NetworkConfigSettings, create_front_panel_ports,
                                                        create_connections, create_connections_pl, create_uhdIp_list,
-                                                       create_arp_bypass, create_arp_bypass_pl, create_profiles)
+                                                       create_arp_bypass, create_arp_bypass_pl, create_profiles,
+                                                       UHD_API_V4)
 yaml.SafeDumper.add_representer(AnsibleUnsafeText, yaml.SafeDumper.represent_str)
 logger = logging.getLogger(__name__)
 _next_system_id = 1
@@ -2156,7 +2157,8 @@ def check_fabric_counters(duthost):
 
 def setup_config_uhd_connect(request, tbinfo, ha_test_case=None):
     """
-    Standalone function for UHD connect configuration that can be called in threads
+    Standalone function for UHD connect configuration that can be called in threads.
+    tbinfo['uhd_api_version'] selects the UHD Connect schema: '4.0' by default, set '3.0' for older UHDs.
     """
     def read_links_from_csv(file_path):
         with open(file_path, 'r') as f:
@@ -2184,6 +2186,7 @@ def setup_config_uhd_connect(request, tbinfo, ha_test_case=None):
         vxlan_port = tbinfo.get('vxlan_port', 0)
         vxlan_src_port = tbinfo.get('vxlan_src_port', 0)
         vxlan_endpoint_vni = tbinfo.get('vxlan_endpoint_vni', 1000)
+        uhd_api_version = str(tbinfo.get('uhd_api_version', UHD_API_V4))
         num_dpu_ports = len(dpu_ports)
 
         cards_dict = {
@@ -2197,12 +2200,12 @@ def setup_config_uhd_connect(request, tbinfo, ha_test_case=None):
             'switchover_port': has_switchover
         }
 
-        uhdSettings = NetworkConfigSettings(vxlan_endpoint_vni)  # noqa: F405
+        uhdSettings = NetworkConfigSettings(vxlan_endpoint_vni, uhd_api_version)  # noqa: F405
         uhdSettings.set_mac_addresses(tbinfo['l47_tg_clientmac'], tbinfo['l47_tg_servermac'], tbinfo['dut_mac'])
         total_cards = num_cps_cards + num_tcpbg_cards + num_udpbg_cards
         subnet_mask = uhdSettings.subnet_mask
 
-        logger.info(f"Configuring UHD connect for {uhdSettings.ENI_COUNT} ENIs")
+        logger.info(f"Configuring UHD connect for {uhdSettings.ENI_COUNT} ENIs (API {uhd_api_version})")
         ip_list = create_uhdIp_list(subnet_mask, uhdSettings, cards_dict)  # noqa: F405
         fp_ports_list = create_front_panel_ports(int(total_cards * 2), uhdSettings, cards_dict)  # noqa: F405
 
@@ -2235,12 +2238,13 @@ def setup_config_uhd_connect(request, tbinfo, ha_test_case=None):
         json.dump(config, open("{}/{}".format(file_location, file_name), "w"), indent=1)
 
         logger.info(f"Pushing created UHD configuration file {file_name} to UHD Connect")
-        uhdConf_cmd = ('curl -k -X POST -H \"Content-Type: application/json\" -d @\"{}/{}\"   '
-                       '{}').format(file_location, file_name, url)
-        try:
-            res = subprocess.run(uhdConf_cmd, shell=True, capture_output=True, text=True)  # noqa: F841
-        except Exception as e:
-            logger.error(f"UHD config upload failed: {e}")
+        uhdConf_cmd = ('curl -k -s -S -w "\\n%{{http_code}}" -X POST -H "Content-Type: application/json" '
+                       '-d @"{}/{}" {}').format(file_location, file_name, url)
+        res = subprocess.run(uhdConf_cmd, shell=True, capture_output=True, text=True)
+        body, _, http_status = res.stdout.rpartition('\n')
+        logger.info(f"UHD Connect responded HTTP {http_status}: {body}")
+        pytest_assert(res.returncode == 0 and http_status.startswith('2'),
+                      f"UHD config upload failed (curl rc={res.returncode}, HTTP {http_status}): {body or res.stderr}")
 
         if not save_uhd_config:
             logger.info("Removing UHD config file")
