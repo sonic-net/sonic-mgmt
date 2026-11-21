@@ -356,13 +356,15 @@ def verify_dynamic_routing(setup_info, duthost):
         if host.bgp_vrf:
             lines.append("vrf {}".format(host.bgp_vrf))
         lines.append("ip address {}".format(prefix))
+        # Own cleanup before the write so a partially applied failed command
+        # still removes the temporary interface.
+        loopback_added = True
         result = host.eos_config(
             lines=lines,
             parents=["interface {}".format(loopback_name)],
             module_ignore_errors=True,
         )
         assert not result.get("failed"), result
-        loopback_added = True
         result = host.eos_config(
             lines=["ip ospf area 0.0.0.0"],
             parents=["interface {}".format(loopback_name)],
