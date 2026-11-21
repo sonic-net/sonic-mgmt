@@ -52,10 +52,12 @@ def get_crm_resources(duthost, resource, status):
 
 
 def get_fdb_dynamic_mac_count(duthost):
+    """Count dynamic FDB entries whose MAC starts with the ARP test prefix."""
     res = duthost.command('show mac')
     total_mac_count = 0
     for mac_entry in res['stdout_lines']:
-        if "dynamic" in mac_entry.lower() and BASE_MAC_PREFIX in mac_entry.lower():
+        if "dynamic" in mac_entry.lower() and any(
+                mac.startswith(BASE_MAC_PREFIX + ":") for mac in mac_entry.lower().split()):
             total_mac_count += 1
     return total_mac_count
 
