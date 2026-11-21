@@ -1685,7 +1685,7 @@ class BaseEverflowTest(object):
                         bytes(padded)[24:]
                 else:
                     padded = binascii.unhexlify("0" * 44) + bytes(padded)
-        if asic_type in ["barefoot", "cisco-8000", "marvell-teralynx"] \
+        if asic_type in ["cisco-8000", "marvell-teralynx"] \
            or platform_asic == "broadcom-dnx" \
            or hwsku in ["rd98DX35xx", "rd98DX35xx_cn9131"] \
            or hwsku.startswith("Nokia-7215-A1"):
@@ -1812,8 +1812,6 @@ class BaseEverflowTest(object):
 
         if "mellanox" == asic_type:
             session_gre = 0x8949
-        elif "barefoot" == asic_type:
-            session_gre = 0x22EB
         else:
             session_gre = 0x88BE
 

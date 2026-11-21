@@ -69,8 +69,6 @@ def get_cable_supported_speeds_helper(duthost):
 
     if asic_type == "mellanox":
         return MlnxCableSupportedSpeedsHelper
-    elif asic_type == "barefoot":
-        return BfnCableSupportedSpeedsHelper
     else:
         return None
 
@@ -122,14 +120,6 @@ class MlnxCableSupportedSpeedsHelper(object):
         speeds = list(set([speed.split('G')[0] + '000' for speed in speeds_str.split(',')]))
         cls.supported_speeds[(duthost, dut_port_name)] = speeds
         return speeds
-
-
-class BfnCableSupportedSpeedsHelper(object):
-
-    @classmethod
-    def get_cable_supported_speeds(cls, duthost, dut_port_name):
-
-        return duthost.get_supported_speeds(dut_port_name)
 
 
 def is_sfp_speed_supported(duthost, if_name, port_speed):
