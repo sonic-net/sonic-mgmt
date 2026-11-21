@@ -83,7 +83,11 @@ interface {{ name }}
 {% if name.startswith('Loopback') %}
  description LOOPBACK
 {% else %}
+{% if enable_macsec is defined %}
+ mtu 9068
+{% else %}
  mtu 9214
+{% endif %}
  no switchport
 {% endif %}
 {% if name.startswith('Port-Channel') %}
