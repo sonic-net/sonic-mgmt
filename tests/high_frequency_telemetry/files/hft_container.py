@@ -99,7 +99,7 @@ def disabled_policy(service):
     return policy
 
 
-def restore_disabled_policy(service, original, *, allow_missing=False):
+def restore_disabled_policy(service, original, *, allow_missing=False, enabled_by_test=False):
     # featured may finish a normal disable asynchronously, or cache 'disabled'
     # after a failed first start. Its reported failure is not ours to overwrite.
     deadline = time.monotonic() + 60
@@ -111,7 +111,13 @@ def restore_disabled_policy(service, original, *, allow_missing=False):
             raise RuntimeError(f"{service} feature changed during unit recovery")
         reported = command("sonic-db-cli", "STATE_DB", "HGET", key, "state")
         active = command("systemctl", "show", unit, "-p", "ActiveState", "--value")
-        if (missing or reported in ("", "disabled", "failed")) and active in ("inactive", "failed"):
+        settled = missing or reported in ("", "disabled", "failed")
+        if enabled_by_test and original != "masked" and not missing:
+            # featured publishes 'disabled' *after* its asynchronous stop/disable/mask.
+            # A stale 'failed' from startup is not an acknowledgement: a late persistent
+            # mask would overwrite a restored non-default policy. Keep the journal on timeout.
+            settled = reported == "disabled"
+        if settled and active in ("inactive", "failed"):
             break
         time.sleep(1)
     else:
@@ -354,7 +360,7 @@ def restore(client, work):
     if source and source.name != SERVICE:
         source.rename(SERVICE)
     if before["state"] == "disabled":
-        restore_disabled_policy(SERVICE, before["unit_policy"])
+        restore_disabled_policy(SERVICE, before["unit_policy"], enabled_by_test=before["enable_armed"])
     else:
         check_hwsku(source)
         start_service()
@@ -508,7 +514,7 @@ def restore_otel(client, work, snapshot):
         # Let featured act on 'disabled' before removing a temporary row; once
         # the row is gone it can no longer reconcile the unit's boot policy.
         restore_disabled_policy("otel", snapshot["unit_policy"],
-                                allow_missing="state" not in snapshot["original_feature"])
+                                allow_missing="state" not in snapshot["original_feature"], enabled_by_test=armed)
         fields = otel_fields()
         check_otel_fields(snapshot, fields, armed)
         if armed and fields and not snapshot["original_feature"]:

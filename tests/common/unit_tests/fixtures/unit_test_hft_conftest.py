@@ -156,8 +156,10 @@ def test_down_port_case_recovers_only_a_pending_transaction(hft_conftest, monkey
     assert events == (["skip_unsupported_hft_platform"] if pending else []) + ["check ports"]
 
 
-def test_profile_cleanup_failure_keeps_original_exporters_isolated(hft_conftest):
+def test_profile_cleanup_failure_keeps_original_exporters_isolated(hft_conftest, monkeypatch):
     tx = MagicMock()
+    log_error = MagicMock()
+    monkeypatch.setattr(hft_conftest.logger, "exception", log_error)
     tx.load.return_value = {"ptf_ip": "127.0.0.1"}
 
     def call(action, *args):
@@ -170,6 +172,7 @@ def test_profile_cleanup_failure_keeps_original_exporters_isolated(hft_conftest)
         hft_conftest._recover_transaction(tx, MagicMock())
     calls = [c.args[0] for c in tx.call.call_args_list]
     assert "restore" not in calls and "restore-otel" not in calls and "finish" not in calls
+    assert log_error.call_args_list[0].args[-1] == "profiles"
 
 
 @pytest.mark.parametrize("masked", ["otel", "hft"])

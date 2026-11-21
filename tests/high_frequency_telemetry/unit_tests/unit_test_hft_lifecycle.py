@@ -95,7 +95,7 @@ def test_original_container_restored_after_install_or_start_failure(tmp_path, mo
     monkeypatch.setattr(hft, "command", command)
     monkeypatch.setattr(hft, "check_hwsku", lambda container: None)
     monkeypatch.setattr(hft, "disabled_policy", lambda service: "masked")
-    monkeypatch.setattr(hft, "restore_disabled_policy", lambda *a: None)
+    monkeypatch.setattr(hft, "restore_disabled_policy", lambda *a, **kw: None)
     monkeypatch.setattr(hft, "change_feature_state", change)
     monkeypatch.setattr(hft, "start_service", start)
     monkeypatch.setattr(hft, "wait_for_feature", start)
@@ -280,3 +280,25 @@ def test_queue_restart_refuses_wrong_identity(tmp_path, monkeypatch, ident, labe
     with pytest.raises(RuntimeError, match="outside this run"):
         hft.restart_countersyncd(None, work)
     commands.assert_not_called()
+
+
+def test_failed_start_must_not_acknowledge_a_pending_disable(monkeypatch):
+    state = {"reported": "failed", "policy": "disabled"}
+
+    def finish_disable(_):
+        state.update(reported="disabled", policy="masked")
+
+    def command(*argv):
+        if argv[:2] == ("sonic-db-cli", "CONFIG_DB"):
+            return "disabled"
+        if argv[:2] == ("sonic-db-cli", "STATE_DB"):
+            return state["reported"]
+        if argv[:2] == ("systemctl", "show"):
+            return "inactive" if "ActiveState" in argv else state["policy"]
+        assert argv == ("systemctl", "unmask", "hft.service")
+        state["policy"] = "disabled"
+
+    monkeypatch.setattr(hft, "command", command)
+    monkeypatch.setattr(hft.time, "sleep", finish_disable)
+    hft.restore_disabled_policy("hft", "disabled", enabled_by_test=True)
+    assert state == {"reported": "disabled", "policy": "disabled"}
