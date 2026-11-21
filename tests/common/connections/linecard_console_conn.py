@@ -10,6 +10,15 @@ LOGIN_PWD_PATTERN = "[Pp]assword:"
 LOGIN_FAILURE_PATTERN = "Login incorrect"
 PICOCOM_READY_PATTERN = "Terminal ready"
 PICOCOM_EXIT_PATTERN = "Thanks for using picocom"
+# The supervisor login at connect waits up to DEFAULT_TIMEOUT_S for each prompt.
+# send_command() and read_until_pattern() wait up to read_timeout (DEFAULT_TIMEOUT_S by
+# default), and send_command() waits max_loops * delay_factor seconds instead if that is
+# longer (delay_factor is DEFAULT_DELAY_FACTOR by default). send_command_timing() reads
+# until the line is quiet for last_read (DEFAULT_LAST_READ_S by default), up to
+# read_timeout (DEFAULT_TIMEOUT_S by default).
+DEFAULT_DELAY_FACTOR = 1
+DEFAULT_TIMEOUT_S = 30
+DEFAULT_LAST_READ_S = 1.0
 
 
 class UnsupportedPlatformError(Exception):
@@ -30,8 +39,8 @@ class LinecardConsoleConn():
 
     def __init__(self, **kwargs):
         self.logger = logging.getLogger(__name__)
-        self.delay_factor = 1
-        self.default_timeout = 30
+        self.delay_factor = DEFAULT_DELAY_FACTOR
+        self.default_timeout = DEFAULT_TIMEOUT_S
 
         # Validate hwsku FIRST before doing anything else
         hwsku = kwargs.get('hwsku', '').lower()
@@ -134,7 +143,7 @@ class LinecardConsoleConn():
         # Remove the command echo (first line)
         return output.split(linesep, 1)[1].strip() if linesep in output else output.strip()
 
-    def send_command_timing(self, cmd, read_timeout=30, last_read=1.0):
+    def send_command_timing(self, cmd, read_timeout=DEFAULT_TIMEOUT_S, last_read=DEFAULT_LAST_READ_S):
         """Send command and read output until no data arrives for last_read seconds."""
         self.logger.debug("send_command_timing: cmd='%s'", cmd[:80])
 
