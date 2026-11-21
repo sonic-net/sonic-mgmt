@@ -1380,7 +1380,7 @@ platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
     reason: "platform does not support sfp reset"
     conditions_logical_operator: or
     conditions:
-      - "(platform in ['x86_64-cel_e1031-r0'] or 't2' in topo_name or topo_type in ['lrh', 'urh']) and https://github.com/sonic-net/sonic-mgmt/issues/6218"
+      - "(platform in ['x86_64-cel_e1031-r0'] or ('t2' in topo_name and topo_type != 'lt2') or topo_type in ['lrh', 'urh']) and https://github.com/sonic-net/sonic-mgmt/issues/6218"
       - "asic_type in ['nvidia-bluefield']"
 
 #######################################
