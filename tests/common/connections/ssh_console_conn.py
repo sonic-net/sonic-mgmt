@@ -8,6 +8,7 @@ from .base_console_conn import (
     CONSOLE_SSH_TO_PORT,
     CONSOLE_SSH_CISCO_CONFIG,
     CONSOLE_SSH_SONIC_CONFIG,
+    DEFAULT_FAST_CLI,
     DutLoginFailed,
     NetMikoAuthenticationException,
 )
@@ -90,7 +91,8 @@ RESPONSE_WAIT_S = 1
 FINALISE_WAIT_S = 0.3
 RARITAN_LOGIN_PROMPT_TIMEOUT_S = 60
 PROBE_READ_COUNT = 4
-# Sets the minimum delay factor. It can be overridden to be larger, but not smaller.
+# Default of the constructor's global_delay_factor. Sets the minimum delay factor. It can
+# be overridden to be larger, but not smaller. With fast_cli on, there is no minimum.
 DEFAULT_DELAY_FACTOR = 1
 DEFAULT_INITIAL_READ_MAX_READS = 6
 DEFAULT_RECOVER_MAX_ATTEMPTS = 4
@@ -162,6 +164,8 @@ class SSHConsoleConn(BaseConsoleConn):
         kwargs['host'] = kwargs['console_host']
         kwargs['device_type'] = "_ssh"
         kwargs.setdefault('global_delay_factor', DEFAULT_DELAY_FACTOR)
+        if not kwargs.get('fast_cli', DEFAULT_FAST_CLI):
+            kwargs['global_delay_factor'] = max(kwargs['global_delay_factor'], DEFAULT_DELAY_FACTOR)
         super(SSHConsoleConn, self).__init__(**kwargs)
 
     def write_channel(self, out):
@@ -227,7 +231,7 @@ class SSHConsoleConn(BaseConsoleConn):
         console-log collector's ~10s budget (reboot.py collect_console_log); the
         later guarded steps elicit the login prompt when needed.
         """
-        delay_factor = max(self.select_delay_factor(delay_factor), 1)
+        delay_factor = self.select_delay_factor(delay_factor)
         output = ""
         for _ in range(max_reads):
             output += self.read_channel()
@@ -419,8 +423,7 @@ class SSHConsoleConn(BaseConsoleConn):
             U-Boot's). ``False`` otherwise (login prompt, recovered shell, or an
             indeterminate state), in which case the normal login flow may proceed.
         """
-        # Floor the delay factor so the probe waits long enough for the serial prompt to echo.
-        delay_factor = max(self.select_delay_factor(delay_factor), 1)
+        delay_factor = self.select_delay_factor(delay_factor)
         for _ in range(max_attempts):
             try:
                 # Passively read the console FIRST -- do not send anything yet. If
@@ -491,8 +494,7 @@ class SSHConsoleConn(BaseConsoleConn):
         for a clean login prompt so the next credential in the list starts from
         a known state (otherwise the leftover banner desyncs the next attempt).
         """
-        # Floor the delay factor so the wait spans the ~3s pam_faildelay after a failed login.
-        delay_factor = max(self.select_delay_factor(delay_factor), 1)
+        delay_factor = self.select_delay_factor(delay_factor)
         # Drop any pending "Login incorrect" / banner output.
         self.clear_buffer()
         i = 1
@@ -530,8 +532,6 @@ class SSHConsoleConn(BaseConsoleConn):
         Perform a stage_2 login
         """
         delay_factor = self.select_delay_factor(delay_factor)
-        # Floor the delay factor so the loop waits long enough for a slow/faildelayed password prompt.
-        delay_factor = max(delay_factor, 1)
         time.sleep(RESPONSE_WAIT_S * delay_factor)
 
         output = ""

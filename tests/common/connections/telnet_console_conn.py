@@ -1,6 +1,6 @@
 import time
 import re
-from .base_console_conn import BaseConsoleConn, DutLoginFailed
+from .base_console_conn import DEFAULT_FAST_CLI, BaseConsoleConn, DutLoginFailed
 
 LOGIN_FAILURE_PATTERN = r".*incorrect"
 NO_PASSWORD_SET_PATTERN = r"assword required, but none set"
@@ -32,7 +32,8 @@ READ_INTERVAL_S = 0.5
 RESPONSE_WAIT_S = 1
 DIALOG_READ_INTERVAL_S = 2
 DIALOG_MAX_READS = 15
-# Sets the minimum delay factor. It can be overridden to be larger, but not smaller.
+# Default of the constructor's global_delay_factor. Sets the minimum delay factor. It can
+# be overridden to be larger, but not smaller. With fast_cli on, there is no minimum.
 DEFAULT_DELAY_FACTOR = 1
 DEFAULT_LOGIN_MAX_LOOPS = 20
 
@@ -51,6 +52,8 @@ class TelnetConsoleConn(BaseConsoleConn):
         kwargs['console_password'] = [None]
         kwargs['device_type'] = "_telnet"
         kwargs.setdefault('global_delay_factor', DEFAULT_DELAY_FACTOR)
+        if not kwargs.get('fast_cli', DEFAULT_FAST_CLI):
+            kwargs['global_delay_factor'] = max(kwargs['global_delay_factor'], DEFAULT_DELAY_FACTOR)
         super(TelnetConsoleConn, self).__init__(**kwargs)
 
     def _try_session_preparation(self, force_data=True):
