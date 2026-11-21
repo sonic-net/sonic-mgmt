@@ -1,4 +1,4 @@
-"""Recovery must preserve the original identity, command and feature policy on partial setup."""
+"""Regression tests for HFT recovery; run without a DUT using pytest --noconftest."""
 import fcntl
 import json
 import os
