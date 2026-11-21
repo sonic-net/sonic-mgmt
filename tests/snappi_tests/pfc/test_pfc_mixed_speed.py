@@ -5,7 +5,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_grap
     fanout_graph_facts          # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, cleanup_config, get_snappi_ports_for_rdma, snappi_multi_base_config, \
-    get_snappi_ports, get_snappi_ports_multi_dut, clear_fabric_counters, check_fabric_counters, \
+    get_snappi_ports, get_snappi_ports_multi_dut, get_fabric_counter_scope, \
     get_snappi_ports_single_dut      # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list, \
     lossy_prio_list, all_prio_list, disable_pfcwd                                                   # noqa: F401
@@ -135,8 +135,7 @@ def test_mixed_speed_diff_dist_over(snappi_api,                   # noqa: F811
     else:
         dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
 
-    for dut in duthosts:
-        clear_fabric_counters(dut)
+    get_fabric_counter_scope(duthosts).clear()
 
     try:
         run_pfc_test(api=snappi_api,
@@ -154,8 +153,7 @@ def test_mixed_speed_diff_dist_over(snappi_api,                   # noqa: F811
                      snappi_extra_params=snappi_extra_params)
 
         # Check the fabric counter for the line-cards.
-        for dut in duthosts:
-            check_fabric_counters(dut)
+        get_fabric_counter_scope(duthosts).check()
 
     finally:
         cleanup_config(dut_list, snappi_ports)
@@ -271,8 +269,7 @@ def test_mixed_speed_uni_dist_over(snappi_api,                   # noqa: F811
     else:
         dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
 
-    for dut in duthosts:
-        clear_fabric_counters(dut)
+    get_fabric_counter_scope(duthosts).clear()
 
     try:
         run_pfc_test(api=snappi_api,
@@ -289,8 +286,7 @@ def test_mixed_speed_uni_dist_over(snappi_api,                   # noqa: F811
                      test_def=test_def,
                      snappi_extra_params=snappi_extra_params)
 
-        for dut in duthosts:
-            check_fabric_counters(dut)
+        get_fabric_counter_scope(duthosts).check()
 
     finally:
         cleanup_config(dut_list, snappi_ports)
@@ -405,8 +401,7 @@ def test_mixed_speed_no_congestion(snappi_api,                   # noqa: F811
     else:
         dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
 
-    for dut in duthosts:
-        clear_fabric_counters(dut)
+    get_fabric_counter_scope(duthosts).clear()
 
     try:
         run_pfc_test(api=snappi_api,
@@ -423,8 +418,7 @@ def test_mixed_speed_no_congestion(snappi_api,                   # noqa: F811
                      test_def=test_def,
                      snappi_extra_params=snappi_extra_params)
 
-        for dut in duthosts:
-            check_fabric_counters(dut)
+        get_fabric_counter_scope(duthosts).check()
 
     finally:
         cleanup_config(dut_list, snappi_ports)
