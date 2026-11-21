@@ -1328,6 +1328,45 @@ class GenerateGoldenConfigDBModule(object):
             golden_config_db["MUX_CABLE"] = mux_cable_config
             golden_config_db["PORT"] = port_config
 
+        if self.topo_name == "dualtor-aa-o32v192":
+            if self.hwsku != "Arista-7060X6-64PE-B-O32V192":
+                self.module.fail_json(msg="dualtor-aa-o32v192 requires the native B-O32V192 HWSKU")
+            ports = golden_config_db.get("PORT", {})
+            if len(ports) != 224 or not self.device_conn or set(self.device_conn) - set(ports):
+                self.module.fail_json(msg="O32V192 requires all 224 native ports and a valid connection graph")
+            for port, fields in ports.items():
+                fields["admin_status"] = "up" if port in self.device_conn else "down"
+            try:
+                from config.main import get_child_ports
+
+                hwsku_path = device_info.get_path_to_hwsku_dir()
+                with open(os.path.join(hwsku_path, "hwsku.json")) as stream:
+                    interfaces = json.load(stream)["interfaces"]
+                breakout = {
+                    port: {"brkout_mode": fields["default_brkout_mode"]}
+                    for port, fields in interfaces.items()
+                }
+                platform_path = os.path.join(os.path.dirname(hwsku_path), "platform.json")
+                native_ports = {
+                    port: fields
+                    for parent, settings in breakout.items()
+                    for port, fields in get_child_ports(parent, settings["brkout_mode"], platform_path).items()
+                }
+                subports = {port: fields["subport"] for port, fields in native_ports.items()}
+            except (ImportError, OSError, ValueError, KeyError, TypeError) as error:
+                self.module.fail_json(msg="Cannot load native O32V192 breakout defaults: {}".format(error))
+            if len(breakout) != 64 or set(breakout) - set(ports):
+                self.module.fail_json(msg="O32V192 requires 64 valid physical-port breakout defaults")
+            if set(subports) != set(ports):
+                self.module.fail_json(msg="Native O32V192 breakout children must match all 224 minigraph ports")
+            for port, subport in subports.items():
+                ports[port]["subport"] = subport
+            golden_config_db["BREAKOUT_CFG"] = breakout
+            golden_config_db["MUX_LINKMGR"] = {
+                "LINK_PROBER": {"interval_v4": "3000"},
+                "TIMED_OSCILLATION": {"oscillation_enabled": "false"},
+            }
+
         return json.dumps(golden_config_db, indent=4)
 
     def override_port_table_from_platform(self, config):
