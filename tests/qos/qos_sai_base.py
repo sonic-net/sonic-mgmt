@@ -3300,7 +3300,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope="function", autouse=False)
     def permit_only_test_traffic_on_fanout(
             self, get_src_dst_asic_and_duts, tbinfo,
-            nbrhosts, dutConfig, dutQosConfig, fanouthosts,
+            nbrhosts, dutConfig, dutQosConfig,
             conn_graph_facts, request):
         """
         Block non-test L2 traffic from reaching DUT ingress ports during QoS
@@ -3364,6 +3364,7 @@ class QosSaiBase(QosBase):
             yield
             return
 
+        fanouthosts = request.getfixturevalue("fanouthosts")
         src_interfaces = [dutConfig['dutInterfaces'][idx]
                           for idx in sorted(protected_port_ids)
                           if idx in dutConfig.get('dutInterfaces', {})]
@@ -4053,19 +4054,34 @@ def clear_pg_watermark(interface):
         if get_src_dst_asic_and_duts['all_duts'][0].facts["asic_type"] == 'cisco-8000':
             yield
             return
+        counterpoll_configs = []
         for duthost in get_src_dst_asic_and_duts['all_duts']:
             for dut_asic in duthost.asics:
-                try:
-                    ConterpollHelper.enable_counterpoll(dut_asic, ['wredqueue', 'wredport'])
-                except Exception as e:  # VS/KVM counterpoll may not support -n namespace
-                    logging.error(f"Failed to enable counterpoll for {dut_asic.hostname} with error: {e}")
-            duthost.command("sudo config save -y")
+                for group in ('WRED_ECN_QUEUE', 'WRED_ECN_PORT'):
+                    key = 'FLEX_COUNTER_TABLE|{}'.format(group)
+                    fields = dut_asic.run_redis_cmd(argv=['redis-cli', '-n', '4', 'hgetall', key])
+                    counterpoll_configs.append((dut_asic, key, fields))
 
-        yield
-        for duthost in get_src_dst_asic_and_duts['all_duts']:
-            for dut_asic in duthost.asics:
-                try:
-                    ConterpollHelper.disable_counterpoll(dut_asic, ['wredqueue', 'wredport'])
-                except Exception as e:  # VS/KVM counterpoll may not support -n namespace
-                    logging.error(f"Failed to disable counterpoll for {dut_asic.hostname} with error: {e}")
-            duthost.command("sudo config save -y")
+        try:
+            for duthost in get_src_dst_asic_and_duts['all_duts']:
+                for dut_asic in duthost.asics:
+                    try:
+                        ConterpollHelper.enable_counterpoll(dut_asic, ['wredqueue', 'wredport'])
+                    except Exception as e:  # VS/KVM counterpoll may not support -n namespace
+                        logging.error(f"Failed to enable counterpoll for {dut_asic.hostname} with error: {e}")
+                duthost.command("sudo config save -y")
+
+            yield
+        finally:
+            for duthost in get_src_dst_asic_and_duts['all_duts']:
+                for dut_asic in duthost.asics:
+                    try:
+                        ConterpollHelper.disable_counterpoll(dut_asic, ['wredqueue', 'wredport'])
+                    except Exception as e:  # VS/KVM counterpoll may not support -n namespace
+                        logging.error(f"Failed to disable counterpoll for {dut_asic.hostname} with error: {e}")
+            for dut_asic, key, fields in counterpoll_configs:
+                dut_asic.run_redis_cmd(argv=['redis-cli', '-n', '4', 'del', key])
+                if fields:
+                    dut_asic.run_redis_cmd(argv=['redis-cli', '-n', '4', 'hset', key] + fields)
+            for duthost in get_src_dst_asic_and_duts['all_duts']:
+                duthost.command("sudo config save -y")
