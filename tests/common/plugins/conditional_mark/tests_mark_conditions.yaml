@@ -510,6 +510,12 @@ bgp/test_bgp_operation_in_ro.py:
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/23462"
 
+bgp/test_bgp_peer_shutdown.py:
+  xfail:
+    reason: "Test fails on t1-d96u4 topology due to backend neighbor group port classification issues"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26841 and 't1-d96u4' in topo_name"
+
 bgp/test_bgp_port_disable.py:
   skip:
     reason: "Not supported on public branches."
@@ -559,6 +565,12 @@ bgp/test_bgp_router_id.py::test_bgp_router_id_set_ipv6:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'t0-isolated-v6-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+
+bgp/test_bgp_sentinel.py::test_bgp_sentinel[BGP:
+  xfail:
+    reason: "Test fails due to backend neighbor group port classification issues"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26841 and 't1-d96u4' in topo_name"
 
 bgp/test_bgp_sentinel.py::test_bgp_sentinel[IPv4:
   skip:
@@ -637,11 +649,29 @@ bgp/test_bgp_speaker.py::test_bgp_speaker_bgp_sessions:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19917 and '-v6-' in topo_name"
 
+bgp/test_bgp_stress_link_flap.py::test_bgp_session_interface_down:
+  xfail:
+    reason: "Test fails on t1-d96u4 topology due to backend neighbor group port classification issues"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26841 and 't1-d96u4' in topo_name"
+
 bgp/test_bgp_stress_link_flap.py::test_bgp_stress_link_flap[all]:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+
+bgp/test_bgp_stress_link_flap.py::test_bgp_stress_link_flap_with_monitor:
+  xfail:
+    reason: "Test fails on t1-d96u4 topology due to backend neighbor group port classification issues"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26841 and 't1-d96u4' in topo_name"
+
+bgp/test_bgp_stress_link_flap.py::test_bgp_stress_link_flap_with_sentinel_and_monitor:
+  xfail:
+    reason: "Test fails on t1-d96u4 topology due to backend neighbor group port classification issues"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26841 and 't1-d96u4' in topo_name"
 
 bgp/test_bgp_suppress_fib.py:
   skip:
@@ -702,9 +732,23 @@ bgp/test_bgp_suppress_fib.py::test_suppress_fib_stress:
 
 bgp/test_bgp_update_replication.py:
   xfail:
-    reason: "Testcase is not stable on dualtor-aa setup due to GH issue: https://github.com/sonic-net/sonic-mgmt/issues/21110"
+    reason: "Testcase is not stable due to GH issues"
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/21110 and 'dualtor-aa' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26841 and 't1-d96u4' in topo_name"
+
+bgp/test_bgp_update_timer.py::test_bgp_update_timer_session_down:
+  xfail:
+    reason: "Test fails on t1-d96u4 topology due to backend neighbor group port classification issues"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26841 and 't1-d96u4' in topo_name"
+
+bgp/test_bgp_update_timer.py::test_bgp_update_timer_single_route:
+  xfail:
+    reason: "Test fails on t1-d96u4 topology due to backend neighbor group port classification issues"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26841 and 't1-d96u4' in topo_name"
 
 bgp/test_bgp_vnet.py:
   skip:
