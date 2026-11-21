@@ -17,7 +17,13 @@ if grep -q '"frr_mgmt_framework_config"[[:space:]]*:[[:space:]]*"true"' "$config
         /etc/supervisor/conf.d/csonic_frr_daemons.conf
 fi
 
-# docker_init.sh normally defines this before starting supervisord.
-export BGPD_GRACEFUL_RESTART_ARG="${BGPD_GRACEFUL_RESTART_ARG:-}"
+# Reuse the FRR image's startup environment contract when available. Older
+# docker-sonic-vs images do not contain the helper, so retain the safe default.
+if [[ -r /usr/bin/frr_startup_init.sh ]]; then
+    source /usr/bin/frr_startup_init.sh
+    initialize_frr_startup_environment --normal-start
+else
+    export BGPD_GRACEFUL_RESTART_ARG="${BGPD_GRACEFUL_RESTART_ARG:-}"
+fi
 
 exec /usr/local/bin/supervisord "$@"
