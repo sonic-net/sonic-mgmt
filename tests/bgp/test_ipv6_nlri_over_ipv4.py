@@ -6,7 +6,9 @@ Network Layer Reachability Information (NLRI) over a single IPv4 BGP session.
 """
 import logging
 import re
+import tempfile
 import time
+import uuid
 
 import pytest
 from tests.bgp.bgp_helpers import eos_bgp_neighbor_config_parents
@@ -22,6 +24,39 @@ pytestmark = [
 ]
 
 EOS_NEIGH_BACKUP_CONFIG_FILE = "/tmp/ipv6_nlri_eos_backup_config_{}"
+
+
+def _eos_vrf_restore_config(config, parents):
+    router, vrf = parents
+    lines = config.splitlines()
+    try:
+        router_index = next(i for i, line in enumerate(lines) if line.strip() == router)
+    except StopIteration:
+        raise ValueError("Selected EOS BGP process is absent from the backup")
+
+    vrf_index = None
+    for i in range(router_index + 1, len(lines)):
+        line = lines[i]
+        if not line.strip() or line.lstrip().startswith("!"):
+            continue
+        if not line[0].isspace():
+            break
+        if line.strip() == vrf:
+            vrf_index = i
+            break
+    if vrf_index is None:
+        raise ValueError("Selected EOS BGP VRF is absent from the backup")
+
+    indent = len(lines[vrf_index]) - len(lines[vrf_index].lstrip())
+    end = vrf_index + 1
+    while end < len(lines):
+        line = lines[end]
+        if line.strip() and not line.lstrip().startswith("!"):
+            if len(line) - len(line.lstrip()) <= indent:
+                break
+        end += 1
+    block = [line for line in lines[vrf_index:end] if line.strip() and not line.lstrip().startswith("!")]
+    return "\n".join([router, " " * indent + "no " + vrf] + block) + "\n"
 
 
 @pytest.fixture(scope='module')
@@ -171,27 +206,54 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
         'neigh_eos_bgp_parents': neigh_eos_bgp_parents,
     }
 
+    eos_vrf_restore_config = None
     logger.debug("DUT BGP Config: {}".format(duthost.shell('show run bgp')['stdout']))
     if is_sonic_neigh:
         logger.debug("Neighbor BGP Config: {}".format(neigh_host.shell("show run bgp")['stdout']))
     else:
-        logger.debug("Neighbor BGP Config: {}".format(neigh_host.eos_command(commands=["show run | section bgp"])))
-        logger.debug(neigh_host.eos_config(
-            backup=True,
-            backup_options={'filename': EOS_NEIGH_BACKUP_CONFIG_FILE.format(neigh_host.hostname)},
-        ))
+        neighbor_config = neigh_host.eos_command(commands=["show run | section bgp"])['stdout'][0]
+        logger.debug("Neighbor BGP Config: {}".format(neighbor_config))
+        if neigh_eos_vrf:
+            eos_vrf_restore_config = _eos_vrf_restore_config(neighbor_config, neigh_eos_bgp_parents)
+            setup_info["eos_nlri_route_map"] = "NLRI_IPV6_NH_" + uuid.uuid4().hex
+            setup_info["eos_nlri_peer_group"] = "NLRI_" + uuid.uuid4().hex
+        else:
+            logger.debug(neigh_host.eos_config(
+                backup=True,
+                backup_options={'filename': EOS_NEIGH_BACKUP_CONFIG_FILE.format(neigh_host.hostname)},
+            ))
 
     logger.debug('Setup_info: {}'.format(setup_info))
 
     yield setup_info
 
-    # restore config to original state
-    if is_sonic_neigh:
-        config_reload(nbrhosts[neigh_name]["host"], wait=60, is_dut=False)
-    else:
-        neigh_host.load_configuration(EOS_NEIGH_BACKUP_CONFIG_FILE.format(neigh_host.hostname))
-
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+    try:
+        if is_sonic_neigh:
+            config_reload(nbrhosts[neigh_name]["host"], wait=60, is_dut=False)
+        elif eos_vrf_restore_config is not None:
+            try:
+                with tempfile.NamedTemporaryFile(mode="w", suffix=".cfg") as backup:
+                    backup.write(eos_vrf_restore_config)
+                    backup.flush()
+                    neigh_host.eos_config(src=backup.name, match="none", replace="line", verbose=False)
+            finally:
+                try:
+                    if setup_info.get("eos_nlri_peer_group_created"):
+                        neigh_host.eos_config(
+                            lines=["no neighbor {} peer group".format(setup_info["eos_nlri_peer_group"])],
+                            parents=neigh_eos_bgp_parents[:1],
+                            match="none", replace="line", verbose=False,
+                        )
+                finally:
+                    if setup_info.get("eos_nlri_route_map_created"):
+                        neigh_host.eos_config(
+                            lines=["no route-map {}".format(setup_info["eos_nlri_route_map"])],
+                            match="none", replace="line", verbose=False,
+                        )
+        else:
+            neigh_host.load_configuration(EOS_NEIGH_BACKUP_CONFIG_FILE.format(neigh_host.hostname))
+    finally:
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
 
 def test_nlri(setup):
@@ -334,21 +396,25 @@ def test_nlri(setup):
         # routes would be advertised with an invalid or missing next-hop, causing the
         # DUT to reject them. The route-map sets the IPv6 next-hop to the neighbor's
         # own IPv6 address, ensuring the DUT can properly install the IPv6 routes.
+        route_map = setup.get("eos_nlri_route_map", "SET_IPV6_NH_TO_SELF")
+        setup["eos_nlri_route_map_created"] = True
         setup['neighhost'].eos_config(
             lines=[
                 "set ipv6 next-hop {}".format(neigh_ipv6_addr),
             ],
-            parents=["route-map SET_IPV6_NH_TO_SELF permit 10"]
+            parents=["route-map {} permit 10".format(route_map)]
         )
 
         # Configure BGP peer-group at global level using eos_config
+        peer_group = setup.get("eos_nlri_peer_group", "NLRI")
+        setup["eos_nlri_peer_group_created"] = True
         setup['neighhost'].eos_config(
             lines=[
-                "neighbor NLRI peer group",
-                "neighbor NLRI allowas-in",
-                "neighbor NLRI send-community",
-                "neighbor NLRI rib-in pre-policy retain all",
-                "neighbor {} peer group NLRI".format(setup['dut_ip_v4']),
+                "neighbor {} peer group".format(peer_group),
+                "neighbor {} allowas-in".format(peer_group),
+                "neighbor {} send-community".format(peer_group),
+                "neighbor {} rib-in pre-policy retain all".format(peer_group),
+                "neighbor {} peer group {}".format(setup['dut_ip_v4'], peer_group),
                 "neighbor {} remote-as {}".format(setup['dut_ip_v4'], setup['dut_asn']),
             ],
             parents=setup['neigh_eos_bgp_parents'],
@@ -357,8 +423,8 @@ def test_nlri(setup):
         # Configure IPv6 address-family and activate the neighbor along with applying the route map
         setup['neighhost'].eos_config(
             lines=[
-                "neighbor NLRI route-map SET_IPV6_NH_TO_SELF out",
-                "neighbor NLRI activate",
+                "neighbor {} route-map {} out".format(peer_group, route_map),
+                "neighbor {} activate".format(peer_group),
                 ],
             parents=setup['neigh_eos_bgp_parents'] + ["address-family ipv6"],
         )
