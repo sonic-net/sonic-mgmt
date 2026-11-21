@@ -209,6 +209,9 @@ def patch_touched_entries(patch_data):
     complete expected ACL_TABLE entry, so that a patch which clobbers 'type' or
     drops a pre-existing binding is caught.
 
+    Whole-table operations include every entry key in their value. Operations
+    without a mapping value still mark the table, with no entry keys.
+
     A leading 'localhost' namespace segment is skipped. 'localhost' is matched by
     name rather than guessed at, because guessing from capitalisation would
     misclassify any table that is not spelled in upper case.
@@ -218,9 +221,13 @@ def patch_touched_entries(patch_data):
         segments = [s for s in operation.get('path', '').split('/') if s != '']
         if segments and segments[0] == 'localhost':
             segments = segments[1:]
-        if len(segments) < 2:
+        if not segments:
             continue
         table = unescape_json_pointer(segments[0])
+        if len(segments) == 1:
+            value = operation.get('value')
+            touched.setdefault(table, set()).update(value if isinstance(value, dict) else ())
+            continue
         key = unescape_json_pointer(segments[1])
         touched.setdefault(table, set()).add(key)
 
@@ -229,6 +236,9 @@ def patch_touched_entries(patch_data):
 
 def compare_touched_entries(baseline_config, actual_config, patch_data, ignore_fields=None):
     """Compare every entry the patch touched against the baseline configuration.
+
+    Whole-table operations also compare all baseline and actual keys, so missing
+    or unexpected entries cannot escape verification.
 
     Args:
         baseline_config: Known-good configuration, captured while the neighbor was present
@@ -243,16 +253,45 @@ def compare_touched_entries(baseline_config, actual_config, patch_data, ignore_f
     ignored = set(ignore_fields or ())
     baseline = normalize_config(baseline_config)
     actual = normalize_config(actual_config)
+    touched = patch_touched_entries(patch_data)
+    removed = patch_touched_entries([
+        operation for operation in patch_data
+        if operation.get('op') == 'remove' and len(_path_segments(operation.get('path', ''))) <= 2
+    ])
+    for operation in patch_data:
+        segments = _path_segments(operation.get('path', ''))
+        if len(segments) == 1:
+            table = segments[0]
+            touched[table].update(baseline.get(table, {}))
+            touched[table].update(actual.get(table, {}))
 
     differences = []
-    for table, keys in sorted(patch_touched_entries(patch_data).items()):
+    for table, keys in sorted(touched.items()):
         baseline_table = baseline.get(table, {})
         actual_table = actual.get(table, {})
+        if table == 'BUFFER_PG':
+            patch_entries = {}
+            for operation in patch_data:
+                segments = _path_segments(operation.get('path', ''))
+                value = operation.get('value')
+                if segments and segments[0] == table and isinstance(value, dict):
+                    if len(segments) == 1:
+                        patch_entries.update(value)
+                    elif len(segments) == 2:
+                        patch_entries[segments[1]] = value
+            expanded_keys = set()
+            for key in keys:
+                fields = baseline_table.get(key, actual_table.get(key, patch_entries.get(key, {})))
+                expanded_keys.update(normalize_buffer_pgs({key: fields}))
+            keys = expanded_keys
+            baseline_table = normalize_buffer_pgs(baseline_table)
+            actual_table = normalize_buffer_pgs(actual_table)
 
         for key in sorted(keys):
             if key not in baseline_table:
-                # The patch adds something the baseline never had. That points at patch
-                # generation rather than at the applied result.
+                if key not in actual_table and table in removed and (
+                        not removed[table] or key in removed[table]):
+                    continue
                 differences.append(
                     "{}|{}: touched by the patch but absent from the baseline "
                     "configuration".format(table, key))
@@ -337,6 +376,80 @@ def expected_lossless_profile_name(speed, cable_length):
     100G over 20km. Mirrors the naming used by the port-speed-change test.
     """
     return 'pg_lossless_{}_{}_profile'.format(speed, cable_length)
+
+
+def buffer_pg_priorities(entries):
+    """Expand a port's BUFFER_PG keys into their non-overlapping priority coverage."""
+    priorities = set()
+    for key in entries:
+        bounds = key.rsplit('|', 1)[-1].split('-')
+        if len(bounds) not in (1, 2) or not all(value.isdigit() for value in bounds):
+            raise ValueError("Invalid BUFFER_PG priority range: {}".format(key))
+        first, last = int(bounds[0]), int(bounds[-1])
+        if first > last:
+            raise ValueError("Reversed BUFFER_PG priority range: {}".format(key))
+        covered = set(range(first, last + 1))
+        if priorities & covered:
+            raise ValueError("Overlapping BUFFER_PG priorities: {}".format(key))
+        priorities.update(covered)
+    return priorities
+
+
+def normalize_buffer_pgs(entries):
+    """Canonicalize generated PG ranges/references, retaining every field and static entry."""
+    normalized = {}
+    for key, fields in entries.items():
+        profile = normalize_profile_reference(fields.get('profile'))
+        if profile.startswith('pg_lossless_'):
+            port = key.rsplit('|', 1)[0]
+            keys = ['{}|{}'.format(port, priority) for priority in buffer_pg_priorities([key])]
+            fields = dict(fields, profile=profile)
+        else:
+            keys = [key]
+        for normalized_key in keys:
+            if normalized_key in normalized:
+                raise ValueError("Overlapping BUFFER_PG priorities: {}".format(normalized_key))
+            normalized[normalized_key] = fields
+    return normalized
+
+
+def validate_lossless_pg_baseline(config, ports):
+    """Require complete traditional-model PGs from QoS intent, not observed PG coverage."""
+    config = normalize_config(config)
+    pgs = normalize_buffer_pgs(config.get('BUFFER_PG', {}))
+    expected = {}
+    for port in sorted(ports):
+        found = {key: fields for key, fields in pgs.items()
+                 if key.startswith(port + '|')
+                 and normalize_profile_reference(fields.get('profile')).startswith('pg_lossless_')}
+        cable = config.get('CABLE_LENGTH', {}).get('AZURE', {}).get(port)
+        speed = config.get('PORT', {}).get(port, {}).get('speed')
+        qos = config.get('PORT_QOS_MAP', {}).get(port, {})
+        if cable == '0m':
+            if found:
+                raise ValueError("BUFFER_PG baseline has lossless PGs on zero-cable port {}".format(port))
+            expected[port] = set()
+            continue
+        priorities = [value.strip() for value in qos.get('pfc_enable', '').split(',')]
+        if not cable or not speed or not all(value.isdigit() and 0 <= int(value) <= 7 for value in priorities):
+            raise ValueError("Incomplete BUFFER_PG baseline speed/cable/PFC requirements for {}".format(port))
+        # Check explicit QoS mappings rather than assuming PFC priority equals PG.
+        mapping_ref = qos.get('pfc_to_pg_map')
+        if mapping_ref:
+            mapping = config.get('PFC_PRIORITY_TO_PRIORITY_GROUP_MAP', {}).get(
+                normalize_profile_reference(mapping_ref), {})
+            priorities = [str(mapping.get(value, '')) for value in priorities]
+            if not all(value.isdigit() and 0 <= int(value) <= 7 for value in priorities):
+                raise ValueError("Incomplete BUFFER_PG baseline PFC-to-PG map for {}".format(port))
+        required = {int(value) for value in priorities}
+        profile = expected_lossless_profile_name(speed, cable)
+        if (buffer_pg_priorities(found) != required
+                or any(fields.get('profile') != profile for fields in found.values())
+                or profile not in config.get('BUFFER_PROFILE', {})):
+            raise ValueError("Incomplete BUFFER_PG baseline for {}: expected PGs {} using {}".format(
+                port, sorted(required), profile))
+        expected[port] = required
+    return expected
 
 
 def get_lossless_pg_entries(duthost, port, profile_prefix):
