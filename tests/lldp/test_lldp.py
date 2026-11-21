@@ -179,7 +179,8 @@ def check_lldp_neighbor(duthost, localhost, nbrhosts, eos, sonic,
     switch_mac = ""
     if tbinfo["topo"]["type"] != "t2":
         mgmt_alias = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_mgmt_interface"]["alias"]
-        switch_mac = duthost.get_dut_iface_mac(mgmt_alias)
+        # The management interface belongs to the host namespace, not an ASIC.
+        switch_mac = duthost.sonichost.get_dut_iface_mac(mgmt_alias)
     elif tbinfo["topo"]["type"] == "t2":
         switch_mac = config_facts['DEVICE_METADATA']['localhost']['mac'].lower()
     else:
@@ -383,7 +384,8 @@ def get_expected_chassis_mac(duthost, asic, tbinfo):
             return config_facts['DEVICE_METADATA']['localhost']['mac'].lower()
     else:
         mgmt_alias = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_mgmt_interface"]["alias"]
-        return duthost.get_dut_iface_mac(mgmt_alias).lower()
+        # The management interface belongs to the host namespace, not an ASIC.
+        return duthost.sonichost.get_dut_iface_mac(mgmt_alias).lower()
 
 
 def verify_lldp_table(duthost, intf_status_output, test_name=""):
