@@ -210,6 +210,21 @@ def run_bgp_facts(duthost, enum_asic_index):
         )
 
 
+def get_exabgp_url(host, port):
+    """Build an ExaBGP HTTP API URL, bracketing IPv6 literals per RFC 3986.
+
+    IPv4 addresses and hostnames are used as-is; IPv6 literals must be
+    wrapped in ``[]`` when embedded in a URL.
+    """
+    try:
+        is_ipv6 = ipaddress.ip_address(host).version == 6
+    except ValueError:
+        is_ipv6 = False
+    if is_ipv6:
+        return "http://[{}]:{}".format(host, port)
+    return "http://{}:{}".format(host, port)
+
+
 class BGPNeighbor(object):
 
     def __init__(self, duthost, ptfhost, name,
@@ -328,7 +343,7 @@ class BGPNeighbor(object):
         msg = "neighbor {} teardown 3"
         msg = msg.format(self.peer_ip)
         logging.debug("teardown session: %s", msg)
-        url = "http://%s:%d" % (self.ptfip, self.port)
+        url = get_exabgp_url(self.ptfip, self.port)
         resp = requests.post(url, data={"commands": msg}, proxies={"http": None, "https": None})
         logging.debug("teardown session return: %s" % resp)
         assert resp.status_code == 200, (
@@ -359,7 +374,7 @@ class BGPNeighbor(object):
             msg = "announce route {prefix} next-hop {nexthop}"
         msg = msg.format(**route)
         logging.debug("announce route: %s", msg)
-        url = "http://%s:%d" % (self.ptfip, self.port)
+        url = get_exabgp_url(self.ptfip, self.port)
         resp = requests.post(url, data={"commands": msg}, proxies={"http": None, "https": None})
         logging.debug("announce return: %s", resp)
         assert resp.status_code == 200, (
@@ -375,7 +390,7 @@ class BGPNeighbor(object):
             msg = "withdraw route {prefix} next-hop {nexthop}"
         msg = msg.format(**route)
         logging.debug("withdraw route: %s", msg)
-        url = "http://%s:%d" % (self.ptfip, self.port)
+        url = get_exabgp_url(self.ptfip, self.port)
         resp = requests.post(url, data={"commands": msg}, proxies={"http": None, "https": None})
         logging.debug("withdraw return: %s", resp)
         assert resp.status_code == 200, (
@@ -401,7 +416,7 @@ class BGPNeighbor(object):
 
         full_cmd = ";".join(commands)
 
-        url = "http://%s:%d" % (self.ptfip, self.port)
+        url = get_exabgp_url(self.ptfip, self.port)
         resp = requests.post(url, data={"commands": full_cmd}, proxies={"http": None, "https": None})
         logging.debug("announce return: %s", resp)
         assert resp.status_code == 200, (
@@ -427,7 +442,7 @@ class BGPNeighbor(object):
 
         full_cmd = ";".join(commands)
 
-        url = "http://%s:%d" % (self.ptfip, self.port)
+        url = get_exabgp_url(self.ptfip, self.port)
         resp = requests.post(url, data={"commands": full_cmd}, proxies={"http": None, "https": None})
         logging.debug("announce return: %s", resp)
         assert resp.status_code == 200, (
