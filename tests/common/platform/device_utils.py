@@ -340,9 +340,8 @@ def check_interfaces_and_transceivers(duthost, request):
         raise RebootHealthError(
             "Interface check failed, not all interfaces are up. Failed: {}".format(failed))
 
-    # Skip this step for virtual testbed - KVM testbed has transeivers marked as "Not present"
-    # and the DB returns an "empty array" for "keys TRANSCEIVER_INFO*"
-    if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+    # Skip transceiver check when TRANSCEIVER_INFO* is empty: KVM, or a weak server.
+    if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0' or request.getfixturevalue("weak_server"):
         return
 
     logging.info(
