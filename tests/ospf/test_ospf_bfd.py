@@ -2,6 +2,8 @@ import pytest
 import logging
 import time
 
+from tests.ospf import vpp_helpers
+
 logger = logging.getLogger(__name__)
 
 pytestmark = [
@@ -10,8 +12,10 @@ pytestmark = [
 
 
 @pytest.fixture(scope="module")
-def start_ospfd(duthosts, rand_one_dut_hostname):
+def start_ospfd(duthosts, rand_one_dut_hostname, request):
     duthost = duthosts[rand_one_dut_hostname]
+    if vpp_helpers.is_vpp_eos_requested(duthost, request):
+        return
     cmd = 'docker exec bgp bash -c "/usr/lib/frr/ospfd &"'
 
     for asic in duthost.asics:
@@ -22,8 +26,10 @@ def start_ospfd(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module")
-def start_bfdd(duthosts, rand_one_dut_hostname):
+def start_bfdd(duthosts, rand_one_dut_hostname, request):
     duthost = duthosts[rand_one_dut_hostname]
+    if vpp_helpers.is_vpp_eos_requested(duthost, request):
+        return
     cmd = 'docker exec bgp bash -c "/usr/lib/frr/bfdd &"'
 
     for asic in duthost.asics:
