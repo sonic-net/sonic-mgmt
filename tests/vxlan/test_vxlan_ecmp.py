@@ -149,16 +149,20 @@ def get_egress_interfaces(duthost, address, outer_layer_version):
     Parse the output of "show ip route <address>" to get the list of all possible egress interfaces
     for a packet that is routed to "address".
     Returns the list of all possible egress interfaces for "address".
+    Next hops that FRR marks "inactive" (for example, because their interface is down) are skipped.
     """
     ip = "ip" if outer_layer_version == "v4" else "ipv6"
     output = duthost.shell(f"show {ip} route {address}")["stdout_lines"]
     interfaces = []
     for line in output:
-        line = line.lstrip()
-        if line.startswith("*"):
-            iface = line.split()[-1]  # The interface is the last word in the line (if the route is active)
-            if iface.startswith("PortChannel") or iface.startswith("Ethernet"):
-                interfaces.append(iface)
+        line = line.strip()
+        # Next hop lines look like "* 10.0.0.1, via PortChannel102[, weight 1]". FRR keeps listing a next hop
+        # whose interface is down, as "* 10.0.0.1, via PortChannel102 inactive".
+        if not line.startswith("*") or re.search(r"\binactive\b", line):
+            continue
+        match = re.search(r"(?:\bvia|directly connected,) ([^,\s]+)", line)
+        if match and match.group(1).startswith(("PortChannel", "Ethernet")):
+            interfaces.append(match.group(1))
     return interfaces
 
 
