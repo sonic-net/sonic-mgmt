@@ -74,8 +74,28 @@ def get_pdu_visible_vars(inventories, pdu_hostnames):
     return pdu_hosts_vars
 
 
-def _get_pdu_controller(duthost, conn_graph_facts):
+def _validate_power_graph(facts):
+    """Accept real successful no-match facts, not an arbitrary missing result."""
+    if not isinstance(facts, dict) or facts.get('failed') or facts.get('unreachable') or facts.get('exception'):
+        raise ValueError("Failed or malformed power graph result")
+    if 'rc' in facts and facts['rc'] != 0:
+        raise ValueError("Power graph lookup failed")
+    for key in ('device_pdu_links', 'device_pdu_info', 'device_info', 'device_conn', 'device_port_vlans'):
+        if key in facts and not isinstance(facts[key], dict):
+            raise ValueError("Malformed power graph mapping")
+    if 'device_pdu_links' not in facts:
+        # conn_graph_facts exits successfully here when find_graph has no
+        # match, before build_results adds any PDU maps.
+        if not all(key in facts and facts[key] == {} for key in
+                   ('device_info', 'device_conn', 'device_port_vlans')):
+            raise ValueError("Power graph result has no recognized success shape")
+    return facts
+
+
+def _get_pdu_controller(duthost, conn_graph_facts, require_complete=False):
     hostname = duthost.hostname
+    if require_complete:
+        _validate_power_graph(conn_graph_facts)
     # To adapt to the kvm testbed, conn_graph_facts is None for kvm.
     # Unfortunately, for most DUTs
     # we will get None because there is no key pdu_host under most of the hosts in iventory.
@@ -87,9 +107,18 @@ def _get_pdu_controller(duthost, conn_graph_facts):
 
     pdu_links = device_pdu_links.get(hostname, {})
     pdu_info = device_pdu_info.get(hostname, {})
+    if require_complete and (not isinstance(pdu_links, dict) or not isinstance(pdu_info, dict)):
+        raise ValueError("Malformed host power mapping")
+    if require_complete and not pdu_links:
+        inventory_host = duthost.host.options["inventory_manager"].get_host(hostname)
+        if inventory_host is None:
+            raise ValueError("Cannot establish inventory power configuration for {}".format(hostname))
+        if inventory_host.get_vars().get("pdu_host"):
+            raise ValueError("Configured inventory PDU hosts have no resolved power links")
     pdu_vars = get_pdu_visible_vars(duthost.host.options["inventory_manager"]._sources, pdu_info.keys())
 
-    return pdu_manager_factory(duthost.hostname, pdu_links, pdu_info, pdu_vars)
+    return pdu_manager_factory(duthost.hostname, pdu_links, pdu_info, pdu_vars,
+                               require_complete=require_complete)
 
 
 @pytest.fixture(scope="module")
@@ -115,19 +144,28 @@ def pdu_controller(duthosts, conn_graph_facts):
 def get_pdu_controller(conn_graph_facts, localhost):
     controller_map = {}
 
-    def pdu_controller_helper(duthost):
-        if duthost.hostname not in controller_map:
+    def pdu_controller_helper(duthost, require_complete=False):
+        if duthost.hostname not in controller_map or (require_complete and controller_map[duthost.hostname] is None):
             # conn_graph_facts is scoped to the testbed duthosts. When asked for a host
             # that is not part of that set (e.g. the paired Switch-Host resolved from a
             # BMC DUT), its PDU wiring is absent, so load the graph facts for that host
             # on demand instead of returning an empty (None) controller.
             facts = conn_graph_facts
+            if require_complete:
+                _validate_power_graph(facts)
             if duthost.hostname not in facts.get('device_pdu_links', {}):
                 facts = get_graph_facts(duthost, localhost, [duthost.hostname])
-            controller = _get_pdu_controller(duthost, facts)
+            if require_complete:
+                _validate_power_graph(facts)
+            # Successful no-match/no-PDU facts are absence. Configured inventory
+            # PDU references and unresolved/partial links still fail below.
+            controller = _get_pdu_controller(duthost, facts, require_complete=require_complete)
             controller_map[duthost.hostname] = controller
 
-        return controller_map[duthost.hostname]
+        controller = controller_map[duthost.hostname]
+        if require_complete and controller is not None:
+            controller.require_complete_power_coverage()
+        return controller
 
     yield pdu_controller_helper
 
