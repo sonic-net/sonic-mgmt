@@ -9,6 +9,7 @@ Unlike PtfGrpc (which runs on the PTF container over TCP), DutGrpc always
 uses plaintext UDS and has no TLS certificate configuration.
 """
 import json
+import os
 import shlex
 import logging
 
@@ -58,10 +59,15 @@ class DutGrpc:
         self.socket_path = socket_path
         self.target = f"unix:///{socket_path}"
         self.timeout = 10
+        self.max_time = None
 
     def configure_timeout(self, timeout_seconds):
         """Configure connection timeout in seconds."""
         self.timeout = int(timeout_seconds)
+
+    def configure_max_time(self, seconds):
+        """Set the overall RPC deadline, separately from the connection timeout."""
+        self.max_time = float(seconds)
 
     def _build_cmd(self, extra_args=None, service_method=None, metadata=None):
         """
@@ -78,6 +84,8 @@ class DutGrpc:
             "grpcurl", "-plaintext", "-format", "json",
             "-connect-timeout", str(self.timeout),
         ]
+        if self.max_time is not None:
+            parts.extend(["-max-time", str(self.max_time)])
         if metadata:
             items = metadata.items() if isinstance(metadata, dict) else metadata
             for name, value in items:
@@ -174,7 +182,7 @@ class DutGrpc:
         except json.JSONDecodeError as e:
             raise DutGrpcCallError(f"Invalid JSON from {service_method}: {e}")
 
-    def call_server_streaming(self, service, method, request=None, metadata=None):
+    def call_server_streaming(self, service, method, request=None, metadata=None, proto_file=None):
         """
         Make a server-streaming gRPC call.
 
@@ -183,6 +191,7 @@ class DutGrpc:
             method: Method name
             request: Optional request dict.
             metadata: Optional gRPC metadata as dict or list of (key, value) tuples.
+            proto_file: Optional proto path on the DUT, for calls without reflection.
 
         Returns:
             List of parsed JSON response dicts.
@@ -190,28 +199,23 @@ class DutGrpc:
         service_method = f"{service}/{method}"
         request_json = json.dumps(request) if request else "{}"
         extra_args = ["-d", shlex.quote(request_json)]
+        if proto_file:
+            extra_args.extend(["-import-path", shlex.quote(os.path.dirname(proto_file) or "."),
+                               "-proto", shlex.quote(os.path.basename(proto_file))])
         cmd = self._build_cmd(extra_args=extra_args, service_method=service_method, metadata=metadata)
         result = self._execute(cmd)
 
         responses = []
         stdout = result["stdout"].strip()
 
-        # Try as single JSON first (grpcurl may wrap in one object)
+        decoder = json.JSONDecoder()
         try:
-            responses.append(json.loads(stdout))
-            return responses
-        except json.JSONDecodeError:
-            pass
-
-        # Fall back to line-by-line for streaming output
-        for line in stdout.split("\n"):
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                responses.append(json.loads(line))
-            except json.JSONDecodeError:
-                continue
+            while stdout:
+                response, end = decoder.raw_decode(stdout)
+                responses.append(response)
+                stdout = stdout[end:].lstrip()
+        except json.JSONDecodeError as e:
+            raise DutGrpcCallError(f"Invalid streaming response from {service_method}: {e}")
 
         if not responses:
             raise DutGrpcCallError(f"No valid responses from streaming call {service_method}")
