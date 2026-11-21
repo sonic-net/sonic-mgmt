@@ -46,6 +46,18 @@ BOOTLOADER_BANNER_RE = re.compile(
     flags=re.I | re.M,
 )
 
+PORT_IN_USE_PATTERN = (
+    r"(Port is in use. Closing connection...|Cannot connect: line \[\d{2}\] is busy|Sorry, port is busy!)")
+RARITAN_BANNER_PATTERN = r"(You are now master for the port|Escape Sequence is:)"
+RARITAN_LOGIN_PROMPT_PATTERN = r"(?:user:|username|login|user name)"
+RARITAN_LOGIN_PROMPT_TIMEOUT_S = 60
+SONIC_SHELL_PROMPT_PATTERNS = (
+    r'admin@.*:.*[\$#]',
+    r'root@.*:.*#',
+    r'.*@sonic.*[\$#]',
+)
+LOGIN_FAILURE_PATTERN = r".*incorrect"
+
 
 class ConsoleRebootStartedError(Exception):
     """Raised to abort console I/O once the DUT reboot has started.
@@ -203,11 +215,7 @@ class SSHConsoleConn(BaseConsoleConn):
         # (e.g. the reboot collector) could detect a deferred boot-stage login if needed.
         self._bootloader_deferred = False
 
-        if re.search(
-            r"(Port is in use. Closing connection...|Cannot connect: line \[\d{2}\] is busy|Sorry, port is busy!)",
-            session_init_msg,
-            flags=re.M
-        ):
+        if re.search(PORT_IN_USE_PATTERN, session_init_msg, flags=re.M):
             console_port = self.username.split(':')[-1]
             raise PortInUseException(f"Host closed connection, as console port '{console_port}' is currently occupied.")
 
@@ -230,18 +238,18 @@ class SSHConsoleConn(BaseConsoleConn):
         # prior serial output and replay it at baud rate, which can take much longer than any
         # reasonable fixed delay before the login prompt appears.
         if self.console_type == CONSOLE_SSH_TO_PORT and re.search(
-            r"(You are now master for the port|Escape Sequence is:)", session_init_msg, flags=re.M
+            RARITAN_BANNER_PATTERN, session_init_msg, flags=re.M
         ):
             self.logger.debug("Detected Raritan console server, sending newline to trigger login prompt")
             self.write_channel(self.RETURN)
             try:
                 response = self.read_until_pattern(
-                    pattern=r"(?:user:|username|login|user name)",
-                    read_timeout=60
+                    pattern=RARITAN_LOGIN_PROMPT_PATTERN,
+                    read_timeout=RARITAN_LOGIN_PROMPT_TIMEOUT_S
                 )
                 self.logger.debug(f"Got login prompt after newline: {response[-200:]}")
             except ReadTimeout as e:
-                self.logger.warning(f"No login prompt within 60s: {e}")
+                self.logger.warning(f"No login prompt within {RARITAN_LOGIN_PROMPT_TIMEOUT_S}s: {e}")
 
         if (self.menu_port):
             # For devices logining via menu port, 2 additional login are needed
@@ -371,11 +379,6 @@ class SSHConsoleConn(BaseConsoleConn):
             U-Boot's). ``False`` otherwise (login prompt, recovered shell, or an
             indeterminate state), in which case the normal login flow may proceed.
         """
-        shell_prompt_patterns = (
-            r'admin@.*:.*[\$#]',
-            r'root@.*:.*#',
-            r'.*@sonic.*[\$#]',
-        )
         # Floor the delay factor so the probe waits long enough for the serial prompt to echo.
         delay_factor = max(self.select_delay_factor(delay_factor), 1)
         for _ in range(max_attempts):
@@ -421,7 +424,7 @@ class SSHConsoleConn(BaseConsoleConn):
                 return False
             # Logged-in shell left over from a previous session -> abort any pending
             # command with Ctrl-C, then log out to return to a clean login prompt.
-            if any(re.search(p, output) for p in shell_prompt_patterns):
+            if any(re.search(p, output) for p in SONIC_SHELL_PROMPT_PATTERNS):
                 self.logger.warning(
                     "Console is at a leftover shell prompt; sending Ctrl-C + 'exit' "
                     "to return to the login prompt")
@@ -499,9 +502,6 @@ class SSHConsoleConn(BaseConsoleConn):
         password_sent = False
         if defer_on_bootloader:
             self._bootloader_deferred = False
-        # The following prompt is only for SONiC
-        # Need to add more login failure prompt for other system
-        login_failure_prompt = r".*incorrect"
         while i <= max_loops:
             try:
                 if menu_port and not menu_port_sent:
@@ -558,8 +558,8 @@ class SSHConsoleConn(BaseConsoleConn):
                 ):
                     return return_msg
 
-                # Check if login failed
-                if re.search(login_failure_prompt, output, flags=re.M):
+                # Check if login failed (the pattern is only for SONiC)
+                if re.search(LOGIN_FAILURE_PATTERN, output, flags=re.M):
                     # Wait a short time or the next login will be refused
                     time.sleep(1 * delay_factor)
                     msg = "Login failed: {}".format(self.host)
@@ -651,15 +651,8 @@ class SSHConsoleConn(BaseConsoleConn):
             self.logger.debug("No non-empty lines in buffer")
             return False
 
-        # Check for SONiC prompt patterns (admin@sonic:~$, root@sonic:~#, etc.)
-        sonic_prompt_patterns = [
-            r'admin@.*:.*[\$#]',
-            r'root@.*:.*#',
-            r'.*@sonic.*[\$#]'
-        ]
-
-        # Check if the last line matches a SONiC prompt
-        for pattern in sonic_prompt_patterns:
+        # Check if the last line matches a SONiC prompt (admin@sonic:~$, root@sonic:~#, etc.)
+        for pattern in SONIC_SHELL_PROMPT_PATTERNS:
             if re.search(pattern, last_line):
                 self.logger.debug(f"Matched SONiC prompt pattern: {pattern}")
                 return True
