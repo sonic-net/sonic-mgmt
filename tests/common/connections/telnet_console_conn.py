@@ -2,6 +2,25 @@ import time
 import re
 from .base_console_conn import BaseConsoleConn, DutLoginFailed
 
+# How telnet_login() uses the waits below. The telnet connection reaches the DUT serial
+# line directly, and netmiko's constructor runs telnet_login() on it. Each wait is
+# multiplied by the delay_factor argument (DEFAULT_DELAY_FACTOR by default).
+#   a. attach_only returns at once. Otherwise pause RESPONSE_WAIT_S, then run up to
+#      max_loops rounds. Each round reads the line, handles what it finds as in b to d,
+#      then sends a CR and pauses READ_INTERVAL_S.
+#   b. At a username prompt, send the username and pause RESPONSE_WAIT_S. At a password
+#      prompt, send the password and pause READ_INTERVAL_S.
+#   c. At a Cisco initial configuration dialog, answer "no" and pause READ_INTERVAL_S,
+#      then read up to 15 times, DIALOG_READ_INTERVAL_S apart, until "Press RETURN to
+#      get started".
+#   d. After a rejected password, pause RESPONSE_WAIT_S and try the next password at the
+#      next login prompt, starting the rounds again. After the last password, close the
+#      line, pause RESPONSE_WAIT_S so the next login is not refused, and fail.
+#   e. After the last round, send a CR, pause READ_INTERVAL_S and check once more for a
+#      prompt before failing.
+READ_INTERVAL_S = 0.5
+RESPONSE_WAIT_S = 1
+DIALOG_READ_INTERVAL_S = 2
 # Sets the minimum delay factor. It can be overridden to be larger, but not smaller.
 DEFAULT_DELAY_FACTOR = 1
 
@@ -57,7 +76,7 @@ class TelnetConsoleConn(BaseConsoleConn):
         if self.attach_only:
             return ""
         delay_factor = self.select_delay_factor(delay_factor)
-        time.sleep(1 * delay_factor)
+        time.sleep(RESPONSE_WAIT_S * delay_factor)
 
         output = ""
         return_msg = ""
@@ -75,14 +94,14 @@ class TelnetConsoleConn(BaseConsoleConn):
                 if not username_sent and re.search(username_pattern, output, flags=re.I):
                     self.write_channel(self.username + self.TELNET_RETURN)
                     username_sent = True
-                    time.sleep(1 * delay_factor)
+                    time.sleep(RESPONSE_WAIT_S * delay_factor)
                     output = self.read_channel()
                     return_msg = output
 
                 # Search for password pattern / send password
                 if username_sent and not password_sent and re.search(pwd_pattern, output, flags=re.I):
                     self.write_channel(self.sonic_password[password_index] + self.TELNET_RETURN)
-                    time.sleep(0.5 * delay_factor)
+                    time.sleep(READ_INTERVAL_S * delay_factor)
                     password_sent = True
                     output = self.read_channel()
                     return_msg += output
@@ -94,7 +113,7 @@ class TelnetConsoleConn(BaseConsoleConn):
                 # Support direct telnet through terminal server
                 if re.search(r"initial configuration dialog\? \[yes/no\]: ", output):
                     self.write_channel("no" + self.TELNET_RETURN)
-                    time.sleep(0.5 * delay_factor)
+                    time.sleep(READ_INTERVAL_S * delay_factor)
                     count = 0
                     while count < 15:
                         output = self.read_channel()
@@ -102,7 +121,7 @@ class TelnetConsoleConn(BaseConsoleConn):
                         if re.search(r"ress RETURN to get started", output):
                             output = ""
                             break
-                        time.sleep(2 * delay_factor)
+                        time.sleep(DIALOG_READ_INTERVAL_S * delay_factor)
                         count += 1
 
                 # Check for device with no password configured
@@ -126,16 +145,16 @@ class TelnetConsoleConn(BaseConsoleConn):
                         password_index += 1
                         username_sent = password_sent = False
                         i = 1
-                        time.sleep(1 * delay_factor)
+                        time.sleep(RESPONSE_WAIT_S * delay_factor)
                         continue
                     self.remote_conn.close()
                     # Wait a short time or the next login will be refused
-                    time.sleep(1 * delay_factor)
+                    time.sleep(RESPONSE_WAIT_S * delay_factor)
                     msg = "Login failed: {}".format(self.host)
                     raise DutLoginFailed(msg)
 
                 self.write_channel(self.TELNET_RETURN)
-                time.sleep(0.5 * delay_factor)
+                time.sleep(READ_INTERVAL_S * delay_factor)
                 i += 1
             except EOFError:
                 self.remote_conn.close()
@@ -144,7 +163,7 @@ class TelnetConsoleConn(BaseConsoleConn):
 
         # Last try to see if we already logged in
         self.write_channel(self.TELNET_RETURN)
-        time.sleep(0.5 * delay_factor)
+        time.sleep(READ_INTERVAL_S * delay_factor)
         output = self.read_channel()
         return_msg += output
         if re.search(pri_prompt_terminator, output, flags=re.M) or re.search(
