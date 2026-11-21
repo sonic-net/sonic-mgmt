@@ -3,6 +3,7 @@ Base class for console connection of SONiC devices
 """
 
 import logging
+import time
 import paramiko
 
 from netmiko.cisco_base_connection import CiscoBaseConnection
@@ -52,10 +53,19 @@ class DutLoginFailed(NetMikoAuthenticationException):
     pass
 
 
+class ConsoleConnectTimeout(Exception):
+    """The console connection was not made before the connect deadline."""
+    pass
+
+
 class BaseConsoleConn(CiscoBaseConnection):
+    # time.monotonic() deadline for the whole connect; None means no limit.
+    _connect_deadline = None
 
     def __init__(self, **kwargs):
         self.logger = logging.getLogger(__name__)
+        # Popped so it never reaches netmiko; cleared once the connection is made.
+        self._connect_deadline = kwargs.pop("connect_deadline", None)
         # Clear additional args before passing to BaseConsoleConn
         all_passwords = kwargs['console_password']
         key_to_rm = [
@@ -121,6 +131,10 @@ class BaseConsoleConn(CiscoBaseConnection):
 
         for i in range(0, len(all_passwords)):
             kwargs['password'] = all_passwords[i]
+            time_left = self._connect_time_left()
+            if time_left is not None:
+                # netmiko's TCP connect, SSH banner and login waits get only the time left.
+                kwargs.update(conn_timeout=time_left, banner_timeout=time_left, auth_timeout=time_left)
             try:
                 super(BaseConsoleConn, self).__init__(**kwargs)
             except DutLoginFailed:
@@ -131,6 +145,21 @@ class BaseConsoleConn(CiscoBaseConnection):
                     raise e
             else:
                 break
+        self._connect_deadline = None
+
+    def _connect_time_left(self):
+        """Seconds left before the connect deadline, None without one; raises once it has passed."""
+        if self._connect_deadline is None:
+            return None
+        time_left = self._connect_deadline - time.monotonic()
+        if time_left <= 0:
+            raise ConsoleConnectTimeout()
+        return time_left
+
+    def read_channel(self):
+        # Every wait during the connect reads the channel, so this check bounds the whole connect.
+        self._connect_time_left()
+        return super(BaseConsoleConn, self).read_channel()
 
     def select_delay_factor(self, delay_factor):
         # None means the connection's delay factor, the constructor's global_delay_factor.
