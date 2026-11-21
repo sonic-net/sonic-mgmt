@@ -503,7 +503,6 @@ class PtfGrpc:
             GrpcTimeoutError: If call times out
         """
         service_method = f"{service}/{method}"
-        cmd = self._build_grpcurl_cmd(service_method=service_method)
 
         # Prepare request data
         request_data = "{}"  # Default empty JSON
@@ -513,34 +512,30 @@ class PtfGrpc:
             else:
                 request_data = str(request)
 
-        result = self._execute_grpcurl(cmd, request_data)
+        cmd = self._build_grpcurl_cmd(
+            extra_args=["-d", request_data], service_method=service_method, metadata=metadata,
+        )
+        result = self._execute_grpcurl(cmd)
 
-        # Parse streaming responses (handle both single-line and multi-line JSON)
+        # grpcurl writes adjacent JSON objects, often formatted over many lines.
+        # Decode the complete sequence; dropping a malformed frame would hide
+        # a truncated Artifact stream or another protocol failure.
         responses = []
-        stdout_content = result['stdout'].strip()
-
-        # First try to parse entire output as a single JSON object (for unary calls)
-        try:
-            single_response = json.loads(stdout_content)
-            responses.append(single_response)
-            logger.debug(f"Parsed single JSON response from {service_method}: {single_response}")
-        except json.JSONDecodeError:
-            # If that fails, try parsing line by line for streaming responses
-            stdout_lines = stdout_content.split('\n')
-
-            for line in stdout_lines:
-                line = line.strip()
-                if not line:
-                    continue
-
-                try:
-                    response = json.loads(line)
-                    responses.append(response)
-                    logger.debug(f"Streaming response from {service_method}: {response}")
-                except json.JSONDecodeError as e:
-                    # Log the error but continue parsing other lines
-                    logger.debug(f"Failed to parse streaming response line '{line}': {e}")
-                    continue
+        output = result['stdout']
+        offset = 0
+        decoder = json.JSONDecoder()
+        while offset < len(output):
+            while offset < len(output) and output[offset].isspace():
+                offset += 1
+            if offset == len(output):
+                break
+            try:
+                response, offset = decoder.raw_decode(output, offset)
+            except json.JSONDecodeError as error:
+                raise GrpcCallError(f"Failed to parse streaming response from {service_method}: {error}") from error
+            if not isinstance(response, dict):
+                raise GrpcCallError(f"Expected a JSON object from streaming call {service_method}")
+            responses.append(response)
 
         if not responses:
             raise GrpcCallError(f"No valid responses received from streaming call {service_method}")
