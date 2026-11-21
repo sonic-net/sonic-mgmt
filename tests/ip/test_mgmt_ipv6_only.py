@@ -302,5 +302,5 @@ def test_ntp_ipv6_only(duthosts_ipv6_mgmt_only,             # noqa: F411, F811
     # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
     log_eth0_interface_info(duthosts_ipv6_mgmt_only)
     duthost = duthosts_ipv6_mgmt_only[rand_one_dut_hostname]
-    with setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
-        run_ntp(duthost, ntp_daemon_in_use)
+    with setup_ntp_context(ptfhost, duthost, ptf_use_ipv6) as ntp_server:
+        run_ntp(duthost, ntp_daemon_in_use, ntp_server)

@@ -143,4 +143,4 @@ def test_ntp_long_jump_disabled(duthosts, rand_one_dut_hostname, ntp_daemon_in_u
 
 
 def test_ntp(duthosts, rand_one_dut_hostname, setup_ntp, ntp_daemon_in_use):  # noqa: F811
-    run_ntp(duthosts[rand_one_dut_hostname], ntp_daemon_in_use)
+    run_ntp(duthosts[rand_one_dut_hostname], ntp_daemon_in_use, setup_ntp)

@@ -1,6 +1,7 @@
 from enum import Enum
 import logging
 import pytest
+import shlex
 import time
 from contextlib import contextmanager
 from tests.common.utilities import wait_until
@@ -109,11 +110,12 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
     for ntp_server in ntp_servers:
         duthost.command("config ntp del %s" % ntp_server)
 
+    ntp_server = ptfhost.mgmt_ipv6 if ptf_use_ipv6 else ptfhost.mgmt_ip
     duthost.command("config ntp add %s %s" % ("--iburst" if ntp_add_iburst_present else "",
-                    ptfhost.mgmt_ipv6 if ptf_use_ipv6 else ptfhost.mgmt_ip))
+                    ntp_server))
 
     try:
-        yield
+        yield ntp_server
     finally:
         restore_ntp_context(
             ptfhost, duthost, ptf_use_ipv6, ntp_conf_path, ntp_service_name,
@@ -227,7 +229,7 @@ def check_max_root_dispersion(host, max_dispersion, ntp_daemon_in_use):
         return False
 
 
-def run_ntp(duthost, ntp_daemon_in_use):
+def run_ntp(duthost, ntp_daemon_in_use, ntp_server):
     """ Verify that DUT is synchronized with configured NTP server """
 
     if ntp_daemon_in_use == NtpDaemon.NTPSEC:
@@ -241,7 +243,9 @@ def run_ntp(duthost, ntp_daemon_in_use):
         duthost.service(name='ntp', state='restarted')
     elif ntp_daemon_in_use == NtpDaemon.CHRONY:
         duthost.service(name='chrony', state='stopped')
-        duthost.command("timeout 20 chronyd -q -F 1")
+        # Avoid racing chrony's asynchronous config refresh after config ntp add.
+        server_directive = shlex.quote("server {} iburst".format(ntp_server))
+        duthost.command("timeout 20 chronyd -q -F 1 {}".format(server_directive))
         duthost.service(name='chrony', state='restarted')
     pytest_assert(wait_until(720, 10, 0, check_ntp_status, duthost, ntp_daemon_in_use),
                   "NTP not in sync")
