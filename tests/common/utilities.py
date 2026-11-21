@@ -1078,7 +1078,7 @@ def get_all_downstream_neigh_type(topo_type, is_upper=True):
     return DOWNSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])
 
 
-def flush_permanent_neighbors(duthost):
+def flush_permanent_neighbors(duthost, namespace=None):
     """
     Flush PERMANENT neighbor entries on all interfaces except 'lo'.
 
@@ -1086,10 +1086,14 @@ def flush_permanent_neighbors(duthost):
     as NOARP, but Cisco 8000 images (platform-cisco-8000 202605.1.0.7 and later) pin it PERMANENT from an
     if-up.d hook. If that entry is deleted while it is in use, the kernel can leave it FAILED, which
     black-holes 127.0.0.1 (e.g. Redis TCP) until 'lo' is bounced or the DUT is rebooted.
+
+    Args:
+        namespace: network namespace (e.g. 'asic0') to flush in. Default: the host namespace.
     """
+    ns_opt = "-n {} ".format(namespace) if namespace else ""
     duthost.shell(
-        "ip neigh show nud permanent | awk '$2 == \"dev\" && $3 != \"lo\" {print $3}' | sort -u | "
-        "xargs -r -t -I{} sudo ip neigh flush dev {} nud permanent"
+        "ip {0}neigh show nud permanent | awk '$2 == \"dev\" && $3 != \"lo\" {{print $3}}' | sort -u | "
+        "xargs -r -t -I{{}} sudo ip {0}neigh flush dev {{}} nud permanent".format(ns_opt)
     )
 
 
