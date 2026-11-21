@@ -13,7 +13,8 @@ LOGIN_USERNAME_PATTERN = r"(?:user:|username|login|user name)"
 LOGIN_PWD_PATTERN = r"assword"
 # How telnet_login() uses the waits and limits below. The telnet connection reaches the
 # DUT serial line directly, and netmiko's constructor runs telnet_login() on it. Each wait
-# is multiplied by the delay_factor argument (DEFAULT_DELAY_FACTOR by default).
+# is multiplied by the delay_factor argument, which defaults to the constructor's
+# global_delay_factor (DEFAULT_DELAY_FACTOR by default).
 #   a. attach_only returns at once. Otherwise pause RESPONSE_WAIT_S, then run up to
 #      max_loops rounds (DEFAULT_LOGIN_MAX_LOOPS by default). Each round reads the line,
 #      handles what it finds as in b to d, then sends a CR and pauses READ_INTERVAL_S.
@@ -71,7 +72,7 @@ class TelnetConsoleConn(BaseConsoleConn):
         alt_prompt_terminator=LOGIN_ALT_PROMPT_TERMINATOR,
         username_pattern=LOGIN_USERNAME_PATTERN,
         pwd_pattern=LOGIN_PWD_PATTERN,
-        delay_factor=DEFAULT_DELAY_FACTOR,
+        delay_factor=None,
         max_loops=DEFAULT_LOGIN_MAX_LOOPS,
     ):
         """Telnet login. Can be username/password or just password."""

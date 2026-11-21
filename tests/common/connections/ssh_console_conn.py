@@ -63,8 +63,8 @@ LOGIN_USERNAME_PATTERN = r"(?:user:|username|login:|user name)"
 LOGIN_PWD_PATTERN = r"assword"
 # How the connect workflow uses the waits and limits below. Once the SSH login to the
 # console server succeeds, netmiko's constructor runs session_preparation() on the DUT
-# line. Most waits are multiplied by the delay_factor argument (DEFAULT_DELAY_FACTOR by
-# default).
+# line. Most waits are multiplied by the delay_factor argument, which defaults to the
+# constructor's global_delay_factor (DEFAULT_DELAY_FACTOR by default).
 #   a. Read the line without writing, READ_INTERVAL_S between reads, until anything
 #      arrives or max_reads reads pass (DEFAULT_INITIAL_READ_MAX_READS by default). A
 #      "port in use" notice ends the connect; attach_only stops here.
@@ -202,7 +202,7 @@ class SSHConsoleConn(BaseConsoleConn):
         """
         return super(SSHConsoleConn, self)._try_session_preparation(force_data=False)
 
-    def _read_initial_console(self, max_reads=DEFAULT_INITIAL_READ_MAX_READS, delay_factor=DEFAULT_DELAY_FACTOR):
+    def _read_initial_console(self, max_reads=DEFAULT_INITIAL_READ_MAX_READS, delay_factor=None):
         """Passively read the initial console output WITHOUT writing anything.
 
         session_preparation() must inspect the first console output (a console
@@ -373,28 +373,28 @@ class SSHConsoleConn(BaseConsoleConn):
 
         self.session_preparation_finalise()
 
-    def session_preparation_finalise(self):
+    def session_preparation_finalise(self, delay_factor=None):
         """
         Helper function to handle final stages of session preparation.
         """
         # > as prompt terminator
         if self.console_type in [CONSOLE_SSH_DIGI_CONFIG, CONSOLE_SSH_RARITAN_CONFIG]:
-            self.set_base_prompt(">")
+            self.set_base_prompt(">", delay_factor=delay_factor)
         elif self.console_type == CONSOLE_SSH_CISCO_CONFIG:
             # Cisco IOS lands at '>' after login but may already be at '#'
             # (leftover privileged session). set_base_prompt() only supports
             # a single fixed terminator, so detect either here; elevation to
             # '#' happens later in duthost_clear_console_port() if needed.
-            prompt = self.find_prompt(pattern=r"(?:>|\#|\$)")
+            prompt = self.find_prompt(delay_factor=delay_factor, pattern=r"(?:>|\#|\$)")
             self.base_prompt = prompt[:-1] if len(prompt) > 1 else prompt
         else:
-            self.set_base_prompt()
+            self.set_base_prompt(delay_factor=delay_factor)
 
         # Clear the read buffer
-        time.sleep(FINALISE_WAIT_S * self.global_delay_factor)
+        time.sleep(FINALISE_WAIT_S * self.select_delay_factor(delay_factor))
         self.clear_buffer()
 
-    def _recover_to_login_prompt(self, max_attempts=DEFAULT_RECOVER_MAX_ATTEMPTS, delay_factor=DEFAULT_DELAY_FACTOR):
+    def _recover_to_login_prompt(self, max_attempts=DEFAULT_RECOVER_MAX_ATTEMPTS, delay_factor=None):
         """
         Ensure the console is at a fresh "login:" prompt before logging in.
 
@@ -482,7 +482,7 @@ class SSHConsoleConn(BaseConsoleConn):
         self.clear_buffer()
         return False
 
-    def _resync_to_login_prompt(self, max_loops=DEFAULT_RESYNC_MAX_LOOPS, delay_factor=DEFAULT_DELAY_FACTOR):
+    def _resync_to_login_prompt(self, max_loops=DEFAULT_RESYNC_MAX_LOOPS, delay_factor=None):
         """
         Re-synchronise the console to a fresh "login:" prompt.
 
@@ -522,7 +522,7 @@ class SSHConsoleConn(BaseConsoleConn):
                       alt_prompt_terminator=LOGIN_ALT_PROMPT_TERMINATOR,
                       username_pattern=LOGIN_USERNAME_PATTERN,
                       pwd_pattern=LOGIN_PWD_PATTERN,
-                      delay_factor=DEFAULT_DELAY_FACTOR,
+                      delay_factor=None,
                       max_loops=DEFAULT_LOGIN_MAX_LOOPS,
                       defer_on_bootloader=False
                       ):
