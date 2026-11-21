@@ -1,0 +1,61 @@
+all:
+  children:
+    vm_host:
+      children:
+        vm_host_1:
+    eos:
+      children:
+        vms_1:
+    servers:
+      vars:
+        topologies:
+          - t0
+      children:
+        server_1:
+    lab:
+      hosts:
+        vlab-kne-01:
+    ptf:
+      hosts:
+        ptf-kne-01:
+          ansible_host: 172.31.100.200
+          ansible_user: root
+          ansible_password: "{{ lookup('env', 'SONIC_MGMT_PTF_PASSWORD') }}"
+    sonic:
+      vars:
+        mgmt_subnet_mask_length: 24
+        ansible_connection: multi_passwd_ssh
+        ansible_altpassword: "{{ lookup('env', 'SONIC_MGMT_SONIC_PASSWORD') }}"
+        ansible_become: yes
+        ansible_remote_tmp: /tmp/.ansible/tmp
+      hosts:
+        vlab-kne-01:
+          ansible_host: 172.31.100.2
+          type: kvm
+          hwsku: Force10-S6000
+          ansible_password: "{{ lookup('env', 'SONIC_MGMT_SONIC_PASSWORD') }}"
+          ansible_user: admin
+
+server_1:
+  vars:
+    host_var_file: host_vars/KNE-VSERV-01.yml
+  children:
+    vm_host_1:
+    vms_1:
+
+vm_host_1:
+  hosts:
+    KNE-VSERV-01:
+      ansible_host: 127.0.0.1
+      ansible_user: root
+
+vms_1:
+  hosts:
+    VM0100:
+      ansible_host: 172.31.100.251
+    VM0101:
+      ansible_host: 172.31.100.252
+    VM0102:
+      ansible_host: 172.31.100.253
+    VM0103:
+      ansible_host: 172.31.100.250

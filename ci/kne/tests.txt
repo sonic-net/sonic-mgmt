@@ -1,0 +1,4 @@
+# Tests the gate runs on each lab it brings up (t0, t1, and t1-lag).
+# One entry per line, relative to tests/: a file, a folder, or file::test_name.
+# Blank lines and lines starting with # are ignored.
+bgp/test_bgp_fact.py
