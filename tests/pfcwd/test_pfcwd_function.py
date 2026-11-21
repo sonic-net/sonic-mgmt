@@ -1603,6 +1603,12 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.setup_test_params(port, setup_info['vlan'], init=(not self.fake_storm), ip_version=ip_version)
         queue = self.pfc_wd['queue_index']
         fill_tables = []
+        # Drop fill tables a hard-killed earlier run left behind, so a dirty DUT doesn't
+        # fail the first create and masquerade as an unsupported platform.
+        stale = duthost.shell("sonic-db-cli CONFIG_DB keys 'ACL_TABLE|PFCWD_ACL_FILL_*'",
+                              module_ignore_errors=True)["stdout_lines"]
+        for key in stale:
+            duthost.shell("config acl remove table {}".format(key.split("|", 1)[1]), module_ignore_errors=True)
         try:
             # Add egress L3 ACL tables until one fails to go Active (banks full) - that per-table
             # STATE_DB failure is the exhaustion signal. fill_safety_cap only prevents a hung test
@@ -1642,7 +1648,11 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 else:
                     PfcCmd.set_storm_status(duthost, self.queue_oid, "enabled")
                 # Give pfcwd time to detect the storm and attempt the ACL create.
-                wait_until(60, 5, 0, verify_pfc_storm_in_expected_state, duthost, port, queue, "storm")
+                storm_armed = wait_until(60, 5, 0, verify_pfc_storm_in_expected_state,
+                                         duthost, port, queue, "storm")
+                if not storm_armed:
+                    logger.warning("%s:%s never reached 'storm' - storm setup problem, not bank contention",
+                                   port, queue)
 
             # The failed create must not abort orchagent (a crash leaves a core).
             new_cores = get_process_cores(duthost, "orchagent") - cores_before
@@ -1652,13 +1662,18 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
             # PFC_WD_SW_STATE_TABLE=='failed' proves the egress-ACL create failed AND the ingress
             # rule rolled back (handler isValid()==false); anything else => not exercised, skip.
-            sw_status = duthost.shell(
-                "sonic-db-cli STATE_DB hget 'PFC_WD_SW_STATE_TABLE|{}:{}' status".format(port, queue),
-                module_ignore_errors=True)["stdout"].strip()
+            def get_sw_status():
+                return duthost.shell(
+                    "sonic-db-cli STATE_DB hget 'PFC_WD_SW_STATE_TABLE|{}:{}' status".format(port, queue),
+                    module_ignore_errors=True)["stdout"].strip()
+
+            # The 'failed' publish can lag the storm detection.
+            wait_until(30, 2, 0, lambda: get_sw_status() == "failed")
+            sw_status = get_sw_status()
             pytest_require(sw_status == "failed",
-                           "PFCWD egress-ACL create did not fail (status='{}') - no egress-ACL/"
-                           "PFCWD bank contention or HW/DLR recovery on this platform".format(
-                               sw_status or "<absent>"))
+                           "PFCWD egress-ACL create did not fail (status='{}', storm armed: {}) - no "
+                           "egress-ACL/PFCWD bank contention or HW/DLR recovery on this platform".format(
+                               sw_status or "<absent>", storm_armed))
         finally:
             if self.storm_hndle:
                 self.storm_hndle.stop_storm()
