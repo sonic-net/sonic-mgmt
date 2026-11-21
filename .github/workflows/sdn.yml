@@ -44,7 +44,7 @@ jobs:
 
     # Save start time
     - name: Save Start Time
-      uses: josStorer/get-current-time@v2
+      uses: josStorer/get-current-time@6826799222c9d913068c04cb99e67f34dbf3caae # v2
       id: start-time
       with:
         format: X
@@ -73,7 +73,7 @@ jobs:
 
     # Save end time
     - name: Save End Time
-      uses: josStorer/get-current-time@v2
+      uses: josStorer/get-current-time@6826799222c9d913068c04cb99e67f34dbf3caae # v2
       id: end-time
       with:
         format: X
