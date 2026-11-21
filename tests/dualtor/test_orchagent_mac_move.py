@@ -31,11 +31,14 @@ NEW_NEIGHBOR_HWADDR = "02:AA:BB:CC:DD:EE"
 
 
 @pytest.fixture(scope="function")
-def announce_new_neighbor(ptfadapter, rand_selected_dut, tbinfo):
+def announce_new_neighbor(ptfadapter, rand_selected_dut, tbinfo, enable_garp):
     """Utility fixture to announce new neighbor from a mux port."""
+    pin_neighbor = rand_selected_dut.facts["asic_type"] == "vs"
+    neighbor_pinned = False
 
     def _announce_new_neighbor_gen():
         """Generator to announce the neighbor to a different interface at each iteration."""
+        nonlocal neighbor_pinned
         for dut_iface in dut_ifaces:
             update_iface_func = yield dut_iface
             if callable(update_iface_func):
@@ -53,6 +56,12 @@ def announce_new_neighbor(ptfadapter, rand_selected_dut, tbinfo):
                 NEW_NEIGHBOR_IPV4_ADDR, dut_iface, dump_scapy_packet_show_output(garp_packet)
             )
             testutils.send(ptfadapter, int(ptf_iface), garp_packet, count=5)
+            if pin_neighbor and not neighbor_pinned:
+                # No VS server answers ARP for the synthetic neighbor.
+                rand_selected_dut.shell("ip -4 neigh replace {} lladdr {} nud permanent dev {}".format(
+                    NEW_NEIGHBOR_IPV4_ADDR, NEW_NEIGHBOR_HWADDR, enable_garp
+                ))
+                neighbor_pinned = True
             # let the generator stops here to allow the caller to execute testings
             yield
 
@@ -60,7 +69,13 @@ def announce_new_neighbor(ptfadapter, rand_selected_dut, tbinfo):
     mux_configs = mux_cable_server_ip(rand_selected_dut)
     dut_ifaces = list(mux_configs.keys())
     random.shuffle(dut_ifaces)
-    return _announce_new_neighbor_gen()
+    try:
+        yield _announce_new_neighbor_gen()
+    finally:
+        if neighbor_pinned:
+            rand_selected_dut.shell("ip -4 neigh del {} dev {}".format(
+                NEW_NEIGHBOR_IPV4_ADDR, enable_garp
+            ))
 
 
 @pytest.fixture(autouse=True)
@@ -77,7 +92,7 @@ def enable_garp(duthost):
     vlan_intf = list(duthost.get_running_config_facts()["VLAN_MEMBER"].keys())[0]
     cmd = "echo %s > /proc/sys/net/ipv4/conf/" + vlan_intf + "/arp_accept"
     duthost.shell(cmd % 1)
-    yield
+    yield vlan_intf
     duthost.shell(cmd % 0)
 
 
