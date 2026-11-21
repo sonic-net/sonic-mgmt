@@ -236,7 +236,7 @@ class TestbedInfo(object):
                 ptf_ip,
                 ptf_ipv6,
                 tb_dict["server"],
-                tb_dict["vm_base"] or None,
+                tb_dict.get("vm_base") or None,
                 tb_dict["duts"],
                 tb_dict["comment"]
             ]
@@ -250,7 +250,7 @@ class TestbedInfo(object):
                 ptf_ip,
                 ptf_ipv6,
                 tb_dict["server"],
-                tb_dict["vm_base"] or None,
+                tb_dict.get("vm_base") or None,
                 tb_dict["duts"],
                 tb_dict["inv_name"],
                 tb_dict["auto_recover"],
@@ -280,6 +280,8 @@ class TestbedInfo(object):
         return sai_topo
 
     def get_testbed_type(self, topo_name):
+        if topo_name == "generic":
+            return "generic"
         pattern = re.compile(
             r'^(wan|t0|t1|ptf|fullmesh|dualtor|ciscovs|force10-7nodes|t2|lt2|ft2|tgen|'
             r'mgmttor|m0|mc0|mx|m1|c0|dpu|ptp|smartswitch|nut|bmc|urh|lrh|lma|uma)'
@@ -398,6 +400,10 @@ class TestbedInfo(object):
             else:
                 topo_dir = os.path.join(os.path.dirname(self.testbed_filename), self.TOPOLOGY_FILEPATH)
                 topo_file = os.path.join(topo_dir, "topo_{}.yml".format(topo))
+                if topo == "generic":
+                    generated = os.path.join(topo_dir, "topo_generic_{}.yml".format(tb_name))
+                    if os.path.isfile(generated):
+                        topo_file = generated
 
             cache_key = os.path.realpath(topo_file)
             if cache_key not in topology_cache:

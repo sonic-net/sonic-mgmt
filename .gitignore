@@ -6,6 +6,7 @@
 # Ansible files
 .ansible
 ansible.log
+/ansible/vars/topo_generic_*.yml
 
 # Test generated files
 tests/logs

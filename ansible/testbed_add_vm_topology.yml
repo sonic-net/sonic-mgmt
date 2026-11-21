@@ -63,6 +63,11 @@
     fail: msg="Define duts_name variable with -e duts_name=something"
     when: duts_name is not defined
 
+  - name: Default unused VM base for Generic topology
+    set_fact:
+      VM_base: ""
+    when: topo | default('') == 'generic' and VM_base is not defined
+
   - name: Check that variable VM_base is defined
     fail: msg="Define VM_base variable with -e VM_base=something"
     when: VM_base is not defined
@@ -100,7 +105,7 @@
 
   - name: Check that topo is a known topology
     fail: msg="Unknown topology {{ topo }}"
-    when: base_topo not in topologies
+    when: base_topo not in topologies and topo != 'generic'
 
   - name: Check that variable ptf_imagename is defined
     fail: msg="Define ptf_imagename variable with -e ptf_imagename=something"
@@ -124,6 +129,39 @@
     delegate_to: localhost
     when: duts_name.split(',')|length > 1
 
+  - name: Generate DUT ports and PTF mapping for Generic topology
+    block:
+    - name: Calculate canonical port configuration using existing lab connections
+      port_alias:
+        hwsku: "{{ hostvars[duts_name].hwsku }}"
+        generate_config: true
+        device_conn: "{{ device_conn[duts_name] }}"
+        vlan_map: "{{ device_vlan_map_list[duts_name] }}"
+        min_subports: "{{ generic_min_subports | default(0) }}"
+      delegate_to: "{{ duts_name }}"
+
+    - name: Use calculated PTF interfaces in the standard vm_set role
+      vars:
+        port_indices: "{{ port_config.port_vlan_map.keys() | map('int') | sort | list }}"
+      set_fact:
+        topology: >-
+          {{ topology | combine({
+            'host_interfaces': port_indices,
+            'DUT': {
+              'port_config': port_config,
+              'vlan_configs': {'one_vlan_a': {'Vlan1000': {'intfs': port_indices}}}
+            }}, recursive=True) }}
+        device_vlan_map_list: "{{ device_vlan_map_list | combine({duts_name: port_config.port_vlan_map}) }}"
+
+    - name: Save generated topology for deploy-mg and pytest
+      copy:
+        content: "{{ {'topology': topology, 'configuration_properties': configuration_properties} | to_nice_yaml }}"
+        dest: "{{ playbook_dir }}/vars/topo_generic_{{ testbed_name }}.yml"
+        mode: "0600"
+      delegate_to: localhost
+      become: false
+    when: topo == 'generic'
+
   - name: Determine if the testbed is a VS testbed
     set_fact:
       is_vs_testbed: true
@@ -146,6 +184,10 @@
   gather_facts: no
   serial: "{{ eos_batch_size | default(0) | int }}"
   pre_tasks:
+    - name: Skip neighbor configuration for Generic topology
+      meta: end_play
+      when: topo | default('') == 'generic'
+
     - block:
         - name: Check that variable topo is defined
           fail: msg="Define topo variable with -e topo=something"
