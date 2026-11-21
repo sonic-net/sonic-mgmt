@@ -1,4 +1,5 @@
 from tests.packet_trimming.packet_trimming_config import PacketTrimmingConfig
+from tests.common.helpers.trimming_help import TRIMMING_BUFFER_PROFILE_CONFIG
 
 # ACL configuration constants
 ACL_TABLE_TYPE_NAME = "TRIMMING_L3"
@@ -38,6 +39,8 @@ TRIM_QUEUE_PROFILE_CONFIG = {
     "dynamic_th": "-7",
     "size": "0",
 }
+# Block-queue lossy profile for SKUs lacking the per-queue lossy profiles.
+BLOCK_QUEUE_PROFILE_CONFIG = TRIMMING_BUFFER_PROFILE_CONFIG
 DYNAMIC_TH = "3"
 FALLBACK_BLOCK_QUEUE_RESERVED_BYTES = 1518
 TRIMMING_CAPABILITY = "SAI_ADAPTIVE_ROUTING_CIRCULATION_PORT=257"

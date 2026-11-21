@@ -1,6 +1,10 @@
+from tests.common.mellanox_data import is_mellanox_device
+
+
 class PacketTrimmingConfig:
     DSCP = 48
     COUNTER_DSCP = 3   # Map to queue2
+    ACS_SKU_COUNTER_DSCP = 5
     TRIM_QUEUE = 6
 
     @staticmethod
@@ -100,6 +104,9 @@ class PacketTrimmingConfig:
                 'Arista-7060X6-64PE-B-C512S2': 3,
             }
             return th5_queue.get(duthost.facts['hwsku'], 0)
+
+        if is_mellanox_device(duthost) and "ACS" in duthost.facts["hwsku"]:
+            return PacketTrimmingConfig.ACS_SKU_COUNTER_DSCP
 
         return PacketTrimmingConfig.COUNTER_DSCP
 
