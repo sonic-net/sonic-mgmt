@@ -1,0 +1,345 @@
+{
+  "acl_counter_read": {
+    "description": "Total time to read all ACL counters",
+    "direction": "lower_better",
+    "operations": [
+      "read"
+    ],
+    "unit": "ms",
+    "metric_type": "counter",
+    "display_name": "ACL counter read"
+  },
+  "ecmp_group": {
+    "description": "Max ECMP next hop groups supported",
+    "direction": "higher_better",
+    "operations": [],
+    "unit": "groups",
+    "metric_type": "scale",
+    "display_name": "ECMP group scale"
+  },
+  "ecmp_group_scale": {
+    "description": "ECMP next hop group create/remove throughput",
+    "direction": "higher_better",
+    "operations": [
+      "create",
+      "remove"
+    ],
+    "unit": "groups/s",
+    "metric_type": "throughput",
+    "display_name": "ECMP group throughput"
+  },
+  "ecmp_member": {
+    "description": "Max ECMP next hop group members supported",
+    "direction": "higher_better",
+    "operations": [],
+    "unit": "members",
+    "metric_type": "scale",
+    "display_name": "ECMP member scale"
+  },
+  "ecmp_member_op_latency": {
+    "description": "Single ECMP member add/remove latency (avg, per op)",
+    "direction": "lower_better",
+    "operations": [
+      "add",
+      "remove"
+    ],
+    "unit": "ms",
+    "metric_type": "latency",
+    "display_name": "ECMP member operation latency"
+  },
+  "ecmp_member_scale": {
+    "description": "ECMP next hop group member create/remove throughput",
+    "direction": "higher_better",
+    "operations": [
+      "create",
+      "remove"
+    ],
+    "unit": "members/s",
+    "metric_type": "throughput",
+    "display_name": "ECMP member throughput"
+  },
+  "ecmp_route_scale": {
+    "description": "Route-with-ECMP-next-hop create/remove throughput",
+    "direction": "higher_better",
+    "operations": [
+      "create",
+      "remove"
+    ],
+    "unit": "routes/s",
+    "metric_type": "throughput",
+    "display_name": "ECMP route throughput"
+  },
+  "fdb_entry": {
+    "description": "Max FDB entries supported",
+    "direction": "higher_better",
+    "operations": [],
+    "unit": "entries",
+    "metric_type": "scale",
+    "display_name": "FDB entry scale"
+  },
+  "fdb_fill_rate": {
+    "description": "FDB table learn fill rate under burst test",
+    "direction": "higher_better",
+    "operations": [
+      "learn"
+    ],
+    "unit": "percent",
+    "metric_type": "fill_rate",
+    "display_name": "FDB entry scale"
+  },
+  "ipv4_ipv6_route_fill_rate": {
+    "description": "Mixed route table fill rate under load-factor test",
+    "direction": "higher_better",
+    "operations": [],
+    "unit": "percent",
+    "metric_type": "fill_rate",
+    "display_name": "IPv4/IPv6 route scale"
+  },
+  "ipv4_ipv6_route_scale": {
+    "description": "Mixed IPv4/IPv6 route remove throughput (mixed-family tests are load-factor only; create is measured as fill_rate, set is not exercised cross-family)",
+    "direction": "higher_better",
+    "operations": [
+      "remove"
+    ],
+    "unit": "routes/s",
+    "metric_type": "throughput",
+    "display_name": "IPv4/IPv6 route throughput"
+  },
+  "ipv4_neighbor": {
+    "description": "Max IPv4 neighbor entries supported",
+    "direction": "higher_better",
+    "operations": [],
+    "unit": "entries",
+    "metric_type": "scale",
+    "display_name": "IPv4 neighbor scale"
+  },
+  "ipv4_nexthop": {
+    "description": "Max IPv4 next hop entries supported",
+    "direction": "higher_better",
+    "operations": [],
+    "unit": "entries",
+    "metric_type": "scale",
+    "display_name": "IPv4 next hop scale"
+  },
+  "ipv4_prefix": {
+    "description": "Max IPv4 route entries supported",
+    "direction": "higher_better",
+    "operations": [],
+    "unit": "entries",
+    "metric_type": "scale",
+    "display_name": "IPv4 route scale"
+  },
+  "ipv4_route_fill_rate": {
+    "description": "IPv4 route table fill rate under load-factor test",
+    "direction": "higher_better",
+    "operations": [],
+    "unit": "percent",
+    "metric_type": "fill_rate",
+    "display_name": "IPv4 route scale"
+  },
+  "ipv4_route_scale": {
+    "description": "IPv4 route create/remove/set throughput",
+    "direction": "higher_better",
+    "operations": [
+      "create",
+      "remove",
+      "set"
+    ],
+    "unit": "routes/s",
+    "metric_type": "throughput",
+    "display_name": "IPv4 route throughput"
+  },
+  "ipv6_neighbor": {
+    "description": "Max IPv6 neighbor entries supported",
+    "direction": "higher_better",
+    "operations": [],
+    "unit": "entries",
+    "metric_type": "scale",
+    "display_name": "IPv6 neighbor scale"
+  },
+  "ipv6_nexthop": {
+    "description": "Max IPv6 next hop entries supported",
+    "direction": "higher_better",
+    "operations": [],
+    "unit": "entries",
+    "metric_type": "scale",
+    "display_name": "IPv6 next hop scale"
+  },
+  "ipv6_prefix": {
+    "description": "Max IPv6 route entries supported",
+    "direction": "higher_better",
+    "operations": [],
+    "unit": "entries",
+    "metric_type": "scale",
+    "display_name": "IPv6 route scale"
+  },
+  "ipv6_route_fill_rate": {
+    "description": "IPv6 route table fill rate under load-factor test",
+    "direction": "higher_better",
+    "operations": [],
+    "unit": "percent",
+    "metric_type": "fill_rate",
+    "display_name": "IPv6 route scale"
+  },
+  "ipv6_route_scale": {
+    "description": "IPv6 route create/remove/set throughput",
+    "direction": "higher_better",
+    "operations": [
+      "create",
+      "remove",
+      "set"
+    ],
+    "unit": "routes/s",
+    "metric_type": "throughput",
+    "display_name": "IPv6 route throughput"
+  },
+  "neighbor_scale": {
+    "description": "Neighbor entry create/remove throughput",
+    "direction": "higher_better",
+    "operations": [
+      "create",
+      "remove"
+    ],
+    "unit": "neighbors/s",
+    "metric_type": "throughput",
+    "display_name": "Neighbor throughput"
+  },
+  "nexthop_route_scale": {
+    "description": "Auxiliary route throughput from next hop scale tests (not reported; route performance is owned by route scale tests)",
+    "direction": "higher_better",
+    "operations": [
+      "create",
+      "remove"
+    ],
+    "unit": "routes/s",
+    "metric_type": "throughput",
+    "include_in_report": false
+  },
+  "nexthop_scale": {
+    "description": "Next hop create/remove throughput",
+    "direction": "higher_better",
+    "operations": [
+      "create",
+      "remove"
+    ],
+    "unit": "nexthops/s",
+    "metric_type": "throughput",
+    "display_name": "Next hop throughput"
+  },
+  "pg_counter_read": {
+    "description": "Total time to read all priority group counters",
+    "direction": "lower_better",
+    "operations": [
+      "read"
+    ],
+    "unit": "ms",
+    "metric_type": "counter",
+    "display_name": "PG counter read"
+  },
+  "pg_watermark_counter_read": {
+    "description": "Total time to read or clear all priority group watermark counters",
+    "direction": "lower_better",
+    "operations": [
+      "read",
+      "clear"
+    ],
+    "unit": "ms",
+    "metric_type": "counter",
+    "display_name": "PG watermark counter"
+  },
+  "policer_counter_read": {
+    "description": "Total time to read all policer counters",
+    "direction": "lower_better",
+    "operations": [
+      "read"
+    ],
+    "unit": "ms",
+    "metric_type": "counter",
+    "display_name": "Policer counter read"
+  },
+  "port_counter_read": {
+    "description": "Total time to read all port counters",
+    "direction": "lower_better",
+    "operations": [
+      "read"
+    ],
+    "unit": "ms",
+    "metric_type": "counter",
+    "display_name": "Port counter read"
+  },
+  "queue_counter_read": {
+    "description": "Total time to read all queue counters",
+    "direction": "lower_better",
+    "operations": [
+      "read"
+    ],
+    "unit": "ms",
+    "metric_type": "counter",
+    "display_name": "Queue counter read"
+  },
+  "queue_watermark_counter_read": {
+    "description": "Total time to read or clear all queue watermark counters",
+    "direction": "lower_better",
+    "operations": [
+      "read",
+      "clear"
+    ],
+    "unit": "ms",
+    "metric_type": "counter",
+    "display_name": "Queue watermark counter"
+  },
+  "route_flap": {
+    "description": "ECMP route flap group/member rebuild throughput",
+    "direction": "higher_better",
+    "operations": [
+      "group_create",
+      "member_create",
+      "group_remove",
+      "member_remove"
+    ],
+    "unit": "routes/s",
+    "metric_type": "throughput",
+    "display_name": "Route flap throughput"
+  },
+  "vlan_member_scale": {
+    "description": "VLAN member create/remove throughput",
+    "direction": "higher_better",
+    "operations": [
+      "create",
+      "remove"
+    ],
+    "unit": "members/s",
+    "metric_type": "throughput",
+    "display_name": "VLAN member throughput"
+  },
+  "vlan_scale": {
+    "description": "VLAN create/remove throughput",
+    "direction": "higher_better",
+    "operations": [
+      "create",
+      "remove"
+    ],
+    "unit": "vlans/s",
+    "metric_type": "throughput",
+    "display_name": "VLAN throughput"
+  },
+  "vrf": {
+    "description": "Max virtual routers supported",
+    "direction": "higher_better",
+    "operations": [],
+    "unit": "vrfs",
+    "metric_type": "scale",
+    "display_name": "VRF scale"
+  },
+  "vrf_route_scale": {
+    "description": "Auxiliary route throughput from the VRF scale test (not reported; route performance is owned by route scale tests)",
+    "direction": "higher_better",
+    "operations": [
+      "create",
+      "remove"
+    ],
+    "unit": "routes/s",
+    "metric_type": "throughput",
+    "include_in_report": false
+  }
+}
