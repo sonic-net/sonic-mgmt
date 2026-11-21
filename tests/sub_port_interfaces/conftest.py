@@ -21,6 +21,7 @@ from sub_ports_helpers import SUB_PORTS_TEMPLATE
 from sub_ports_helpers import TUNNEL_TEMPLATE
 from sub_ports_helpers import PTF_NN_AGENT_TEMPLATE
 from sub_ports_helpers import check_sub_port
+from sub_ports_helpers import clear_fdb_entries
 from sub_ports_helpers import remove_member_from_vlan
 from sub_ports_helpers import get_port
 from sub_ports_helpers import remove_sub_port
@@ -42,6 +43,7 @@ from sub_ports_helpers import remove_sub_port_from_ptf
 from sub_ports_helpers import remove_bond_port
 from sub_ports_helpers import add_static_route_to_dut
 from sub_ports_helpers import remove_static_route_from_dut
+from sub_ports_helpers import shutdown_port
 from sub_ports_helpers import update_dut_arp_table
 
 logger = logging.getLogger(__name__)
@@ -422,6 +424,9 @@ def apply_route_config_for_port(request, tbinfo, duthost, ptfhost, port_type, de
 
         if 'svi' in request.param:
             # Remove SVI port from the DUT
+            if 'port_in_lag' in port_type:
+                shutdown_port(duthost, next_hop_sub_ports['dut_port'])
+                clear_fdb_entries(duthost, vlan_id, next_hop_sub_ports['dut_port'])
             remove_member_from_vlan(duthost, vlan_id, next_hop_sub_ports['dut_port'])
             remove_ip_from_port(duthost, 'Vlan{}'.format(vlan_id), ip=next_hop_sub_ports['neighbor_ip'])
             # Remove additional sub-port from the PTF
