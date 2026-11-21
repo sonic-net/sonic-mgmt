@@ -512,7 +512,7 @@ class SSHConsoleConn(BaseConsoleConn):
         delay_factor = self.select_delay_factor(delay_factor)
         # Floor the delay factor so the loop waits long enough for a slow/faildelayed password prompt.
         delay_factor = max(delay_factor, 1)
-        time.sleep(1 * delay_factor)
+        time.sleep(RESPONSE_WAIT_S * delay_factor)
 
         output = ""
         return_msg = ""
@@ -545,7 +545,7 @@ class SSHConsoleConn(BaseConsoleConn):
                         if (BOOTLOADER_BANNER_RE.search(return_msg + output)
                                 or re.search(username_pattern, output, flags=re.I)):
                             break
-                        time.sleep(0.5 * delay_factor)
+                        time.sleep(READ_INTERVAL_S * delay_factor)
                 else:
                     output = self.read_channel()
                 return_msg += output
@@ -553,7 +553,7 @@ class SSHConsoleConn(BaseConsoleConn):
                 # Search for username pattern / send username
                 if not user_sent and re.search(username_pattern, output, flags=re.I):
                     self.write_channel(username + self.RETURN)
-                    time.sleep(1 * delay_factor)
+                    time.sleep(RESPONSE_WAIT_S * delay_factor)
                     output = self.read_channel()
                     return_msg += output
                     user_sent = True
@@ -563,7 +563,7 @@ class SSHConsoleConn(BaseConsoleConn):
                 # 'Password:' prompt is split across multiple TCP reads (e.g. 'Pa' + 'ssword:')
                 if user_sent and not password_sent and re.search(pwd_pattern, return_msg, flags=re.I):
                     self.write_channel(password + self.RETURN)
-                    time.sleep(0.5 * delay_factor)
+                    time.sleep(READ_INTERVAL_S * delay_factor)
                     output = self.read_channel()
                     return_msg += output
                     password_sent = True
@@ -581,7 +581,7 @@ class SSHConsoleConn(BaseConsoleConn):
                 # Check if login failed (the pattern is only for SONiC)
                 if re.search(LOGIN_FAILURE_PATTERN, output, flags=re.M):
                     # Wait a short time or the next login will be refused
-                    time.sleep(1 * delay_factor)
+                    time.sleep(RESPONSE_WAIT_S * delay_factor)
                     msg = "Login failed: {}".format(self.host)
                     raise NetMikoAuthenticationException(msg)
 
@@ -598,7 +598,7 @@ class SSHConsoleConn(BaseConsoleConn):
                         self._bootloader_deferred = True
                         return return_msg
                     self.write_channel(self.RETURN)
-                time.sleep(0.5 * delay_factor)
+                time.sleep(READ_INTERVAL_S * delay_factor)
                 i += 1
             except EOFError:
                 self.remote_conn.close()
@@ -613,7 +613,7 @@ class SSHConsoleConn(BaseConsoleConn):
             self._bootloader_deferred = True
             return return_msg
         self.write_channel(self.RETURN)
-        time.sleep(0.5 * delay_factor)
+        time.sleep(READ_INTERVAL_S * delay_factor)
         output = self.read_channel()
         return_msg += output
         if re.search(pri_prompt_terminator, output, flags=re.M) or re.search(
