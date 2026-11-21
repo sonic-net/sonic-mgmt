@@ -5,10 +5,13 @@ After=syncd.service
 BindsTo=syncd.service
 
 [Service]
-Type=oneshot
+# Not Type=oneshot: a oneshot unit keeps its start job open for as long as the script runs. Since
+# sonic-buildimage #28910, swss.sh stops syncd with 'systemctl stop --job-mode=fail', which systemd
+# refuses while a unit bound to syncd still has a start job ("transaction is destructive"), so swss
+# would restart without syncd. The script retries by itself until TRAPS_CLEAR_TIMEOUT (1800 s).
+Type=simple
 RemainAfterExit=yes
-TimeoutStartSec=720
-ExecStart=/usr/bin/python3 /usr/local/bin/cisco_fanout_traps_clear.py
+ExecStart=/usr/bin/python3 -u /usr/local/bin/cisco_fanout_traps_clear.py
 
 [Install]
 # We strictly want to be triggered by syncd.service
