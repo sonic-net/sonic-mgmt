@@ -56,6 +56,11 @@ SONIC_SHELL_PROMPT_PATTERNS = (
     r'.*@sonic.*[\$#]',
 )
 LOGIN_FAILURE_PATTERN = r".*incorrect"
+# Prompts login_stage_2() looks for: logged in (# or $), username and password.
+LOGIN_PRI_PROMPT_TERMINATOR = r".*# "
+LOGIN_ALT_PROMPT_TERMINATOR = r".*\$ "
+LOGIN_USERNAME_PATTERN = r"(?:user:|username|login:|user name)"
+LOGIN_PWD_PATTERN = r"assword"
 # How the connect workflow uses the waits and limits below. Once the SSH login to the
 # console server succeeds, netmiko's constructor runs session_preparation() on the DUT
 # line. Most waits are multiplied by the delay_factor argument (DEFAULT_DELAY_FACTOR by
@@ -511,10 +516,10 @@ class SSHConsoleConn(BaseConsoleConn):
                       username,
                       password,
                       menu_port=None,
-                      pri_prompt_terminator=r".*# ",
-                      alt_prompt_terminator=r".*\$ ",
-                      username_pattern=r"(?:user:|username|login:|user name)",
-                      pwd_pattern=r"assword",
+                      pri_prompt_terminator=LOGIN_PRI_PROMPT_TERMINATOR,
+                      alt_prompt_terminator=LOGIN_ALT_PROMPT_TERMINATOR,
+                      username_pattern=LOGIN_USERNAME_PATTERN,
+                      pwd_pattern=LOGIN_PWD_PATTERN,
                       delay_factor=DEFAULT_DELAY_FACTOR,
                       max_loops=DEFAULT_LOGIN_MAX_LOOPS,
                       defer_on_bootloader=False
