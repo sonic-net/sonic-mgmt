@@ -6,6 +6,7 @@ from collections.abc import Iterator
 import pytest
 
 from tests.common.devices.duthosts import DutHosts
+from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.gu_utils import create_checkpoint, rollback
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.helpers.assertions import pytest_require as pyrequire
@@ -187,13 +188,22 @@ def do_init(duthost):
     duthost.copy(src="gnmi/validate_yang_events.py", dest="~/")
 
 
-@pytest.fixture(scope="module")
-def test_eventd_healthy(duthosts, tbinfo, rand_one_dut_hostname, ptfhost, ptfadapter, gnxi_path):
+@pytest.fixture(scope="function")
+def test_eventd_healthy(
+    duthosts,
+    tbinfo,
+    rand_one_dut_hostname,
+    ptfhost,
+    ptfadapter,
+    setup_gnmi_ntp_client_server,
+    check_dut_timestamp,
+    gnmi_tls,  # noqa: F811
+):  # noqa: F811
     """
     @summary: Verify eventd heartbeat before running the events testcases against
-    the gnmi container (via the gnmi setup fixtures).
+    the gnmi container after the managed TLS fixture has configured it.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = gnmi_tls.duthost
 
     if duthost.is_multi_asic:
         pytest.skip("Skip eventd testing on multi-asic")
@@ -210,4 +220,5 @@ def test_eventd_healthy(duthosts, tbinfo, rand_one_dut_hostname, ptfhost, ptfada
 
     py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "eventd"), "eventd not started.")
 
-    module.test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, EVENTS_DATA_DIR, None)
+    module.test_event(duthost, tbinfo, gnmi_tls, ptfhost, ptfadapter, EVENTS_DATA_DIR, None)
+    return gnmi_tls
