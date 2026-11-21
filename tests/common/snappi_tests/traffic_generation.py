@@ -637,6 +637,10 @@ def check_for_crc_errors(api, snappi_extra_params):
     Returns:
         None
     """
+    if not hasattr(api, '_ixnetwork'):
+        # StatViewAssistant needs the IxNetwork REST client; gRPC-based snappi backends
+        # (e.g. GrpcApi) have no _ixnetwork attribute, so skip the check for them.
+        return
     ixnetwork = api._ixnetwork
     port_metrics = StatViewAssistant(ixnetwork, 'Port Statistics')
     for row in port_metrics.Rows:
