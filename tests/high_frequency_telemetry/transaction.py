@@ -7,7 +7,7 @@ import json
 import os
 import socket
 import uuid
-from contextlib import ExitStack, contextmanager
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -95,13 +95,19 @@ def controller_lock(dut):
         yield local
 
 
-def claim(dut, request, recover):
-    # Register first so the kernel lock outlives every remote finalizer. A dead
-    # controller releases it even on SIGKILL; an old timestamp is not proof of death.
-    stack = ExitStack()
-    request.addfinalizer(stack.close)
-    local = stack.enter_context(controller_lock(dut))
+@contextmanager
+def claim(dut, recover):
+    # Keep the kernel lock through setup, use and rollback in a single lexical
+    # scope. A dead controller releases it even on SIGKILL.
+    with controller_lock(dut) as local:
+        tx = _claim_locked(dut, local, recover)
+        try:
+            yield tx
+        finally:
+            recover(tx)
 
+
+def _claim_locked(dut, local, recover):
     def remember(token):
         local.write(token + "\n")
         local.flush()
@@ -115,7 +121,7 @@ def claim(dut, request, recover):
         pytest.fail("A legacy HFT run holds /run/lock/sonic-mgmt-hft; verify its owner and journal before retrying")
     if previous:
         owner = read_record(dut, previous / "owner.json")
-        if owner.get("version") != 4:
+        if owner.get("version") != 5:
             raise RuntimeError(f"Unrecognized HFT journal version at {previous}; use its matching recovery code")
         if owner["id"] not in previous_tokens and os.environ.get("SONIC_MGMT_HFT_RECOVER_OWNER") != owner["id"]:
             pytest.fail(f"HFT run {previous.name} is owned by {owner['controller']}. If that job is confirmed dead, "
@@ -139,5 +145,4 @@ def claim(dut, request, recover):
         dut.file(path=str(work), state="absent")  # not yet published or used
         raise
     tx.call("claim", controller)
-    request.addfinalizer(lambda: recover(tx))
     return tx

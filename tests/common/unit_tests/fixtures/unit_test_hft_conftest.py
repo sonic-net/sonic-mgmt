@@ -129,7 +129,7 @@ def test_multi_asic_gate_precedes_transaction(hft_conftest, monkeypatch):
     claim = MagicMock()
     monkeypatch.setattr(hft_conftest.transaction, "claim", claim)
     with pytest.raises(pytest.skip.Exception, match="single ASIC"):
-        hft_conftest.skip_unsupported_hft_platform.__wrapped__(MagicMock(), {"dut": dut}, "dut")
+        next(hft_conftest.skip_unsupported_hft_platform.__wrapped__(MagicMock(), {"dut": dut}, "dut"))
     claim.assert_not_called()
     dut.command.assert_not_called()
 
@@ -148,6 +148,21 @@ def test_profile_cleanup_failure_keeps_original_exporters_isolated(hft_conftest)
         hft_conftest._recover_transaction(tx, MagicMock())
     calls = [c.args[0] for c in tx.call.call_args_list]
     assert "restore" not in calls and "restore-otel" not in calls and "finish" not in calls
+
+
+@pytest.mark.parametrize("masked", ["otel", "hft"])
+def test_masked_enabled_unit_skips_before_setup(hft_conftest, monkeypatch, masked):
+    dut = MagicMock()
+
+    def read(argv):
+        return {"stdout": "masked-runtime" if masked + ".service" in argv else ""}
+
+    dut.command.side_effect = read
+    monkeypatch.setattr(hft_conftest, "_supported_hft_state", lambda _: "enabled")
+    monkeypatch.setattr(hft_conftest, "_read_feature", lambda *a: {"state": "enabled"})
+    with pytest.raises(pytest.skip.Exception, match=f"Enabled {masked} unit is masked"):
+        hft_conftest._snapshot_platform(dut, MagicMock())
+    dut.shell.assert_not_called()
 
 
 @pytest.mark.parametrize("status", [

@@ -1,5 +1,10 @@
 """Recovery must preserve the original identity, command and feature policy on partial setup."""
+import fcntl
 import json
+import os
+import select
+import sys
+import threading
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -66,6 +71,8 @@ def test_original_container_restored_after_install_or_start_failure(tmp_path, mo
     def command(*argv):
         if argv[:2] == ("sonic-db-cli", "CONFIG_DB"):
             return "local" if argv[-1] == "set_owner" else current_state
+        if argv[:2] == ("systemctl", "show") and "UnitFileState" in argv:
+            return "enabled"
         if argv == ("systemctl", "stop", "hft.service"):
             get("hft").stop()
             return ""
@@ -136,13 +143,15 @@ def test_closed_owner_cannot_create_a_late_profile(tmp_path, monkeypatch):
 def test_controller_lock_releases_after_exception(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
     dut = SimpleNamespace(hostname="unit-test-dut")
-    with pytest.raises(RuntimeError):
-        with controller.controller_lock(dut) as file:
+    fail_setup = Mock(side_effect=RuntimeError("setup failed"))
+
+    with pytest.raises(RuntimeError, match="setup failed"):
+        with controller.controller_lock(dut):
             with pytest.raises(pytest.fail.Exception, match="Another HFT test"):
                 with controller.controller_lock(dut):
-                    pytest.fail("duplicate owner")
-            raise RuntimeError("setup failed")
-    assert file.closed
+                    pass
+            fail_setup()
+    # A second independent open can now acquire the same kernel lock.
     with controller.controller_lock(dut):
         pass
 
@@ -156,3 +165,69 @@ def test_cleanup_before_delayed_sink_launch(tmp_path, monkeypatch):
         hft_sink.lifecycle("start", node, 8181)
     hft_sink.lifecycle("stop", node, 8181)
     assert not list(tmp_path.iterdir())
+
+
+def test_rejected_otel_enable_disarms_intent(tmp_path, monkeypatch):
+    original = {"state": "disabled", "set_owner": "local"}
+    snapshot = {"original_state": "disabled", "original_feature": original}
+    monkeypatch.setattr(hft, "otel_fields", lambda: original)
+    cas = Mock(side_effect=hft.FeatureConflict("owner changed"))
+    monkeypatch.setattr(hft, "change_feature_state", cas)
+    with pytest.raises(hft.FeatureConflict):
+        hft.enable_otel(Mock(), tmp_path, snapshot)
+    cas.assert_called_once_with("otel", "disabled", "enabled")
+    assert not (tmp_path / "otel-enable.json").exists()
+
+
+def test_collector_config_checks_destination_before_rename(tmp_path, monkeypatch):
+    work = tmp_path / "sonic-mgmt-hft-unit"
+    work.mkdir()
+    config = tmp_path / "otel-config.yml"
+    config.write_text("original\n")
+    config.chmod(0o640)
+    monkeypatch.setattr(hft, "OTEL_CONFIG", config)
+    (work / "otel.json").write_text(json.dumps({"otel_config": ["original\n", "0640"]}))
+    (work / "config.owner").write_text("test\n")
+    check = Mock(side_effect=hft.FeatureConflict("OTEL transferred"))
+    with pytest.raises(hft.FeatureConflict):
+        hft.install_collector_config(work, "owner", before_replace=check)
+    assert config.read_text() == "original\n"
+    assert not list(tmp_path.glob("*.tmp"))
+
+
+def test_child_process_inherits_directory_fence(tmp_path):
+    # An independently opened descriptor must contend with the inherited lock,
+    # even after the helper has closed its own copy. Use pipes, not timing sleeps.
+    started_r, started_w = os.pipe()
+    release_r, release_w = os.pipe()
+    lock_fd = os.open(tmp_path, os.O_DIRECTORY)
+    fcntl.flock(lock_fd, fcntl.LOCK_EX)
+    probe = f"import os; os.write({started_w}, b'1'); os.read({release_r}, 1)"
+
+    def child():
+        token = hft.FENCE_FDS.set((lock_fd, started_w, release_r))
+        try:
+            hft.command(sys.executable, "-c", probe)
+        finally:
+            hft.FENCE_FDS.reset(token)
+
+    thread = threading.Thread(target=child)
+    thread.start()
+    try:
+        assert select.select([started_r], [], [], 5)[0] and os.read(started_r, 1) == b"1"
+        os.close(lock_fd)
+        contender = os.open(tmp_path, os.O_DIRECTORY)
+        try:
+            with pytest.raises(BlockingIOError):
+                fcntl.flock(contender, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            os.write(release_w, b"1")
+            thread.join(5)
+            assert not thread.is_alive()
+            fcntl.flock(contender, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        finally:
+            os.close(contender)
+    finally:
+        os.close(release_w)
+        thread.join(5)
+        for fd in (started_r, started_w, release_r):
+            os.close(fd)

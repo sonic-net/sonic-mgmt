@@ -164,7 +164,11 @@ def skip_unsupported_hft_platform(request, duthosts, enum_rand_one_per_hwsku_hos
         pytest.skip("The HFT fixture requires a single ASIC; per-ASIC hft instances are not supported")
     if transaction.active_work(duthost) is None:
         _supported_hft_state(duthost)  # fast skip on legacy images, never a recovery baseline
-    tx = transaction.claim(duthost, request, partial(_recover_transaction, request=request))
+    with transaction.claim(duthost, partial(_recover_transaction, request=request)) as tx:
+        yield _snapshot_platform(duthost, tx)
+
+
+def _snapshot_platform(duthost, tx):
     original_hft_state = _supported_hft_state(duthost)
     if duthost.command(argv=["redis-cli", "-n", "4", "--raw", "KEYS", "HIGH_FREQUENCY_TELEMETRY_*"])["stdout"]:
         pytest.skip("Existing HFT configuration is not owned by this run")
@@ -179,6 +183,13 @@ def skip_unsupported_hft_platform(request, duthosts, enum_rand_one_per_hwsku_hos
         pytest.fail(f"Unexpected OTEL feature state: {original_state}")
     if original_state == "always_disabled":
         pytest.skip("OTEL feature is always disabled")
+
+    for service, state in (("hft", original_hft_state), ("otel", original_state)):
+        if state in enabled_states:
+            policy = duthost.command(argv=["systemctl", "show", service + ".service", "-p", "UnitFileState",
+                                           "--value"])["stdout"].strip()
+            if policy in ("masked", "masked-runtime"):
+                pytest.skip(f"Enabled {service} unit is {policy}; cannot safely restart it")
 
     container_id, container_state = _otel_container(duthost)
     if container_state not in ("running", "absent", "created", "exited"):
