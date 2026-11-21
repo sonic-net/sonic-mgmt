@@ -253,9 +253,8 @@ def test_bgpmon_v4(dut_with_default_route, localhost, tbinfo, enum_rand_one_fron
     nht_configured_for_test = cloudtype == 'public'
     if nht_configured_for_test:
         logger.info("Public cloudtype: temporarily enabling ip nht resolve-via-default for test")
-        duthost.run_vtysh(
-            "-c 'configure terminal' -c 'ip nht resolve-via-default'",
-            asic_index='all'
+        asichost.run_vtysh(
+            "-c 'configure terminal' -c 'ip nht resolve-via-default'"
         )
 
     exp_packet = build_syn_pkt(local_addr, peer_addr)
@@ -307,9 +306,8 @@ def test_bgpmon_v4(dut_with_default_route, localhost, tbinfo, enum_rand_one_fron
     finally:
         if nht_configured_for_test:
             logger.info("Public cloudtype: removing temporary ip nht resolve-via-default")
-            duthost.run_vtysh(
-                "-c 'configure terminal' -c 'no ip nht resolve-via-default'",
-                asic_index='all'
+            asichost.run_vtysh(
+                "-c 'configure terminal' -c 'no ip nht resolve-via-default'"
             )
         ptfhost.exabgp(name=BGP_MONITOR_NAME, state="absent")
         ptfhost.shell("ip route del %s dev %s" % (local_addr + "/32", ptf_interface))
@@ -317,8 +315,8 @@ def test_bgpmon_v4(dut_with_default_route, localhost, tbinfo, enum_rand_one_fron
                       % (local_addr, router_mac, ptf_interface))
         ptfhost.shell("ip addr del %s dev %s" % (peer_addr + "/24", ptf_interface))
         ptfhost.shell("ifconfig %s hw ether %s" % (ptf_interface, original_mac))
-        duthost.run_sonic_db_cli_cmd(
-            "CONFIG_DB del 'BGP_MONITORS|{}'".format(peer_addr), asic_index='all')
+        asichost.run_sonic_db_cli_cmd(
+            "CONFIG_DB del 'BGP_MONITORS|{}'".format(peer_addr))
 
 
 def test_bgpmon_v6(dut_with_default_route, localhost, enum_rand_one_frontend_asic_index,
@@ -363,9 +361,8 @@ def test_bgpmon_v6(dut_with_default_route, localhost, enum_rand_one_frontend_asi
     logger.info("Configured bgpmon v6 and verifying active ExaBGP peering")
     asichost.write_to_config_db(BGPMON_CONFIG_FILE)
     if configure_passive:
-        duthost.run_vtysh(
-            "-c 'configure terminal' -c 'router bgp {}' -c 'neighbor {} passive'".format(asn, peer_addr),
-            asic_index='all'
+        asichost.run_vtysh(
+            "-c 'configure terminal' -c 'router bgp {}' -c 'neighbor {} passive'".format(asn, peer_addr)
         )
 
     selected_ptf_interface = None
@@ -408,9 +405,8 @@ def test_bgpmon_v6(dut_with_default_route, localhost, enum_rand_one_frontend_asi
         pytest_assert(bgpmon_established, "BGPMon v6 Peer connection not established")
     finally:
         if configure_passive:
-            duthost.run_vtysh(
-                "-c 'configure terminal' -c 'router bgp {}' -c 'no neighbor {} passive'".format(asn, peer_addr),
-                asic_index='all'
+            asichost.run_vtysh(
+                "-c 'configure terminal' -c 'router bgp {}' -c 'no neighbor {} passive'".format(asn, peer_addr)
             )
         ptfhost.exabgp(name=BGP_MONITOR_NAME, state="absent")
         if selected_ptf_interface:
@@ -418,5 +414,5 @@ def test_bgpmon_v6(dut_with_default_route, localhost, enum_rand_one_frontend_asi
             ptfhost.shell("ip -6 neigh del %s lladdr %s dev %s"
                           % (local_addr, selected_router_mac, selected_ptf_interface))
             ptfhost.shell("ip -6 addr del %s dev %s" % (peer_addr + "/128", selected_ptf_interface))
-        duthost.run_sonic_db_cli_cmd(
-            "CONFIG_DB del 'BGP_MONITORS|{}'".format(peer_addr), asic_index='all')
+        asichost.run_sonic_db_cli_cmd(
+            "CONFIG_DB del 'BGP_MONITORS|{}'".format(peer_addr))
