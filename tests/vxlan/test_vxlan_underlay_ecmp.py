@@ -72,6 +72,12 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
                 "No interface found connected to t2 neighbors. "
                 "pls check the testbed, aborting.")
 
+        if len(all_t2_intfs) <= ecmp_path_count:
+            pytest.skip(
+                "Need more than {} T2 interfaces to keep an underlay path while "
+                "{} are shut down, found {}: {}".format(
+                    ecmp_path_count, ecmp_path_count, len(all_t2_intfs), all_t2_intfs))
+
         duthost = self.vxlan_test_setup['duthost']
         # Only the packet count is reduced on VS. all_t2_intfs must stay complete: the second
         # half of this test brings down every T2 interface except the selected ones and then
@@ -464,15 +470,22 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
         '''
         self.vxlan_test_setup = setUp
 
-        # Verification of traffic before shutting down port channel
-        self.dump_self_info_and_run_ptf("tc12", encap_type, True, check_underlay_ecmp=True)
-
         # Gathering all portchannels
         all_t2_portchannel_intfs = \
             list(ecmp_utils.get_portchannels_to_neighbors(
                 self.vxlan_test_setup['duthost'],
                 "T2",
                 minigraph_facts))
+
+        if len(all_t2_portchannel_intfs) < 2:
+            pytest.skip(
+                "Need at least 2 T2 port-channels to keep an underlay path while "
+                "one is shut down, found {}: {}".format(
+                    len(all_t2_portchannel_intfs), all_t2_portchannel_intfs))
+
+        # Verification of traffic before shutting down port channel
+        self.dump_self_info_and_run_ptf("tc12", encap_type, True, check_underlay_ecmp=True)
+
         all_t2_portchannel_members = {}
         for each_pc in all_t2_portchannel_intfs:
             all_t2_portchannel_members[each_pc] =\
