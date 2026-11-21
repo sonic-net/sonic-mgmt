@@ -41,7 +41,6 @@ def ConsoleHost(console_type,
                 console_direct_ssh_port=None,
                 timeout_s=100,
                 supervisor_ip=None,
-                linecard_number=None,
                 slot_num=None,
                 hwsku=None,
                 cancel_event=None,
@@ -75,8 +74,6 @@ def ConsoleHost(console_type,
     # Add linecard-specific parameters if provided
     if supervisor_ip is not None:
         params["supervisor_ip"] = supervisor_ip
-    if linecard_number is not None:
-        params["linecard_number"] = linecard_number
     if slot_num is not None:
         params["slot_num"] = slot_num
     if hwsku is not None:
