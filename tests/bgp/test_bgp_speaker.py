@@ -286,6 +286,40 @@ def is_all_neighbors_learned(duthost, speaker_ips):
     return True
 
 
+def wait_for_rib_stable(duthost, timeout=120, poll_interval=10, stable_checks=2):
+    """Wait for Zebra RIB to finish installing routes after BGP convergence.
+
+    BGP sessions becoming established (bgpd layer) does not guarantee that
+    Zebra has finished installing all routes into the RIB.  The
+    memory_utilization fixture teardown may fire while Zebra is still
+    processing the route updates, causing a false memory alarm.  Polling
+    'show ip route summary' until the total route count is stable across
+    two consecutive checks ensures the RIB has fully converged before the
+    test tears down.
+    """
+    prev_count = None
+    stable_streak = 0
+    start = time.time()
+    deadline = start + timeout
+
+    while time.time() < deadline:
+        elapsed = time.time() - start
+        ipv4_summary, _ = duthost.get_ip_route_summary()
+        curr_count = ipv4_summary.get("Totals", {}).get("routes", 0)
+        if curr_count == prev_count:
+            stable_streak += 1
+            if stable_streak >= stable_checks:
+                logger.info("RIB stable: %d routes (confirmed %d times, elapsed=%.0fs)",
+                            curr_count, stable_checks, elapsed)
+                return
+        else:
+            stable_streak = 0
+        prev_count = curr_count
+        time.sleep(poll_interval)
+
+    logger.warning("wait_for_rib_stable: timed out after %ds, last route count=%s", timeout, prev_count)
+
+
 def bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, duthost,
                                        ptfhost, ipv4, ipv6, mtu,
                                        family, prefix, nexthop_ips, vlan_mac,
@@ -317,6 +351,8 @@ def bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, duthost,
         "DUT Host: {}"
         "Speaker IPs: {}"
     ).format(duthost, speaker_ips)
+
+    wait_for_rib_stable(duthost)
 
     logger.info("Verify nexthops and nexthop interfaces for accepted prefixes of the dynamic neighbors")
     rtinfo = duthost.get_ip_route_info(ipaddress.ip_network(prefix.encode().decode()))
