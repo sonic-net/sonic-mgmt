@@ -152,6 +152,31 @@ def _written(conn):
     return [c.args[0] for c in conn.write_channel.call_args_list if c.args]
 
 
+def test_console_only_preparation_leaves_uart_untouched():
+    conn = _make_console(["Hit any key to stop autoboot"])
+    conn._console_only = True
+
+    conn.session_preparation()
+
+    conn.read_channel.assert_not_called()
+    conn.write_channel.assert_not_called()
+    conn.clear_buffer.assert_not_called()
+
+
+def test_console_only_cleanup_closes_without_probing():
+    conn = _make_console([])
+    conn._console_only = True
+    conn.remote_conn = mock.MagicMock()
+    conn._is_at_sonic_prompt = mock.MagicMock()
+
+    conn.cleanup()
+
+    conn.remote_conn.close.assert_called_once_with()
+    conn._is_at_sonic_prompt.assert_not_called()
+    conn.read_channel.assert_not_called()
+    conn.write_channel.assert_not_called()
+
+
 @pytest.mark.parametrize("banner", [
     "Press Control-C now to enter Aboot shell\n",
     "Hit any key to stop autoboot:  3\n",
