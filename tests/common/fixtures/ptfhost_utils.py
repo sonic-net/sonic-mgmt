@@ -247,12 +247,25 @@ ArpResponderInfo = namedtuple("ArpResponderInfo", ["vlan", "responder_cfg"])
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
+    yield from vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo)
+
+
+def vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo, asic=None):
+    """
+    Run arp_responder on the PTF for the members of the first VLAN, yield an ArpResponderInfo, then stop it.
+
+    By default the VLAN is taken from the DUT running config. If asic is given, it is taken from the config of
+    that ASIC, for multi-ASIC DUTs where each ASIC has its own VLANs (e.g. ASICs not connected to each other).
+    """
     arp_responder_cfg = {}
     if is_ipv6_only_topology(tbinfo):
         ipv4_base = None
-    config_facts = rand_selected_dut.config_facts(
-        host=rand_selected_dut.hostname, source="running"
-    )['ansible_facts']
+    if asic is None:
+        config_facts = rand_selected_dut.config_facts(
+            host=rand_selected_dut.hostname, source="running"
+        )['ansible_facts']
+    else:
+        config_facts = asic.config_facts(source="running")['ansible_facts']
     vlan_intf_config = config_facts['VLAN_INTERFACE']
     for vlan, attrs in vlan_intf_config.items():
         for val in attrs:
@@ -269,7 +282,7 @@ def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
         break
     vlan_members = list(config_facts['VLAN_MEMBER'][vlan].keys())
 
-    dut_to_ptf_port_map = rand_selected_dut.get_extended_minigraph_facts(
+    dut_to_ptf_port_map = (rand_selected_dut if asic is None else asic).get_extended_minigraph_facts(
         tbinfo
     )['minigraph_ptf_indices']
 
@@ -483,12 +496,26 @@ def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request
     logger.info("Start running icmp_responder")
     templ = Template(open(os.path.join(TEMPLATES_DIR, ICMP_RESPONDER_CONF_TEMPL)).read())
     ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
-    vlan_intfs = duthost.get_vlan_intfs()
-    vlan_table = duthost.get_running_config_facts()['VLAN']
-    vlan_name = list(vlan_table.keys())[0]
-    vlan_mac = duthost.get_dut_iface_mac(vlan_name)
+    if duthost.is_multi_asic:
+        # The VLANs are in the namespaces of the front-end ASICs, each ASIC may have its own VLAN MAC
+        vlan_intfs = []
+        vlan_macs = set()
+        for asic in duthost.frontend_asics:
+            asic_vlan_members = asic.config_facts(source="running")['ansible_facts'].get('VLAN_MEMBER', {})
+            for vlan_name, members in asic_vlan_members.items():
+                vlan_intfs.extend(members)
+                vlan_macs.add(duthost.command(
+                    "{}cat /sys/class/net/{}/address".format(asic.ns_arg, vlan_name))['stdout'].strip())
+        # Without -m, the reply goes back to the source MAC of the request, which is the VLAN MAC of the ASIC
+        vlan_mac = vlan_macs.pop() if len(vlan_macs) == 1 else None
+    else:
+        vlan_intfs = duthost.get_vlan_intfs()
+        vlan_table = duthost.get_running_config_facts()['VLAN']
+        vlan_name = list(vlan_table.keys())[0]
+        vlan_mac = duthost.get_dut_iface_mac(vlan_name)
     icmp_responder_args = " ".join("-i eth%s" % ptf_indices[_] for _ in vlan_intfs)
-    icmp_responder_args += " " + "-m {}".format(vlan_mac)
+    if vlan_mac:
+        icmp_responder_args += " " + "-m {}".format(vlan_mac)
     icmp_responder_args += ipv6_args
     ptfhost.copy(
         content=templ.render(icmp_responder_args=icmp_responder_args),
