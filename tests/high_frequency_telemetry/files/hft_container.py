@@ -153,8 +153,7 @@ def stop_owned_unit(service):
             raise
 
 
-def enable_feature(client):
-    command("config", "feature", "state", SERVICE, "enabled")
+def wait_for_feature(client):
     for _ in range(60):
         container = lookup(client, SERVICE)
         if container and container.status == "running":
@@ -180,6 +179,24 @@ def create_with_args(client, source, name, args):
         config.pop("Hostname", None)
     cid = client.api.create_container_from_config(config, name=name)["Id"]
     return client.containers.get(cid)
+
+
+def with_otel_args(original, overrides):
+    """Replace only OTEL's flag (-o) and endpoint, preserving all other Docker CMD tokens."""
+    keep = []
+    tokens = iter(original or ())
+    for token in tokens:
+        if token in ("--enable-otel", "-o") or token.startswith(("--enable-otel=", "--otel-endpoint=")):
+            continue
+        if token == "--otel-endpoint":
+            value = next(tokens, None)
+            if not value or value.startswith("-"):
+                raise RuntimeError("Cannot merge an incomplete --otel-endpoint in the original hft command")
+            continue
+        if token == "--" or (token.startswith("-") and not token.startswith("--") and len(token) > 2):
+            raise RuntimeError("Cannot safely merge positional or clustered short options in the original hft command")
+        keep.append(token)
+    return keep + list(overrides)
 
 
 def create_from_launcher(client, work, service, label, args):
@@ -218,6 +235,7 @@ def install(client, work, state, args):
         raise RuntimeError("HFT container and feature state disagree before setup")
     if original:
         check_source(original)
+        args = with_otel_args(original.attrs["Config"].get("Cmd"), args)
 
     # Write recovery information before the first change. Keep the *actual* original
     # container (including its writable layer) until its name and state are restored.
@@ -225,7 +243,9 @@ def install(client, work, state, args):
     if record.exists():
         raise RuntimeError("HFT install already attempted; recover this run first")
     policy = disabled_policy(SERVICE) if state == "disabled" else None
-    save(record, {"state": state, "original": original.id if original else None, "unit_policy": policy})
+    before = {"state": state, "original": original.id if original else None, "unit_policy": policy,
+              "enable_armed": False}
+    save(record, before)
     if original is None:
         # Label at Docker create, before SONiC is allowed to start the feature. An
         # interrupted/failed bootstrap never requires adopting an unlabelled hft.
@@ -235,8 +255,16 @@ def install(client, work, state, args):
         stop_service(original)
         original.rename(work.name + "-original")
         candidate.rename(SERVICE)
-    if feature_state() == "disabled":
-        enable_feature(client)
+    if state == "disabled":
+        before["enable_armed"] = True
+        save(record, before)
+        try:
+            change_feature_state(SERVICE, "disabled", "enabled")
+        except FeatureConflict:
+            before["enable_armed"] = False  # Redis confirmed that no write took place.
+            save(record, before)
+            raise
+        wait_for_feature(client)
     else:
         start_service()
     running = client.containers.get(SERVICE)
@@ -247,10 +275,13 @@ def install(client, work, state, args):
 def restore(client, work):
     record = work / "before.json"
     if not record.exists():  # Setup rejected the initial state without changing the DUT.
-        return
+        return None
     before = json.loads(record.read_text())
     if command("sonic-db-cli", "CONFIG_DB", "HGET", "FEATURE|hft", "set_owner") not in ("", "local"):
         raise RuntimeError("HFT is no longer locally managed; keeping recovery record")
+    state = feature_state()
+    if state != before["state"] and not (before["enable_armed"] and state == "enabled"):
+        raise RuntimeError("HFT feature state changed outside the transaction; keeping recovery record")
     source_id = before["original"]
     current = lookup(client, SERVICE)
     test_owns_current = current is not None and current.labels.get(OWNER_LABEL) == work.name
@@ -266,8 +297,8 @@ def restore(client, work):
     candidates = client.containers.list(all=True, filters={"label": OWNER_LABEL + "=" + work.name})
     for candidate in candidates:
         stop_owned(candidate, work.name)
-    if before["state"] == "disabled" and feature_state() != "disabled":
-        command("config", "feature", "state", SERVICE, "disabled")
+    if before["enable_armed"] and state == "enabled":
+        change_feature_state(SERVICE, "enabled", "disabled")
 
     for candidate in candidates:
         candidate.remove()  # Never force-remove a running container.
@@ -359,7 +390,11 @@ def stop_collector(container):
         raise RuntimeError(f"Could not stop the original OTEL collector: {output!r}")
 
 
-def undo_otel_state(expected_state, restore_state, *, created):
+class FeatureConflict(RuntimeError):
+    """The owner, state or test-created row no longer matches the intended write."""
+
+
+def change_feature_state(service, expected_state, restore_state, *, created=False):
     # For a temporary hash, compare *all* fields before either writing or deleting.
     # For an existing hash, compare state and local ownership in the same Redis
     # operation and leave every other field (including later operator edits) alone.
@@ -378,10 +413,10 @@ def undo_otel_state(expected_state, restore_state, *, created):
         else redis.call('HDEL', KEYS[1], 'state') end
         return 1
     """
-    result = command("redis-cli", "-n", "4", "--raw", "EVAL", script, "1", "FEATURE|otel",
+    result = command("redis-cli", "-n", "4", "--raw", "EVAL", script, "1", "FEATURE|" + service,
                      "row" if created else "state", restore_state or "", *fields)
     if result != "1":
-        raise RuntimeError("OTEL feature state changed during recovery; keeping recovery record")
+        raise FeatureConflict(f"{service} owner or feature state changed; keeping recovery record")
 
 
 def restore_otel(client, work, snapshot):
@@ -397,7 +432,7 @@ def restore_otel(client, work, snapshot):
             stop_owned_unit("otel")
             stop_by_id(current)
         if armed and fields.get("state") == "enabled":
-            undo_otel_state("enabled", "disabled", created=not snapshot["original_feature"])
+            change_feature_state("otel", "enabled", "disabled", created=not snapshot["original_feature"])
         current = wait_otel(client, work, snapshot, lambda c: c is None or c.status in ("created", "exited"), "stop")
         # Let featured act on 'disabled' before removing a temporary row; once
         # the row is gone it can no longer reconcile the unit's boot policy.
@@ -406,12 +441,14 @@ def restore_otel(client, work, snapshot):
         fields = otel_fields()
         check_otel_fields(snapshot, fields, armed)
         if armed and fields and not snapshot["original_feature"]:
-            undo_otel_state("disabled", None, created=True)
+            change_feature_state("otel", "disabled", None, created=True)
         elif armed and "state" not in snapshot["original_feature"] and fields.get("state") == "disabled":
-            undo_otel_state("disabled", None, created=False)
+            change_feature_state("otel", "disabled", None)
         if current and snapshot["container_id"] is None:
             current.remove()  # The tagged test container has positively stopped.
     elif snapshot["original_collector_running"]:
+        if not any(work.glob("config-*")) and current.status == "running" and collector_running(current):
+            return  # HFT setup failed before installing any test collector configuration.
         command("systemctl", "reset-failed", "otel.service")
         command("systemctl", "restart", "otel.service")
         # The operator's valid original collector may have no gRPC :4317 receiver.
@@ -495,7 +532,7 @@ def transaction(action, work, owner, args):
                         and points_to(LEGACY_LOCK, work)):
                     return
                 raise RuntimeError("HFT claim already attempted; refusing to overwrite its owner")
-            save(path, {"version": 3, "id": owner, "controller": args[0]})
+            save(path, {"version": 4, "id": owner, "controller": args[0]})
             try:
                 ACTIVE.symlink_to(work)
                 sync_directory(ACTIVE.parent)
@@ -512,8 +549,11 @@ def transaction(action, work, owner, args):
         ownership = json.loads(path.read_text())
         if not points_to(ACTIVE, work) or ownership["id"] != owner:
             raise RuntimeError("HFT transaction or owner changed; refusing stale operation")
-        if ownership.get("closing") and action not in ("take", "close", "restore", "restore-otel", "done", "finish"):
+        if ownership.get("closing") and action not in (
+                "take", "close", "clean-profiles", "restore", "restore-otel", "done", "finish"):
             raise RuntimeError("HFT transaction is closing; refusing late setup")
+        if action in ("restore", "restore-otel") and (work / "profile.json").exists():
+            raise RuntimeError("Test profile is still armed; cannot restore the production export path")
         if action in ("take", "close", "restore"):
             if not os.path.lexists(LEGACY_LOCK):  # /run was cleared by a DUT reboot.
                 LEGACY_LOCK.symlink_to(work)
@@ -536,7 +576,8 @@ def transaction(action, work, owner, args):
                 required.update(("sink", "profiles"))
             if (work / "otel.json").exists():
                 required.add("otel")
-            if not ownership.get("closing") or not required.issubset(ownership.get("done", [])):
+            if ((work / "profile.json").exists() or not ownership.get("closing") or
+                    not required.issubset(ownership.get("done", []))):
                 raise RuntimeError("HFT transaction has not completed recovery")
             if points_to(LEGACY_LOCK, work):
                 LEGACY_LOCK.unlink()
@@ -574,6 +615,15 @@ def transaction(action, work, owner, args):
             os.fsync(fd)
         elif action == "configure":
             install_collector_config(work, owner)
+        elif action in ("profile-create", "profile-state", "profile-remove", "clean-profiles"):
+            from hft_profiles import OwnedProfile  # sibling staged on the DUT
+            profile = OwnedProfile(work, command, save, fd)
+            if action == "profile-create":
+                print(profile.create(args[0], **json.load(sys.stdin)))
+            elif action == "profile-state":
+                profile.set_state(*args)
+            else:
+                profile.remove(*args)
         elif action in ("install", "restore", "prepare-otel", "restart-otel", "stop-collector", "restore-otel"):
             if not points_to(LEGACY_LOCK, work):
                 raise RuntimeError("HFT runtime lock is missing or has changed")

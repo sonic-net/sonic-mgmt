@@ -1,5 +1,4 @@
 import base64
-import itertools
 import logging
 import os
 import sys
@@ -16,7 +15,6 @@ from tests.high_frequency_telemetry.counter_profiles import (
 from tests.high_frequency_telemetry import transaction
 from tests.high_frequency_telemetry.utilities import (
     InfluxDbSink,
-    cleanup_hft_config,
     get_available_ports,
     get_configured_buffer_pools,
     get_configured_buffer_queue_objects,
@@ -37,18 +35,6 @@ OTEL_CONFIG_PATH = "/etc/sonic/otel_config.yml"
 HFT_OTEL_ARGS = ("--enable-otel", "--otel-endpoint=http://localhost:4317")
 INFLUXDB_PORT = 8181
 INFLUXDB_BUCKET_PREFIX = "hft_test"
-INFLUXDB_BUCKET_IDS = itertools.count(1)
-TEST_HFT_PROFILES = (
-    "queue_profile",
-    "ingress_pg_profile",
-    "buffer_pool_profile",
-    "full_port_counter_profile",
-    "state_transition_profile",
-    "config_deletion_profile",
-    "port_shutdown_profile",
-    "e2e_port_profile",
-    "poll_interval_profile_1000",
-)
 STOPPED_COLLECTOR_STATES = {"STOPPED", "EXITED", "FATAL"}
 
 
@@ -136,11 +122,6 @@ def _recover_transaction(tx, request):
         if state in ("enabled", "always_enabled") and not wait_until(60, 2, 0, dut.critical_processes_running, "hft"):
             pytest.fail("Original hft did not become ready after restoration")
 
-    def clean_profiles():
-        if "hft" not in done:
-            pytest.fail("Cannot clean profiles until the original HFT identity is verified")
-        _clean_test_profiles(dut)
-
     def stop_sink():
         ptf = getattr(tx, "ptf", None)
         if not ptf:
@@ -157,11 +138,18 @@ def _recover_transaction(tx, request):
             tx.call("done", name)
             done.add(name)
 
-    steps = [("hft", restore_hft)]
+    # Never reconnect a production exporter or collector while an interrupted
+    # test session may still be live. The DUT helper enforces the same invariant.
+    def after(prerequisite, fn):
+        if prerequisite not in done:
+            pytest.fail(f"Keeping the test export path isolated: {prerequisite} cleanup is incomplete")
+        fn()
+
+    steps = [("profiles", lambda: tx.call("clean-profiles")), ("hft", partial(after, "profiles", restore_hft))]
     if tx.load("otel.json") is not None:
-        steps.append(("otel", lambda: tx.call("restore-otel")))
+        steps.append(("otel", partial(after, "hft", lambda: tx.call("restore-otel"))))
     if sink:
-        steps.extend([("profiles", clean_profiles), ("sink", stop_sink)])
+        steps.append(("sink", stop_sink))
     error = _run_cleanup_steps([(name, partial(step, name, fn)) for name, fn in steps])
     if error is not None:
         raise error
@@ -172,10 +160,14 @@ def _recover_transaction(tx, request):
 def skip_unsupported_hft_platform(request, duthosts, enum_rand_one_per_hwsku_hostname):
     """Recover an interrupted owner, then take the baseline under this module's lock."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if duthost.is_multi_asic:
+        pytest.skip("The HFT fixture requires a single ASIC; per-ASIC hft instances are not supported")
     if transaction.active_work(duthost) is None:
         _supported_hft_state(duthost)  # fast skip on legacy images, never a recovery baseline
     tx = transaction.claim(duthost, request, partial(_recover_transaction, request=request))
     original_hft_state = _supported_hft_state(duthost)
+    if duthost.command(argv=["redis-cli", "-n", "4", "--raw", "KEYS", "HIGH_FREQUENCY_TELEMETRY_*"])["stdout"]:
+        pytest.skip("Existing HFT configuration is not owned by this run")
     enabled_states = {"enabled", "always_enabled"}
     valid_states = enabled_states | {"disabled", "always_disabled"}
 
@@ -327,10 +319,11 @@ def hft_influxdb(request, ptfhost, skip_unsupported_hft_test,
                  duthosts, enum_rand_one_per_hwsku_hostname, tbinfo):
     """Provide a unique InfluxDB database for every HFT case."""
     request.getfixturevalue("hft_influxdb_server")
-    request.getfixturevalue("cleanup_high_frequency_telemetry")
+    request.getfixturevalue("ensure_swss_ready")
     tx = request.getfixturevalue("hft_otel_collector")
-    bucket = f"{INFLUXDB_BUCKET_PREFIX}_{next(INFLUXDB_BUCKET_IDS)}"
-    sink = InfluxDbSink(ptfhost, bucket=bucket, port=INFLUXDB_PORT)
+    profile = transaction.HftProfile(tx)
+    bucket = f"{INFLUXDB_BUCKET_PREFIX}_{profile.case}"
+    sink = InfluxDbSink(ptfhost, bucket=bucket, port=INFLUXDB_PORT, profile=profile)
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     database_created = False
 
@@ -368,7 +361,7 @@ def hft_influxdb(request, ptfhost, skip_unsupported_hft_test,
         # Setup failures are active here; pytest reports call-phase failures
         # separately from any teardown error raised below.
         original_error = sys.exc_info()[1]
-        cleanup_steps = []
+        cleanup_steps = [("remove this case's HFT profile", sink.profile.remove)]
         if database_created:
             # Let samples countersyncd still exports for this case reach this
             # database before the next case points the collector elsewhere.
@@ -395,7 +388,7 @@ def hft_queue_influxdb(hft_influxdb, duthosts,
     """Reset countersyncd after the exhaustive Queue export is removed."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     yield hft_influxdb
-    cleanup_hft_config(duthost, "queue_profile", ["QUEUE"])
+    hft_influxdb.profile.remove()
     restart_countersyncd_daemon(duthost)
 
 
@@ -498,33 +491,3 @@ def ensure_swss_ready(duthosts, enum_rand_one_per_hwsku_hostname):
             f"swss container is ready and stable "
             f"(uptime: {final_uptime}s)"
         )
-
-
-@pytest.fixture(scope="function")
-def cleanup_high_frequency_telemetry(
-    duthosts, enum_rand_one_per_hwsku_hostname, ensure_swss_ready
-):
-    """Remove stale profiles owned by this test suite before each test."""
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    _clean_test_profiles(duthost)
-
-
-def _clean_test_profiles(duthost):
-    profile_keys = duthost.shell(
-        'redis-cli -n 4 KEYS "HIGH_FREQUENCY_TELEMETRY_PROFILE|*"',
-        module_ignore_errors=False,
-    )["stdout_lines"]
-    group_keys = duthost.shell(
-        'redis-cli -n 4 KEYS "HIGH_FREQUENCY_TELEMETRY_GROUP|*"',
-        module_ignore_errors=False,
-    )["stdout_lines"]
-    existing_profiles = {
-        key.split("|", 1)[1] for key in profile_keys
-        if "|" in key
-    }
-    existing_profiles.update(
-        key.split("|", 2)[1] for key in group_keys
-        if key.count("|") >= 2
-    )
-    for profile_name in set(TEST_HFT_PROFILES) & existing_profiles:
-        cleanup_hft_config(duthost, profile_name)

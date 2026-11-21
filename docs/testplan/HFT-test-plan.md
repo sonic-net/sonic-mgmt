@@ -40,7 +40,7 @@ The test suite covers:
 - **Configuration lifecycle**: Validating create → delete → recreate of HFT profiles/groups while `countersyncd` runs continuously.
 - **Poll interval accuracy**: Verifying the measured message rate matches expected rate based on configured poll interval.
 - **Port state interaction**: Confirming counter behavior (increasing vs. stable) when monitored ports are shut down/started up under traffic.
-- **Test infrastructure**: Validation of fixtures (`ensure_swss_ready`, `cleanup_high_frequency_telemetry`, `hft_influxdb`) and utility functions for HFT config management.
+- **Test infrastructure**: Validation of SWSS readiness, run-owned HFT profiles, and the InfluxDB fixture.
 
 ### Testbed
 
@@ -72,18 +72,24 @@ HFT Phase 1 supports key AI data center statistics across four object types:
 
 ### Prerequisites
 - DUT must have the `swss` container running and stable (uptime ≥ 10 seconds).
-- The DUT must provide the locally managed standalone `hft` feature. A module temporarily enables it
+- The single-ASIC DUT must provide the locally managed standalone `hft` feature. A module temporarily enables it
   if it was disabled.
   Images without this feature (including older images running `countersyncd` in `swss`),
   with `hft` always disabled, or with a non-local HFT owner are skipped.
 - The fixture creates a temporary `hft` container with the managed container's image, mounts,
-  network and capabilities. Its Docker `Cmd` is `["--enable-otel", "--otel-endpoint=http://localhost:4317"]`.
+  network and capabilities. Its Docker `Cmd` overrides the OTEL options with
+  `["--enable-otel", "--otel-endpoint=http://localhost:4317"]` and preserves unrelated original arguments.
+  Ambiguous clustered short options are refused before the original container is stopped.
   SONiC starts this container through `hft.service`; the original is stopped first and restored
   afterwards. `/etc/sonic/hft/hft.env` is never modified. The Queue case restarts just
   `countersyncd`, then checks that supervisor reports a new running PID.
   A new container gets its run label and both arguments at **create** time, even when
   HFT was initially disabled and no stock container existed. The module locks the DUT
-  before taking its recovery baseline, cleaning profiles or changing the collector.
+  before taking its recovery baseline or changing the collector. Each case gets a run-unique profile
+  name. Profile creation, stream transitions and deletion run under the DUT owner lock. Creation
+  validates the intended patch with `config apply-patch --dry-run` and atomically inserts only the
+  expected CONFIG_DB rows. Cleanup compares their contents before modifying them; it never sweeps
+  static names. The original exporters stay isolated until the owned hardware session disappears.
 - **Interrupted runs:** `/var/lib/sonic-mgmt-hft` identifies a private, persistent run directory
   on the DUT. It records the original container ID, feature state and collector configuration.
   On the same management controller, the next HFT run can recover automatically after a killed
@@ -108,8 +114,10 @@ HFT Phase 1 supports key AI data center statistics across four object types:
   Recovery compares local ownership and the expected value atomically before changing feature
   state. A deliberate operator write of the *same* state cannot be distinguished from the test's write.
 - The DUT must provide the `otel` container image.
-- InfluxDB 3 Core (`influxdb3`) must be installed on the PTF host.
-- HFT CLI commands (`config hft add/del/enable/disable`) must be available on the DUT.
+- InfluxDB 3 Core (`influxdb3`) and Python 3 with Linux pidfd support must be available on the PTF
+  host. Launch and cleanup share a PTF-local directory lock; a delayed launch cannot recreate a
+  closed reservation or start an orphan listener after recovery.
+- `config apply-patch --dry-run` and `redis-cli` must be available on the DUT.
 - CONFIG_DB (database 4) must be accessible for HFT table management.
 - COUNTERS_DB (database 2) must be accessible for queue/buffer object discovery.
 - For port shutdown tests: PTF adapter must be available for traffic injection.
@@ -184,7 +192,7 @@ boundary.
 **Test Steps**
 1. Query all queue objects from `COUNTERS_QUEUE_NAME_MAP` in COUNTERS_DB. Skip if none found.
 2. Get supported queue counters for the current platform. Skip if none supported.
-3. Atomically create an HFT profile (`queue_profile`) and QUEUE group with poll interval 10ms, stream state `enabled`, all discovered queue objects, and supported counters.
+3. Atomically create the case's HFT profile and QUEUE group with poll interval 10ms, stream state `enabled`, all discovered queue objects, and supported counters.
 4. Wait for at least 100 points in every configured queue/counter series.
 5. Validate complete series/tag coverage, nonnegative values, and average source interval and CPS within 10%.
 6. Disable the profile and wait for the session to stop, then delete the group
@@ -210,7 +218,7 @@ boundary.
 **Test Steps**
 1. Query all buffer queue objects from `COUNTERS_PG_NAME_MAP` in COUNTERS_DB. Skip if none found.
 2. Get supported ingress priority group counters for the current platform. Skip if none supported.
-3. Atomically create an HFT profile (`ingress_pg_profile`) and INGRESS_PRIORITY_GROUP group with poll interval 10ms, stream state `enabled`, all discovered objects, and supported counters.
+3. Atomically create the case's HFT profile and INGRESS_PRIORITY_GROUP group with poll interval 10ms, stream state `enabled`, all discovered objects, and supported counters.
 5. Wait for and validate every configured PG/counter series in InfluxDB.
 6. Validate complete series/tag coverage and nonnegative values. Log cadence
    diagnostics without applying a tolerance to this exhaustive fanout case.
@@ -234,7 +242,7 @@ boundary.
 **Test Steps**
 1. Query buffer pool names from `COUNTERS_BUFFER_POOL_NAME_MAP` in COUNTERS_DB. Skip if none found.
 2. Get supported buffer pool counters for the current platform. Skip if none supported.
-3. Atomically create an HFT profile (`buffer_pool_profile`) and BUFFER_POOL group with poll interval 10ms, stream state `enabled`, all discovered pools, and supported counters.
+3. Atomically create the case's HFT profile and BUFFER_POOL group with poll interval 10ms, stream state `enabled`, all discovered pools, and supported counters.
 5. Wait for and validate every configured pool/counter series in InfluxDB.
 6. Validate values, interval, and CPS per series.
 7. Clean up HFT configuration.
@@ -274,7 +282,7 @@ object-type tests.
 **Test Steps**
 1. Get all available ports from topology (minimum 1 required).
 2. Get all supported port counters for the current platform. Skip if none supported.
-3. Create an HFT profile (`full_port_counter_profile`) with poll interval 10ms and stream state `enabled`.
+3. Create the case's HFT profile with poll interval 10ms and stream state `enabled`.
 4. Create a PORT group with all available ports and all supported counters.
 5. Wait for every expected port/counter series in InfluxDB.
 6. Require complete port/counter coverage and validate each series.
@@ -299,7 +307,7 @@ object-type tests.
 
 **Test Steps**
 1. Get available ports from topology (desired: 2, minimum: 1).
-2. Create an HFT profile (`state_transition_profile`) with poll interval 10ms and stream state `disabled`.
+2. Create the case's HFT profile with poll interval 10ms and stream state `disabled`.
 3. Create a PORT group monitoring `IF_IN_OCTETS`.
 4. Enable the stream and require all expected InfluxDB series.
 5. Disable it, drain the exporter, and require series point counts to remain unchanged.
@@ -384,7 +392,7 @@ cadence validation to two port series.
 **Test Steps**
 1. Get one available port from topology.
 2. Resolve PTF port index and router MAC for traffic injection.
-3. Create an HFT profile (`port_shutdown_profile`) with poll interval 10ms and stream state `enabled`.
+3. Create the case's HFT profile with poll interval 10ms and stream state `enabled`.
 4. Create a PORT group monitoring `IF_IN_OCTETS` on the test port.
 5. Start PTF traffic injection (100 packets/s); use the existing daemon for telemetry.
 6. Execute three bounded, condition-driven phases:
@@ -420,7 +428,7 @@ cadence validation to two port series.
 2. **Isolate the case**: Stop the collector, create a unique empty database, and install an OTEL configuration targeting it.
 3. **Restart OTEL safely**: Restart the systemd-managed `otel.service` and require its critical collector process to become healthy.
 4. **Verify countersyncd**: Check that supervisor reports `countersyncd` as running in `hft`.
-5. **Configure HFT**: Get available ports (desired: 2, minimum: 1). Atomically create HFT profile `e2e_port_profile` (poll interval 10ms, stream `enabled`) and its PORT group monitoring `IF_IN_OCTETS`.
+5. **Configure HFT**: Get available ports (desired: 2, minimum: 1). Atomically create the case's HFT profile (poll interval 10ms, stream `enabled`) and its PORT group monitoring `IF_IN_OCTETS`.
 6. **Poll InfluxDB for metrics**: Query the exact expected measurements and object tags.
 7. **Verify data arrived**: Require complete series coverage, values, interval, and CPS within 5%.
 8. **Cleanup**: Remove HFT config, stop the collector, hard-delete the case database, stop the owned InfluxDB PID at module teardown, and restore OTEL state.

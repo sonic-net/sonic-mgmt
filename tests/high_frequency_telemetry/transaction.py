@@ -7,6 +7,7 @@ import json
 import os
 import socket
 import uuid
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
 
 import pytest
@@ -37,9 +38,10 @@ class HftTransaction:
     def __init__(self, dut, work, owner):
         self.dut, self.work, self.owner = dut, work, owner
 
-    def call(self, action, *args):
-        return self.dut.command(argv=["python3", str(self.work / "hft_container.py"), action,
-                                      str(self.work), self.owner, *args])["stdout"].strip()
+    def call(self, action, *args, payload=None):
+        options = {} if payload is None else {"stdin": json.dumps(payload), "verbose": False}
+        return self.dut.command(argv=["python3", "-B", str(self.work / "hft_container.py"), action,
+                                      str(self.work), self.owner, *args], **options)["stdout"].strip()
 
     def record(self, name, data):
         pending = self.work / (name + "." + self.owner)
@@ -57,25 +59,53 @@ class HftTransaction:
         self.call("configure")
 
 
-def claim(dut, request, recover):
-    # flock is released by the kernel on controller death (including SIGKILL).
-    # Matching the private token is what permits automatic recovery; never infer
-    # death from a lock's age, a hostname or a reused container/PID.
+class HftProfile:
+    """Function-scoped profile handle. The DUT journals the actual run-unique CONFIG_DB name."""
+    def __init__(self, tx):
+        self.tx = tx
+        self.case = uuid.uuid4().hex
+        self.active = False
+
+    def create(self, group, objects, counters, poll_interval=10000, stream_state="enabled"):
+        self.active = True  # A lost reply does not prove the create failed.
+        return self.tx.call("profile-create", self.case, payload={"group": group, "objects": list(objects),
+                            "counters": list(counters), "poll_interval": poll_interval, "state": stream_state})
+
+    def set_state(self, state):
+        self.tx.call("profile-state", self.case, state)
+
+    def remove(self):
+        if self.active:
+            self.tx.call("profile-remove", self.case)
+            self.active = False
+
+
+@contextmanager
+def controller_lock(dut):
+    """Keep the descriptor open through DUT teardown, including exceptional exits."""
     cache = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "sonic-mgmt" / "hft"
     cache.mkdir(mode=0o700, parents=True, exist_ok=True)
     path = cache / hashlib.sha256(dut.hostname.encode()).hexdigest()
-    fd = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
-    local = os.fdopen(fd, "r+")
-    request.addfinalizer(local.close)  # registered first: held through remote cleanup
-    try:
-        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError:
-        pytest.fail(f"Another HFT test on this controller owns {dut.hostname}")
+    with open(path, "a+", opener=lambda name, flags: os.open(name, flags | os.O_NOFOLLOW, 0o600)) as local:
+        try:
+            fcntl.flock(local.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            pytest.fail(f"Another HFT test on this controller owns {dut.hostname}")
+        local.seek(0)
+        yield local
+
+
+def claim(dut, request, recover):
+    # Register first so the kernel lock outlives every remote finalizer. A dead
+    # controller releases it even on SIGKILL; an old timestamp is not proof of death.
+    stack = ExitStack()
+    request.addfinalizer(stack.close)
+    local = stack.enter_context(controller_lock(dut))
 
     def remember(token):
         local.write(token + "\n")
         local.flush()
-        os.fsync(fd)
+        os.fsync(local.fileno())
 
     previous_tokens = local.read().splitlines()
     previous = active_work(dut)
@@ -85,7 +115,7 @@ def claim(dut, request, recover):
         pytest.fail("A legacy HFT run holds /run/lock/sonic-mgmt-hft; verify its owner and journal before retrying")
     if previous:
         owner = read_record(dut, previous / "owner.json")
-        if owner.get("version") != 3:
+        if owner.get("version") != 4:
             raise RuntimeError(f"Unrecognized HFT journal version at {previous}; use its matching recovery code")
         if owner["id"] not in previous_tokens and os.environ.get("SONIC_MGMT_HFT_RECOVER_OWNER") != owner["id"]:
             pytest.fail(f"HFT run {previous.name} is owned by {owner['controller']}. If that job is confirmed dead, "
@@ -103,7 +133,7 @@ def claim(dut, request, recover):
     work = Path(dut.tempfile(state="directory", path=str(ACTIVE.parent), prefix="sonic-mgmt-hft-")["path"])
     tx = HftTransaction(dut, work, token)
     try:
-        for name in ("hft_container.py", "create_container.sh"):
+        for name in ("hft_container.py", "hft_profiles.py", "create_container.sh"):
             dut.copy(src=str(Path(__file__).parent / "files" / name), dest=str(work / name), mode="0600")
     except Exception:
         dut.file(path=str(work), state="absent")  # not yet published or used
