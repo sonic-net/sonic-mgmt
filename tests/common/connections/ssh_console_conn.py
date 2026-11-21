@@ -8,6 +8,7 @@ from .base_console_conn import (
     CONSOLE_SSH_TO_PORT,
     CONSOLE_SSH_CISCO_CONFIG,
     CONSOLE_SSH_SONIC_CONFIG,
+    ConsoleConnectTimeout,
     DEFAULT_FAST_CLI,
     DutLoginFailed,
     NetMikoAuthenticationException,
@@ -447,6 +448,8 @@ class SSHConsoleConn(BaseConsoleConn):
                     for _ in range(PROBE_READ_COUNT):
                         time.sleep(READ_INTERVAL_S * delay_factor)
                         output += self.read_channel()
+            except ConsoleConnectTimeout:
+                raise
             except Exception as e:
                 self.logger.warning(f"Error probing console state: {e}")
                 return False
