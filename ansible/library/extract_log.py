@@ -170,7 +170,8 @@ def convert_date(fct, s):
 
     if dt is None:
         dt = datetime.datetime.min
-        logger.warning(f"Failed to convert date from string, skipping unparseable line: {s}")
+        # Marker scans exclude extract_log diagnostics even when they quote a start marker.
+        logger.warning("extract_log: Failed to convert date from string, skipping unparseable line: %s", s)
     return dt
 
 
