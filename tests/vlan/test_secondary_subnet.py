@@ -13,8 +13,30 @@ logger = logging.getLogger(__name__)
 SECONDARY_IP = "66.66.66.66/23"
 
 
-def check_secondary_ip_interface(duthost, vlan_interface, secondary_ip):
-    ip_interfaces_list = duthost.show_and_parse("show ip interface")
+def get_vlan_asics(duthost):
+    """
+    On multi-ASIC DUTs the VLANs are configured in the namespaces of the front-end ASICs, not in the
+    host namespace: return the front-end ASICs that have VLAN interfaces.
+    Return [None] on single-ASIC DUTs.
+    """
+    if not duthost.is_multi_asic:
+        return [None]
+    vlan_asics = [asic for asic in duthost.frontend_asics
+                  if asic.config_facts(source="running")["ansible_facts"].get("VLAN_INTERFACE")]
+    pytest_assert(vlan_asics, "No VLAN interface found on any front-end ASIC")
+    return vlan_asics
+
+
+def get_ns_option(asic):
+    return " " + asic.cli_ns_option if asic is not None else ""
+
+
+def get_config_db_cmd(asic):
+    return "sudo redis-cli -n 4" if asic is None else f"sudo {asic.sonic_db_cli} CONFIG_DB"
+
+
+def check_secondary_ip_interface(duthost, vlan_interface, secondary_ip, asic=None):
+    ip_interfaces_list = duthost.show_and_parse(f"show ip interface{get_ns_option(asic)}")
 
     # Convert the list to a more usable format
     ip_interface_dict = {}
@@ -46,7 +68,7 @@ def check_secondary_ip_interface(duthost, vlan_interface, secondary_ip):
     return found_secondary_ip, ip_interface_dict
 
 
-def check_secondary_subnet_exist(duthost, vlan_interface, ip_address):
+def check_secondary_subnet_exist(duthost, vlan_interface, ip_address, asic=None):
     """
     Verify that a secondary IP subnet exists and is properly configured.
     This function performs multiple checks to verify that a secondary IP address is properly
@@ -58,12 +80,13 @@ def check_secondary_subnet_exist(duthost, vlan_interface, ip_address):
         duthost: DUT (Device Under Test) host object that provides the SSH connection
         vlan_interface (str): The name of the VLAN interface (e.g., "Vlan1000")
         ip_address (str): The secondary IP address to check for
+        asic: ASIC instance that owns the VLAN on multi-ASIC DUTs, None on single-ASIC DUTs
     Raises:
         AssertionError: If any verification step fails
     """
     # Step 1: Verify secondary IP appears in "show ip interface" output
     found_secondary_ip, ip_interfaces_dict = check_secondary_ip_interface(
-        duthost, vlan_interface, ip_address
+        duthost, vlan_interface, ip_address, asic
     )
     pytest_assert(
         found_secondary_ip,
@@ -76,14 +99,14 @@ def check_secondary_subnet_exist(duthost, vlan_interface, ip_address):
 
     # Step 2: Verify secondary IP is stored in Redis
     redis_key = f"VLAN_INTERFACE|{vlan_interface}|{ip_address}"
-    redis_output = duthost.command(f'sudo redis-cli -n 4 KEYS "{redis_key}"')
+    redis_output = duthost.command(f'{get_config_db_cmd(asic)} KEYS "{redis_key}"')
     pytest_assert(
         redis_key in redis_output["stdout"],
         f"Secondary IP {ip_address} not found in Redis database",
     )
 
     # Step 5: Verify "secondary" property is set to "true" in Redis
-    redis_value = duthost.command(f'sudo redis-cli -n 4 HGETALL "{redis_key}"')
+    redis_value = duthost.command(f'{get_config_db_cmd(asic)} HGETALL "{redis_key}"')
     pytest_assert(
         "secondary" in redis_value["stdout"],
         f"'secondary' field not found for {redis_key} in Redis",
@@ -94,7 +117,7 @@ def check_secondary_subnet_exist(duthost, vlan_interface, ip_address):
     )
 
 
-def check_secondary_subnet_not_exist(duthost, vlan_interface, ip_address):
+def check_secondary_subnet_not_exist(duthost, vlan_interface, ip_address, asic=None):
     """
     Verify that a secondary IP subnet does not exist on a VLAN interface.
     This function performs multiple checks to ensure that a secondary IP address is not
@@ -105,12 +128,13 @@ def check_secondary_subnet_not_exist(duthost, vlan_interface, ip_address):
         duthost: DUT (Device Under Test) host object that provides the SSH connection
         vlan_interface (str): The name of the VLAN interface (e.g., "Vlan1000")
         ip_address (str): The secondary IP address to check for
+        asic: ASIC instance that owns the VLAN on multi-ASIC DUTs, None on single-ASIC DUTs
     Raises:
         AssertionError: If any verification step fails
     """
     # Step 1: Verify secondary IP is removed from show output
     found_secondary_ip, ip_interfaces_dict = check_secondary_ip_interface(
-        duthost, vlan_interface, ip_address
+        duthost, vlan_interface, ip_address, asic
     )
     pytest_assert(
         not found_secondary_ip,
@@ -119,7 +143,7 @@ def check_secondary_subnet_not_exist(duthost, vlan_interface, ip_address):
 
     # Step 2: Verify secondary IP is removed from Redis
     redis_key = f"VLAN_INTERFACE|{vlan_interface}|{ip_address}"
-    redis_output = duthost.command(f'sudo redis-cli -n 4 KEYS "{redis_key}"')
+    redis_output = duthost.command(f'{get_config_db_cmd(asic)} KEYS "{redis_key}"')
     pytest_assert(
         redis_key not in redis_output["stdout"],
         f"Secondary IP {SECONDARY_IP} still found in Redis db after removal",
@@ -134,9 +158,12 @@ def test_existing_secondary_subnet(duthost, tbinfo):
     2. If found, verify secondary ip address info is correct
     """
     # Step 1: Check if DUT has any secondary subnet configured
-    exist_flag, vlan_interface, ip_version, int_dict = get_secondary_subnet(
-        duthost, tbinfo
-    )
+    for asic in get_vlan_asics(duthost):
+        exist_flag, vlan_interface, ip_version, int_dict = get_secondary_subnet(
+            duthost, tbinfo, asic
+        )
+        if exist_flag:
+            break
 
     if not exist_flag:
         pytest.skip("No secondary subnet found on DUT, skipping test")
@@ -147,7 +174,7 @@ def test_existing_secondary_subnet(duthost, tbinfo):
 
     secondary_ip = int_dict["addr"] + "/" + str(int_dict["prefixlen"])
 
-    check_secondary_subnet_exist(duthost, vlan_interface, secondary_ip)
+    check_secondary_subnet_exist(duthost, vlan_interface, secondary_ip, asic)
 
 
 def test_secondary_subnet(duthost):
@@ -161,20 +188,22 @@ def test_secondary_subnet(duthost):
     5. Verify it's removed from both CLI output and Redis
     """
     # Step 1: Add secondary IP to VLAN interface
-    vlan_interfaces = get_vlan_interface_list(duthost)
+    # pick up the first ASIC with VLANs on multi-ASIC DUTs
+    asic = get_vlan_asics(duthost)[0]
+    vlan_interfaces = get_vlan_interface_list(duthost, asic)
     # pick up the first vlan to test
     vlan_interface = vlan_interfaces[0]
 
     duthost.command(
-        f"sudo config interface ip add {vlan_interface} {SECONDARY_IP} --secondary"
+        f"sudo config interface{get_ns_option(asic)} ip add {vlan_interface} {SECONDARY_IP} --secondary"
     )
     time.sleep(2)
     # Step 2: Verify secondary subnet info is added
-    check_secondary_subnet_exist(duthost, vlan_interface, SECONDARY_IP)
+    check_secondary_subnet_exist(duthost, vlan_interface, SECONDARY_IP, asic)
 
     # Step 3: Remove the secondary IP
-    duthost.command(f"sudo config interface ip remove {vlan_interface} {SECONDARY_IP}")
+    duthost.command(f"sudo config interface{get_ns_option(asic)} ip remove {vlan_interface} {SECONDARY_IP}")
     time.sleep(2)
 
     # Step 4: Verify secondary subnet info is removed
-    check_secondary_subnet_not_exist(duthost, vlan_interface, SECONDARY_IP)
+    check_secondary_subnet_not_exist(duthost, vlan_interface, SECONDARY_IP, asic)
