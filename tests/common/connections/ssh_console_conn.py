@@ -90,6 +90,7 @@ RESPONSE_WAIT_S = 1
 FINALISE_WAIT_S = 0.3
 RARITAN_LOGIN_PROMPT_TIMEOUT_S = 60
 PROBE_READ_COUNT = 4
+# Sets the minimum delay factor. It can be overridden to be larger, but not smaller.
 DEFAULT_DELAY_FACTOR = 1
 DEFAULT_INITIAL_READ_MAX_READS = 6
 DEFAULT_RECOVER_MAX_ATTEMPTS = 4
@@ -160,7 +161,17 @@ class SSHConsoleConn(BaseConsoleConn):
         kwargs['password'] = kwargs['console_password']
         kwargs['host'] = kwargs['console_host']
         kwargs['device_type'] = "_ssh"
+        kwargs.setdefault('global_delay_factor', DEFAULT_DELAY_FACTOR)
         super(SSHConsoleConn, self).__init__(**kwargs)
+
+    def set_base_prompt(self, *args, delay_factor=DEFAULT_DELAY_FACTOR, **kwargs):
+        return super(SSHConsoleConn, self).set_base_prompt(*args, delay_factor=delay_factor, **kwargs)
+
+    def disable_paging(self, *args, delay_factor=DEFAULT_DELAY_FACTOR, **kwargs):
+        return super(SSHConsoleConn, self).disable_paging(*args, delay_factor=delay_factor, **kwargs)
+
+    def find_prompt(self, delay_factor=DEFAULT_DELAY_FACTOR, **kwargs):
+        return super(SSHConsoleConn, self).find_prompt(delay_factor, **kwargs)
 
     def write_channel(self, out):
         """Single chokepoint for every byte we send to the DUT serial line.

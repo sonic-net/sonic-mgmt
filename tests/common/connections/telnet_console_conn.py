@@ -2,6 +2,9 @@ import time
 import re
 from .base_console_conn import BaseConsoleConn, DutLoginFailed
 
+# Sets the minimum delay factor. It can be overridden to be larger, but not smaller.
+DEFAULT_DELAY_FACTOR = 1
+
 
 class TelnetConsoleConn(BaseConsoleConn):
     def __init__(self, **kwargs):
@@ -16,7 +19,17 @@ class TelnetConsoleConn(BaseConsoleConn):
         kwargs['console_username'] = kwargs['sonic_username']
         kwargs['console_password'] = [None]
         kwargs['device_type'] = "_telnet"
+        kwargs.setdefault('global_delay_factor', DEFAULT_DELAY_FACTOR)
         super(TelnetConsoleConn, self).__init__(**kwargs)
+
+    def set_base_prompt(self, *args, delay_factor=DEFAULT_DELAY_FACTOR, **kwargs):
+        return super(TelnetConsoleConn, self).set_base_prompt(*args, delay_factor=delay_factor, **kwargs)
+
+    def disable_paging(self, *args, delay_factor=DEFAULT_DELAY_FACTOR, **kwargs):
+        return super(TelnetConsoleConn, self).disable_paging(*args, delay_factor=delay_factor, **kwargs)
+
+    def find_prompt(self, delay_factor=DEFAULT_DELAY_FACTOR, **kwargs):
+        return super(TelnetConsoleConn, self).find_prompt(delay_factor, **kwargs)
 
     def _try_session_preparation(self, force_data=True):
         # netmiko writes a RETURN before session preparation; an attach-only console must not.
@@ -37,7 +50,7 @@ class TelnetConsoleConn(BaseConsoleConn):
         alt_prompt_terminator=r".*\$ ",
         username_pattern=r"(?:user:|username|login|user name)",
         pwd_pattern=r"assword",
-        delay_factor=1,
+        delay_factor=DEFAULT_DELAY_FACTOR,
         max_loops=20,
     ):
         """Telnet login. Can be username/password or just password."""
