@@ -195,11 +195,7 @@ tests/transceiver/
 │   │   ├── __init__.py
 │   │   ├── conftest.py                      # Overrides per-test health check: re-establishes baselines
 │   │   │                                    #   after reboot since PID/log baselines are invalidated
-│   │   ├── test_config_reload.py            # TC 1: Config reload impact
-│   │   ├── test_cold_reboot.py              # TC 2: Cold reboot link recovery
-│   │   ├── test_warm_reboot.py              # TC 3: Warm reboot link recovery
-│   │   ├── test_fast_reboot.py              # TC 4: Fast reboot link recovery
-│   │   └── test_power_cycle.py              # TC 5: Power cycle link recovery
+│   │   └── test_reboots.py                  # TC 1-5: Config reload, cold/warm/fast reboot and power cycle link recoveries
 │   │
 │   ├── event_handling/
 │   │   ├── __init__.py
