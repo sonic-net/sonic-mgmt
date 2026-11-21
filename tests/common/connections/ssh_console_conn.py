@@ -56,27 +56,30 @@ SONIC_SHELL_PROMPT_PATTERNS = (
     r'.*@sonic.*[\$#]',
 )
 LOGIN_FAILURE_PATTERN = r".*incorrect"
-# How the connect workflow uses the waits below. Once the SSH login to the console server
-# succeeds, netmiko's constructor runs session_preparation() on the DUT line. Most waits
-# are multiplied by the delay factor, which is 1 unless a caller raises it.
+# How the connect workflow uses the waits and limits below. Once the SSH login to the
+# console server succeeds, netmiko's constructor runs session_preparation() on the DUT
+# line. Most waits are multiplied by the delay factor, which is 1 unless a caller raises it.
 #   a. Read the line without writing, READ_INTERVAL_S between reads, until anything
 #      arrives. A "port in use" notice ends the connect; attach_only stops here.
 #   b. *_config types: set the prompt and clear the buffer as in g, then stop.
 #   c. Raritan: send a CR and wait up to RARITAN_LOGIN_PROMPT_TIMEOUT_S for a login prompt.
 #   d. Menu port: select the line and log in to it with login_stage_2(), as in f.
-#   e. Recover: watch the line, reading every READ_INTERVAL_S. A silent line gets one CR;
-#      a leftover shell gets Ctrl-C and, READ_INTERVAL_S later, "exit", then a
-#      RESPONSE_WAIT_S pause for the login prompt.
+#   e. Recover: watch the line for PROBE_READ_COUNT reads, READ_INTERVAL_S apart. A silent
+#      line gets one CR and PROBE_READ_COUNT more reads; a leftover shell gets Ctrl-C and,
+#      READ_INTERVAL_S later, "exit", then a RESPONSE_WAIT_S pause for the login prompt.
 #   f. Log in (login_stage_2()): pause RESPONSE_WAIT_S at the start, after sending the
-#      username and after a failed login; otherwise read every READ_INTERVAL_S, sending a
-#      CR each time until the username goes out. After a rejected password, send a CR
-#      every READ_INTERVAL_S until a fresh login prompt appears.
+#      username and after a failed login. Until the username goes out, each round watches
+#      the line for up to PROBE_READ_COUNT reads, READ_INTERVAL_S apart, then sends a CR; later
+#      rounds read every READ_INTERVAL_S. After a rejected password, send a CR every
+#      READ_INTERVAL_S until a fresh login prompt appears.
 #   g. Set the prompt, pause FINALISE_WAIT_S, then clear the read buffer.
-# On disconnect, cleanup() reads every READ_INTERVAL_S while looking for a SONiC prompt.
+# On disconnect, cleanup() looks for a SONiC prompt: PROBE_READ_COUNT reads, then PROBE_READ_COUNT
+# CRs, READ_INTERVAL_S apart.
 READ_INTERVAL_S = 0.5
 RESPONSE_WAIT_S = 1
 FINALISE_WAIT_S = 0.3
 RARITAN_LOGIN_PROMPT_TIMEOUT_S = 60
+PROBE_READ_COUNT = 4
 
 
 class ConsoleRebootStartedError(Exception):
@@ -408,7 +411,7 @@ class SSHConsoleConn(BaseConsoleConn):
                 # window, ANY keypress (including a bare CR) aborts autoboot and
                 # traps the DUT in the bootloader, so we must observe before nudging.
                 output = ""
-                for _ in range(4):
+                for _ in range(PROBE_READ_COUNT):
                     time.sleep(READ_INTERVAL_S * delay_factor)
                     output += self.read_channel()
                 # Only if the console stayed silent do we nudge it with a bare CR
@@ -421,7 +424,7 @@ class SSHConsoleConn(BaseConsoleConn):
                 # before this passive re-read could see only silence.
                 if not output.strip():
                     self.write_channel(self.RETURN)
-                    for _ in range(4):
+                    for _ in range(PROBE_READ_COUNT):
                         time.sleep(READ_INTERVAL_S * delay_factor)
                         output += self.read_channel()
             except Exception as e:
@@ -540,7 +543,7 @@ class SSHConsoleConn(BaseConsoleConn):
                 # login/username prompt is still handled normally.
                 if defer_on_bootloader and not user_sent:
                     output = ""
-                    for _ in range(4):
+                    for _ in range(PROBE_READ_COUNT):
                         output += self.read_channel()
                         if (BOOTLOADER_BANNER_RE.search(return_msg + output)
                                 or re.search(username_pattern, output, flags=re.I)):
@@ -638,7 +641,7 @@ class SSHConsoleConn(BaseConsoleConn):
             # window while cleanup() runs), a CR here counts as "hit any key to stop
             # autoboot" and would trap the DUT, so classify from passive output and bail.
             output = ""
-            for i in range(4):
+            for i in range(PROBE_READ_COUNT):
                 if i:
                     time.sleep(READ_INTERVAL_S)
                 output += self.read_channel()
@@ -647,7 +650,7 @@ class SSHConsoleConn(BaseConsoleConn):
                     "Console is in a bootloader/boot stage; not at a SONiC prompt")
                 return False
             # Not a bootloader -> elicit the prompt (empty after login) with a CR.
-            for _ in range(4):
+            for _ in range(PROBE_READ_COUNT):
                 self.write_channel(self.RETURN)
                 time.sleep(READ_INTERVAL_S)
                 output += self.read_channel()
