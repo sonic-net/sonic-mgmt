@@ -2,17 +2,17 @@ import time
 import re
 from .base_console_conn import BaseConsoleConn, DutLoginFailed
 
-# How telnet_login() uses the waits below. The telnet connection reaches the DUT serial
-# line directly, and netmiko's constructor runs telnet_login() on it. Each wait is
-# multiplied by the delay_factor argument (DEFAULT_DELAY_FACTOR by default).
+# How telnet_login() uses the waits and limits below. The telnet connection reaches the
+# DUT serial line directly, and netmiko's constructor runs telnet_login() on it. Each wait
+# is multiplied by the delay_factor argument (DEFAULT_DELAY_FACTOR by default).
 #   a. attach_only returns at once. Otherwise pause RESPONSE_WAIT_S, then run up to
-#      max_loops rounds. Each round reads the line, handles what it finds as in b to d,
-#      then sends a CR and pauses READ_INTERVAL_S.
+#      max_loops rounds (DEFAULT_LOGIN_MAX_LOOPS by default). Each round reads the line,
+#      handles what it finds as in b to d, then sends a CR and pauses READ_INTERVAL_S.
 #   b. At a username prompt, send the username and pause RESPONSE_WAIT_S. At a password
 #      prompt, send the password and pause READ_INTERVAL_S.
 #   c. At a Cisco initial configuration dialog, answer "no" and pause READ_INTERVAL_S,
-#      then read up to 15 times, DIALOG_READ_INTERVAL_S apart, until "Press RETURN to
-#      get started".
+#      then read up to DIALOG_MAX_READS times, DIALOG_READ_INTERVAL_S apart, until
+#      "Press RETURN to get started".
 #   d. After a rejected password, pause RESPONSE_WAIT_S and try the next password at the
 #      next login prompt, starting the rounds again. After the last password, close the
 #      line, pause RESPONSE_WAIT_S so the next login is not refused, and fail.
@@ -21,8 +21,10 @@ from .base_console_conn import BaseConsoleConn, DutLoginFailed
 READ_INTERVAL_S = 0.5
 RESPONSE_WAIT_S = 1
 DIALOG_READ_INTERVAL_S = 2
+DIALOG_MAX_READS = 15
 # Sets the minimum delay factor. It can be overridden to be larger, but not smaller.
 DEFAULT_DELAY_FACTOR = 1
+DEFAULT_LOGIN_MAX_LOOPS = 20
 
 
 class TelnetConsoleConn(BaseConsoleConn):
@@ -70,7 +72,7 @@ class TelnetConsoleConn(BaseConsoleConn):
         username_pattern=r"(?:user:|username|login|user name)",
         pwd_pattern=r"assword",
         delay_factor=DEFAULT_DELAY_FACTOR,
-        max_loops=20,
+        max_loops=DEFAULT_LOGIN_MAX_LOOPS,
     ):
         """Telnet login. Can be username/password or just password."""
         if self.attach_only:
@@ -115,7 +117,7 @@ class TelnetConsoleConn(BaseConsoleConn):
                     self.write_channel("no" + self.TELNET_RETURN)
                     time.sleep(READ_INTERVAL_S * delay_factor)
                     count = 0
-                    while count < 15:
+                    while count < DIALOG_MAX_READS:
                         output = self.read_channel()
                         return_msg += output
                         if re.search(r"ress RETURN to get started", output):
