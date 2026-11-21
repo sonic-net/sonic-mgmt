@@ -2,6 +2,15 @@ import time
 import re
 from .base_console_conn import BaseConsoleConn, DutLoginFailed
 
+LOGIN_FAILURE_PATTERN = r".*incorrect"
+NO_PASSWORD_SET_PATTERN = r"assword required, but none set"
+INITIAL_CONFIG_DIALOG_PATTERN = r"initial configuration dialog\? \[yes/no\]: "
+PRESS_RETURN_PATTERN = r"ress RETURN to get started"
+# Prompts telnet_login() looks for: logged in (# or $), username and password.
+LOGIN_PRI_PROMPT_TERMINATOR = r".*# "
+LOGIN_ALT_PROMPT_TERMINATOR = r".*\$ "
+LOGIN_USERNAME_PATTERN = r"(?:user:|username|login|user name)"
+LOGIN_PWD_PATTERN = r"assword"
 # How telnet_login() uses the waits and limits below. The telnet connection reaches the
 # DUT serial line directly, and netmiko's constructor runs telnet_login() on it. Each wait
 # is multiplied by the delay_factor argument (DEFAULT_DELAY_FACTOR by default).
@@ -67,10 +76,10 @@ class TelnetConsoleConn(BaseConsoleConn):
 
     def telnet_login(
         self,
-        pri_prompt_terminator=r".*# ",
-        alt_prompt_terminator=r".*\$ ",
-        username_pattern=r"(?:user:|username|login|user name)",
-        pwd_pattern=r"assword",
+        pri_prompt_terminator=LOGIN_PRI_PROMPT_TERMINATOR,
+        alt_prompt_terminator=LOGIN_ALT_PROMPT_TERMINATOR,
+        username_pattern=LOGIN_USERNAME_PATTERN,
+        pwd_pattern=LOGIN_PWD_PATTERN,
         delay_factor=DEFAULT_DELAY_FACTOR,
         max_loops=DEFAULT_LOGIN_MAX_LOOPS,
     ):
@@ -82,7 +91,6 @@ class TelnetConsoleConn(BaseConsoleConn):
 
         output = ""
         return_msg = ""
-        login_failure_prompt = r".*incorrect"
         username_sent = False
         password_sent = False
         password_index = 0
@@ -113,21 +121,21 @@ class TelnetConsoleConn(BaseConsoleConn):
                         return return_msg
 
                 # Support direct telnet through terminal server
-                if re.search(r"initial configuration dialog\? \[yes/no\]: ", output):
+                if re.search(INITIAL_CONFIG_DIALOG_PATTERN, output):
                     self.write_channel("no" + self.TELNET_RETURN)
                     time.sleep(READ_INTERVAL_S * delay_factor)
                     count = 0
                     while count < DIALOG_MAX_READS:
                         output = self.read_channel()
                         return_msg += output
-                        if re.search(r"ress RETURN to get started", output):
+                        if re.search(PRESS_RETURN_PATTERN, output):
                             output = ""
                             break
                         time.sleep(DIALOG_READ_INTERVAL_S * delay_factor)
                         count += 1
 
                 # Check for device with no password configured
-                if re.search(r"assword required, but none set", output):
+                if re.search(NO_PASSWORD_SET_PATTERN, output):
                     self.remote_conn.close()
                     msg = "Login failed - Password required, but none set: {}".format(
                         self.host
@@ -141,7 +149,7 @@ class TelnetConsoleConn(BaseConsoleConn):
                     return return_msg
 
                 #  Check if login failed
-                if re.search(login_failure_prompt, output, flags=re.M):
+                if re.search(LOGIN_FAILURE_PATTERN, output, flags=re.M):
                     if password_index < len(self.sonic_password) - 1:
                         # Try the next password at the DUT's next login prompt, on this connection
                         password_index += 1
