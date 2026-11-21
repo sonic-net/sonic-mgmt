@@ -26,13 +26,15 @@ def parse_interfaces(output_lines, pc_ports_map):
         if match:
             route_targets.append(match.group(0))
 
+    route_targets = list(dict.fromkeys(route_targets))
+
     for route_target in route_targets:
         if route_target.startswith("Ethernet"):
             ifaces.append(route_target)
         elif route_target.startswith("PortChannel") and route_target in pc_ports_map:
             ifaces.extend(pc_ports_map[route_target])
 
-    return route_targets, ifaces
+    return route_targets, list(dict.fromkeys(ifaces))
 
 
 def random_mac():
