@@ -43,7 +43,8 @@ def get_macsec_profile(host):
 
 
 def set_macsec_profile(host, profile_name, priority, cipher_suite,
-                       primary_cak, primary_ckn, policy, send_sci, rekey_period=0):
+                       primary_cak, primary_ckn, policy, send_sci, rekey_period=0,
+                       replay_protect=None, replay_window=None):
     if isinstance(host, EosHost):
         eos_cipher_suite = {
             "GCM-AES-128": "aes128-gcm",
@@ -74,6 +75,15 @@ def set_macsec_profile(host, profile_name, priority, cipher_suite,
         "send_sci" if send_sci == "true" else "no_send_sci": "",
         "rekey_period": rekey_period,
     }
+
+    # replay_protect: None -> leave CLI default, "true" -> enable, otherwise -> disable
+    if replay_protect is not None:
+        if str(replay_protect).lower() == "true":
+            macsec_profile["enable_replay_protect"] = ""
+            if replay_window is not None:
+                macsec_profile["replay_window"] = replay_window
+        else:
+            macsec_profile["disable_replay_protect"] = ""
 
     opts = ""
     for k, v in list(macsec_profile.items()):
