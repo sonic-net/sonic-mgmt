@@ -58,28 +58,38 @@ SONIC_SHELL_PROMPT_PATTERNS = (
 LOGIN_FAILURE_PATTERN = r".*incorrect"
 # How the connect workflow uses the waits and limits below. Once the SSH login to the
 # console server succeeds, netmiko's constructor runs session_preparation() on the DUT
-# line. Most waits are multiplied by the delay factor, which is 1 unless a caller raises it.
+# line. Most waits are multiplied by the delay_factor argument (DEFAULT_DELAY_FACTOR by
+# default).
 #   a. Read the line without writing, READ_INTERVAL_S between reads, until anything
-#      arrives. A "port in use" notice ends the connect; attach_only stops here.
+#      arrives or max_reads reads pass (DEFAULT_INITIAL_READ_MAX_READS by default). A
+#      "port in use" notice ends the connect; attach_only stops here.
 #   b. *_config types: set the prompt and clear the buffer as in g, then stop.
 #   c. Raritan: send a CR and wait up to RARITAN_LOGIN_PROMPT_TIMEOUT_S for a login prompt.
 #   d. Menu port: select the line and log in to it with login_stage_2(), as in f.
-#   e. Recover: watch the line for PROBE_READ_COUNT reads, READ_INTERVAL_S apart. A silent
-#      line gets one CR and PROBE_READ_COUNT more reads; a leftover shell gets Ctrl-C and,
+#   e. Recover, up to max_attempts times (DEFAULT_RECOVER_MAX_ATTEMPTS by default): watch
+#      the line for PROBE_READ_COUNT reads, READ_INTERVAL_S apart. A silent line gets one
+#      CR and PROBE_READ_COUNT more reads; a leftover shell gets Ctrl-C and,
 #      READ_INTERVAL_S later, "exit", then a RESPONSE_WAIT_S pause for the login prompt.
-#   f. Log in (login_stage_2()): pause RESPONSE_WAIT_S at the start, after sending the
-#      username and after a failed login. Until the username goes out, each round watches
-#      the line for up to PROBE_READ_COUNT reads, READ_INTERVAL_S apart, then sends a CR; later
-#      rounds read every READ_INTERVAL_S. After a rejected password, send a CR every
-#      READ_INTERVAL_S until a fresh login prompt appears.
+#   f. Log in with login_stage_2(), up to max_loops rounds (DEFAULT_LOGIN_MAX_LOOPS by
+#      default): pause RESPONSE_WAIT_S at the start, after sending the username and after
+#      a failed login. Until the username goes out, each round watches the line for up to
+#      PROBE_READ_COUNT reads, READ_INTERVAL_S apart, then sends a CR; later rounds read
+#      every READ_INTERVAL_S. After a rejected password, _resync_to_login_prompt() sends
+#      a CR every READ_INTERVAL_S, up to its max_loops times (DEFAULT_RESYNC_MAX_LOOPS by
+#      default), until a fresh login prompt appears.
 #   g. Set the prompt, pause FINALISE_WAIT_S, then clear the read buffer.
-# On disconnect, cleanup() looks for a SONiC prompt: PROBE_READ_COUNT reads, then PROBE_READ_COUNT
-# CRs, READ_INTERVAL_S apart.
+# On disconnect, cleanup() looks for a SONiC prompt: PROBE_READ_COUNT reads, then
+# PROBE_READ_COUNT CRs, READ_INTERVAL_S apart.
 READ_INTERVAL_S = 0.5
 RESPONSE_WAIT_S = 1
 FINALISE_WAIT_S = 0.3
 RARITAN_LOGIN_PROMPT_TIMEOUT_S = 60
 PROBE_READ_COUNT = 4
+DEFAULT_DELAY_FACTOR = 1
+DEFAULT_INITIAL_READ_MAX_READS = 6
+DEFAULT_RECOVER_MAX_ATTEMPTS = 4
+DEFAULT_RESYNC_MAX_LOOPS = 20
+DEFAULT_LOGIN_MAX_LOOPS = 20
 
 
 class ConsoleRebootStartedError(Exception):
@@ -185,7 +195,7 @@ class SSHConsoleConn(BaseConsoleConn):
         """
         return super(SSHConsoleConn, self)._try_session_preparation(force_data=False)
 
-    def _read_initial_console(self, max_reads=6, delay_factor=1):
+    def _read_initial_console(self, max_reads=DEFAULT_INITIAL_READ_MAX_READS, delay_factor=DEFAULT_DELAY_FACTOR):
         """Passively read the initial console output WITHOUT writing anything.
 
         session_preparation() must inspect the first console output (a console
@@ -377,7 +387,7 @@ class SSHConsoleConn(BaseConsoleConn):
         time.sleep(FINALISE_WAIT_S * self.global_delay_factor)
         self.clear_buffer()
 
-    def _recover_to_login_prompt(self, max_attempts=4, delay_factor=1):
+    def _recover_to_login_prompt(self, max_attempts=DEFAULT_RECOVER_MAX_ATTEMPTS, delay_factor=DEFAULT_DELAY_FACTOR):
         """
         Ensure the console is at a fresh "login:" prompt before logging in.
 
@@ -465,7 +475,7 @@ class SSHConsoleConn(BaseConsoleConn):
         self.clear_buffer()
         return False
 
-    def _resync_to_login_prompt(self, max_loops=20, delay_factor=1):
+    def _resync_to_login_prompt(self, max_loops=DEFAULT_RESYNC_MAX_LOOPS, delay_factor=DEFAULT_DELAY_FACTOR):
         """
         Re-synchronise the console to a fresh "login:" prompt.
 
@@ -505,8 +515,8 @@ class SSHConsoleConn(BaseConsoleConn):
                       alt_prompt_terminator=r".*\$ ",
                       username_pattern=r"(?:user:|username|login:|user name)",
                       pwd_pattern=r"assword",
-                      delay_factor=1,
-                      max_loops=20,
+                      delay_factor=DEFAULT_DELAY_FACTOR,
+                      max_loops=DEFAULT_LOGIN_MAX_LOOPS,
                       defer_on_bootloader=False
                       ):
         """
