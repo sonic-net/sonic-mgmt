@@ -6,6 +6,7 @@ when swss is restarted (non-warm-boot). This ensures stale state from a
 previous orchagent run does not persist across service restarts.
 """
 import logging
+import re
 
 import pytest
 
@@ -64,18 +65,6 @@ def _sentinel_key(table):
     return "{}|{}".format(table, SENTINEL_SUBKEY)
 
 
-def _is_service_hitting_start_limit(duthost, container_name):
-    """Check if a service is hitting the systemd start-limit."""
-    result = duthost.shell(
-        "sudo systemctl status {}.service | grep 'Active'".format(container_name),
-        module_ignore_errors=True
-    )
-    for line in result["stdout_lines"]:
-        if "start-limit-hit" in line:
-            return True
-    return False
-
-
 def test_state_db_cleanup_after_swss_restart(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                              enum_frontend_asic_index):
     """
@@ -109,14 +98,11 @@ def test_state_db_cleanup_after_swss_restart(duthosts, enum_rand_one_per_hwsku_f
 
     # Cold-restart swss for this ASIC
     logger.info("Cold-restarting {} on asic {}".format(service_name, enum_frontend_asic_index))
-    duthost.shell("sudo systemctl reset-failed {}".format(service_name), module_ignore_errors=True)
+    # Clear start-limit counters before the deliberate restart, including services
+    # that swss restarts as dependencies and their per-ASIC systemd instances.
+    for critical_service in [re.sub(r'(\d+)$', r'@\1', s) for s in duthost.critical_services]:
+        duthost.shell("sudo systemctl reset-failed {}.service".format(critical_service))
     duthost.shell("sudo systemctl restart {}".format(service_name))
-
-    for container in duthost.get_default_critical_services_list():
-        if _is_service_hitting_start_limit(duthost, container):
-            logger.info("{} hit start limit, resetting".format(container))
-            duthost.shell("sudo systemctl reset-failed {}.service".format(container))
-            duthost.shell("sudo systemctl start {}.service".format(container))
 
     wait_critical_processes(duthost)
 
