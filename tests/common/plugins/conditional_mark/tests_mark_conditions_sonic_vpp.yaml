@@ -111,6 +111,12 @@ copp/test_copp.py:
     conditions:
       - "asic_type in ['vpp'] and (topo_type != 't1' or topo_name != 't1-lag')"
 
+crm/test_crm.py:
+  skip:
+    reason: "Flaky on the KVM t0-vpp PR testbed, likely from host CPU oversubscription"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/29438 and asic_type in ['vpp'] and topo_name == 't0'"
+
 #######################################
 #####           Decap             #####
 #######################################
@@ -448,6 +454,12 @@ iface_loopback_action/test_iface_loopback_action.py:
 #######################################
 #####             IP              #####
 #######################################
+ip/test_ip_packet.py:
+  skip:
+    reason: "Flaky on the KVM t0-vpp PR testbed, likely from host CPU oversubscription"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/29438 and asic_type in ['vpp'] and topo_name == 't0'"
+
 ip/test_mgmt_ipv6_only.py::test_telemetry_output_ipv6_only:
   xfail:
     reason: "gNMI rejects IPv6 telemetry requests as Unauthenticated despite user_auth=none"
@@ -610,6 +622,12 @@ snmp/test_snmp_psu.py:
       - "asic_type in ['vpp'] and platform in ['x86_64-kvm_x86_64-r0']"
 
 srv6/test_srv6_dataplane.py:
+  skip:
+    reason: "Flaky on the KVM t0-vpp PR testbed, likely from host CPU oversubscription"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/29438 and asic_type in ['vpp'] and topo_name == 't0'"
+
+ssh/test_ssh_stress.py:
   skip:
     reason: "Flaky on the KVM t0-vpp PR testbed, likely from host CPU oversubscription"
     conditions:
