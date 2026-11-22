@@ -20,9 +20,9 @@ def _kill(child):
 
 class PexpectConsoleConn(object):
     """
-    Connect and disconnect for the console classes that run one pexpect child: ConserverConsoleConn.
-    A class supplies _connect(), which starts the child with _spawn() and logs in, and
-    _graceful_disconnect(), its regular disconnect.
+    Connect and disconnect for the console classes that run one pexpect child: ConserverConsoleConn
+    and LinecardConsoleConn. A class supplies _connect(), which starts the child with _spawn() and
+    logs in, and _graceful_disconnect(), its regular disconnect.
     """
 
     def __new__(cls, *args, **kwargs):
@@ -76,9 +76,10 @@ class PexpectConsoleConn(object):
 
     def _spawn(self, command, args=(), **kwargs):
         """
-        Helper used in ConserverConsoleConn._connect(). It performs the same function as
-        pexpect.spawn(), with the addition of keeping the child, so that disconnect() can kill it
-        at any time, even mid-connect; once disconnected, it kills the child and raises pexpect.EOF.
+        Helper used in two places, ConserverConsoleConn._connect() and LinecardConsoleConn._connect().
+        It performs the same function as pexpect.spawn(), with the addition of keeping the child, so
+        that disconnect() can kill it at any time, even mid-connect; once disconnected, it kills the
+        child and raises pexpect.EOF.
         """
         child = pexpect.spawn(command, list(args), **kwargs)
         with self._state_lock:

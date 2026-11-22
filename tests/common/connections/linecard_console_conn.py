@@ -3,6 +3,9 @@ import pexpect
 import os
 import time
 
+# Absolute import: the unit tests load this file on its own, outside its package.
+from tests.common.connections.pexpect_console_conn import PexpectConsoleConn
+
 LINECARD_CLI_PROMPT = r"admin@[a-zA-Z0-9\-]{1,20}:~\$"
 LINECARD_DEBUG_FILE = "/tmp/linecard_console_debug.log"
 LOGIN_USERNAME_PATTERN = "login:"
@@ -42,7 +45,7 @@ class UnsupportedPlatformError(Exception):
     pass
 
 
-class LinecardConsoleConn():
+class LinecardConsoleConn(PexpectConsoleConn):
     """
     Console connection wrapper for linecard consoles accessed via picocom on supervisor.
 
@@ -72,20 +75,23 @@ class LinecardConsoleConn():
                 raise ValueError(f"Required parameter '{param}' is not set")
 
         # Extract parameters
-        supervisor_ip = kwargs['supervisor_ip']
-        sonic_username = kwargs['sonic_username']
-        sonic_password = (kwargs['sonic_password'][0] if isinstance(kwargs['sonic_password'], list)
-                          else kwargs['sonic_password'])
+        self.supervisor_ip = kwargs['supervisor_ip']
+        self.sonic_username = kwargs['sonic_username']
+        self.sonic_password = (kwargs['sonic_password'][0] if isinstance(kwargs['sonic_password'], list)
+                               else kwargs['sonic_password'])
         slot_num = kwargs['slot_num']
 
         # Platform-specific slot conversion (Arista: slot3 -> SCD0, slot7 -> SCD4)
         self.linecard_number = str(int(slot_num[len("slot"):]) - 3)
+        self.connect(kwargs.get("timeout_s"))
 
+    def _connect(self):
         # SSH to supervisor
-        ssh_cmd = f'ssh {sonic_username}@{supervisor_ip} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
-        self.logger.debug(f"Connecting to supervisor at {supervisor_ip}")
+        ssh_cmd = (f'ssh {self.sonic_username}@{self.supervisor_ip} '
+                   '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null')
+        self.logger.debug(f"Connecting to supervisor at {self.supervisor_ip}")
 
-        console_cli = pexpect.spawn(ssh_cmd, timeout=self.default_timeout, echo=False)
+        console_cli = self._spawn(ssh_cmd, timeout=self.default_timeout, echo=False)
 
         # Set up debug logging
         if os.path.exists(LINECARD_DEBUG_FILE):
@@ -94,7 +100,7 @@ class LinecardConsoleConn():
 
         # Authenticate to supervisor
         console_cli.expect(LOGIN_PWD_PATTERN)
-        console_cli.sendline(sonic_password)
+        console_cli.sendline(self.sonic_password)
         console_cli.expect(LINECARD_CLI_PROMPT)
 
         # Kill any existing picocom sessions
@@ -114,9 +120,9 @@ class LinecardConsoleConn():
         try:
             match = console_cli.expect([LOGIN_USERNAME_PATTERN, LINECARD_CLI_PROMPT], timeout=LOGIN_USERNAME_TIMEOUT_S)
             if match == 0:
-                console_cli.sendline(sonic_username)
+                console_cli.sendline(self.sonic_username)
                 console_cli.expect(LOGIN_PWD_PATTERN, timeout=LOGIN_PWD_TIMEOUT_S)
-                console_cli.sendline(sonic_password)
+                console_cli.sendline(self.sonic_password)
                 if console_cli.expect([LINECARD_CLI_PROMPT, LOGIN_FAILURE_PATTERN],
                                       timeout=LOGIN_RESULT_TIMEOUT_S) == 1:
                     raise Exception(f"Failed to authenticate to linecard {self.linecard_number}")
@@ -198,8 +204,9 @@ class LinecardConsoleConn():
         timeout = read_timeout if read_timeout is not None else self.default_timeout
         self.console_cli.expect(pattern, timeout=timeout)
 
-    def disconnect(self):
+    def _graceful_disconnect(self):
         """
+        Run by disconnect(graceful=True): the disconnect() this class had before, unchanged.
         Disconnect from the linecard console and close the SSH connection.
 
         For Arista picocom: Ctrl+A, then Ctrl+X
