@@ -53,6 +53,11 @@ class DutLoginFailed(NetMikoAuthenticationException):
     pass
 
 
+class ConsoleConnectTimeout(NetMikoTimeoutException):
+    """connect() did not finish within timeout_s; the connection was closed without writing."""
+    pass
+
+
 class BaseConsoleConn(CiscoBaseConnection):
 
     def __init__(self, **kwargs):
@@ -61,6 +66,7 @@ class BaseConsoleConn(CiscoBaseConnection):
         # point, even while connecting.
         self._state_lock = threading.Lock()
         self._connected = False
+        timeout_s = kwargs.pop("timeout_s", None)
         # Clear additional args before passing to BaseConsoleConn
         all_passwords = kwargs['console_password']
         key_to_rm = [
@@ -126,25 +132,48 @@ class BaseConsoleConn(CiscoBaseConnection):
 
         self._connect_kwargs = kwargs
         self._console_passwords = all_passwords
-        self.connect()
+        self.connect(timeout_s)
 
-    def connect(self):
+    def connect(self, timeout_s=None):
         """
         Connect, or connect again after disconnect(): try each console password in turn.
         Connecting while connected raises RuntimeError, and a failed connect is as if it never
-        happened: nothing stays open and the object is not connected.
+        happened: nothing stays open and the object is not connected. With timeout_s, a connect
+        still running after timeout_s seconds is closed without writing to the line
+        (disconnect(graceful=False)) and raises ConsoleConnectTimeout.
         """
         with self._state_lock:
             if self._connected:
                 raise RuntimeError("Already connected; call disconnect() first")
             self._connected = True
             self._sockets = []
+        timed_out = threading.Event()
+        timer = None
+        if timeout_s is not None:
+            def time_out():
+                timed_out.set()
+                self.disconnect(graceful=False)
+            timer = threading.Timer(timeout_s, time_out)
+            timer.start()
         try:
             self._try_console_passwords()
-        except Exception:
+        except Exception as e:
+            self._stop_timer(timer)
             # A failed constructor never returns the object for anyone to disconnect.
             self.disconnect(graceful=False)
+            if timed_out.is_set():
+                raise ConsoleConnectTimeout() from e
             raise
+        self._stop_timer(timer)
+        if timed_out.is_set():
+            # The timer fired just as the connect finished: a timeout all the same.
+            raise ConsoleConnectTimeout()
+
+    def _stop_timer(self, timer):
+        """Stop the connect() timer, waiting for it if it is firing."""
+        if timer is not None:
+            timer.cancel()
+            timer.join()
 
     def _try_console_passwords(self):
         kwargs = dict(self._connect_kwargs)
