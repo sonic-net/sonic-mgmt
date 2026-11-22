@@ -3,14 +3,15 @@ Base class for console connection of SONiC devices
 """
 
 import logging
+import threading
 import paramiko
 
 from netmiko.cisco_base_connection import CiscoBaseConnection
 
 try:
-    from netmiko.ssh_exception import NetMikoAuthenticationException
+    from netmiko.ssh_exception import NetMikoAuthenticationException, NetMikoTimeoutException
 except ImportError:
-    from netmiko.exceptions import NetMikoAuthenticationException
+    from netmiko.exceptions import NetMikoAuthenticationException, NetMikoTimeoutException
 
 # For interactive shell
 import sys
@@ -56,6 +57,10 @@ class BaseConsoleConn(CiscoBaseConnection):
 
     def __init__(self, **kwargs):
         self.logger = logging.getLogger(__name__)
+        # Guards _connected and _sockets: disconnect() may come from another thread at any
+        # point, even while connecting.
+        self._state_lock = threading.Lock()
+        self._connected = False
         # Clear additional args before passing to BaseConsoleConn
         all_passwords = kwargs['console_password']
         key_to_rm = [
@@ -125,6 +130,9 @@ class BaseConsoleConn(CiscoBaseConnection):
 
     def connect(self):
         """Connect, or connect again after disconnect(): try each console password in turn."""
+        with self._state_lock:
+            self._connected = True
+            self._sockets = []
         kwargs = dict(self._connect_kwargs)
         for i in range(0, len(self._console_passwords)):
             kwargs['password'] = self._console_passwords[i]
@@ -139,6 +147,34 @@ class BaseConsoleConn(CiscoBaseConnection):
                     raise e
             else:
                 break
+
+    def _open_socket(self, host, port, timeout, next_address_errnos=None):
+        """
+        Helper used in two places, SSHConsoleConn._build_ssh_client() and
+        TelnetConsoleConn.establish_connection(), the overrides of netmiko's _build_ssh_client()
+        and establish_connection(). It performs the same function as the TCP connect in paramiko's
+        SSHClient.connect() (SSH) and socket.create_connection() (telnet), with the addition of
+        registering the socket, so that disconnect(graceful=False) can shut it down at any time,
+        even mid-connect; once disconnected, it raises NetMikoTimeoutException instead of connecting.
+        """
+        error = None
+        for family, sock_type, proto, _, address in socket.getaddrinfo(host, port, type=socket.SOCK_STREAM):
+            sock = socket.socket(family, sock_type, proto)
+            with self._state_lock:
+                if not self._connected:
+                    sock.close()
+                    raise NetMikoTimeoutException("Disconnected; nothing is opened until the next connect()")
+                self._sockets.append(sock)
+            try:
+                sock.settimeout(timeout)
+                sock.connect(address)
+                return sock
+            except OSError as e:
+                sock.close()
+                if next_address_errnos is not None and e.errno not in next_address_errnos:
+                    raise
+                error = e
+        raise error
 
     def select_delay_factor(self, delay_factor):
         # None means the connection's delay factor, the constructor's global_delay_factor.
