@@ -1,3 +1,5 @@
+import logging
+
 from .base_console_conn import (
     CONSOLE_SSH,
     CONSOLE_SSH_CISCO_CONFIG,
@@ -15,6 +17,8 @@ from .conserver_console_conn import ConserverConsoleConn
 from .linecard_console_conn import LinecardConsoleConn
 
 CONSOLE_LINECARD = "console_linecard"
+
+logger = logging.getLogger(__name__)
 
 ConsoleTypeMapper = {
     CONSOLE_TELNET: TelnetConsoleConn,
@@ -39,7 +43,7 @@ def ConsoleHost(console_type,
                 console_password=None,
                 console_device=None,
                 console_direct_ssh_port=None,
-                timeout_s=100,
+                timeout_s=None,
                 supervisor_ip=None,
                 slot_num=None,
                 hwsku=None,
@@ -58,7 +62,7 @@ def ConsoleHost(console_type,
         "console_username": console_username,
         "console_password": console_password,
         "console_device": console_device,
-        "timeout": timeout_s
+        "timeout_s": timeout_s,
     }
 
     # Only SSHConsoleConn consumes cancel_event (it pops it before delegating to
@@ -81,4 +85,11 @@ def ConsoleHost(console_type,
     if console_direct_ssh_port is not None:
         params["direct_ssh_port"] = console_direct_ssh_port
 
-    return ConsoleTypeMapper[console_type](**params)
+    try:
+        return ConsoleTypeMapper[console_type](**params)
+    except TimeoutError:
+        # Every console class's connect timeout is a TimeoutError. Without timeout_s, raise as before.
+        if timeout_s is None:
+            raise
+        logger.warning("%s console did not connect within %s s", console_type, timeout_s)
+        return None
