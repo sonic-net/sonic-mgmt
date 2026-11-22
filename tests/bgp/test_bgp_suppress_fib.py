@@ -1096,9 +1096,10 @@ def remove_static_route_and_redistribute(duthost, is_v6_topo, asic_namespace=Non
         cli_cmd = "sudo config route del prefix {}".format(
             STATIC_ROUTE_PREFIX_V6 if is_v6_topo else STATIC_ROUTE_PREFIX)
         if asic_namespace is not None and duthost.is_multi_asic:
-            CMD_PREFIX = "sudo ip netns exec {} "
-            cli_cmd = CMD_PREFIX + cli_cmd
-            cli_cmd = cli_cmd.format(asic_namespace)
+            # "config route" is Click-based and requires its own explicit "-n/--namespace"
+            # option; wrapping the call in "ip netns exec" from the outside is not
+            # sufficient (and is rejected with "Missing option '-n'/'--namespace'").
+            cli_cmd = cli_cmd.replace("config route", "config route -n {}".format(asic_namespace), 1)
         logger.info("Config static route - {}".format(cli_cmd))
         duthost.shell(cli_cmd)
         redistribute_static_route_to_bgp(duthost, is_v6_topo, asic_namespace, redistribute=False)
@@ -1458,9 +1459,11 @@ def test_bgp_route_with_suppress_negative_operation(duthosts, enum_downstream_du
                                  if port.startswith("PortChannel")
                                  else mg_facts['minigraph_neighbors'][port].get('namespace', None))
                     if namespace is not None and duthost_down.is_multi_asic:
-                        CMD_PREFIX = "sudo ip netns exec {} "
-                        cli_cmd = CMD_PREFIX + cli_cmd
-                        cli_cmd = cli_cmd.format(namespace)
+                        # "config route" is Click-based and requires its own explicit
+                        # "-n/--namespace" option; wrapping the call in "ip netns exec" from
+                        # the outside is not sufficient (and is rejected with "Missing option
+                        # '-n'/'--namespace'").
+                        cli_cmd = cli_cmd.replace("config route", "config route -n {}".format(namespace), 1)
                     logger.info("Config static route - {}".format(cli_cmd))
                     duthost_down.shell(cli_cmd)
                     redistribute_static_route_to_bgp(duthost_down, is_v6_topo, asic_namespace=namespace)

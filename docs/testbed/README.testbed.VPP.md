@@ -1,6 +1,15 @@
 # Running Sonic-mgmt with Sonic-VPP as DUT
 To set up a testbed with a Sonic-VPP DUT follow the [VS testbed setup](README.testbed.VsSetup.md), and use the following commands during bringup. All of the following commands are to be run from the sonic-mgmt container.
 
+### CPU sizing
+
+On a 16-logical-CPU host, dual-ToR VPP testbeds use 6 vCPUs per DUT instead of
+10, leaving 4 host CPUs for PTF, neighbors, simulators, and host services. Each
+DUT retains 8 GiB of memory. Single-DUT VPP testbeds and hosts with more than
+16 logical CPUs keep the existing 10-vCPU allocation. Recreate the DUT VMs
+with `remove-topo` / `add-topo` to apply a changed CPU allocation; `deploy-mg`
+alone does not redefine an existing VM.
+
 ### Add topology:
 ```
 cd /data/sonic-mgmt/ansible

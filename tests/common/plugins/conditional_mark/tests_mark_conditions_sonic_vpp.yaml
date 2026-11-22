@@ -15,6 +15,18 @@ acl/test_stress_acl.py::test_acl_add_del_stress:
     conditions:
       - "asic_type in ['vpp']"
 
+arp/test_neighbor_mac_aging.py:
+  skip:
+    reason: "Flaky on the KVM t0-vpp PR testbed, likely from host CPU oversubscription"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/29438 and asic_type in ['vpp'] and topo_name == 't0'"
+
+arp/test_neighbor_mac_noptf.py:
+  skip:
+    reason: "Flaky on the KVM t0-vpp PR testbed, likely from host CPU oversubscription"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/29438 and asic_type in ['vpp'] and topo_name == 't0'"
+
 #######################################
 #####           BFD               #####
 #######################################
@@ -99,6 +111,12 @@ copp/test_copp.py:
     conditions:
       - "asic_type in ['vpp'] and (topo_type != 't1' or topo_name != 't1-lag')"
 
+crm/test_crm.py:
+  skip:
+    reason: "Flaky on the KVM t0-vpp PR testbed, likely from host CPU oversubscription"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/29438 and asic_type in ['vpp'] and topo_name == 't0'"
+
 #######################################
 #####           Decap             #####
 #######################################
@@ -120,6 +138,16 @@ drop_packets/test_configurable_drop_counters.py:
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
+
+#######################################
+#####          Dualtor            #####
+#######################################
+dualtor_io/test_normal_op.py::test_upstream_standby_rx_drop_check:
+  xfail:
+    reason: "VPP counts ACL drops, including the standby mux port ingress drop ACL, in RX_DRP.
+             See https://github.com/sonic-net/sonic-buildimage/issues/29335"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/29335 and asic_type in ['vpp']"
 
 #######################################
 #####          DUT Console        #####
@@ -156,16 +184,65 @@ dut_console/test_idle_timeout.py:
     conditions:
       - "asic_type in ['vpp'] and (not platform.startswith('arm64-c8220tg_48a_o'))"
 
-#######################################
-#####         Everflow            #####
-#######################################
-everflow:
+everflow/test_everflow_ipv6.py:
   skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
+    reason: "Flaky on the KVM t0-vpp PR testbed, likely from host CPU oversubscription"
     conditions:
-      - "asic_type in ['vpp']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/29438 and asic_type in ['vpp'] and topo_name == 't0'"
+
+everflow/test_everflow_ipv6.py::TestEgressEverflowIPv6::test_dscp_mirroring:
+  skip:
+    reason: "DSCP ACL rule fields are not supported by sonic-vpp"
+    conditions:
+      - "asic_type in ['vpp'] and https://github.com/sonic-net/sonic-sairedis/issues/2148"
+
+everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_dscp_mirroring:
+  skip:
+    reason: "DSCP ACL rule fields are not supported by sonic-vpp"
+    conditions:
+      - "asic_type in ['vpp'] and https://github.com/sonic-net/sonic-sairedis/issues/2148"
+
+everflow/test_everflow_per_interface.py:
+  skip:
+    reason: "Flaky on the KVM t0-vpp PR testbed, likely from host CPU oversubscription"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/29438 and asic_type in ['vpp'] and topo_name == 't0'"
+
+everflow/test_everflow_testbed.py:
+  skip:
+    reason: "Flaky on the KVM t0-vpp PR testbed, likely from host CPU oversubscription"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/29438 and asic_type in ['vpp'] and topo_name == 't0'"
+
+everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_dscp_with_policer:
+  skip:
+    reason: "Everflow DSCP policer testing is out of scope for sonic-vpp"
+    conditions:
+      - "asic_type in ['vpp'] and https://github.com/sonic-net/sonic-sairedis/issues/2148"
+
+everflow/test_everflow_testbed.py::TestEverflowV4EgressAclIngressMirror::test_everflow_dscp_with_policer:
+  skip:
+    reason: "Everflow DSCP policer testing is out of scope for sonic-vpp"
+    conditions:
+      - "asic_type in ['vpp'] and https://github.com/sonic-net/sonic-sairedis/issues/2148"
+
+everflow/test_everflow_testbed.py::TestEverflowV4IngressAclEgressMirror::test_everflow_dscp_with_policer:
+  skip:
+    reason: "Everflow DSCP policer testing is out of scope for sonic-vpp"
+    conditions:
+      - "asic_type in ['vpp'] and https://github.com/sonic-net/sonic-sairedis/issues/2148"
+
+everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
+  skip:
+    reason: "Everflow DSCP policer testing is out of scope for sonic-vpp"
+    conditions:
+      - "asic_type in ['vpp'] and https://github.com/sonic-net/sonic-sairedis/issues/2148"
+
+fdb/test_fdb_mac_move.py:
+  skip:
+    reason: "Flaky on the KVM t0-vpp PR testbed, likely from host CPU oversubscription"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/29438 and asic_type in ['vpp'] and topo_name == 't0'"
 
 #######################################
 #####           FIB               #####
@@ -368,9 +445,21 @@ golden_config_infra/test_config_reload_with_rendered_golden_config.py::test_rend
     conditions:
       - "asic_type in ['vpp']"
 
+iface_loopback_action/test_iface_loopback_action.py:
+  skip:
+    reason: "Flaky on the KVM t0-vpp PR testbed, likely from host CPU oversubscription"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/29438 and asic_type in ['vpp'] and topo_name == 't0'"
+
 #######################################
 #####             IP              #####
 #######################################
+ip/test_ip_packet.py:
+  skip:
+    reason: "Flaky on the KVM t0-vpp PR testbed, likely from host CPU oversubscription"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/29438 and asic_type in ['vpp'] and topo_name == 't0'"
+
 ip/test_mgmt_ipv6_only.py::test_telemetry_output_ipv6_only:
   xfail:
     reason: "gNMI rejects IPv6 telemetry requests as Unauthenticated despite user_auth=none"
@@ -506,6 +595,12 @@ read_mac/test_read_mac_metadata.py::ReadMACMetadata:
     conditions:
       - "asic_type in ['vpp']"
 
+route/test_route_perf.py:
+  skip:
+    reason: "Fails on the KVM t0-vpp PR testbed, likely from host CPU oversubscription"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/29438 and asic_type in ['vpp'] and topo_name == 't0'"
+
 #######################################
 #####           SNMP              #####
 #######################################
@@ -526,21 +621,22 @@ snmp/test_snmp_psu.py:
     conditions:
       - "asic_type in ['vpp'] and platform in ['x86_64-kvm_x86_64-r0']"
 
+srv6/test_srv6_dataplane.py:
+  skip:
+    reason: "Flaky on the KVM t0-vpp PR testbed, likely from host CPU oversubscription"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/29438 and asic_type in ['vpp'] and topo_name == 't0'"
+
+ssh/test_ssh_stress.py:
+  skip:
+    reason: "Flaky on the KVM t0-vpp PR testbed, likely from host CPU oversubscription"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/29438 and asic_type in ['vpp'] and topo_name == 't0'"
+
 #######################################
 #####          Stress             #####
 #######################################
 stress/test_stress_routes.py::test_announce_withdraw_route:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
-#####        Subport Interfaces   #####
-#######################################
-sub_port_interfaces/test_sub_port_l2_forwarding.py:
   skip:
     reason: >
             Failed/Errored: To be included
