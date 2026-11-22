@@ -53,7 +53,7 @@ class DutLoginFailed(NetMikoAuthenticationException):
     pass
 
 
-class ConsoleConnectTimeout(NetMikoTimeoutException):
+class ConsoleConnectTimeout(NetMikoTimeoutException, TimeoutError):
     """connect() did not finish within timeout_s; the connection was closed without writing."""
     pass
 
