@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 import time
+from functools import partial
 
 import pytest
 from _pytest.outcomes import OutcomeException
@@ -142,9 +143,11 @@ def skip_unsupported_hft_platform(
         pytest.fail(f"Unexpected OTEL feature state: {original_state}")
     if original_state == "always_disabled":
         pytest.skip("OTEL feature is always disabled")
-    if original_state in enabled_states and duthost.command(
-            "systemctl show otel.service -p UnitFileState --value")["stdout"] in ("masked", "masked-runtime"):
-        pytest.skip("The OTEL service is masked and cannot be restarted")
+    for name, state in (("hft", hft["state"]), ("otel", original_state)):
+        if state in enabled_states:
+            policy = duthost.command(f"systemctl show {name}.service -p UnitFileState --value")["stdout"]
+            if policy in ("masked", "masked-runtime"):
+                pytest.skip(f"{name}.service is masked and cannot be restarted")
 
     saved = _read_config(duthost, OTEL_BASELINE)
     if saved is not None:
@@ -300,12 +303,16 @@ def hft_test_services(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, skip_
     """Start clean HFT and InfluxDB instances for the module on the dedicated testbed."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     baseline = skip_unsupported_hft_platform
-    duthost.copy(dest=OTEL_BASELINE, content=json.dumps(baseline), mode="0600", force=False, verbose=False)
+    backup = duthost.copy(dest=OTEL_BASELINE, content=json.dumps(baseline), mode="0600", force=False, verbose=False)
+    # An existing backup can belong to an interrupted run that already changed OTEL.
+    restore_otel_needed = not backup["changed"]
     original_config = baseline["original_config"]
     original_state = baseline["original_state"]
     enabled_states = {"enabled", "always_enabled"}
 
     def restore_otel():
+        if not restore_otel_needed:
+            return
         if _read_config(duthost, OTEL_CONFIG_PATH) != original_config:
             if original_config is None:
                 duthost.file(path=OTEL_CONFIG_PATH, state="absent")
@@ -319,6 +326,7 @@ def hft_test_services(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, skip_
                 if not baseline["otel_feature_existed"]:
                     duthost.command(argv=["sonic-db-cli", "CONFIG_DB", "DEL", "FEATURE|otel"])
         elif baseline["original_collector_running"]:
+            duthost.command("systemctl reset-failed otel.service", module_ignore_errors=True)
             duthost.command("systemctl restart otel.service")
             if not wait_until(60, 2, 0, duthost.critical_processes_running, "otel"):
                 pytest.fail("Original OTEL collector did not restart")
@@ -330,17 +338,21 @@ def hft_test_services(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, skip_
         _remove_hft_container(duthost)
         pid = start_influxdb(ptfhost, port=INFLUXDB_PORT)
         _start_test_hft(duthost)
-        if _feature_fields(duthost, "otel").get("state") not in enabled_states:
-            enable_otel_collector(duthost, check_image=False)
-        elif not _get_otel_container_running(duthost):
-            duthost.command("systemctl start otel.service")
+        restore_otel_needed = True
+        enabled = _feature_fields(duthost, "otel").get("state") in enabled_states
+        if not enabled or not _get_otel_container_running(duthost):
+            duthost.command("systemctl reset-failed otel.service", module_ignore_errors=True)
+            if enabled:
+                duthost.command("systemctl start otel.service")
+            else:
+                enable_otel_collector(duthost, check_image=False)
         yield
     finally:
-        steps = [("clear HFT profiles", lambda: cleanup_hft_config(duthost)),
-                 ("reset HFT container", lambda: _restore_hft_feature(duthost, baseline["hft_state"])),
+        steps = [("clear HFT profiles", partial(cleanup_hft_config, duthost)),
+                 ("reset HFT container", partial(_restore_hft_feature, duthost, baseline["hft_state"])),
                  ("restore OTEL", restore_otel)]
         if pid is not None:
-            steps.append(("stop PTF InfluxDB", lambda: stop_influxdb(ptfhost, pid)))
+            steps.append(("stop PTF InfluxDB", partial(stop_influxdb, ptfhost, pid)))
         error = _run_cleanup_steps(steps)
         if error is not None:
             raise error
