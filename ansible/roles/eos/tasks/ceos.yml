@@ -22,6 +22,14 @@
       force_restart: no
     when: snmp_data.ansible_facts.ansible_sysname is defined
 
+- name: Stop existing cEOS container before refreshing its flash directory
+  become: yes
+  docker_container:
+    name: ceos_{{ vm_set_name }}_{{ inventory_hostname }}
+    state: stopped
+  delegate_to: "{{ VM_host[0] }}"
+  when: ctninfo.exists
+
 - include_vars: group_vars/vm_host/ceos.yml
 - include_tasks: ceos_config.yml
 

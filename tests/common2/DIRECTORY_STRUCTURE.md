@@ -135,6 +135,5 @@ tests/common2/
 | tests/pc/         | switching/        | Port channel management |
 | tests/vlan/       | switching/vlan/   | VLAN configuration utilities |
 | tests/route/      | routing/          | Static routing, route validation |
-| tests/telemetry/  | monitoring/telemetry/ | Telemetry data collection |
 | tests/sflow/      | monitoring/sflow/ | sFlow configuration |
 | tests/macsec/     | security/macsec/  | MACsec key management |

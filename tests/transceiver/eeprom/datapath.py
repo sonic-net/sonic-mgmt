@@ -32,12 +32,12 @@ xcvrd restart, ...).
 import logging
 import re
 
-from tests.common.utilities import wait_until
 from tests.transceiver.attribute_parser.attribute_keys import (
     BASE_ATTRIBUTES_KEY,
     EEPROM_ATTRIBUTES_KEY,
 )
 from tests.transceiver.common import cli_helpers
+from tests.transceiver.common.scenario_ops import poll_ports_recovered
 from tests.transceiver.common.eeprom_decode import is_cmis_active_optical
 
 logger = logging.getLogger(__name__)
@@ -60,7 +60,9 @@ NA = "N/A"
 # pinned by inventory": the field must simply be present and non-``N/A``.
 _NON_NA = object()
 
-_POLL_INTERVAL_SEC = 2
+# Poll interval (seconds); kept coarse because each poll re-issues the full bulk
+# CLI (large output) and recovery is minutes-scale.
+_POLL_INTERVAL_SEC = 10
 
 
 def _normalize_cli_datapath_fields(cli_fields):
@@ -281,28 +283,21 @@ def _verify_targets(duthost, port_attributes_dict, wait_sec, ports, per_port_fai
     if not targets:
         return []
 
-    def _all_ok():
-        fields, _ = _read_targets_datapath(duthost, targets)
-        return all(not per_port_failures(attrs, fields.get(port, {}))
-                   for port, attrs in targets)
+    def _check():
+        # If the CLI itself failed, report that error (per port) instead of the
+        # generic "no dynamic DataPath fields", which would otherwise mask it.
+        current, err = _read_targets_datapath(duthost, targets)
+        failures = []
+        for port, attrs in targets:
+            if err and not current.get(port):
+                port_failures = ["show interfaces transceiver info failed: {}".format(err)]
+            else:
+                port_failures = per_port_failures(attrs, current.get(port, {}))
+            if port_failures:
+                failures.append(port + ":\n  " + "\n  ".join(port_failures))
+        return failures
 
-    if wait_until(wait_sec, _POLL_INTERVAL_SEC, 0, _all_ok):
-        return []
-
-    # Poll exhausted (or a ``wait_sec == 0`` snapshot, where ``wait_until`` never
-    # runs the predicate) — read once here to score the per-port failures. If the
-    # CLI itself failed, report that error (per port) instead of the generic
-    # "no dynamic DataPath fields", which would otherwise mask a real breakage.
-    current, err = _read_targets_datapath(duthost, targets)
-    failures = []
-    for port, attrs in targets:
-        if err and not current.get(port):
-            port_failures = ["show interfaces transceiver info failed: {}".format(err)]
-        else:
-            port_failures = per_port_failures(attrs, current.get(port, {}))
-        if port_failures:
-            failures.append(port + ":\n  " + "\n  ".join(port_failures))
-    return failures
+    return poll_ports_recovered(_check, wait_sec, _POLL_INTERVAL_SEC, "DataPath")
 
 
 def verify_datapath_recovered(duthost, port_attributes_dict, wait_sec, ports=None):

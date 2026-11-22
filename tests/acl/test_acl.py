@@ -1,5 +1,6 @@
 import os
 import time
+import ipaddress
 import random
 import logging
 import pprint
@@ -27,6 +28,7 @@ from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr     # no
 from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG, DEFAULT_NAMESPACE
 from tests.common.utilities import get_plt_wait_time, wait_until, check_msg_in_syslog
 from tests.common.utilities import get_all_upstream_neigh_type, get_all_downstream_neigh_type
+from tests.common.utilities import get_upstream_neigh_type
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa: F401
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.interface_utils import check_all_interface_information
@@ -44,7 +46,7 @@ pytestmark = [
     pytest.mark.acl,
     pytest.mark.multi_binding_acl,
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
-    pytest.mark.topology("t0", "t1", "t2", "lrh", "urh", "lt2", "m0", "mx", "m1"),
+    pytest.mark.topology("t0", "t1", "t2", "lrh", "urh", "lt2", "ft2", "m0", "mx", "m1"),
     pytest.mark.disable_memory_utilization
 ]
 
@@ -157,6 +159,43 @@ DOWNSTREAM_IP_TO_BLOCK_VLAN2000 = {
     "ipv6": "fc02:1000:0:1::7"
 }
 
+VLAN_LEGACY_IPS = {
+    ip for ip_set in (DOWNSTREAM_DST_IP_VLAN, DOWNSTREAM_IP_TO_ALLOW_VLAN, DOWNSTREAM_IP_TO_BLOCK_VLAN,
+                      DOWNSTREAM_DST_IP_VLAN2000, DOWNSTREAM_IP_TO_ALLOW_VLAN2000, DOWNSTREAM_IP_TO_BLOCK_VLAN2000)
+    for ip in ip_set.values()
+}
+
+
+def get_vlan_downstream_ips(mg_facts, vlan_name):
+    """Get the (dst, allow, block) downstream test IPs for a VLAN.
+
+    Vlan1000 and Vlan2000 use the fixed IPs above. Any other VLAN uses the highest usable addresses of its own
+    subnets, excluding the VLAN interface addresses and the fixed IPs above.
+    """
+    if vlan_name == "Vlan2000":
+        return DOWNSTREAM_DST_IP_VLAN2000, DOWNSTREAM_IP_TO_ALLOW_VLAN2000, DOWNSTREAM_IP_TO_BLOCK_VLAN2000
+    if vlan_name == "Vlan1000":
+        return DOWNSTREAM_DST_IP_VLAN, DOWNSTREAM_IP_TO_ALLOW_VLAN, DOWNSTREAM_IP_TO_BLOCK_VLAN
+
+    dst_ip, ip_to_allow, ip_to_block = \
+        dict(DOWNSTREAM_DST_IP_VLAN), dict(DOWNSTREAM_IP_TO_ALLOW_VLAN), dict(DOWNSTREAM_IP_TO_BLOCK_VLAN)
+    vlan_intfs = [intf for intf in mg_facts["minigraph_vlan_interfaces"] if intf["attachto"] == vlan_name]
+    for vlan_intf in vlan_intfs:
+        network = ipaddress.ip_network("{}/{}".format(vlan_intf["addr"], vlan_intf["prefixlen"]), strict=False)
+        reserved = {ipaddress.ip_address(intf["addr"]) for intf in vlan_intfs}
+        candidates = []
+        candidate = network.broadcast_address - 1
+        while candidate > network.network_address and len(candidates) < 3:
+            if candidate not in reserved and str(candidate) not in VLAN_LEGACY_IPS:
+                candidates.append(str(candidate))
+            candidate -= 1
+        if len(candidates) < 3:
+            pytest.skip("Subnet {} of {} has fewer than 3 usable test addresses".format(network, vlan_name))
+        ip_version = "ipv{}".format(network.version)
+        dst_ip[ip_version], ip_to_allow[ip_version], ip_to_block[ip_version] = candidates
+    return dst_ip, ip_to_allow, ip_to_block
+
+
 DOWNSTREAM_IP_PORT_MAP = {}
 
 UPSTREAM_DST_IP = {
@@ -204,14 +243,26 @@ def remove_dataacl_table(duthosts):
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         # Recover DUT by reloading minigraph
         for duthost in duthosts:
-            executor.submit(
-                config_reload,
-                duthost,
-                config_source="minigraph",
-                safe_reload=True,
-                override_config=True,
-                check_intf_up_ports=True
-            )
+            executor.submit(reload_minigraph_with_optional_override, duthost)
+
+
+def reload_minigraph_with_optional_override(duthost):
+    """
+    Reload minigraph, applying golden config override only if the golden
+    config file actually exists on the DUT. Passing override_config=True
+    causes config_reload/load_minigraph to abort test with
+    "Cannot find 'golden_config_db.json'!".
+    """
+    golden_cfg = duthost.stat(path="/etc/sonic/golden_config_db.json")
+    override_config = golden_cfg.get("stat", {}).get("exists", False)
+    config_reload(
+        duthost,
+        config_source="minigraph",
+        safe_reload=True,
+        override_config=override_config,
+        check_intf_up_ports=True,
+        wait_for_bgp=True
+    )
 
 
 def remove_dataacl_table_single_dut(table_name, duthost):
@@ -241,6 +292,9 @@ def get_t2_info(duthosts, tbinfo):
     upstream_port_id_to_router_mac_map, downstream_port_id_to_router_mac_map = {}, {}
     downstream_port_ids, upstream_port_ids = [], []
     port_channels = dict()
+    # Standard T2 topologies use T3 uplinks, while isolated T2 topologies use PT1 peers.
+    # PT1 names also contain "T1", so classify upstream neighbors before downstream T1 neighbors.
+    upstream_neigh_type = get_upstream_neigh_type(tbinfo) or "T3"
 
     for duthost in duthosts:
         if duthost.is_supervisor_node():
@@ -258,14 +312,14 @@ def get_t2_info(duthosts, tbinfo):
             mg_facts = duthost.get_extended_minigraph_facts(tbinfo, namespace)
             for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
                 port_id = mg_facts["minigraph_ptf_indices"][interface]
-                if "T1" in neighbor["name"] or "LT2" in neighbor["name"]:
-                    downstream_ports_per_dut[namespace].append(interface)
-                    downstream_port_ids.append(port_id)
-                    downstream_port_id_to_router_mac_map[port_id] = router_mac
-                elif "T3" in neighbor["name"]:
+                if upstream_neigh_type in neighbor["name"]:
                     upstream_ports_per_dut[namespace].append(interface)
                     upstream_port_ids.append(port_id)
                     upstream_port_id_to_router_mac_map[port_id] = router_mac
+                elif "T1" in neighbor["name"] or "LT2" in neighbor["name"]:
+                    downstream_ports_per_dut[namespace].append(interface)
+                    downstream_port_ids.append(port_id)
+                    downstream_port_id_to_router_mac_map[port_id] = router_mac
                 mg_facts = duthost.get_extended_minigraph_facts(tbinfo, namespace)
 
             port_channels[namespace] = mg_facts["minigraph_portchannels"]
@@ -330,17 +384,20 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
 
     """
 
-    pytest_assert(vlan_name in ["Vlan1000", "Vlan2000", "no_vlan"], "Invalid vlan name.")
     topo = tbinfo["topo"]["type"]
     # NOTE: We cannot use rand_unselected_dut in this case
     # ATM it's only used if 'dualtor' in tbinfo['topo']['name']
     if topo == "t2":
         rand_selected_dut = rand_selected_front_end_dut
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
+    pytest_assert(vlan_name == "no_vlan" or vlan_name in mg_facts["minigraph_vlans"], "Invalid vlan name.")
 
     vlan_ports = []
     vlan_mac = None
     vlan_config = None
+    extra_vars = None
+    saved_vlan2_rule_vars = {}
+    vlan2_rule_var_names = []
     # Need to refresh below constants for two scenarios of M0
     global DOWNSTREAM_DST_IP, DOWNSTREAM_IP_TO_ALLOW, DOWNSTREAM_IP_TO_BLOCK
 
@@ -366,25 +423,35 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
         DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_M0_L3
         DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_M0_L3
         DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_M0_L3
-    elif is_ipv6_only_topology(tbinfo):
-        if tbinfo['topo']['type'] in ['t0']:
+    elif is_ipv6_only_topology(tbinfo) and tbinfo['topo']['type'] not in ['t0']:
+        DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_V6_TOPO
+        DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_V6_TOPO
+        DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_V6_TOPO
+    elif tbinfo['topo']['type'] in ['t0']:
+        if is_ipv6_only_topology(tbinfo):
             DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_VLAN
             DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_VLAN
             DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_VLAN
-        else:
-            DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_V6_TOPO
-            DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_V6_TOPO
-            DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_V6_TOPO
-    elif tbinfo['topo']['type'] in ['t0']:
         try:
             vlan_config = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']['default_vlan_config']
             if vlan_config in ('one_vlan_a', 'two_vlan_a'):
                 logging.info("topo {} vlan_config {}".format(tbinfo['topo']['name'], vlan_config))
-                DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_VLAN2000 if vlan_name == "Vlan2000" else DOWNSTREAM_DST_IP_VLAN
-                DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_VLAN2000 if vlan_name == "Vlan2000" \
-                    else DOWNSTREAM_IP_TO_ALLOW_VLAN
-                DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_VLAN2000 if vlan_name == "Vlan2000" \
-                    else DOWNSTREAM_IP_TO_BLOCK_VLAN
+                DOWNSTREAM_DST_IP, DOWNSTREAM_IP_TO_ALLOW, DOWNSTREAM_IP_TO_BLOCK = \
+                    get_vlan_downstream_ips(mg_facts, vlan_name)
+                if vlan_name == "Vlan1000":
+                    vlan2_allow_ip, vlan2_block_ip = DOWNSTREAM_IP_TO_ALLOW_VLAN2000, DOWNSTREAM_IP_TO_BLOCK_VLAN2000
+                else:
+                    vlan2_allow_ip, vlan2_block_ip = DOWNSTREAM_IP_TO_ALLOW, DOWNSTREAM_IP_TO_BLOCK
+                vlan2_rule_vars = {
+                    "vlan2_allow_ipv4": vlan2_allow_ip["ipv4"],
+                    "vlan2_block_ipv4": vlan2_block_ip["ipv4"],
+                    "vlan2_allow_ipv6": vlan2_allow_ip["ipv6"],
+                    "vlan2_block_ipv6": vlan2_block_ip["ipv6"]
+                }
+                extra_vars = rand_selected_dut.host.options["variable_manager"].extra_vars
+                saved_vlan2_rule_vars = {key: extra_vars.get(key) for key in vlan2_rule_vars if key in extra_vars}
+                extra_vars.update(vlan2_rule_vars)
+                vlan2_rule_var_names = list(vlan2_rule_vars)
         except KeyError:
             logger.error("topo {} keys are missing in the tbinfo:{}".format(tbinfo['topo']['name'], tbinfo))
     if topo in ["t0", "mx", "m0_vlan"]:
@@ -485,7 +552,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
     acl_table_ports = defaultdict(list)
 
     if (topo in ["t0", "mx", "m0_vlan", "m0_l3", "m1", "ft2"]
-            or tbinfo["topo"]["name"] in ("t1", "t1-lag", "t1-28-lag", "t1-48-lag")
+            or tbinfo["topo"]["name"] in ("t1", "t1-8", "t1-lag", "t1-28-lag", "t1-48-lag")
             or 't1-isolated' in tbinfo["topo"]["name"]):
         for namespace, port in list(downstream_ports.items()):
             acl_table_ports[namespace] += port
@@ -525,9 +592,15 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
         # For LT2, add portchannels for downstream links
         for k, v in list(port_channels.items()):
             acl_table_ports[v['namespace']].append(k)
-        # Add RIF for upstream links
+        # Add standalone RIFs for upstream links. PortChannel members cannot
+        # also be bound to the ACL table as physical interfaces.
+        pc_members = defaultdict(set)
+        for pc in port_channels.values():
+            pc_members[pc['namespace']].update(pc.get('members', []))
         for namespace, port in list(upstream_ports.items()):
-            acl_table_ports[namespace] += port
+            acl_table_ports[namespace] += [
+                interface for interface in port if interface not in pc_members[namespace]
+            ]
     elif topo in ("urh", "lrh"):
         # For URH/LRH, ports may be in portchannels — raw PC member interfaces
         # cannot bind ACLs, so add PortChannel names and filter out ports in portchannels.
@@ -590,6 +663,13 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
         setattr(ptfadapter, "force_reload_macsec", True)
 
     yield setup_information
+
+    # Do not leak the VLAN specific rule IPs to other tests rendering the same ACL rule templates
+    for key in vlan2_rule_var_names:
+        if key in saved_vlan2_rule_vars:
+            extra_vars[key] = saved_vlan2_rule_vars[key]
+        else:
+            extra_vars.pop(key, None)
 
     logger.info("Removing temporary directory \"{}\"".format(DUT_TMP_DIR))
     for duthost in duthosts:
@@ -1091,6 +1171,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                 if duthost.facts["platform"] in ["x86_64-8111_32eh_o-r0",
                                                  "x86_64-8122_64eh_o-r0",
                                                  "x86_64-8122_64ehf_o-r0",
+                                                 "x86_64-8122x_64ef_o-r0",
                                                  "x86_64-8223_64e_mo-r0",
                                                  "x86_64-8223_64ef_mo-r0"]:
                     skip_byte_accounting = True

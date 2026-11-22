@@ -8,12 +8,14 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.bgp import get_asic_config_facts, map_bgp_neighbor_to_interfaces
 from tests.common.reboot import reboot
+from tests.common.mellanox_data import is_mellanox_device, is_issu_enabled
 
 logger = logging.getLogger(__name__)
 vrfname = 'default'
+BGP_SESSION_TIMEOUT = 300
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", 'm1', 'lt2', 'ft2', 'c0'),
+    pytest.mark.topology("t0", "t1", 'm1', 'lt2', 'ft2', 'c0', 'lma', 'uma'),
 ]
 
 
@@ -65,8 +67,23 @@ def setup(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_inde
 
     # verify sessions are established on the selected ASIC
     neigh_ips = list(bgp_neighbors.keys())
-    pytest_assert(wait_until(120, 5, 0, asichost.check_bgp_session_state, neigh_ips),
-                  "Not all BGP sessions are established on DUT ASIC {}".format(asic_index))
+    sessions_established = wait_until(
+        BGP_SESSION_TIMEOUT, 10, 0, asichost.check_bgp_session_state, neigh_ips
+    )
+    if not sessions_established:
+        for cmd in ('show ip bgp summary', 'show ipv6 bgp summary'):
+            logger.error(
+                "%s\n%s",
+                cmd,
+                duthost.shell(
+                    '{} {}'.format(cmd, asichost.cli_ns_option).strip(),
+                    module_ignore_errors=True
+                )['stdout']
+            )
+    pytest_assert(
+        sessions_established,
+        "Not all BGP sessions are established on DUT ASIC {}".format(asic_index)
+    )
 
     for ip, details in bgp_neighbors.items():
         interfaces = map_bgp_neighbor_to_interfaces(details['name'], dev_nbrs)
@@ -111,7 +128,7 @@ def setup(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_inde
             nbrhosts[neighbor_name]['host'].no_shutdown(neighbor_port)
             time.sleep(1)
 
-        pytest_assert(wait_until(120, 10, 0, asichost.check_bgp_session_state, neigh_ips),
+        pytest_assert(wait_until(BGP_SESSION_TIMEOUT, 10, 0, asichost.check_bgp_session_state, neigh_ips),
                       "Not all BGP sessions are established on DUT ASIC {}".format(asic_index))
 
 
@@ -302,13 +319,16 @@ def test_bgp_session_interface_down(duthosts, enum_frontend_dut_hostname, fanout
     elif test_type == "swss_docker":
         duthost.shell("sudo systemctl restart {}".format(asichost.get_service_name("swss")))
     elif test_type == "reboot":
-        # Use warm reboot for t0, cold reboot for others
+        # Use warm reboot for t0 when it's supported, cold reboot for others
         topo_name = tbinfo["topo"]["name"]
         logger.info("Rebooting DUT {} with type {}".format(duthost.hostname, topo_name))
         if topo_name.startswith("t0"):
             reboot_type = "warm"
+            if is_mellanox_device(duthost) and not is_issu_enabled(duthost):
+                reboot_type = "cold"
         else:
             reboot_type = "cold"
+        logger.info("Rebooting DUT {} with type {}".format(duthost.hostname, reboot_type))
         reboot(duthost, localhost, reboot_type=reboot_type, wait_warmboot_finalizer=True,
                warmboot_finalizer_timeout=360)
 

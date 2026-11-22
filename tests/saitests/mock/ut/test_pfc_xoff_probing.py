@@ -148,6 +148,18 @@ class TestPfcXoffProbingConfiguration:
             f"Expected (1500, 'PFC XOFF threshold'), got {result}"
         print(f"[OK] Threshold tuple correctly returned: {result}")
 
+    @pytest.mark.order(1035)
+    def test_get_expected_threshold_with_egr_mem(self):
+        """Test get_expected_threshold() includes configured egress memory."""
+        pfc = TestPfcXoffProbingInstance()
+        pfc.hwsku = "Arista-7060X6"
+        pfc.pkts_num_trig_pfc = 115917
+        pfc.pkts_num_egr_mem = 206
+
+        result = pfc.get_expected_threshold()
+
+        assert result == (pfc.pkts_num_trig_pfc + pfc.pkts_num_egr_mem, "PFC XOFF threshold")
+
     @pytest.mark.order(1040)
     def test_get_expected_threshold_without_value(self):
         """Test get_expected_threshold() returns None when no value is set."""
