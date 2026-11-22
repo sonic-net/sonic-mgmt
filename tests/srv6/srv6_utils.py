@@ -1095,7 +1095,6 @@ def verify_asic_db_sid_entry_exist(duthost, sonic_db_cli):
     return len(asic_db_my_sids.strip()) > 0
 
 
-
 def get_ptf_src_port_and_dut_port_and_neighbor(dut, tbinfo):
     """Get the PTF port mapping for the duthost or an asic of the duthost"""
     dut_mg_facts = dut.get_extended_minigraph_facts(tbinfo)
@@ -1412,9 +1411,7 @@ def run_srv6_no_sid_blackhole_test(setup_uN, ptfadapter, ptfhost, with_srh):
         assert after_count >= (before_count + pkt_count), "RIF RX_ERR counter is not incremented as expected"
 
 
-
 # --- PIC Convergence Test Helpers ---
-
 def apply_config_cmmds_to_vtysh(nbrhost, cmd_list):
     """Apply a list of vtysh configuration-mode commands to a device in one RPC.
 
@@ -1543,6 +1540,7 @@ def stop_record_collection(duthost, testcase_name):
     collect_db_entries(duthost, testcase_name, "appdb", "NEXTHOP_GROUP_TABLE")
     collect_db_entries(duthost, testcase_name, "appstatedb", "NHG_FULL_STATE_TABLE")
     collect_vtysh_route_snapshot(duthost, testcase_name)
+
 
 def assert_appdb_nexthop_removed(duthost, nexthop, timeout=10, poll_interval=1):
     """Poll APP_DB until nexthop is absent from all forwarding entries.

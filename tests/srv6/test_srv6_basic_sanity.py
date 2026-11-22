@@ -636,6 +636,8 @@ def test_traffic_check_remote_bgp_fail_case(tbinfo, duthosts, rand_one_dut_hostn
         check_bgp_neighbors_func, pe3,
         ['2064:100::1d', '2064:200::1e', 'fc08::2', 'fc06::2']),
         "wait for PE3 BGP neighbors up")
+
+
 def test_topology1_local_failure(duthosts, nbrhosts):
     """Test PIC convergence for Topology 1 when local link (Ethernet12) goes down.
 
@@ -752,7 +754,6 @@ def test_topology1_remote_bgp_failure(duthosts, rand_one_dut_hostname, nbrhosts)
             turn_on_off_frr_debug(duthosts, "", nbrhosts, zebra_debug_file, "PE3", False)
             collect_frr_debugfile(duthosts, "", nbrhosts, zebra_debug_file, "PE3")
             apply_config_cmmds_to_vtysh(duthost, TOPO1_STATIC_ROUTES_REMOVE)
-
 
 
 def test_remote_igp_failure(duthosts, rand_one_dut_hostname, nbrhosts):
@@ -1059,6 +1060,3 @@ def test_topology2_remote_bgp_failure(duthosts, rand_one_dut_hostname, nbrhosts)
             turn_on_off_frr_debug(duthosts, "", nbrhosts, zebra_debug_file, "PE3", False)
             collect_frr_debugfile(duthosts, "", nbrhosts, zebra_debug_file, "PE3")
             apply_config_cmmds_to_vtysh(duthost, TOPO2_STATIC_ROUTES_REMOVE)
-
-
-
