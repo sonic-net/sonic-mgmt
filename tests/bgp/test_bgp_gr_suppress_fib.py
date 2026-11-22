@@ -341,6 +341,7 @@ def test_bgp_gr_with_suppress_fib(duthosts, rand_one_dut_hostname, nbrhosts,
 
     # Step 4: Restart BGP on DUT
     logger.info("Restarting BGP service on DUT with suppress-fib-pending enabled")
+    duthost.reset_service("bgp")
     duthost.shell('sudo systemctl restart bgp')
 
     # Step 5: Wait for BGP sessions to re-establish
