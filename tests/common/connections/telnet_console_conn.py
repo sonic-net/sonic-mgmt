@@ -1,5 +1,7 @@
 import time
 import re
+from netmiko._telnetlib import telnetlib
+from netmiko.channel import TelnetChannel
 from .base_console_conn import DEFAULT_FAST_CLI, BaseConsoleConn, DutLoginFailed
 
 LOGIN_FAILURE_PATTERN = r".*incorrect"
@@ -55,6 +57,18 @@ class TelnetConsoleConn(BaseConsoleConn):
         if not kwargs.get('fast_cli', DEFAULT_FAST_CLI):
             kwargs['global_delay_factor'] = max(kwargs['global_delay_factor'], DEFAULT_DELAY_FACTOR)
         super(TelnetConsoleConn, self).__init__(**kwargs)
+
+    def establish_connection(self, width=511, height=1000):
+        # Override of netmiko's establish_connection() for telnet. The TCP connect comes from
+        # _open_socket() instead of Telnet(host, port)'s socket.create_connection(), so
+        # disconnect(graceful=False) can shut it down at any time. The only other difference:
+        # netmiko's sock_telnet proxy option is not supported. Otherwise unchanged: the same
+        # Telnet object and channel, the same telnet_login(), and the same errors.
+        self.remote_conn = telnetlib.Telnet()
+        self.remote_conn.host, self.remote_conn.port, self.remote_conn.timeout = self.host, self.port, self.conn_timeout
+        self.remote_conn.sock = self._open_socket(self.host, self.port, self.conn_timeout)
+        self.channel = TelnetChannel(conn=self.remote_conn, encoding=self.encoding)
+        self.telnet_login()
 
     def _try_session_preparation(self, force_data=True):
         # netmiko writes a RETURN before session preparation; an attach-only console must not.

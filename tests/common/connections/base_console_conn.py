@@ -176,6 +176,7 @@ class BaseConsoleConn(CiscoBaseConnection):
           NoValidConnectionsError; netmiko turns both into the same NetmikoTimeoutException.
         - SSH, conn_timeout=None: waits without limit instead of Python's global socket timeout;
           conn_timeout is netmiko's default 10 s here, and no global socket timeout is set.
+        - telnet: Python's audit event telnetlib.Telnet.open is not raised; we use no audit hooks.
         """
         error = None
         for family, sock_type, proto, _, address in socket.getaddrinfo(host, port, type=socket.SOCK_STREAM):
