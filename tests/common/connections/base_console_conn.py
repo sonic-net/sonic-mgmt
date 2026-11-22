@@ -222,8 +222,26 @@ class BaseConsoleConn(CiscoBaseConnection):
     def cleanup(self):
         super(BaseConsoleConn, self).cleanup()
 
-    def disconnect(self):
-        super(BaseConsoleConn, self).disconnect()
+    def disconnect(self, graceful=True):
+        """
+        Override of netmiko's disconnect(). Different: graceful=False closes the connection at
+        once without writing to the line (no logout), is safe from another thread even while
+        connecting, and opens nothing new until the next connect(). graceful=True runs netmiko's
+        disconnect() as before. Either way, no TCP connection the object opened stays open.
+        """
+        with self._state_lock:
+            self._connected = False
+        if graceful:
+            super(BaseConsoleConn, self).disconnect()
+        with self._state_lock:
+            sockets, self._sockets = self._sockets, []
+        for sock in sockets:
+            # shutdown() ends the connection and wakes any thread blocked on it; close() alone does not.
+            try:
+                sock.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            sock.close()
 
     def posix_shell(self):
         oldtty = termios.tcgetattr(sys.stdin)
