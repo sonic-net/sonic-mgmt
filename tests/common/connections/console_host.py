@@ -35,39 +35,39 @@ ConsoleTypeMapper = {
 
 
 def ConsoleHost(console_type,
-                console_host,
-                console_port,
                 sonic_username,
                 sonic_password,
+                timeout_s=None,
+                console_host=None,
+                console_port=None,
                 console_username=None,
                 console_password=None,
-                console_device=None,
                 console_direct_ssh_port=None,
-                timeout_s=None,
+                console_device=None,
                 supervisor_ip=None,
                 slot_num=None,
                 hwsku=None,
-                cancel_event=None,
-                attach_only=False):
+                attach_only=False,
+                cancel_event=None):
     """Connect to a device console.
 
     Args:
         console_type: how the console is reached, a key of ConsoleTypeMapper.
-        console_host: the console server's address (SSH and telnet types).
-        console_port: the DUT's port on the console server; how it is used depends on console_type.
         sonic_username: DUT login user; None when not logging in (attach_only, console-server config types).
         sonic_password: list of DUT passwords, tried in order (conserver and linecard use the first).
-        console_username: console server login user (SSH types).
-        console_password: list of console server passwords, tried in order (SSH types).
-        console_device: the conserver "host:name" of the DUT console (conserver only).
-        console_direct_ssh_port: the SSH port that reaches the DUT's line directly (console_ssh_to_port only).
         timeout_s: seconds allowed to connect; a connect still running then is cut without writing to the
             line. None for no limit.
+        console_host: the console server's address (SSH and telnet types).
+        console_port: the DUT's port on the console server; how it is used depends on console_type.
+        console_username: console server login user (SSH types).
+        console_password: list of console server passwords, tried in order (SSH types).
+        console_direct_ssh_port: the SSH port that reaches the DUT's line directly (console_ssh_to_port only).
+        console_device: the conserver "host:name" of the DUT console (conserver only).
         supervisor_ip: address of the supervisor whose serial port reaches the linecard (linecard only).
         slot_num: the linecard's slot, e.g. "slot3" (linecard only).
         hwsku: the chassis HwSKU; only Arista is supported (linecard only).
-        cancel_event: threading.Event; once set, the SSH console raises instead of writing to the line.
         attach_only: attach to the DUT's line without logging in or writing to it (SSH and telnet only).
+        cancel_event: threading.Event; once set, the SSH console raises instead of writing to the line.
 
     Returns:
         The connection, or None if timeout_s is given and the connect times out. Other failures raise.
