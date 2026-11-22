@@ -129,10 +129,24 @@ class BaseConsoleConn(CiscoBaseConnection):
         self.connect()
 
     def connect(self):
-        """Connect, or connect again after disconnect(): try each console password in turn."""
+        """
+        Connect, or connect again after disconnect(): try each console password in turn.
+        Connecting while connected raises RuntimeError, and a failed connect is as if it never
+        happened: nothing stays open and the object is not connected.
+        """
         with self._state_lock:
+            if self._connected:
+                raise RuntimeError("Already connected; call disconnect() first")
             self._connected = True
             self._sockets = []
+        try:
+            self._try_console_passwords()
+        except Exception:
+            # A failed constructor never returns the object for anyone to disconnect.
+            self.disconnect(graceful=False)
+            raise
+
+    def _try_console_passwords(self):
         kwargs = dict(self._connect_kwargs)
         for i in range(0, len(self._console_passwords)):
             kwargs['password'] = self._console_passwords[i]
