@@ -36,8 +36,8 @@ from tests.high_frequency_telemetry.utilities import (
 logger = logging.getLogger(__name__)
 
 OTEL_CONFIG_PATH = "/etc/sonic/otel_config.yml"
-HFT_WORK = "/var/lib/sonic-mgmt-hft"
-HFT_OTEL_ARGS = ("--enable-otel", "--otel-endpoint=http://localhost:4317")
+OTEL_BASELINE = "/var/lib/sonic-mgmt-hft-otel.json"
+HFT_OTEL_ARGS = ["--enable-otel", "--otel-endpoint=http://localhost:4317"]
 INFLUXDB_PORT = 8181
 INFLUXDB_BUCKET_PREFIX = "hft_test"
 INFLUXDB_BUCKET_IDS = itertools.count(1)
@@ -100,58 +100,41 @@ def _is_otel_container_stopped(duthost):
 
 
 def _feature_fields(duthost, name):
-    lines = duthost.command(argv=["redis-cli", "-n", "4", "--raw", "HGETALL", f"FEATURE|{name}"],
-                            strip_empty_ends=False)["stdout_lines"]
-    if lines == [""]:  # redis-cli prints a newline for a missing hash.
+    result = duthost.command(argv=["redis-cli", "-n", "4", "--raw", "HGETALL", f"FEATURE|{name}"],
+                             strip_empty_ends=False)
+    lines = result["stdout_lines"]
+    if not lines or lines == [""]:
         return {}
     if len(lines) % 2:
         pytest.fail(f"Invalid FEATURE|{name} response: expected field/value pairs")
     return dict(zip(lines[::2], lines[1::2]))
 
 
-def _otel_config(duthost):
-    info = duthost.stat(path=OTEL_CONFIG_PATH, follow=False, get_checksum=False, get_mime=False)["stat"]
+def _read_config(duthost, path):
+    info = duthost.stat(path=path, follow=False, get_checksum=False, get_mime=False)["stat"]
     if not info["exists"]:
         return None
     if not info["isreg"] or info["nlink"] != 1:
-        pytest.fail("Refusing to replace a managed OTEL configuration file")
-    return base64.b64decode(duthost.slurp(src=OTEL_CONFIG_PATH, verbose=False)["content"]).decode()
+        pytest.fail(f"Expected a regular file at {path}")
+    return base64.b64decode(duthost.slurp(src=path, verbose=False)["content"]).decode()
 
 
 @pytest.fixture(scope="module")
-def hft_container_work(duthosts, enum_rand_one_per_hwsku_hostname):
-    """Reserve hft before shared setup and keep the saved container until teardown."""
+def skip_unsupported_hft_platform(
+        duthosts, enum_rand_one_per_hwsku_hostname):
+    """Validate shared HFT prerequisites without changing the DUT."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if duthost.is_multi_asic:
-        pytest.skip("Per-ASIC hft containers are not supported")
     hft = _feature_fields(duthost, "hft")
-    if (hft.get("state") not in ("enabled", "always_enabled", "disabled") or
+    if (duthost.is_multi_asic or hft.get("state") not in ("disabled", "enabled", "always_enabled") or
             hft.get("set_owner", "local") not in ("", "local")):
-        pytest.skip("HFT tests require a locally managed standalone hft feature")
-    duthost.command(argv=["mkdir", "-m", "0700", HFT_WORK])
-    work = None
-    run = {}
-    try:
-        work = duthost.tempfile(state="directory", path=HFT_WORK, prefix="sonic-mgmt-hft-")["path"]
-        for name in ("hft_container.py", "create_hft.sh"):
-            duthost.copy(src=os.path.join(os.path.dirname(__file__), "files", name), dest=f"{work}/{name}")
-        run["hft_helper"] = ["flock", "-F", "-w", "120", work, "python3", "-B", f"{work}/hft_container.py"]
-        yield run
-    finally:
-        if run.get("otel_restore_pending"):
-            pytest.fail(f"OTEL recovery incomplete; inspect the saved configuration in {work}")
-        if "hft_helper" in run:
-            duthost.command(argv=[*run["hft_helper"], "restore"])  # Retain the recovery record if this fails.
-        if work:
-            duthost.file(path=work, state="absent")
-        duthost.command(argv=["rmdir", HFT_WORK])
-
-
-@pytest.fixture(scope="module")
-def skip_unsupported_hft_platform(duthosts, enum_rand_one_per_hwsku_hostname, hft_container_work):
-    """Validate shared HFT prerequisites without changing either service."""
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        pytest.skip("HFT tests require a locally managed standalone hft feature on one ASIC")
+    duthost.command("test -r /usr/bin/hft.sh")
+    duthost.command("docker image inspect -f installed docker-hft:latest")
     original_feature = _feature_fields(duthost, "otel")
+    if original_feature and "state" not in original_feature:
+        pytest.fail("FEATURE|otel exists but has no state; cannot enable or restore the collector")
+    if original_feature.get("set_owner", "local") not in ("", "local"):
+        pytest.skip("HFT tests require a locally managed OTEL collector")
     original_state = original_feature.get("state", "disabled")
     enabled_states = {"enabled", "always_enabled"}
     valid_states = enabled_states | {"disabled", "always_disabled"}
@@ -159,12 +142,13 @@ def skip_unsupported_hft_platform(duthosts, enum_rand_one_per_hwsku_hostname, hf
         pytest.fail(f"Unexpected OTEL feature state: {original_state}")
     if original_state == "always_disabled":
         pytest.skip("OTEL feature is always disabled")
-    if original_feature.get("set_owner", "local") not in ("", "local"):
-        pytest.skip("HFT tests require a locally managed OTEL collector")
-    if original_state in enabled_states:
-        policy = duthost.command(argv=["systemctl", "show", "otel.service", "-p", "UnitFileState", "--value"])
-        if policy["stdout"].strip() in ("masked", "masked-runtime"):
-            pytest.skip("The running OTEL service is masked and cannot be restarted")
+    if original_state in enabled_states and duthost.command(
+            "systemctl show otel.service -p UnitFileState --value")["stdout"] in ("masked", "masked-runtime"):
+        pytest.skip("The OTEL service is masked and cannot be restarted")
+
+    saved = _read_config(duthost, OTEL_BASELINE)
+    if saved is not None:
+        return json.loads(saved)  # A previous run already recorded the pre-test feature states and collector config.
 
     original_container_running = _get_otel_container_running(duthost)
     if original_state in enabled_states and not original_container_running:
@@ -181,13 +165,61 @@ def skip_unsupported_hft_platform(duthosts, enum_rand_one_per_hwsku_hostname, hf
         original_collector_running = _collector_running_from_status(
             collector_status
         )
-    hft_container_work.update({
-        "original_config": _otel_config(duthost),
-        "original_feature": original_feature,
+    return {
+        "hft_state": hft["state"],
+        "original_config": _read_config(duthost, OTEL_CONFIG_PATH),
+        "otel_feature_existed": bool(original_feature),
         "original_state": original_state,
         "original_collector_running": original_collector_running,
-    })
-    return hft_container_work
+    }
+
+
+def _remove_hft_container(duthost):
+    if duthost.command("systemctl show hft.service -p ActiveState --value")["stdout"] != "inactive":
+        duthost.command("systemctl stop hft.service")
+    ids = set()
+    for selector in ("name=^/hft$", "ancestor=docker-hft:latest"):
+        ids.update(duthost.command(argv=["docker", "ps", "-aq", "--filter", selector])["stdout"].split())
+    if ids:
+        duthost.command(argv=["docker", "rm", "-f", *ids])
+
+
+def _wait_hft_state(duthost, *states):
+    def acknowledged():
+        return duthost.command(argv=["sonic-db-cli", "STATE_DB", "HGET", "FEATURE|hft", "state"])["stdout"] in states
+
+    if not wait_until(60, 2, 0, acknowledged):
+        pytest.fail(f"hft feature did not reach {states}")
+
+
+def _start_test_hft(duthost):
+    """Create from the platform's stock launcher with real Docker CMD arguments."""
+    script = os.path.join(os.path.dirname(__file__), "files", "create_hft.sh")
+    duthost.script(" ".join([script, *HFT_OTEL_ARGS]), executable="/bin/bash")
+    # Repeated module runs can hit hft.service's three-start limit. An inactive unit may not be loaded yet.
+    duthost.command("systemctl reset-failed hft.service", module_ignore_errors=True)
+    if _feature_fields(duthost, "hft")["state"] == "disabled":
+        duthost.command("config feature state hft enabled")
+    else:
+        duthost.command("systemctl start hft.service")
+    if not wait_until(60, 2, 0, ensure_countersyncd_daemon, duthost):
+        pytest.fail("countersyncd did not start in the new hft container")
+    cmd = json.loads(duthost.command("docker inspect hft", verbose=False)["stdout"])[0]["Config"]["Cmd"]
+    if cmd != HFT_OTEL_ARGS:
+        pytest.fail(f"Unexpected hft container Cmd: {cmd}")
+
+
+def _restore_hft_feature(duthost, state):
+    if state == "disabled" and _feature_fields(duthost, "hft").get("state") == "enabled":
+        _wait_hft_state(duthost, "enabled", "failed")
+        duthost.command("config feature state hft disabled")
+        _wait_hft_state(duthost, "disabled")
+    _remove_hft_container(duthost)
+    if state != "disabled":
+        duthost.command("systemctl reset-failed hft.service", module_ignore_errors=True)
+        duthost.command("systemctl start hft.service")  # Recreate the stock container, not the stale one.
+        if not wait_until(60, 2, 0, ensure_countersyncd_daemon, duthost):
+            pytest.fail("The stock hft container did not restart")
 
 
 @pytest.fixture(scope="function")
@@ -195,8 +227,6 @@ def skip_unsupported_hft_test(request, duthosts,
                               enum_rand_one_per_hwsku_hostname, tbinfo):
     """Skip unsupported cases before starting InfluxDB or changing OTEL."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if duthost.stat(path=HFT_WORK, follow=False, get_checksum=False, get_mime=False)["stat"]["exists"]:
-        request.getfixturevalue("hft_container_work")  # Report an abandoned reservation even if this case skips.
     marker = request.node.get_closest_marker("hft_requirements")
     if marker is None:
         pytest.fail("Tests using hft_influxdb must declare hft_requirements")
@@ -266,127 +296,55 @@ def skip_unsupported_hft_test(request, duthosts,
 
 
 @pytest.fixture(scope="module")
-def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname,
-                       skip_unsupported_hft_platform):
-    """Prepare OTEL for the module and restore its original state afterward."""
+def hft_test_services(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, skip_unsupported_hft_platform):
+    """Start clean HFT and InfluxDB instances for the module on the dedicated testbed."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    original_config = skip_unsupported_hft_platform["original_config"]
-    original_feature = skip_unsupported_hft_platform["original_feature"]
-    feature_existed = bool(original_feature)
-    original_state = skip_unsupported_hft_platform["original_state"]
+    baseline = skip_unsupported_hft_platform
+    duthost.copy(dest=OTEL_BASELINE, content=json.dumps(baseline), mode="0600", force=False, verbose=False)
+    original_config = baseline["original_config"]
+    original_state = baseline["original_state"]
     enabled_states = {"enabled", "always_enabled"}
-    original_collector_running = skip_unsupported_hft_platform[
-        "original_collector_running"
-    ]
 
-    def restore_config():
-        current = _otel_config(duthost)
-        own_configs = (skip_unsupported_hft_platform.get(k) for k in ("test_config", "pending_config"))
-        if current is None or current not in own_configs:
-            return  # No test config was installed, or someone replaced its contents.
-        if original_config is not None:
-            duthost.copy(content=original_config, dest=OTEL_CONFIG_PATH, verbose=False)
-        else:
-            duthost.shell(
-                f"sudo rm -f {OTEL_CONFIG_PATH}", module_ignore_errors=False
-            )
-
-    def restore_feature_runtime_state():
-        if original_state == "disabled":
-            duthost.shell(
-                "sudo config feature state otel disabled",
-                module_ignore_errors=False,
-            )
-            if not wait_until(
-                60, 2, 0, _is_otel_container_stopped, duthost
-            ):
-                pytest.fail("OTEL container did not stop during restoration")
-        elif original_state == "enabled" \
-                and not _get_otel_container_running(duthost):
-            duthost.shell(
-                "sudo config feature state otel enabled",
-                module_ignore_errors=False,
-            )
-            if not wait_until(
-                60, 2, 0, _get_otel_container_running, duthost
-            ):
-                pytest.fail("OTEL container did not start during restoration")
-
-    def restore_collector_state():
-        if "test_config" not in skip_unsupported_hft_platform:
-            return
-        if original_collector_running:
-            duthost.command(argv=["systemctl", "restart", "otel.service"])
+    def restore_otel():
+        if _read_config(duthost, OTEL_CONFIG_PATH) != original_config:
+            if original_config is None:
+                duthost.file(path=OTEL_CONFIG_PATH, state="absent")
+            else:
+                duthost.copy(content=original_config, dest=OTEL_CONFIG_PATH, verbose=False)
+        if original_state not in enabled_states:
+            if _feature_fields(duthost, "otel"):
+                duthost.command("config feature state otel disabled")
+                if not wait_until(60, 2, 0, _is_otel_container_stopped, duthost):
+                    pytest.fail("OTEL container did not stop during restoration")
+                if not baseline["otel_feature_existed"]:
+                    duthost.command(argv=["sonic-db-cli", "CONFIG_DB", "DEL", "FEATURE|otel"])
+        elif baseline["original_collector_running"]:
+            duthost.command("systemctl restart otel.service")
             if not wait_until(60, 2, 0, duthost.critical_processes_running, "otel"):
                 pytest.fail("Original OTEL collector did not restart")
-        elif _get_otel_container_running(duthost):
+        else:
             stop_otel_collector(duthost)
 
-    def remove_created_feature():
-        duthost.shell(
-            "sudo config feature state otel disabled",
-            module_ignore_errors=False,
-        )
-        if not wait_until(60, 2, 0, _is_otel_container_stopped, duthost):
-            pytest.fail("OTEL container did not stop during restoration")
-        duthost.shell(
-            "sonic-db-cli CONFIG_DB del 'FEATURE|otel'",
-            module_ignore_errors=False,
-        )
-
-    helper = skip_unsupported_hft_platform["hft_helper"]
-    backup = os.path.join(os.path.dirname(helper[-1]), "otel-before.json")
-    # A failed backup cannot strand the original HFT container: neither service has been touched yet.
-    duthost.copy(dest=backup, content=json.dumps(skip_unsupported_hft_platform), mode="0600", verbose=False)
-    hft_id = duthost.command(argv=[*helper, "install", *HFT_OTEL_ARGS])["stdout"].strip()
-    if not wait_until(60, 2, 0, ensure_countersyncd_daemon, duthost):
-        pytest.fail("countersyncd did not start in the standalone hft container")
-    if duthost.command(argv=["docker", "ps", "-q", "--no-trunc", "--filter", "name=^/hft$"])["stdout"] != hft_id:
-        pytest.fail("hft.service did not start the test container")
+    pid = None
     try:
-        skip_unsupported_hft_platform["otel_restore_pending"] = True
-        if original_state not in enabled_states:
+        _remove_hft_container(duthost)
+        pid = start_influxdb(ptfhost, port=INFLUXDB_PORT)
+        _start_test_hft(duthost)
+        if _feature_fields(duthost, "otel").get("state") not in enabled_states:
             enable_otel_collector(duthost, check_image=False)
-        skip_unsupported_hft_platform["otel_id"] = duthost.command(
-            argv=["docker", "ps", "-q", "--no-trunc", "--filter", "name=^/otel$"])["stdout"]
-        if not skip_unsupported_hft_platform["otel_id"]:
-            pytest.fail("Expected a running OTEL container")
-        yield hft_id
-    finally:
-        # Setup failures are active here; pytest reports call-phase failures
-        # separately from any teardown error raised below.
-        original_error = sys.exc_info()[1]
-        if duthost.command(argv=["redis-cli", "-n", "4", "--raw", "KEYS", "HIGH_FREQUENCY_TELEMETRY_*"])["stdout"]:
-            pytest.fail("HFT profiles remain; clean them before reconnecting the original collector")
-        if _feature_fields(duthost, "otel").get("set_owner", "local") not in ("", "local"):
-            pytest.fail("OTEL owner changed; refusing to restore another owner's configuration")
-        cleanup_steps = [("restore OTEL config", restore_config)]
-        if feature_existed:
-            cleanup_steps.extend([
-                ("restore OTEL feature runtime state",
-                 restore_feature_runtime_state),
-                ("restore OTEL collector process state",
-                 restore_collector_state),
-            ])
-        else:
-            cleanup_steps.append(
-                ("stop and remove created OTEL feature", remove_created_feature)
-            )
-        cleanup_error = _run_cleanup_steps(cleanup_steps)
-        if cleanup_error is None:
-            skip_unsupported_hft_platform["otel_restore_pending"] = False
-        elif original_error is None:
-            raise cleanup_error
-
-
-@pytest.fixture(scope="module")
-def hft_influxdb_server(ptfhost):
-    """Provide one test-owned in-memory InfluxDB process for the module."""
-    pid = start_influxdb(ptfhost, port=INFLUXDB_PORT)
-    try:
+        elif not _get_otel_container_running(duthost):
+            duthost.command("systemctl start otel.service")
         yield
     finally:
-        stop_influxdb(ptfhost, pid)
+        steps = [("clear HFT profiles", lambda: cleanup_hft_config(duthost)),
+                 ("reset HFT container", lambda: _restore_hft_feature(duthost, baseline["hft_state"])),
+                 ("restore OTEL", restore_otel)]
+        if pid is not None:
+            steps.append(("stop PTF InfluxDB", lambda: stop_influxdb(ptfhost, pid)))
+        error = _run_cleanup_steps(steps)
+        if error is not None:
+            raise error
+        duthost.file(path=OTEL_BASELINE, state="absent")
 
 
 @pytest.fixture(scope="function")
@@ -395,19 +353,14 @@ def hft_influxdb(request, ptfhost, skip_unsupported_hft_test,
     """Provide a unique InfluxDB database for every HFT case."""
     request.getfixturevalue("ensure_swss_ready")
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if duthost.command(argv=["redis-cli", "-n", "4", "--raw", "KEYS", "HIGH_FREQUENCY_TELEMETRY_*"])["stdout"]:
-        pytest.skip("Existing HFT profiles are not owned by this test")
-    request.getfixturevalue("hft_influxdb_server")
-    request.getfixturevalue("hft_otel_collector")
-    baseline = request.getfixturevalue("skip_unsupported_hft_platform")
+    cleanup_hft_config(duthost)
+    request.getfixturevalue("hft_test_services")
     bucket = f"{INFLUXDB_BUCKET_PREFIX}_{next(INFLUXDB_BUCKET_IDS)}"
     sink = InfluxDbSink(ptfhost, bucket=bucket, port=INFLUXDB_PORT)
     database_created = False
-    configured = False
 
     def cleanup_stop_collector():
-        if configured and _otel_config(duthost) == baseline["test_config"]:
-            stop_otel_collector(duthost)
+        stop_otel_collector(duthost)
 
     def cleanup_verify_countersyncd():
         ensure_countersyncd_daemon(duthost)
@@ -427,19 +380,7 @@ def hft_influxdb(request, ptfhost, skip_unsupported_hft_test,
             influxdb_port=INFLUXDB_PORT,
             influxdb_bucket=bucket,
         )
-        otel = _feature_fields(duthost, "otel")
-        running = duthost.command(argv=["docker", "ps", "-q", "--no-trunc", "--filter", "name=^/otel$"])["stdout"]
-        current = _otel_config(duthost)
-        if "pending_config" in baseline and current == baseline["pending_config"]:
-            baseline["test_config"] = current  # The preceding copy published its file but lost its reply.
-        if (running != baseline["otel_id"] or otel.get("set_owner", "local") not in ("", "local") or
-                otel.get("state") not in ("enabled", "always_enabled") or
-                current != baseline.get("test_config", baseline["original_config"])):
-            pytest.fail("OTEL configuration or owner changed; refusing to overwrite it")
-        baseline["pending_config"] = rendered_config  # Until copy succeeds, either case's config may be on disk.
         install_otel_collector_config(duthost, rendered_config)
-        baseline["test_config"] = baseline.pop("pending_config")
-        configured = True
         restart_otel_service(duthost)
         time.sleep(2)
         if not sink.is_empty():
@@ -475,13 +416,13 @@ def hft_influxdb(request, ptfhost, skip_unsupported_hft_test,
 
 
 @pytest.fixture(scope="function")
-def hft_queue_influxdb(request, hft_influxdb, duthosts,
+def hft_queue_influxdb(hft_influxdb, duthosts,
                        enum_rand_one_per_hwsku_hostname):
     """Reset countersyncd after the exhaustive Queue export is removed."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     yield hft_influxdb
     cleanup_hft_config(duthost, "queue_profile", ["QUEUE"])
-    restart_countersyncd_daemon(duthost, request.getfixturevalue("hft_otel_collector"))
+    restart_countersyncd_daemon(duthost)
 
 
 @pytest.fixture(autouse=True)

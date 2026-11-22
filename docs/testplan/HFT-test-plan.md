@@ -73,9 +73,11 @@ HFT Phase 1 supports key AI data center statistics across four object types:
 ### Prerequisites
 - DUT must have the `swss` container running and stable (uptime ≥ 10 seconds).
 - The DUT must provide the locally managed standalone `hft` feature on a single ASIC.
-- The fixture temporarily runs `hft` with Docker `Cmd` arguments `--enable-otel` and
-  `--otel-endpoint=http://localhost:4317`. It leaves `hft.env` alone and restores the saved
-  container and feature state on teardown. Use an exclusive testbed with no existing HFT profiles.
+- Reserve the DUT and PTF host exclusively for HFT. Existing HFT profiles, groups, the `hft`
+  container and InfluxDB servers on the PTF host are disposable. Setup clears
+  stale state and creates a fresh `hft` with Docker `Cmd` arguments `--enable-otel` and
+  `--otel-endpoint=http://localhost:4317`. Teardown removes the test container; an initially
+  enabled feature gets a fresh stock container. The image and `hft.env` are kept.
   Tests keep `countersyncd` running except for one explicit restart after the exhaustive
   Queue case, once that case's configuration and STATE_DB session are gone.
 - The DUT must provide the `otel` container image.
@@ -85,13 +87,10 @@ HFT Phase 1 supports key AI data center statistics across four object types:
 - COUNTERS_DB (database 2) must be accessible for queue/buffer object discovery.
 - For port shutdown tests: PTF adapter must be available for traffic injection.
 
-If the controller is killed, new runs do not take over `/var/lib/sonic-mgmt-hft`. First confirm
-the old run is stopped, inspect its saved `before.json`, and quiesce any remaining test profiles.
-The private `otel-before.json` contains the original collector configuration, feature fields and
-process state for manual recovery. Check the original PTF host for the test's `influxdb3` process.
-To restore HFT, run `flock -F -w 120 "$work" python3 "$work/hft_container.py" restore` as root,
-where `$work` is that run's subdirectory. After verifying HFT, OTEL and the PTF sink, remove this
-run's files and the empty reservation directory before releasing the testbed.
+After an interrupted run, rerun on the same reserved DUT/PTF pair. The next module replaces the
+stale container and HFT sink; each case clears all HFT profile/group entries before configuring
+its own. A private `/var/lib/sonic-mgmt-hft-otel.json` keeps the original HFT feature state and collector settings
+until teardown succeeds. Other CONFIG_DB tables and unrelated PTF listeners are not cleared.
 
 ### Platform Support
 

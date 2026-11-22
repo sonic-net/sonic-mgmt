@@ -290,8 +290,15 @@ def setup_hft_stream_state(duthost, profile_name, stream_state):
     )
 
 
-def cleanup_hft_config(duthost, profile_name, group_names=None):
-    """Stop the stream, delete its groups, then delete the profile."""
+def cleanup_hft_config(duthost, profile_name=None, group_names=None):
+    """Stop streams and remove their groups and profiles; no name means reset the dedicated DUT."""
+    if profile_name is None:
+        profiles, groups = _get_hft_config_keys(duthost)
+        for name in sorted({key.split("|", 2)[1] for key in profiles + groups}):
+            cleanup_hft_config(duthost, name)
+        if profiles or groups:
+            pytest_assert(not any(_get_hft_config_keys(duthost)), "Could not clear all HFT profiles and groups")
+        return
     original_error = sys.exc_info()[1]
     first_cleanup_error = None
 
@@ -457,24 +464,24 @@ def ensure_countersyncd_daemon(duthost):
     return True
 
 
-def _get_running_countersyncd_pid(duthost, container="hft"):
+def _get_running_countersyncd_pid(duthost):
     status = duthost.command(
-        argv=["docker", "exec", container, "supervisorctl", "status", "countersyncd"],
+        argv=["docker", "exec", "hft", "supervisorctl", "status", "countersyncd"],
         module_ignore_errors=True,
     )
     match = re.match(r"countersyncd\s+RUNNING\s+pid ([1-9]\d*),", status.get("stdout", "").strip())
     return int(match.group(1)) if status.get("rc") == 0 and match else None
 
 
-def restart_countersyncd_daemon(duthost, container, timeout=30):
+def restart_countersyncd_daemon(duthost, timeout=30):
     """Restart only countersyncd and verify its supervisor-owned process."""
-    old_pid = _get_running_countersyncd_pid(duthost, container)
+    old_pid = _get_running_countersyncd_pid(duthost)
     pytest_assert(
         old_pid is not None,
         "Unable to determine the running countersyncd PID before restart",
     )
     result = duthost.command(
-        argv=["docker", "exec", container, "supervisorctl", "restart", "countersyncd"],
+        argv=["docker", "exec", "hft", "supervisorctl", "restart", "countersyncd"],
         module_ignore_errors=True,
     )
     pytest_assert(
@@ -483,14 +490,14 @@ def restart_countersyncd_daemon(duthost, container, timeout=30):
     )
 
     def restarted():
-        pid = _get_running_countersyncd_pid(duthost, container)
+        pid = _get_running_countersyncd_pid(duthost)
         return pid is not None and pid != old_pid
 
     pytest_assert(
         wait_until(timeout, 1, 0, restarted),
         f"countersyncd did not restart from PID {old_pid}",
     )
-    new_pid = _get_running_countersyncd_pid(duthost, container)
+    new_pid = _get_running_countersyncd_pid(duthost)
     logger.info("Restarted countersyncd from PID %d to PID %d", old_pid, new_pid)
     return old_pid, new_pid
 
@@ -626,6 +633,13 @@ def start_influxdb(ptfhost, port=8181, timeout=30,
         socket_tool.get("rc") == 0,
         "ss is not installed on the PTF host",
     )
+    # A killed controller can leave the previous in-memory HFT sink (and all its databases) running.
+    stale = ptfhost.shell("ps -ww -C influxdb3 -o pid=,args=", module_ignore_errors=True)
+    pytest_assert(stale["rc"] in (0, 1), f"Cannot check for a stale HFT InfluxDB: {stale}")
+    for line in stale["stdout_lines"]:
+        pid, args = line.split(None, 1)
+        if re.match(r"(?:\S*/)?influxdb3\s+serve(?:\s|$)", args):
+            stop_influxdb(ptfhost, int(pid))
     listener = ptfhost.shell(
         f"ss -ltn | grep -q ':{int(port)} '", module_ignore_errors=True
     )
@@ -708,26 +722,27 @@ def query_influxdb(ptfhost, influxql_query, port=8181, db="home"):
 
 
 def stop_influxdb(ptfhost, pid):
-    """Stop only the InfluxDB process owned by this test."""
+    """Stop an InfluxDB server by PID and wait for it to exit."""
     process = ptfhost.shell(
         f"ps -p {int(pid)} -o args=", module_ignore_errors=True
     )
-    if process.get("rc") != 0:
+    if process.get("rc") == 1 and not process.get("stdout", "").strip():
         return
     pytest_assert(
-        "influxdb3 serve" in process.get("stdout", ""),
+        process.get("rc") == 0 and "influxdb3 serve" in process.get("stdout", ""),
         f"Refusing to terminate unexpected PID {pid}: {process.get('stdout', '')}",
     )
-    ptfhost.shell(f"kill {int(pid)}", module_ignore_errors=True)
-    end_time = time.time() + 10
-    while time.time() < end_time:
+
+    def stopped():
         status = ptfhost.shell(
             f"ps -p {int(pid)} -o stat=", module_ignore_errors=True
         )
-        if status.get("rc") != 0 or status.get("stdout", "").lstrip().startswith("Z"):
-            return
-        time.sleep(1)
-    ptfhost.shell(f"kill -9 {int(pid)}", module_ignore_errors=True)
+        return status.get("rc") == 1 or status.get("stdout", "").lstrip().startswith("Z")
+
+    ptfhost.shell(f"kill {int(pid)}", module_ignore_errors=True)
+    if not wait_until(10, 1, 0, stopped):
+        ptfhost.shell(f"kill -9 {int(pid)}", module_ignore_errors=True)
+        pytest_assert(wait_until(5, 1, 0, stopped), f"InfluxDB PID {pid} did not stop")
 
 
 def parse_influxdb_json(json_text):
