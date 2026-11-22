@@ -711,8 +711,7 @@ def create_linecard_console(supervisor, linecard_duthost, inv_files, creds):
         pytest.skip(f"Linecard console not supported: {str(e)}")
 
 
-def create_duthost_console(duthost, localhost, conn_graph_facts, creds, cancel_event=None,  # noqa: F811
-                           attach_only=False):
+def create_duthost_console(duthost, localhost, conn_graph_facts, creds, attach_only=False):  # noqa: F811
     """
     With attach_only, attach to the DUT console line without logging in to the DUT or writing
     to the line, e.g. to read what the DUT prints during a reboot. creds is not used then.
@@ -766,7 +765,6 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds, cancel_e
             console_password=creds["console_password"].get(console_type),
             console_device=console_device,
             console_direct_ssh_port=console_direct_ssh_port,
-            cancel_event=cancel_event,
             attach_only=True,
         )
 
@@ -820,7 +818,6 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds, cancel_e
                 console_password=creds["console_password"][console_type],
                 console_device=console_device,
                 console_direct_ssh_port=console_direct_ssh_port,
-                cancel_event=cancel_event,
             )
         except Exception as e:
             logger.warning(f"Attempt {attempt}/3 failed: {e}")

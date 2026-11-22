@@ -47,8 +47,7 @@ def ConsoleHost(console_type,
                 supervisor_ip=None,
                 slot_num=None,
                 hwsku=None,
-                attach_only=False,
-                cancel_event=None):
+                attach_only=False):
     """Connect to a device console.
 
     Args:
@@ -67,7 +66,6 @@ def ConsoleHost(console_type,
         slot_num: the linecard's slot, e.g. "slot3" (linecard only).
         hwsku: the chassis HwSKU; only Arista is supported (linecard only).
         attach_only: attach to the DUT's line without logging in or writing to it (SSH and telnet only).
-        cancel_event: threading.Event; once set, the SSH console raises instead of writing to the line.
 
     Returns:
         The connection, or None if timeout_s is given and the connect times out. Other failures raise.
@@ -91,13 +89,6 @@ def ConsoleHost(console_type,
         "timeout_s": timeout_s,
     }
 
-    # Only SSHConsoleConn consumes cancel_event (it pops it before delegating to
-    # netmiko). The other console classes forward **kwargs straight to netmiko,
-    # which would raise "unexpected keyword argument 'cancel_event'" and break
-    # console-log collection on those console servers. Gate the injection on the
-    # resolved class so non-SSH console types are unaffected.
-    if cancel_event is not None and issubclass(ConsoleTypeMapper[console_type], SSHConsoleConn):
-        params["cancel_event"] = cancel_event
     if attach_only:
         params["attach_only"] = True
 

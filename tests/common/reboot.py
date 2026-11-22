@@ -803,10 +803,10 @@ def check_determine_reboot_cause_service(dut):
             Current sub-state: {sub_state}"
 
 
-def try_create_dut_console(duthost, localhost, conn_graph_facts, creds, cancel_event=None, attach_only=False):
+def try_create_dut_console(duthost, localhost, conn_graph_facts, creds, attach_only=False):
     try:
         dut_console = create_duthost_console(duthost, localhost, conn_graph_facts, creds,
-                                             cancel_event=cancel_event, attach_only=attach_only)
+                                             attach_only=attach_only)
     except Exception as err:
         logger.warning(f"Fail to create dut console. Please check console config or if console works or not. {err}")
         return None
@@ -864,8 +864,7 @@ def collect_console_log(duthost, localhost, cancel_event=None):
     conn_graph_facts = get_graph_facts(duthost, localhost, [duthost.hostname])
     if cancel_event is not None and cancel_event.is_set():
         return None
-    dut_console = try_create_dut_console(duthost, localhost, conn_graph_facts, None,
-                                         cancel_event=cancel_event, attach_only=True)
+    dut_console = try_create_dut_console(duthost, localhost, conn_graph_facts, None, attach_only=True)
     if not dut_console:
         logger.warning("dut console is not ready, we cannot get log by console")
         return None

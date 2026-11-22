@@ -101,27 +101,10 @@ DEFAULT_RESYNC_MAX_LOOPS = 20
 DEFAULT_LOGIN_MAX_LOOPS = 20
 
 
-class ConsoleRebootStartedError(Exception):
-    """Raised to abort console I/O once the DUT reboot has started.
-
-    The reboot flow (tests/common/reboot.py) sets a cancel event right before it
-    reboots the DUT. If a console worker is still preparing its session at that
-    point, any further write to the serial line could land in the bootloader
-    autoboot window and trap the DUT, so write_channel() raises this to unwind
-    the (now useless) session preparation without sending another byte.
-    """
-    pass
-
-
 class SSHConsoleConn(BaseConsoleConn):
     def __init__(self, **kwargs):
         self.menu_port = None
 
-        # A threading.Event the reboot flow sets right before it reboots the DUT.
-        # Popped here so it never reaches netmiko's BaseConnection. Once set,
-        # every write to the DUT serial line is refused (see write_channel) so a
-        # late login/wake-up CR cannot abort bootloader autoboot.
-        self._cancel_event = kwargs.pop("cancel_event", None)
         # Attach to the console line only: no DUT login and no write to the line.
         self.attach_only = kwargs.pop("attach_only", False)
 
@@ -186,22 +169,6 @@ class SSHConsoleConn(BaseConsoleConn):
 
         client.connect = connect_over_open_socket
         return client
-
-    def write_channel(self, out):
-        """Single chokepoint for every byte we send to the DUT serial line.
-
-        All DUT-side writes -- login CRs, username/password, menu-port selection,
-        the silent-console CR nudge in _recover_to_login_prompt(), and find_prompt()
-        CRs -- go through here. If the reboot has already started, refuse the write
-        and abort: reboot.py's console worker is run via pool.apply_async().get(
-        timeout=10), and that timeout does NOT cancel the underlying ThreadPool
-        task, so without this guard a late CR from a still-running worker could
-        land in the bootloader autoboot window and trap the DUT.
-        """
-        if self._cancel_event is not None and self._cancel_event.is_set():
-            raise ConsoleRebootStartedError(
-                "Reboot started; aborting console write to keep bootloader autoboot intact")
-        return super(SSHConsoleConn, self).write_channel(out)
 
     def _try_session_preparation(self, force_data=False):
         """Suppress netmiko's pre-session priming CR (bootloader-safe).
