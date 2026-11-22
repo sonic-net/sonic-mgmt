@@ -3,6 +3,9 @@ import pexpect
 import os
 import time
 
+# Absolute import: the unit tests load this file on its own, outside its package.
+from tests.common.connections.pexpect_console_conn import PexpectConsoleConn
+
 CONSERVER_CLI_PROMPT = "admin@[a-zA-Z0-9]{1,10}:~\\$"
 CONSERVER_DEBUG_FILE = "/tmp/conserver_console_debug.log"
 LOGIN_USERNAME_PATTERN = "login"
@@ -18,7 +21,7 @@ DEFAULT_TIMEOUT_S = 30
 DEFAULT_LAST_READ_S = 1.0
 
 
-class ConserverConsoleConn():
+class ConserverConsoleConn(PexpectConsoleConn):
     def __init__(self, **kwargs):
         self.logger = logging.getLogger(__name__)
 
@@ -35,8 +38,10 @@ class ConserverConsoleConn():
         self.port = kwargs['console_port']
         self.delay_factor = DEFAULT_DELAY_FACTOR
         self.default_timeout = DEFAULT_TIMEOUT_S
+        self.connect(kwargs.get("timeout_s"))
 
-        console_cli = pexpect.spawn(
+    def _connect(self):
+        console_cli = self._spawn(
             'console', ["-f", "-M", self.conserver_host,
                         self.conserver_name, "-p", self.port],
             timeout=self.default_timeout)
@@ -88,7 +93,8 @@ class ConserverConsoleConn():
         timeout = read_timeout if read_timeout is not None else self.default_timeout
         self.console_cli.expect(pattern, timeout=timeout)
 
-    def disconnect(self):
+    def _graceful_disconnect(self):
+        """Run by disconnect(graceful=True): the disconnect() this class had before, unchanged."""
         assert self.console_cli.isalive()
         self.console_cli.sendline('\x05c.')
         self.console_cli.close(force=True)
