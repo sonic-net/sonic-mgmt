@@ -4408,6 +4408,18 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_info:
     conditions:
     - "https://github.com/sonic-net/sonic-buildimage/issues/23426 and ('sn4700' in platform or 'sn4280' in platform)"
 
+platform_tests/api/test_sfp.py::TestSfpApi::test_lpmode:
+  skip:
+    reason: "platform does not support test_lpmode due to CPO feature"
+    conditions:
+      - "platform in ['x86_64-micas_m2-w6940-128x1-fr4-r0']"
+
+platform_tests/api/test_sfp.py::TestSfpApi::test_reset:
+  skip:
+    reason: "platform does not support test_reset due to CPO feature"
+    conditions:
+      - "platform in ['x86_64-micas_m2-w6940-128x1-fr4-r0']"
+
 platform_tests/counterpoll/test_counterpoll_watermark.py:
   xfail:
     reason: "Testcase fails sporadically due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/24900"
