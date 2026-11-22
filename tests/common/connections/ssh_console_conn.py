@@ -1,3 +1,4 @@
+import errno
 import time
 import re
 from .base_console_conn import (
@@ -167,6 +168,24 @@ class SSHConsoleConn(BaseConsoleConn):
         if not kwargs.get('fast_cli', DEFAULT_FAST_CLI):
             kwargs['global_delay_factor'] = max(kwargs['global_delay_factor'], DEFAULT_DELAY_FACTOR)
         super(SSHConsoleConn, self).__init__(**kwargs)
+
+    def _build_ssh_client(self):
+        # Override of netmiko's _build_ssh_client(). Wraps the client's connect() so that its TCP
+        # connect comes from _open_socket() (passed in as sock) instead of paramiko's own, so
+        # disconnect(graceful=False) can shut it down at any time. Nothing else changes: the TCP
+        # connect keeps paramiko's rules, and the client, everything after the TCP connect and
+        # netmiko's errors are the same (connect() still runs inside netmiko's error handling).
+        client = super(SSHConsoleConn, self)._build_ssh_client()
+        connect = client.connect
+
+        def connect_over_open_socket(**params):
+            # paramiko moves to the next address only after these errors.
+            params["sock"] = self._open_socket(params["hostname"], params["port"], params["timeout"],
+                                               next_address_errnos=(errno.ECONNREFUSED, errno.EHOSTUNREACH))
+            return connect(**params)
+
+        client.connect = connect_over_open_socket
+        return client
 
     def write_channel(self, out):
         """Single chokepoint for every byte we send to the DUT serial line.

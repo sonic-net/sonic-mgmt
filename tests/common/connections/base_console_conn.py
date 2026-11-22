@@ -170,6 +170,12 @@ class BaseConsoleConn(CiscoBaseConnection):
         SSHClient.connect() (SSH) and socket.create_connection() (telnet), with the addition of
         registering the socket, so that disconnect(graceful=False) can shut it down at any time,
         even mid-connect; once disconnected, it raises NetMikoTimeoutException instead of connecting.
+
+        Known differences, not fixed:
+        - SSH, every address refused or unreachable: raises the last error, not paramiko's
+          NoValidConnectionsError; netmiko turns both into the same NetmikoTimeoutException.
+        - SSH, conn_timeout=None: waits without limit instead of Python's global socket timeout;
+          conn_timeout is netmiko's default 10 s here, and no global socket timeout is set.
         """
         error = None
         for family, sock_type, proto, _, address in socket.getaddrinfo(host, port, type=socket.SOCK_STREAM):
