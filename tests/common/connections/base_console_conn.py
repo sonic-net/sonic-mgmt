@@ -119,15 +119,23 @@ class BaseConsoleConn(CiscoBaseConnection):
         except Exception as e:
             logger.debug("Could not re-enable legacy SSH algorithms for console: %s", e)
 
-        for i in range(0, len(all_passwords)):
-            kwargs['password'] = all_passwords[i]
+        self._connect_kwargs = kwargs
+        self._console_passwords = all_passwords
+        self.connect()
+
+    def connect(self):
+        """Connect, or connect again after disconnect(): try each console password in turn."""
+        kwargs = dict(self._connect_kwargs)
+        for i in range(0, len(self._console_passwords)):
+            kwargs['password'] = self._console_passwords[i]
             try:
+                # netmiko connects in its __init__; running it again connects again.
                 super(BaseConsoleConn, self).__init__(**kwargs)
             except DutLoginFailed:
                 # One way: the console login succeeded, so the next console password would not help.
                 raise
             except NetMikoAuthenticationException as e:
-                if i == len(all_passwords) - 1:
+                if i == len(self._console_passwords) - 1:
                     raise e
             else:
                 break
