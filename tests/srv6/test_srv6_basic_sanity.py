@@ -24,7 +24,6 @@ from common_utils import enable_tcpdump
 from common_utils import disable_tcpdump
 
 
-from srv6_utils import *
 from srv6_utils import (
     apply_config_cmmds_to_vtysh,
     start_record_collection,
@@ -32,6 +31,10 @@ from srv6_utils import (
     assert_appdb_nexthop_removed,
     assert_appdb_nexthop_present,
     verify_nhg_before_routes,
+    get_dut_timestamp,
+    verify_no_nhg_update,
+    verify_pic_nhg_switch,
+    wait_for_vrf_route_recursive_paths,
 )
 
 logger = logging.getLogger(__name__)

@@ -481,6 +481,7 @@ def check_v6_route_nhg_chain(duthost, prefix, retries=3, retry_wait=10):
     pytest_assert(False,
                   "v6 route NHG chain verification failed for {}: {}"
                   .format(prefix, last.get("msg") if last else "no result"))
+    return None
 
 
 #
@@ -684,6 +685,7 @@ def check_vrf_route_nhg_chain(duthost, vrf, prefix, is_v6=False,
                   "vrf route NHG chain verification failed for vrf={} "
                   "prefix={}: {}".format(vrf, prefix,
                                          last.get("msg") if last else "no result"))
+    return None
 
 
 #
