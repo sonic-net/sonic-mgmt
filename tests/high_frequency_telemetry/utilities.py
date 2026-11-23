@@ -633,18 +633,10 @@ def start_influxdb(ptfhost, port=8181, timeout=30,
         socket_tool.get("rc") == 0,
         "ss is not installed on the PTF host",
     )
-    # A killed controller can leave the previous in-memory HFT sink (and all its databases) running.
-    stale = ptfhost.shell("ps -ww -C influxdb3 -o pid=,args=", module_ignore_errors=True)
-    pytest_assert(stale["rc"] in (0, 1), f"Cannot check for a stale HFT InfluxDB: {stale}")
-    for line in stale["stdout_lines"]:
-        pid, args = line.split(None, 1)
-        if re.match(r"(?:\S*/)?influxdb3\s+serve(?:\s|$)", args):
-            stop_influxdb(ptfhost, int(pid))
-    listener = ptfhost.shell(
-        f"ss -ltn | grep -q ':{int(port)} '", module_ignore_errors=True
-    )
+    stop_influxdb(ptfhost)
+    listener = ptfhost.shell(f"ss -H -lnt 'sport = :{int(port)}'")
     pytest_assert(
-        listener.get("rc") != 0,
+        not listener["stdout"].strip(),
         f"TCP port {port} is already in use on the PTF host",
     )
     result = ptfhost.shell(
@@ -721,8 +713,16 @@ def query_influxdb(ptfhost, influxql_query, port=8181, db="home"):
     return ptfhost.shell(command, module_ignore_errors=True)
 
 
-def stop_influxdb(ptfhost, pid):
-    """Stop an InfluxDB server by PID and wait for it to exit."""
+def stop_influxdb(ptfhost, pid=None):
+    """Stop the sink by PID, or find the interrupted run's servers on the dedicated PTF host."""
+    if pid is None:
+        stale = ptfhost.shell("ps -ww -C influxdb3 -o pid=,args=", module_ignore_errors=True)
+        pytest_assert(stale["rc"] in (0, 1), f"Cannot check for a stale HFT InfluxDB: {stale}")
+        for line in stale["stdout_lines"]:
+            process_id, args = line.split(None, 1)
+            if re.match(r"(?:\S*/)?influxdb3\s+serve(?:\s|$)", args):
+                stop_influxdb(ptfhost, int(process_id))
+        return
     process = ptfhost.shell(
         f"ps -p {int(pid)} -o args=", module_ignore_errors=True
     )

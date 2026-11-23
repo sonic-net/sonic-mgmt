@@ -73,8 +73,8 @@ HFT Phase 1 supports key AI data center statistics across four object types:
 ### Prerequisites
 - DUT must have the `swss` container running and stable (uptime ≥ 10 seconds).
 - The DUT must provide the locally managed standalone `hft` feature on a single ASIC.
-- Reserve the DUT and PTF host exclusively for HFT. Setup clears HFT profiles and groups,
-  the `hft` container, any other containers based on `docker-hft:latest`, and PTF InfluxDB servers.
+- Reserve the DUT and PTF host exclusively for HFT. Setup starts a healthy PTF InfluxDB server
+  and saves the original settings before clearing DUT profiles, groups and `docker-hft:latest` containers.
   It stops `hft.service` and runs `docker-hft:latest` directly with `--enable-otel` and
   `--otel-endpoint=http://localhost:4317` as Docker `Cmd` arguments. Teardown removes the test
   container; an initially enabled feature gets a fresh stock container. The image and `hft.env` are kept.
@@ -87,10 +87,12 @@ HFT Phase 1 supports key AI data center statistics across four object types:
 - COUNTERS_DB (database 2) must be accessible for queue/buffer object discovery.
 - For port shutdown tests: PTF adapter must be available for traffic injection.
 
-After an interrupted run, rerun on the same reserved DUT/PTF pair. The next module replaces the
-stale container and HFT sink; each case clears all HFT profile/group entries before configuring
-its own. A private `/var/lib/sonic-mgmt-hft-otel.json` keeps the original HFT feature state and collector settings
-until teardown succeeds. Other CONFIG_DB tables and unrelated PTF listeners are not cleared.
+After an interruption, rerun on the same reserved DUT/PTF pair. Before checking case capabilities,
+the module looks for `/var/lib/sonic-mgmt-hft-otel.json` and finishes any outstanding cleanup.
+If only sink startup was reached, recovery stops the sink and leaves DUT services alone. Once DUT
+setup has started, recovery stops the test exporter and sink, clears the HFT profiles and waits for
+the operational sessions to disappear before restoring OTEL and starting stock HFT. A failure retains
+the backup for retry. Other CONFIG_DB tables and unrelated PTF listeners are not cleared.
 
 ### Platform Support
 
@@ -123,9 +125,9 @@ monitoring remains enabled for all HFT cases.
 Each case declares its counter, object, and port prerequisites with the
 `hft_requirements` marker. Before that case can request HFT infrastructure, the
 `skip_unsupported_hft_test` fixture checks those prerequisites and returns the
-validated objects and counters. A capability-skipped case therefore performs no
-InfluxDB startup, OTEL change, or HFT cleanup of its own. Infrastructure already
-owned by an earlier supported case remains module-scoped until module teardown.
+validated objects and counters. On a clean testbed, a capability skip does not start InfluxDB
+or change the DUT. On an interrupted testbed, module recovery runs even if that capability check
+then skips every selected case. Services started by a supported case remain available until module teardown.
 
 For counter coverage tests, the expected set is generated independently from
 the configured object and counter lists. Validation requires every expected
