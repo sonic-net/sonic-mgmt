@@ -73,9 +73,9 @@ HFT Phase 1 supports key AI data center statistics across four object types:
 ### Prerequisites
 - DUT must have the `swss` container running and stable (uptime ≥ 10 seconds).
 - The DUT must provide the locally managed standalone `hft` feature on a single ASIC.
-- Reserve the DUT and PTF host exclusively for HFT. Existing HFT profiles, groups, the `hft`
-  container and InfluxDB servers on the PTF host are disposable. Setup clears
-  stale state, stops `hft.service`, and runs `docker-hft:latest` directly with `--enable-otel` and
+- Reserve the DUT and PTF host exclusively for HFT. Setup clears HFT profiles and groups,
+  the `hft` container, any other containers based on `docker-hft:latest`, and PTF InfluxDB servers.
+  It stops `hft.service` and runs `docker-hft:latest` directly with `--enable-otel` and
   `--otel-endpoint=http://localhost:4317` as Docker `Cmd` arguments. Teardown removes the test
   container; an initially enabled feature gets a fresh stock container. The image and `hft.env` are kept.
   Tests keep `countersyncd` running except for one explicit restart after the exhaustive

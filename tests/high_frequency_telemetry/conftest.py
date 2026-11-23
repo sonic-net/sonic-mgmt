@@ -183,6 +183,14 @@ def _remove_hft_container(duthost):
     for selector in ("name=^/hft$", "ancestor=docker-hft:latest"):
         ids.update(duthost.command(argv=["docker", "ps", "-aq", "--filter", selector])["stdout"].split())
     if ids:
+        # Stop first: an interrupted docker run may still be registering hft in STATE_DB.
+        duthost.command(argv=["docker", "stop", *ids])
+    owner = duthost.command(argv=["sonic-db-cli", "STATE_DB", "HGET", "FEATURE|hft", "current_owner"])["stdout"]
+    if owner.strip() == "local":
+        duthost.command("/usr/local/bin/container stop hft")  # Clear the local container-manager registration.
+        if duthost.command("/usr/local/bin/container id hft")["stdout"].strip():
+            pytest.fail("HFT container is still registered after stop")
+    if ids:
         duthost.command(argv=["docker", "rm", "-f", *ids])
 
 
