@@ -132,12 +132,6 @@ def test_hft_full_buffer_pool_counters(
         cleanup_hft_config(duthost, profile_name, ["BUFFER_POOL"])
 
 
-def test_hft_full_counters():
-    """Reserved for platforms that support mixed object types in one session."""
-    # A collection-time skip would bypass recovery of an interrupted HFT run.
-    pytest.skip("Target platforms do not support multiple object types in one HFT session")
-
-
 @pytest.mark.hft_requirements(
     CounterObjectType.PORT, counter="IF_IN_OCTETS"
 )

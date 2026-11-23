@@ -291,7 +291,7 @@ def test_lost_otel_enable_reply_restores_original_services(lifecycle, monkeypatc
     ptf.stop.assert_called_once_with(ptf, 123)
 
 
-def _run_unsupported_case(pytester, monkeypatch, lifecycle, case):
+def _run_unsupported_port_case(pytester, monkeypatch, lifecycle):
     hft, dut, ptf, files = lifecycle
     bed = types.ModuleType("unit_testbed")
     fixture = pytest.fixture(scope="module")
@@ -311,23 +311,15 @@ def _run_unsupported_case(pytester, monkeypatch, lifecycle, case):
     native = MODULE_PATH.with_name("test_high_frequency_telemetry.py")
     path = pytester.makepyfile(**{native.stem: native.read_text(encoding="utf-8")})
     monkeypatch.setenv("PYTEST_DISABLE_PLUGIN_AUTOLOAD", "1")
-    pytester.runpytest_inprocess(f"{path}::{case}", "-q", "-o", "markers=hft_requirements\ntopology",
-                                 plugins=[bed, hft]).assert_outcomes(skipped=1)
-    assert skips == [("call" if case == "test_hft_full_counters" else "setup", None)]
-
-
-def test_mixed_counter_node_has_no_unconditional_collection_rule():
-    yaml = pytest.importorskip("yaml")  # The conditional-mark plugin uses PyYAML.
-    policy = MODULE_PATH.parents[1] / "common/plugins/conditional_mark/tests_mark_conditions.yaml"
-    node = "high_frequency_telemetry/test_high_frequency_telemetry.py::test_hft_full_counters"
-    marks = yaml.safe_load(policy.read_text(encoding="utf-8")).get(node, {})
-    assert "skip" not in marks or (marks["skip"] or {}).get("conditions"), "A blanket skip bypasses module recovery"
+    pytester.runpytest_inprocess(
+        f"{path}::test_hft_port_shutdown_stream", "-q", "-o", "markers=hft_requirements\ntopology", plugins=[bed, hft]
+    ).assert_outcomes(skipped=1)
+    assert skips == [("setup", None)]
 
 
 @pytest.mark.parametrize("original_hft", [None, "sink_only", "enabled", "disabled"],
                          ids=["clean", "sink_only", "enabled", "disabled"])
-@pytest.mark.parametrize("case", ["test_hft_full_counters", "test_hft_port_shutdown_stream"])
-def test_recovery_precedes_capability_skip(lifecycle, dut_actions, monkeypatch, pytester, original_hft, case):
+def test_recovery_precedes_capability_skip(lifecycle, dut_actions, monkeypatch, pytester, original_hft):
     hft, dut, ptf, files = lifecycle
     dut.facts = {"platform": "unit-no-supported-counters"}
     baseline = _baseline("disabled" if original_hft == "disabled" else "enabled")
@@ -344,7 +336,7 @@ def test_recovery_precedes_capability_skip(lifecycle, dut_actions, monkeypatch, 
         dut_actions.reset_mock()
         ptf.reset_mock()
 
-    _run_unsupported_case(pytester, monkeypatch, lifecycle, case)
+    _run_unsupported_port_case(pytester, monkeypatch, lifecycle)
     if original_hft is None:
         assert not dut_actions.mock_calls and not dut.method_calls and not ptf.method_calls
     elif original_hft == "sink_only":

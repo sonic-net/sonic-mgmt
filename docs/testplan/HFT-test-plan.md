@@ -12,7 +12,6 @@
     - [Test HFT Full Queue Counters](#test-case-test-hft-full-queue-counters)
     - [Test HFT Full Ingress Priority Group Counters](#test-case-test-hft-full-ingress-priority-group-counters)
     - [Test HFT Full Buffer Pool Counters](#test-case-test-hft-full-buffer-pool-counters)
-    - [Test HFT Full Counters](#test-case-test-hft-full-counters)
     - [Test HFT Full Port Counters](#test-case-test-hft-full-port-counters)
   - [State Transition Tests](#state-transition-tests)
     - [Test HFT Disabled Stream](#test-case-test-hft-disabled-stream)
@@ -128,8 +127,7 @@ Each case declares its counter, object, and port prerequisites with the
 `skip_unsupported_hft_test` fixture checks those prerequisites and returns the
 validated objects and counters. On a clean testbed, a capability skip does not change the DUT,
 start InfluxDB, or initialize the PTF dataplane adapter. On an interrupted testbed, module recovery
-runs before a case-specific skip, including the reserved mixed-object case. Services started by a
-supported case remain available until module teardown.
+runs before a case-specific skip. Services started by a supported case remain available until module teardown.
 
 For counter coverage tests, the expected set is generated independently from
 the configured object and counter lists. Validation requires every expected
@@ -224,23 +222,6 @@ boundary.
 **Expected Results**
 - Counter values ≥ 0 are reported for buffer pool objects.
 - Every configured pool/counter combination is present.
-
----
-
-#### Test Case: Test HFT Full Counters
-
-| Item | Description |
-|---|---|
-| **Test Name** | `test_hft_full_counters` |
-| **Objective** | Verify HFT when monitoring all supported object types (PORT, QUEUE, INGRESS_PRIORITY_GROUP, BUFFER_POOL) under a single profile. |
-| **Fixtures** | `hft_influxdb`, `tbinfo` |
-| **Topology** | `any` |
-| **Status** | **Skipped** — Full counters HFT isn't supported. On SN5640, multiple types in one session are not supported. On 7060X6, HFT tests are not yet supported. |
-
-The test remains capability-skipped until a supported platform can carry
-multiple object types in one HFT session. When enabled, it will use the same
-complete InfluxDB series coverage and cadence validation as the individual
-object-type tests.
 
 ---
 
@@ -427,5 +408,5 @@ Pipeline:   metrics → [otlp] → [batch] → [influxdb]
 
 | Item | Notes |
 |---|---|
-| `test_hft_full_counters` | Currently skipped. Enable once platforms support multiple object types in a single HFT session. |
+| Mixed-object sessions | Add coverage when a target platform supports multiple object types in a single HFT session. |
 | Arista 7060X6 support | Platform is listed in conditional marks but has empty counter definitions — HFT tests not yet functional. |
