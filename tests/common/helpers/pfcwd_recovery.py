@@ -89,18 +89,17 @@ def configs(root, suffix):
             if path in seen or name.endswith(suffix) or "bcmsim" in name:
                 continue
             seen.add(path)
-            if name.endswith((".bcm", ".bcm.j2")):
-                kind = "bcm"
-            elif name.endswith((".yaml", ".yml", ".j2")):
-                kind = "yaml"
-            else:
+            if not name.endswith((".bcm", ".bcm.j2", ".yaml", ".yml", ".j2")):
                 continue
             with open(path) as f:
                 lines = f.read().split("\n")
-            if kind == "bcm" and any(l.startswith("sai_") for l in lines):
-                yield path, kind, lines
-            elif kind == "yaml" and any(MASK.match(l) for l in lines):
-                yield path, kind, lines
+            # The format comes from the content, not the suffix: Arista TH5 chip configs are
+            # YAML (indented, colon-separated properties) under a .bcm name. Flat bcm
+            # properties are column-0 name=value pairs, so the two cannot both match.
+            if any(MASK.match(l) or DLDR_YAML.match(l) for l in lines):
+                yield path, "yaml", lines
+            elif any(l.startswith("sai_") for l in lines):
+                yield path, "bcm", lines
 
 
 def mask_of(path, line):

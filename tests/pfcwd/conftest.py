@@ -13,7 +13,7 @@ from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.cisco_data import is_cisco_device, check_dshell_ready
 from tests.common.helpers.pfcwd_helper import is_pfcwd_hw_recovery_enabled
 from tests.common.utilities import str2bool, wait_until
-from tests.common.helpers.pfcwd_helper import HARDWARE, SOFTWARE, get_pfcwd_recovery_mode
+from tests.common.helpers.pfcwd_helper import HARDWARE, NATIVE, SOFTWARE, get_pfcwd_recovery_mode
 from tests.common.helpers.pfcwd_recovery import SOFTWARE_STATE, RecoveryModeUnsupported, \
     available_recovery_modes, native_recovery_mode, recovery_state, restore_recovery_mode, set_recovery_mode
 from tests.common.helpers.sonic_db import redis_hdel
@@ -21,8 +21,6 @@ from tests.common.helpers.sonic_db import redis_hdel
 logger = logging.getLogger(__name__)
 
 SET_PFC_TIME_SUCCESS_MSG = "PFC bit time set successful"
-# --pfcwd-recovery-modes value: run the mechanism the DUT boots into, never switch, keep today's test ids.
-NATIVE = "native"
 
 
 def pytest_addoption(parser):
@@ -48,16 +46,6 @@ def pytest_addoption(parser):
                      help='Save results of pfc timer accuracy test to file')
 
 
-def pytest_configure(config):
-    """Parse --pfcwd-recovery-modes once into config.pfcwd_recovery_modes; reject unknown values."""
-    option = config.getoption('--pfcwd-recovery-modes')
-    requested = list(dict.fromkeys(m.strip().lower() for m in option.split(',') if m.strip()))
-    if requested != [NATIVE] and (not requested or any(mode not in (HARDWARE, SOFTWARE) for mode in requested)):
-        raise pytest.UsageError('--pfcwd-recovery-modes takes {!r} or a comma separated list of {} and {}, '
-                                'got {!r}'.format(NATIVE, HARDWARE, SOFTWARE, option))
-    config.pfcwd_recovery_modes = requested
-
-
 @pytest.hookimpl(trylast=True)
 def pytest_generate_tests(metafunc):
     """Parametrize over modes at session scope; native or hardware-only keeps ids unchanged; suffix stays last."""
@@ -67,12 +55,8 @@ def pytest_generate_tests(metafunc):
                              ids=['recovery_{}'.format(mode) for mode in requested])
 
 
-@pytest.fixture(scope="session")
-def pfcwd_recovery_mode(request):
-    """The recovery mechanism the current phase of the run covers, or NATIVE."""
-    return getattr(request, "param", None) or request.config.pfcwd_recovery_modes[0]
-
-
+# The pfcwd_recovery_mode session fixture itself lives in tests/conftest.py: setup_pfc_test
+# (shared with the qos suite) depends on it, so it must resolve outside tests/pfcwd too.
 @pytest.fixture(scope="session")
 def pfcwd_recovery_session(duthosts, pfcwd_recovery_mode):
     """
@@ -174,7 +158,7 @@ def two_queues(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fan
 
 
 @pytest.fixture(scope="module")
-def fake_storm(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def fake_storm(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, pfcwd_recovery_mode_setup):
     """
     Enable/disable fake storm based on platform and input parameters
 
@@ -182,6 +166,8 @@ def fake_storm(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         request: pytest request object
         duthosts: AnsibleHost instance for multi DUT
         enum_rand_one_per_hwsku_frontend_hostname: hostname of DUT
+        pfcwd_recovery_mode_setup: not read; orders this after the phase's mode switch and
+            recomputes it per phase, so hardware recovery never inherits a cached fake storm
 
     Returns:
         fake_storm: False/True

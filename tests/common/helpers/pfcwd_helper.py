@@ -454,6 +454,8 @@ def fetch_vendor_specific_diagnosis_re(duthost):
 
 HARDWARE = "hardware"
 SOFTWARE = "software"
+# --pfcwd-recovery-modes value: run the mechanism the DUT boots into, never switch, keep today's test ids.
+NATIVE = "native"
 
 
 def _pfcwd_state_db_host(duthost, port=None):
