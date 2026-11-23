@@ -92,7 +92,6 @@ def test_dns_resolv_conf(duthost):
         "Host /etc/resolv.conf did not match expected nameservers "
         "within 30 seconds; see DNS poll logs.",
     )
-    
     containers = duthost.get_running_containers()
     for container in containers:
         resolv_conf = duthost.shell("docker exec %s cat /etc/resolv.conf" % container, module_ignore_errors=True)
