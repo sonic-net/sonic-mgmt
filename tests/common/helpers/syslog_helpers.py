@@ -1,5 +1,6 @@
 from contextlib import contextmanager
 
+import ipaddress
 import logging
 import os
 import shlex
@@ -38,8 +39,19 @@ def del_syslog_server(dut, syslog_server_ip, module_ignore_errors=False):
     )
 
 
+def _interface_for_ip(host, address):
+    target = ipaddress.ip_address(address)
+    result = host.shell("ip -o -{} addr show".format(target.version))
+    for line in result["stdout_lines"]:
+        fields = line.split()
+        if len(fields) >= 4 and fields[2] in ("inet", "inet6"):
+            if ipaddress.ip_interface(fields[3]).ip == target:
+                return fields[1].split("@", 1)[0]
+    pytest.fail("PTF has no interface assigned syslog destination {}".format(address))
+
+
 @contextmanager
-def capture_remote_syslog(dut, destination, vrf=None):
+def capture_remote_syslog(dut, ptfhost, destination, vrf=None):
     capture_file = "/tmp/syslog-{}.pcap".format(uuid.uuid4().hex)
     capture_pool = None
     capture_result = None
@@ -71,25 +83,26 @@ def capture_remote_syslog(dut, destination, vrf=None):
             "Host rsyslog did not configure UDP/514 forwarding",
         )
 
+        capture_interface = _interface_for_ip(ptfhost, destination)
         capture_command = (
-            "sudo timeout {} tcpdump -i any -y LINUX_SLL -nn "
-            "-s0 -U -w {} {}"
+            "timeout {} tcpdump -i {} -nn -s0 -U -w {} {}"
         ).format(
             SYSLOG_CAPTURE_SECONDS,
+            shlex.quote(capture_interface),
             shlex.quote(capture_file),
             shlex.quote(
                 "udp and dst host {} and dst port 514".format(destination)
             ),
         )
-        capture_pool, capture_result = dut.shell(
+        capture_pool, capture_result = ptfhost.shell(
             capture_command,
             module_async=True,
             module_ignore_errors=True,
         )
 
         def capture_started():
-            return dut.shell(
-                "sudo test $(stat -c %s {}) -ge 24".format(
+            return ptfhost.shell(
+                "test $(stat -c %s {}) -ge 24".format(
                     shlex.quote(capture_file)
                 ),
                 module_ignore_errors=True,
@@ -97,7 +110,7 @@ def capture_remote_syslog(dut, destination, vrf=None):
 
         pytest_assert(
             wait_until(10, 1, 0, capture_started),
-            "UDP/514 packet capture did not start",
+            "PTF UDP/514 packet capture did not start",
         )
         yield capture_result, capture_file
     finally:
@@ -107,8 +120,8 @@ def capture_remote_syslog(dut, destination, vrf=None):
             else:
                 capture_pool.terminate()
             capture_pool.join()
-        dut.shell(
-            "sudo rm -f {}".format(shlex.quote(capture_file)),
+        ptfhost.shell(
+            "rm -f {}".format(shlex.quote(capture_file)),
             module_ignore_errors=True,
         )
         if os.path.exists(capture_file):
@@ -117,23 +130,23 @@ def capture_remote_syslog(dut, destination, vrf=None):
             del_syslog_server(dut, destination, module_ignore_errors=True)
 
 
-def read_syslog_payloads(dut, capture_result, capture_file):
+def read_syslog_payloads(ptfhost, capture_result, capture_file):
     pytest_assert(
         wait_until(SYSLOG_CAPTURE_SECONDS + 5, 1, 0, capture_result.ready),
-        "UDP/514 packet capture did not finish",
+        "PTF UDP/514 packet capture did not finish",
     )
     capture_status = capture_result.get()
-    pcap_status = dut.shell(
-        "sudo test -s {}".format(shlex.quote(capture_file)),
+    pcap_status = ptfhost.shell(
+        "test $(stat -c %s {}) -gt 24".format(shlex.quote(capture_file)),
         module_ignore_errors=True,
     )
     pytest_assert(
         pcap_status["rc"] == 0,
-        "UDP/514 capture file is empty or missing: {}".format(
+        "No UDP/514 packet reached PTF: {}".format(
             capture_status
         ),
     )
-    dut.fetch(src=capture_file, dest="/tmp/", flat=True)
+    ptfhost.fetch(src=capture_file, dest="/tmp/", flat=True)
     return [
         bytes(packet[Raw].load).decode("utf-8", errors="replace")
         for packet in rdpcap(capture_file)
