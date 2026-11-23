@@ -274,43 +274,48 @@ def _parse_routes_on_csonic_host(
         raise ValueError(
             "cSONiC route query did not return a valid 'routes' map")
 
+    detail_routes = None
+    if exp_community:
+        detail_command = (
+            'vtysh -c "show bgp vrf {} {} unicast json"'
+            .format(host.bgp_vrf, afi)
+        )
+        detail_result = host.command(detail_command, verbose=False)
+        if detail_result.get('rc', 1) != 0:
+            raise RuntimeError(
+                'Failed to retrieve cSONiC route details (rc={}): {}'
+                .format(detail_result.get('rc'),
+                        detail_result.get('stderr', '')))
+        detail_output = detail_result.get('stdout')
+        if not isinstance(detail_output, str) or not detail_output.strip():
+            raise RuntimeError(
+                'cSONiC route detail query returned empty output')
+        try:
+            detail_data = json.loads(detail_output)
+        except (TypeError, ValueError) as error:
+            raise ValueError(
+                'cSONiC route detail query returned invalid JSON') from error
+        if not isinstance(detail_data, dict) or not isinstance(
+                detail_data.get('routes'), dict):
+            raise ValueError(
+                "cSONiC route detail lacks a valid 'routes' map")
+        detail_routes = detail_data['routes']
+
     routes = {}
     for prefix in route_data['routes']:
         if not exp_community:
             routes[prefix] = ''
             continue
-
-        detail_command = (
-            'vtysh -c "show bgp vrf {} {} unicast {} json"'
-            .format(host.bgp_vrf, afi, prefix)
-        )
-        detail_result = host.command(detail_command, verbose=False)
-        if detail_result.get('rc', 1) != 0:
-            raise RuntimeError(
-                'Failed to retrieve cSONiC route detail for {} (rc={}): {}'
-                .format(prefix, detail_result.get('rc'),
-                        detail_result.get('stderr', '')))
-        detail_output = detail_result.get('stdout')
-        if not isinstance(detail_output, str) or not detail_output.strip():
-            raise RuntimeError(
-                'cSONiC route detail query returned empty output for {}'
-                .format(prefix))
-        try:
-            detail_data = json.loads(detail_output)
-        except (TypeError, ValueError) as error:
+        paths = detail_routes.get(prefix)
+        if not isinstance(paths, list):
             raise ValueError(
-                'cSONiC route detail query returned invalid JSON for {}'
-                .format(prefix)) from error
-        if not isinstance(detail_data, dict) or not isinstance(
-                detail_data.get('paths'), list):
-            raise ValueError(
-                "cSONiC route detail for {} lacks a valid 'paths' list"
+                "cSONiC route detail for {} lacks a valid paths list"
                 .format(prefix))
-
         peer_paths = [
-            path for path in detail_data['paths']
-            if isinstance(path, dict) and path.get('peerId')
-            and str(ipaddress.IPAddress(path['peerId'])).lower()
+            path for path in paths
+            if isinstance(path, dict)
+            and path.get('peer', {}).get('peerId')
+            and str(ipaddress.IPAddress(path['peer']['peerId'])).lower()
             == str(ipaddress.IPAddress(peer_ip)).lower()
         ]
         if not peer_paths:

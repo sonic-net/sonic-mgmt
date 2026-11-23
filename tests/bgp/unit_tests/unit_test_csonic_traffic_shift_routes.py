@@ -169,31 +169,27 @@ def test_converged_route_snapshot_filters_detailed_peer_communities():
                     },
                 }),
             }
-        if '172.16.10.0/24 json' in command:
-            return {
-                'rc': 0,
-                'stdout': json.dumps({
-                    'paths': [
+        return {
+            'rc': 0,
+            'stdout': json.dumps({
+                'routes': {
+                    '172.16.10.0/24': [
                         {
-                            'peerId': '10.0.0.31',
+                            'peer': {'peerId': '10.0.0.31'},
                             'community': {'list': ['no-export']},
                         },
                         {
-                            'peerId': '10.0.0.32',
+                            'peer': {'peerId': '10.0.0.32'},
                             'community': {
                                 'list': ['1234:5678', 'no-export'],
                             },
                         },
                     ],
-                }),
-            }
-        return {
-            'rc': 0,
-            'stdout': json.dumps({
-                'paths': [{
-                    'peerId': '10.0.0.32',
-                    'community': {'list': ['1234:5678']},
-                }],
+                    '172.16.20.0/24': [{
+                        'peer': {'peerId': '10.0.0.32'},
+                        'community': {'list': ['1234:5678']},
+                    }],
+                },
             }),
         }
 
@@ -206,10 +202,7 @@ def test_converged_route_snapshot_filters_detailed_peer_communities():
     assert commands == [
         'vtysh -c "show bgp vrf VrfARISTA01T0 ipv4 unicast '
         'neighbors 10.0.0.32 routes json"',
-        'vtysh -c "show bgp vrf VrfARISTA01T0 ipv4 unicast '
-        '172.16.10.0/24 json"',
-        'vtysh -c "show bgp vrf VrfARISTA01T0 ipv4 unicast '
-        '172.16.20.0/24 json"',
+        'vtysh -c "show bgp vrf VrfARISTA01T0 ipv4 unicast json"',
     ]
 
 
