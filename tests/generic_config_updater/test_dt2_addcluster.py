@@ -50,6 +50,7 @@ from tests.common.gu_utils import apply_patch, generate_tmpfile, delete_tmpfile
 from tests.common.utilities import wait_until
 from tests.generic_config_updater.util.generate_patch import (
     generate_single_asic_config_patch as generate_config_patch,
+    escape_json_pointer,
     is_front_panel_port,
     extract_mirror_acl_ports,
     AUTOGEN_BUFFER_PG_PROFILE_PREFIX,
@@ -360,7 +361,7 @@ def build_golden_override(duthost):
         str or None: DUT path to the override file, or None if the device carries none
         of these tables, in which case the reload needs no override.
     """
-    result = duthost.shell("sonic-cfggen -d --print-data", module_ignore_errors=True)
+    result = duthost.shell("sonic-cfggen -d --print-data", module_ignore_errors=True, verbose=False)
     if result['rc'] != 0 or not result['stdout'].strip():
         logger.warning("Could not read running config; reloading without a golden override")
         return None
@@ -823,13 +824,12 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
 
     # Filtering can remove the entire BUFFER_PG operation. Keep its expectations
     # independently, including changed PGs on ports with no PORT operation.
-    baseline_lossless_pgs = {
-        key: fields for key, fields in baseline_config.get('BUFFER_PG', {}).items()
-        if normalize_profile_reference(fields.get('profile')).startswith(AUTOGEN_BUFFER_PG_PROFILE_PREFIX)
-    }
     pg_ports = front_panel_ports | {
-        key.rsplit('|', 1)[0] for key, fields in baseline_lossless_pgs.items()
-        if fields != reduced_config.get('BUFFER_PG', {}).get(key)
+        key.rsplit('|', 1)[0]
+        for config, other in ((baseline_config, reduced_config), (reduced_config, baseline_config))
+        for key, fields in config.get('BUFFER_PG', {}).items()
+        if normalize_profile_reference(fields.get('profile')).startswith(AUTOGEN_BUFFER_PG_PROFILE_PREFIX)
+        and fields != other.get('BUFFER_PG', {}).get(key)
     }
     expected_pg_priorities = validate_lossless_pg_baseline(baseline_config, pg_ports)
 
@@ -1092,9 +1092,8 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
         logger.info("Lossless BUFFER_PG entries present and correctly sized for %d port(s)",
                     len(expected_profiles))
 
-    # Whole-table comparisons include generated PGs omitted from the patch.
-    # Read a fresh snapshot after convergence, keeping static and non-buffer
-    # entries subject to the same strict baseline comparison.
+    # Read a fresh snapshot after convergence; generated PGs are verification-only
+    # expectations and must never be added to the patch sent to GCU.
     logger.info("Comparing converged configuration against the with-T1 baseline")
     after_patch_config_path = os.path.join(local_dir, "dt2-all-after-patch.json")
     dut_config_path = os.path.join(dut_dir, "all-after-patch.json")
@@ -1104,14 +1103,25 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
     with open(after_patch_config_path) as f:
         after_patch_config = json.load(f)
 
-    differences = compare_touched_entries(baseline_config, after_patch_config, patch_data)
+    verification_pg_keys = {
+        key for config in (baseline_config, normalize_config(after_patch_config))
+        for key, fields in config.get('BUFFER_PG', {}).items()
+        if key.rsplit('|', 1)[0] in pg_ports
+        and normalize_profile_reference(fields.get('profile')).startswith(AUTOGEN_BUFFER_PG_PROFILE_PREFIX)
+    }
+    verification_patch = patch_data + [
+        {'op': 'add' if key in baseline_config.get('BUFFER_PG', {}) else 'remove',
+         'path': '/BUFFER_PG/' + escape_json_pointer(key)}
+        for key in sorted(verification_pg_keys)
+    ]
+    differences = compare_touched_entries(baseline_config, after_patch_config, verification_patch)
     pytest_assert(
         not differences,
         "Configuration after applying the patch does not match the baseline captured "
         "with {} present. The patch applied, but did not reproduce the intended state.\n"
         "{}".format(target_t1, "\n".join(differences)))
-    logger.info("Patched configuration matches the with-T1 baseline for all %d touched entries",
-                sum(len(keys) for keys in patch_touched_entries(patch_data).values()))
+    logger.info("Patched configuration and regenerated PGs match the with-T1 baseline for all %d checked entries",
+                sum(len(keys) for keys in patch_touched_entries(verification_patch).values()))
 
     # Step 10: Verify BGP sessions establish
     #

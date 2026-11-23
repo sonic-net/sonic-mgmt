@@ -585,8 +585,8 @@ def split_existing_acl_table_patches(acl_patches, no_leaf_config, is_multi_asic)
 
     A coalesced whole-entry "add" is necessary when the ACL_TABLE entry is new,
     because YANG requires the 'type' field to be present. When the entry already
-    exists on the device only the new port bindings should be sent, so those
-    patches are rewritten into "/ports/-" appends.
+    exists and its other fields match, only the new port bindings should be
+    sent, so those patches are rewritten into "/ports/-" appends.
 
     Args:
         acl_patches: Coalesced entry-level ACL_TABLE patches
@@ -614,7 +614,13 @@ def split_existing_acl_table_patches(acl_patches, no_leaf_config, is_multi_asic)
             whole_entry_patches.append(patch)
             continue
 
-        full_ports = (patch.get('value') or {}).get('ports', [])
+        target_entry = patch.get('value') or {}
+        if ({field: value for field, value in target_entry.items() if field != 'ports'}
+                != {field: value for field, value in existing_entry.items() if field != 'ports'}):
+            whole_entry_patches.append(patch)
+            continue
+
+        full_ports = target_entry.get('ports', [])
         existing_ports = existing_entry.get('ports', [])
         ports_to_add = [p for p in full_ports if p not in existing_ports]
         if not ports_to_add:
@@ -888,6 +894,7 @@ def generate_single_asic_config_patch(full_config_path, no_leaf_config_path, buf
             coalesced_entry_paths.add(entry_path)
 
     filtered_patch_list = []
+    raw_acl_patches = []
     for patch in remaining_patches:
         namespace, table_name, key, prop = parse_patch_path(patch['path'], is_multi_asic)
 
@@ -934,7 +941,10 @@ def generate_single_asic_config_patch(full_config_path, no_leaf_config_path, buf
                     patch = dict(patch)
                     patch['value'] = new_value
 
-        filtered_patch_list.append(patch)
+        if table_name == 'ACL_TABLE':
+            raw_acl_patches.append(patch)
+        else:
+            filtered_patch_list.append(patch)
 
     # Build the final patch list with correct dependency order:
     # 1. PORT entries (coalesced) - must come first
@@ -1029,7 +1039,7 @@ def generate_single_asic_config_patch(full_config_path, no_leaf_config_path, buf
     # Core config first, ACL entries last.
     core_patch_list = (coalesced_port_only + all_interface_patches +
                        coalesced_bgp_neighbor + filtered_patch_list)
-    acl_patch_list = (coalesced_acl_table + coalesced_acl_appends +
+    acl_patch_list = (raw_acl_patches + coalesced_acl_table + coalesced_acl_appends +
                       acl_binding_patches)
 
     final_patch_list = core_patch_list + acl_patch_list
@@ -1040,7 +1050,7 @@ def generate_single_asic_config_patch(full_config_path, no_leaf_config_path, buf
     logger.info("  - INTERFACE entries: %d", len(all_interface_patches))
     logger.info("  - BGP_NEIGHBOR entries: %d", len(coalesced_bgp_neighbor))
     logger.info("  - Other entries: %d", len(filtered_patch_list))
-    logger.info("  - ACL_TABLE entries: %d", len(coalesced_acl_table))
+    logger.info("  - ACL_TABLE entries: %d", len(raw_acl_patches) + len(coalesced_acl_table))
     logger.info("  - ACL binding appends: %d", len(coalesced_acl_appends))
     logger.info("  - ACL binding updates: %d", len(acl_binding_patches))
 
@@ -1068,7 +1078,7 @@ def generate_single_asic_config_patch(full_config_path, no_leaf_config_path, buf
     metadata = {
         'total_patches': len(final_patch_list),
         'port_patches': len(coalesced_port_only),
-        'acl_table_patches': len(coalesced_acl_table),
+        'acl_table_patches': len(raw_acl_patches) + len(coalesced_acl_table),
         'interface_patches': len(all_interface_patches),
         'bgp_neighbor_patches': len(coalesced_bgp_neighbor),
         'acl_binding_patches': len(acl_binding_patches),
