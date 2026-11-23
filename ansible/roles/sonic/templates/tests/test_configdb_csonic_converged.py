@@ -9,6 +9,40 @@ from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
 TEMPLATES_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEMPLATE_NAME = "configdb-csonic-converged.j2"
+SONIC_VM_LANE_MAP = (
+    "25,26,27,28",
+    "29,30,31,32",
+    "33,34,35,36",
+    "37,38,39,40",
+    "45,46,47,48",
+    "41,42,43,44",
+    "1,2,3,4",
+    "5,6,7,8",
+    "13,14,15,16",
+    "9,10,11,12",
+    "17,18,19,20",
+    "21,22,23,24",
+    "53,54,55,56",
+    "49,50,51,52",
+    "57,58,59,60",
+    "61,62,63,64",
+    "69,70,71,72",
+    "65,66,67,68",
+    "73,74,75,76",
+    "77,78,79,80",
+    "109,110,111,112",
+    "105,106,107,108",
+    "113,114,115,116",
+    "117,118,119,120",
+    "125,126,127,128",
+    "121,122,123,124",
+    "81,82,83,84",
+    "85,86,87,88",
+    "93,94,95,96",
+    "89,90,91,92",
+    "101,102,103,104",
+    "97,98,99,100",
+)
 
 
 def _context():
@@ -116,6 +150,48 @@ def test_t0_backplane_uses_canonical_sonic_vm_eth5_lanes():
         ptf[logical] = {"ipv4": "10.10.246.{}/31".format(97 + index * 2), "vlan": 1999 + index}
     cfg = _render_json(context)
     assert cfg["PORT"]["Ethernet5"]["lanes"] == "45,46,47,48"
+
+
+def test_31_link_prime_uses_canonical_lanes_for_ethernet32_backplane():
+    context = _context()
+    mapping = context["convergence_data"]["convergence_mapping"]["ARISTA01T1"]
+    vrfs = context["convergence_data"]["converged_peers"]["ARISTA01T1"]["vrf"]
+    vrf_names = context["convergence_data"]["vrf_name_mapping"]
+    ptf = context["convergence_data"]["ptf_backplane_addrs"]
+    for index in range(3, 32):
+        logical = "ARISTA{:02d}T1".format(index)
+        mapping.append(logical)
+        context["configuration"][logical] = {
+            "bgp": {
+                "asn": 64600,
+                "peers": {65100: ["10.0.0.{}".format(54 + index * 2)]},
+            },
+        }
+        vrfs[logical] = {
+            "Vlan{}".format(1999 + index): {
+                "ipv4": "10.10.246.{}/31".format(96 + index * 2),
+            },
+            "Ethernet{}".format(index): {
+                "ipv4": "10.0.0.{}/31".format(55 + index * 2),
+            },
+            "Loopback{}".format(index): {
+                "ipv4": "100.1.0.{}/32".format(28 + index),
+            },
+        }
+        vrf_names[logical] = "Vrf{}".format(logical)
+        ptf[logical] = {
+            "ipv4": "10.10.246.{}/31".format(97 + index * 2),
+            "vlan": 1999 + index,
+        }
+
+    cfg = _render_json(context)
+
+    assert len(cfg["PORT"]) == 32
+    assert [cfg["PORT"]["Ethernet{}".format(index)]["lanes"]
+            for index in range(1, 33)] == list(SONIC_VM_LANE_MAP)
+    assert cfg["VLAN_MEMBER"]["Vlan2030|Ethernet32"] == {
+        "tagging_mode": "tagged",
+    }
 
 
 def test_enables_frrcfgd_and_builds_one_bgp_instance_per_vrf():
