@@ -21,7 +21,8 @@ from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dua
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m  # noqa: F401, E501
 from tests.common.helpers.pfcwd_helper import send_background_traffic, check_pfc_storm_state, \
     verify_pfc_storm_in_expected_state, parser_show_pfcwd_stat, is_pfcwd_hw_recovery_enabled, \
-    get_pfcwd_hw_timers, is_acl_table_active, get_process_cores, get_acl_bind_port
+    get_pfcwd_hw_timers, is_acl_table_active, get_process_cores, get_acl_bind_port, _pfcwd_state_db_host
+from tests.common.helpers.sonic_db import redis_hget
 from tests.common.utilities import wait_until
 from tests.common.cisco_data import is_cisco_device
 from tests.common.mellanox_data import is_mellanox_device
@@ -1598,17 +1599,21 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         port = list(self.ports)[0]
         # The storm targets the physical port; the fill tables bind to its LAG if any
         # (a LAG member port is not a valid ACL bind point).
-        acl_bind_port = get_acl_bind_port(duthost, port)
+        # On multi-ASIC the ACL tables, their STATE_DB status and the PFCWD status live in the
+        # port's ASIC namespace.
+        asic = duthost.get_port_asic_instance(port)
+        acl_bind_port = get_acl_bind_port(asic, port)
         # init builds the real-storm (PFCStorm) handle.
         self.setup_test_params(port, setup_info['vlan'], init=(not self.fake_storm), ip_version=ip_version)
         queue = self.pfc_wd['queue_index']
         fill_tables = []
         # Drop fill tables a hard-killed earlier run left behind, so a dirty DUT doesn't
         # fail the first create and masquerade as an unsupported platform.
-        stale = duthost.shell("sonic-db-cli CONFIG_DB keys 'ACL_TABLE|PFCWD_ACL_FILL_*'",
+        stale = duthost.shell("{} CONFIG_DB keys 'ACL_TABLE|PFCWD_ACL_FILL_*'".format(asic.sonic_db_cli),
                               module_ignore_errors=True)["stdout_lines"]
         for key in stale:
-            duthost.shell("config acl remove table {}".format(key.split("|", 1)[1]), module_ignore_errors=True)
+            duthost.shell("config acl remove table {} {}".format(key.split("|", 1)[1], asic.cli_ns_option),
+                          module_ignore_errors=True)
         try:
             # Add egress L3 ACL tables until one fails to go Active (banks full) - that per-table
             # STATE_DB failure is the exhaustion signal. fill_safety_cap only prevents a hung test
@@ -1618,13 +1623,14 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             fill_safety_cap = 256
             for idx in range(fill_safety_cap):
                 table = "PFCWD_ACL_FILL_{}".format(idx)
-                res = duthost.shell("config acl add table {} L3 -s egress -p {}".format(table, acl_bind_port),
+                res = duthost.shell("config acl add table {} L3 -s egress -p {} {}".format(
+                                        table, acl_bind_port, asic.cli_ns_option),
                                     module_ignore_errors=True)
                 pytest_require(res["rc"] == 0,
                                "egress ACL table create not supported here ({}): {}".format(
                                    duthost.facts.get("asic_type"), (res["stderr"] or res["stdout"]).strip()))
                 fill_tables.append(table)
-                if not wait_until(45, 5, 0, is_acl_table_active, duthost, table):
+                if not wait_until(45, 5, 0, is_acl_table_active, asic, table):
                     exhausted = True
                     logger.info("Egress ACL banks exhausted after %d L3 ACL table(s)", idx + 1)
                     break
@@ -1663,9 +1669,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             # PFC_WD_SW_STATE_TABLE=='failed' proves the egress-ACL create failed AND the ingress
             # rule rolled back (handler isValid()==false); anything else => not exercised, skip.
             def get_sw_status():
-                return duthost.shell(
-                    "sonic-db-cli STATE_DB hget 'PFC_WD_SW_STATE_TABLE|{}:{}' status".format(port, queue),
-                    module_ignore_errors=True)["stdout"].strip()
+                return redis_hget(_pfcwd_state_db_host(duthost, port), 'STATE_DB',
+                                  'PFC_WD_SW_STATE_TABLE|{}:{}'.format(port, queue), 'status')
 
             # The 'failed' publish can lag the storm detection.
             wait_until(30, 2, 0, lambda: get_sw_status() == "failed")
@@ -1680,5 +1685,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             else:
                 PfcCmd.set_storm_status(duthost, self.queue_oid, "disabled")
             for table in fill_tables:
-                duthost.shell("config acl remove table {}".format(table), module_ignore_errors=True)
+                duthost.shell("config acl remove table {} {}".format(table, asic.cli_ns_option),
+                              module_ignore_errors=True)
             duthost.command("pfcwd stop")

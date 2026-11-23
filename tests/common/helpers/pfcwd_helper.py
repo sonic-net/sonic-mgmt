@@ -834,7 +834,7 @@ def get_pfc_storm_baseline_counters(dut, storm_hndle):
     return baseline
 
 
-def is_acl_table_active(duthost, table_name):
+def is_acl_table_active(asic, table_name):
     """
     True if the ACL table is Active per STATE_DB.
 
@@ -843,19 +843,16 @@ def is_acl_table_active(duthost, table_name):
     'Inactive'/'Pending creation' otherwise). A direct DB read avoids CLI text parsing.
 
     Args:
-        duthost(AnsibleHost): DUT instance
+        asic(SonicAsic): ASIC that owns the table (its namespace on multi-ASIC)
         table_name(string): ACL table name
 
     Returns:
         bool: True if status == 'Active'
     """
-    status = duthost.shell(
-        "sonic-db-cli STATE_DB hget 'ACL_TABLE_TABLE|{}' status".format(table_name),
-        module_ignore_errors=True)["stdout"].strip()
-    return status == "Active"
+    return redis_hget(asic, 'STATE_DB', 'ACL_TABLE_TABLE|{}'.format(table_name), 'status') == "Active"
 
 
-def get_acl_bind_port(duthost, port):
+def get_acl_bind_port(asic, port):
     """
     ACL bind point for a port: the parent PortChannel if the port is a LAG member.
 
@@ -863,14 +860,13 @@ def get_acl_bind_port(duthost, port):
     PortChannel instead of the physical member port.
 
     Args:
-        duthost(AnsibleHost): DUT instance
+        asic(SonicAsic): ASIC the port belongs to
         port(string): physical port name
 
     Returns:
         string: parent PortChannel name, or the port itself if it is not a LAG member
     """
-    pc_members = duthost.config_facts(
-        host=duthost.hostname, source="running")['ansible_facts'].get('PORTCHANNEL_MEMBER', {})
+    pc_members = asic.config_facts(source="running")['ansible_facts'].get('PORTCHANNEL_MEMBER', {})
     return next((pc for pc, members in pc_members.items() if port in members), port)
 
 
