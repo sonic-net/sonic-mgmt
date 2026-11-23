@@ -11,11 +11,8 @@ import time
 
 
 @pytest.fixture(scope="module")
-def trap_copp_ospf(duthosts, rand_one_dut_hostname, request):
+def trap_copp_ospf(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
-    if vpp_helpers.is_vpp_eos_requested(duthost, request):
-        yield
-        return
 
     copp_trap_ospf_rule_json = "/tmp/copp_trap_ospf.json"
 
@@ -49,10 +46,11 @@ EOF
 
 
 @pytest.fixture(scope="module")
-def ospf_Bfd_setup(duthosts, rand_one_dut_hostname, nbrhosts, trap_copp_ospf, request):
+def ospf_Bfd_setup(duthosts, rand_one_dut_hostname, nbrhosts, trap_copp_ospf, request, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
-    if vpp_helpers.is_vpp_ceos(duthost, request, nbrhosts):
-        tbinfo = request.getfixturevalue("tbinfo")
+    if vpp_helpers.is_vpp_eos_requested(duthost, request) and not vpp_helpers.is_vpp_ceos_topology(tbinfo):
+        pytest.skip("VPP with cEOS neighbors is qualified only on the standard t0 topology")
+    if vpp_helpers.is_vpp_ceos(duthost, request, nbrhosts, tbinfo):
         with vpp_helpers.ospf_bfd_setup(duthost, nbrhosts, tbinfo) as setup_info:
             yield setup_info
         return
@@ -139,7 +137,9 @@ def get_ospf_neighbor_interface(host):
 @pytest.fixture(scope='module')
 def ospf_setup(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo, request):
     duthost = duthosts[rand_one_dut_hostname]
-    if vpp_helpers.is_vpp_ceos(duthost, request, nbrhosts):
+    if vpp_helpers.is_vpp_eos_requested(duthost, request) and not vpp_helpers.is_vpp_ceos_topology(tbinfo):
+        pytest.skip("VPP with cEOS neighbors is qualified only on the standard t0 topology")
+    if vpp_helpers.is_vpp_ceos(duthost, request, nbrhosts, tbinfo):
         with vpp_helpers.ospf_setup(duthost, nbrhosts, tbinfo) as setup_info:
             yield setup_info
         return

@@ -26,10 +26,15 @@ def is_vpp_eos_requested(duthost, request):
     )
 
 
-def is_vpp_ceos(duthost, request, nbrhosts):
-    """Select this adapter by DUT and actual neighbor type, not topology name."""
+def is_vpp_ceos_topology(tbinfo):
+    return tbinfo["topo"]["name"] == "t0"
+
+
+def is_vpp_ceos(duthost, request, nbrhosts, tbinfo):
+    """Select this adapter by DUT, topology, and actual neighbor type."""
     return (
         is_vpp_eos_requested(duthost, request)
+        and is_vpp_ceos_topology(tbinfo)
         and bool(nbrhosts)
         and all(isinstance(info["host"], EosHost) for info in nbrhosts.values())
     )
@@ -198,16 +203,21 @@ def _linux_interface_for_peer(host, peer_ip):
 
 def _configure_dut_ospf(duthost, peer_ips, dut_asn):
     _start_dut_daemon(duthost, "ospfd")
+    interfaces = sorted({_linux_interface_for_peer(duthost, ip) for ip in peer_ips})
     commands = [
         "configure terminal",
         "no router bgp {}".format(dut_asn),
         "router ospf",
+        "exit",
     ]
-    commands.extend("network {}/31 area 0".format(ip) for ip in peer_ips)
-    commands.append("exit")
-    for interface in sorted({_linux_interface_for_peer(duthost, ip) for ip in peer_ips}):
-        commands.extend(["interface {}".format(interface), "ip ospf mtu-ignore", "exit"])
-    commands.append("end")
+    for interface in interfaces:
+        commands.extend([
+            "interface {}".format(interface),
+            "ip ospf area 0.0.0.0",
+            "ip ospf mtu-ignore",
+            "exit",
+        ])
+    commands.extend(["do write", "end"])
     _run_or_fail(duthost, _vtysh(commands), "configuring VPP OSPF")
 
 
@@ -224,6 +234,16 @@ def _wait_for_ospf_peers(duthost, peer_ips):
     peer_ips = list(peer_ips)
     assert wait_until(180, 5, 0, _ospf_peers_full, duthost, peer_ips), \
         "OSPF peers did not all reach Full: {}".format(peer_ips)
+
+
+def _ospf_routes_present(duthost, prefixes):
+    return set(prefixes).issubset(set(_route_prefixes(duthost)))
+
+
+def _wait_for_ospf_routes(duthost, prefixes):
+    prefixes = list(prefixes)
+    assert wait_until(90, 5, 0, _ospf_routes_present, duthost, prefixes), \
+        "OSPF routes do not contain cEOS loopbacks: {}".format(prefixes)
 
 
 def _collect_ospf_peers(duthost, nbrhosts, tbinfo):
@@ -244,6 +264,7 @@ def ospf_setup(duthost, nbrhosts, tbinfo):
         "nbr_addr": peers,
         "bgp_routes": None,
         "neighbors": {},
+        "expected_routes": [],
     }
     configured_hosts = []
     try:
@@ -251,10 +272,12 @@ def ospf_setup(duthost, nbrhosts, tbinfo):
             details = _configure_ceos_ospf(nbrhosts[name], enable_bfd=False)
             details["host"] = nbrhosts[name]["host"]
             setup_info["neighbors"][name] = details
+            setup_info["expected_routes"].append(details["loopback"])
             configured_hosts.append((nbrhosts[name]["host"], details))
 
         _configure_dut_ospf(duthost, peers.values(), mg_facts["minigraph_bgp_asn"])
         _wait_for_ospf_peers(duthost, peers.values())
+        _wait_for_ospf_routes(duthost, setup_info["expected_routes"])
         yield setup_info
     finally:
         try:
@@ -327,6 +350,7 @@ def ospf_bfd_setup(duthost, nbrhosts, tbinfo):
         _start_dut_daemon(duthost, "bfdd")
         _configure_dut_ospf(duthost, peers.keys(), dut_asn)
         _wait_for_ospf_peers(duthost, peers.keys())
+        _wait_for_ospf_routes(duthost, [peer["loopback"] for peer in peers.values()])
         yield peers
     finally:
         try:
@@ -341,7 +365,7 @@ def ospf_bfd_setup(duthost, nbrhosts, tbinfo):
 
 def _route_prefixes(duthost):
     output = duthost.shell("show ip route ospf")["stdout"]
-    pattern = re.compile(r"^O[^\n]*?([0-9]+(?:\.[0-9]+){3}/[0-9]+)", re.MULTILINE)
+    pattern = re.compile(r"^\s*O[^\n]*?([0-9]+(?:\.[0-9]+){3}/[0-9]+)", re.MULTILINE)
     return sorted(set(pattern.findall(output)))
 
 

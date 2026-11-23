@@ -12,31 +12,35 @@ pytestmark = [
 
 
 @pytest.fixture(scope="module")
-def start_ospfd(duthosts, rand_one_dut_hostname, request):
+def start_ospfd(duthosts, rand_one_dut_hostname, request, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
-    if vpp_helpers.is_vpp_eos_requested(duthost, request):
-        return
-    cmd = 'docker exec bgp bash -c "/usr/lib/frr/ospfd &"'
+    if not (
+        vpp_helpers.is_vpp_eos_requested(duthost, request)
+        and vpp_helpers.is_vpp_ceos_topology(tbinfo)
+    ):
+        cmd = 'docker exec bgp bash -c "/usr/lib/frr/ospfd &"'
 
-    for asic in duthost.asics:
-        if duthost.is_multi_asic:
-            duthost.shell(cmd.replace("bgp", f"bgp{asic.asic_index}", 1))
-        else:
-            duthost.shell(cmd)
+        for asic in duthost.asics:
+            if duthost.is_multi_asic:
+                duthost.shell(cmd.replace("bgp", f"bgp{asic.asic_index}", 1))
+            else:
+                duthost.shell(cmd)
 
 
 @pytest.fixture(scope="module")
-def start_bfdd(duthosts, rand_one_dut_hostname, request):
+def start_bfdd(duthosts, rand_one_dut_hostname, request, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
-    if vpp_helpers.is_vpp_eos_requested(duthost, request):
-        return
-    cmd = 'docker exec bgp bash -c "/usr/lib/frr/bfdd &"'
+    if not (
+        vpp_helpers.is_vpp_eos_requested(duthost, request)
+        and vpp_helpers.is_vpp_ceos_topology(tbinfo)
+    ):
+        cmd = 'docker exec bgp bash -c "/usr/lib/frr/bfdd &"'
 
-    for asic in duthost.asics:
-        if duthost.is_multi_asic:
-            duthost.shell(cmd.replace("bgp", f"bgp{asic.asic_index}", 1))
-        else:
-            duthost.shell(cmd)
+        for asic in duthost.asics:
+            if duthost.is_multi_asic:
+                duthost.shell(cmd.replace("bgp", f"bgp{asic.asic_index}", 1))
+            else:
+                duthost.shell(cmd)
 
 
 def test_ospf_with_bfd(ospf_Bfd_setup, duthosts, rand_one_dut_hostname,
