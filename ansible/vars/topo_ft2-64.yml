@@ -269,7 +269,7 @@ configuration_properties:
     max_tor_subnet_number: 16
     tor_subnet_size: 128
     leaf_asn_start: 4000000000
-    tor_asn_start: 4100000000
+    tor_asn_start: 410000000
     swrole: lowerspine
 
 configuration:
