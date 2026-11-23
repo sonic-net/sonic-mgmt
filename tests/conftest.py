@@ -492,6 +492,21 @@ def _load_testbed_config(tbfile, tbname):
     return
 
 
+def _normalize_use_converged_peers(value):
+    """Return a strict Boolean for supported testbed flag spellings."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized == "true":
+            return True
+        if normalized == "false":
+            return False
+    raise pytest.UsageError(
+        "use_converged_peers must be a Boolean or 'true'/'false', got {!r}".format(value)
+    )
+
+
 def converge_topo_if_needed(config):
     tbname = config.getoption("testbed")
     tbfile = config.getoption("testbed_file")
@@ -502,13 +517,10 @@ def converge_topo_if_needed(config):
         if not tb_config:
             return
         use_converged_peers = tb_config.get('use_converged_peers', False)
-        if not use_converged_peers:
-            logger.info(f"use_converged_peers=False for testbed '{tbname}', skipping converge")
-            return
+        topo_name = tb_config.get('topo', '').strip()
 
-        # cSONiC has a separate T0-only converger. Keep the cEOS path below
-        # unchanged; the pytest option defaults to eos, so infer cSONiC from the
-        # testbed only when the command line did not explicitly select a backend.
+        # The pytest option defaults to eos, so infer cSONiC from the testbed
+        # only when the command line did not explicitly select a backend.
         requested_neighbor_type = config.getoption("--neighbor_type")
         neighbor_type_overridden = any(
             arg == "--neighbor_type" or arg.startswith("--neighbor_type=")
@@ -517,12 +529,29 @@ def converge_topo_if_needed(config):
         is_csonic = requested_neighbor_type == "csonic" or (
             not neighbor_type_overridden and tb_config.get('vm_type') == "csonic"
         )
+        if is_csonic and topo_name == "t1-lag":
+            # Normalize only the newly supported contract. Existing cEOS,
+            # cSONiC T0 and other topology paths retain their historical
+            # truthiness behavior.
+            use_converged_peers = _normalize_use_converged_peers(
+                use_converged_peers)
+        if is_csonic and topo_name == "t1-lag" and not use_converged_peers:
+            raise pytest.UsageError(
+                "cSONiC topo='t1-lag' requires use_converged_peers=True; "
+                "unconverged cSONiC T1-LAG is not supported."
+            )
+
+        if not use_converged_peers:
+            logger.info(f"use_converged_peers=False for testbed '{tbname}', skipping converge")
+            return
+
+        # cSONiC has a separate converger for its qualified topologies. Keep the
+        # cEOS path below unchanged.
         if is_csonic:
-            topo_name = tb_config.get('topo', '').strip()
-            if topo_name != "t0":
+            if topo_name not in ("t0", "t1-lag"):
                 logger.info(
-                    "cSONiC converged peers currently support topo=t0 only; "
-                    f"skipping topo='{topo_name}'")
+                    "cSONiC converged peers currently support topo=t0 and "
+                    f"t1-lag only; skipping topo='{topo_name}'")
                 return
 
             logger.info(
@@ -567,8 +596,9 @@ def converge_topo_if_needed(config):
             config.cache.set("converged_topo_backup", backup_file)
             return
 
-        # cSONiC T0 is handled by its dedicated branch above. Keep this existing
-        # cEOS path strict: SONiC-VS and cisco neighbors have no equivalent
+        # Supported cSONiC topologies are handled by their dedicated branch
+        # above. Keep this existing cEOS path strict: SONiC-VS and cisco
+        # neighbors have no equivalent
         # renderer, so changing tbinfo for them would disagree with the deployed
         # unconverged peers.
         neighbor_type = config.getoption("--neighbor_type")

@@ -154,6 +154,7 @@ function read_csv
   dut=${line_arr[9]//;/,}
   duts=${dut//[\[\] ]/}
   inv_name=${line_arr[10]}
+  use_converged_peers=
 }
 
 function read_yaml
@@ -206,8 +207,37 @@ function read_yaml
   use_converged_peers=${line_arr[18]}
   # Remove the dpu duts by the keyword 'dpu' in the dut name
   duts=$(echo $duts | sed "s/,[^,]*dpu[^,]*//g")
+}
 
-  converge_topo_if_needed "$topo" "$use_converged_peers"
+function validate_csonic_t1_lag_mode
+{
+    local action="$1"
+    local topo="$2"
+    local use_converged_peers="$3"
+
+    if [[ "$vm_type" != "csonic" || "$topo" != "t1-lag" ]]; then
+        return
+    fi
+
+    case "$action" in
+        remove-topo|stop-topo-vms|disconnect-vms)
+            return
+            ;;
+    esac
+
+    case "${use_converged_peers,,}" in
+        true)
+            normalized_use_converged_peers=True
+            ;;
+        ""|false)
+            echo "cSONiC topo='t1-lag' requires use_converged_peers=True; unconverged cSONiC T1-LAG is not supported." >&2
+            return 1
+            ;;
+        *)
+            echo "Invalid use_converged_peers='$use_converged_peers'; expected true or false." >&2
+            return 1
+            ;;
+    esac
 }
 
 function converge_topo_if_needed
@@ -222,8 +252,8 @@ function converge_topo_if_needed
 
     # Keep the cSONiC path independent from the established cEOS path below.
     if [[ "$use_converged_peers" == "True" && "$vm_type" == "csonic" ]]; then
-        if [[ "$topo" != "t0" ]]; then
-            echo "cSONiC converged peers currently support topo=t0 only; skipping topo '$topo'."
+        if [[ "$topo" != "t0" && "$topo" != "t1-lag" ]]; then
+            echo "cSONiC converged peers currently support topo=t0 and t1-lag only; skipping topo '$topo'."
             return
         fi
         echo "use_converged_peers is true, converging cSONiC topo..."
@@ -241,8 +271,9 @@ function converge_topo_if_needed
     fi
 
     if [[ "$use_converged_peers" == "True" ]]; then
-        # cSONiC T0 is handled by its dedicated branch above. This branch keeps
-        # the existing cEOS renderer strict: SONiC-VS and cisco neighbors have
+        # Supported cSONiC topologies are handled by their dedicated branch
+        # above. This branch keeps the existing cEOS renderer strict: SONiC-VS
+        # and cisco neighbors have
         # no equivalent render path, so reshaping their topology would make the
         # DUT minigraph disagree with the deployed peers.
         if [[ "$vm_type" != "ceos" ]]; then
@@ -266,14 +297,26 @@ function converge_topo_if_needed
 
 function read_file
 {
+  testbed_name="$1"
+  local validate_only="${2:-false}"
   echo reading
 
   if [[ $tbfile == *.csv ]]
   then
-    read_csv ${testbed_name}
+    read_csv ${testbed_name} || return $?
   elif [[ $tbfile == *.yaml ]]
   then
-    read_yaml ${testbed_name}
+    read_yaml ${testbed_name} || return $?
+  fi
+
+  normalized_use_converged_peers=
+  validate_csonic_t1_lag_mode "$subcmd" "$topo" "$use_converged_peers" || return $?
+  if [[ -n "$normalized_use_converged_peers" ]]; then
+    use_converged_peers="$normalized_use_converged_peers"
+  fi
+
+  if [[ "$validate_only" != "true" && $tbfile == *.yaml ]]; then
+    converge_topo_if_needed "$topo" "$use_converged_peers"
   fi
 }
 
@@ -597,7 +640,7 @@ function remove_topo
   shift
   echo "Removing topology for testbed '${testbed_name}'"
 
-  read_file ${testbed_name}
+  read_file ${testbed_name} || return $?
 
   remove_keysight_api_server=0
   for i in "$@"
@@ -660,6 +703,9 @@ function remove_topo
 
 function redeploy_topo()
 {
+    if [[ "$vm_type" == "csonic" ]]; then
+        read_file "$1" validate_only || return $?
+    fi
     remove_topo "$@" || true
     echo "Sleep 60 seconds ..."
     sleep 60
