@@ -10,7 +10,6 @@ import importlib.util
 import json
 import sys
 import types
-from enum import Enum
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -23,70 +22,30 @@ MODULE_PATH = (Path(__file__).resolve().parents[3]
                / "high_frequency_telemetry" / "conftest.py")
 
 
-def _load_target_module():
-    common_utilities = types.ModuleType("tests.common.utilities")
-    common_utilities.wait_until = lambda *args, **kwargs: True
-
-    counter_profiles = types.ModuleType(
-        "tests.high_frequency_telemetry.counter_profiles"
-    )
-
-    class CounterObjectType(Enum):
-        PORT = "port"
-        BUFFER_POOL = "buffer_pool"
-        INGRESS_PRIORITY_GROUP = "ingress_priority_group"
-        QUEUE = "queue"
-
-    counter_profiles.CounterObjectType = CounterObjectType
-    counter_profiles.get_support_counter_list = lambda *args, **kwargs: ()
-
-    utilities = types.ModuleType("tests.high_frequency_telemetry.utilities")
-    utilities.InfluxDbSink = object
-    for name in (
-        "cleanup_hft_config",
-        "enable_otel_collector",
-        "ensure_countersyncd_daemon",
-        "get_available_ports",
-        "get_configured_buffer_pools",
-        "get_configured_buffer_queue_objects",
-        "get_configured_queue_objects",
-        "install_otel_collector_config",
-        "is_otel_image_available",
-        "render_otel_collector_config",
-        "restart_countersyncd_daemon",
-        "restart_otel_service",
-        "setup_influxdb",
-        "start_influxdb",
-        "stop_influxdb",
-        "stop_otel_collector",
-    ):
-        setattr(utilities, name, lambda *args, **kwargs: None)
-
-    stubs = {
-        "tests.common.utilities": common_utilities,
-        "tests.high_frequency_telemetry.counter_profiles": counter_profiles,
-        "tests.high_frequency_telemetry.utilities": utilities,
-    }
-    originals = {name: sys.modules.get(name) for name in stubs}
-    try:
-        sys.modules.update(stubs)
-        spec = importlib.util.spec_from_file_location(
-            "unit_target_hft_conftest", MODULE_PATH
-        )
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        return module
-    finally:
-        for name, original in originals.items():
-            if original is None:
-                sys.modules.pop(name, None)
-            else:
-                sys.modules[name] = original
-
-
 @pytest.fixture(scope="module")
 def hft_conftest():
-    return _load_target_module()
+    common_utilities = types.ModuleType("tests.common.utilities")
+    common_utilities.wait_until = lambda *args, **kwargs: True
+    # Load the real HFT modules without their testbed and PTF runtime dependencies.
+    ptf = types.ModuleType("ptf")
+    ptf.testutils = types.ModuleType("ptf.testutils")
+    natsort = types.ModuleType("natsort")
+    natsort.natsorted = sorted
+    with pytest.MonkeyPatch.context() as patch:
+        for module in (common_utilities, ptf, ptf.testutils, natsort):
+            patch.setitem(sys.modules, module.__name__, module)
+
+        def load(name, path):
+            spec = importlib.util.spec_from_file_location(name, path)
+            module = importlib.util.module_from_spec(spec)
+            patch.setitem(sys.modules, name, module)
+            spec.loader.exec_module(module)
+            return module
+
+        load("tests.common.helpers.assertions", MODULE_PATH.parents[1] / "common/helpers/assertions.py")
+        for name in ("counter_profiles", "utilities"):
+            load(f"tests.high_frequency_telemetry.{name}", MODULE_PATH.with_name(f"{name}.py"))
+        yield load("unit_target_hft_conftest", MODULE_PATH)
 
 
 @pytest.mark.parametrize("state,rc", [
@@ -287,34 +246,94 @@ def test_remaining_session_stops_test_resources_without_reconnecting(lifecycle, 
     assert json.loads(files[hft.OTEL_BASELINE]) == baseline
 
 
-def _run_unsupported_case(pytester, monkeypatch, hft, dut, ptf):
-    monkeypatch.setitem(sys.modules, "unit_target_hft_conftest", hft)
+@pytest.mark.parametrize("hft_state", ["enabled", "disabled"])
+def test_lost_otel_enable_reply_restores_original_services(lifecycle, monkeypatch, hft_state):
+    hft, dut, ptf, files = lifecycle
+    baseline = dict(_baseline("disabled"), hft_state=hft_state)
+    files[hft.OTEL_CONFIG_PATH] = baseline["original_config"]
+    features = {"hft": hft_state, "otel": "disabled"}
+    stock = "stock" if hft_state == "enabled" else None
+    dut.container, dut.collector_running = stock, False
+    ptf.start.return_value = 123
+
+    def shell(cmd, **kwargs):
+        if "exists" in cmd:
+            return {"stdout": "1"}  # Originally disabled, with an existing FEATURE|otel row.
+        if "inspect" in cmd:
+            return {"rc": 0, "stdout": str(dut.collector_running).lower()}
+        assert cmd.endswith("feature state otel enabled") and dut.container == "test"
+        features["otel"], dut.collector_running = "enabled", True
+        raise RuntimeError("lost enable reply")
+
+    def command(cmd, **kwargs):
+        if cmd.startswith("config feature state"):
+            feature, value = cmd.split()[-2:]
+            features[feature] = value
+            dut.collector_running = features["otel"] == "enabled"
+        elif cmd == "systemctl start hft.service":
+            assert not dut.collector_running
+            dut.container = "stock"
+        else:
+            assert "reset-failed" in cmd
+
+    dut.shell.side_effect, dut.command.side_effect = shell, command
+    monkeypatch.setattr(hft, "_feature_fields", lambda host, name: {"state": features[name]})
+    monkeypatch.setattr(hft, "_clear_hft_sessions", lambda host: None)
+    monkeypatch.setattr(hft, "_remove_hft_container", lambda host: setattr(host, "container", None))
+    monkeypatch.setattr(hft, "_start_test_hft", lambda host: setattr(host, "container", "test"))
+    monkeypatch.setattr(hft, "ensure_countersyncd_daemon", lambda host: host.container == "stock")
+    monkeypatch.setattr(hft, "wait_until", lambda t, i, d, probe, *args: probe(*args))
+    with pytest.raises(RuntimeError, match="lost enable reply"):
+        next(hft.hft_test_services.__wrapped__(ptf, {"dut": dut}, "dut", baseline))
+    assert features == {"hft": hft_state, "otel": "disabled"}
+    assert dut.container == stock and not dut.collector_running
+    assert files == {hft.OTEL_CONFIG_PATH: baseline["original_config"]}
+    ptf.stop.assert_called_once_with(ptf, 123)
+
+
+def _run_unsupported_case(pytester, monkeypatch, lifecycle, case):
+    hft, dut, ptf, files = lifecycle
     bed = types.ModuleType("unit_testbed")
     fixture = pytest.fixture(scope="module")
     bed.duthosts = fixture(lambda: {"dut": dut})
     bed.enum_rand_one_per_hwsku_hostname = fixture(lambda: "dut")
     bed.ptfhost = fixture(lambda: ptf)
     bed.tbinfo = fixture(lambda: {})
-    pytester.makepyfile("""
-        import pytest
-        from unit_target_hft_conftest import CounterObjectType, recover_interrupted_hft, skip_unsupported_hft_test
+    bed.loganalyzer = fixture(lambda: None)
+    bed.ptfadapter = fixture(lambda: pytest.fail("PTF adapter initialized for a skipped native HFT case"))
+    skips = []
 
-        @pytest.mark.hft_requirements(CounterObjectType.PORT, counter="unsupported")
-        def test_case(skip_unsupported_hft_test):
-            pytest.fail("Unsupported case reached test body")
-    """)
+    def pytest_runtest_logreport(report):
+        if report.skipped:
+            skips.append((report.when, files.get(hft.OTEL_BASELINE)))
+
+    bed.pytest_runtest_logreport = pytest_runtest_logreport
+    native = MODULE_PATH.with_name("test_high_frequency_telemetry.py")
+    path = pytester.makepyfile(**{native.stem: native.read_text(encoding="utf-8")})
     monkeypatch.setenv("PYTEST_DISABLE_PLUGIN_AUTOLOAD", "1")
-    pytester.runpytest_inprocess("-q", "-o", "markers=hft_requirements", plugins=[bed]).assert_outcomes(skipped=1)
+    pytester.runpytest_inprocess(f"{path}::{case}", "-q", "-o", "markers=hft_requirements\ntopology",
+                                 plugins=[bed, hft]).assert_outcomes(skipped=1)
+    assert skips == [("call" if case == "test_hft_full_counters" else "setup", None)]
+
+
+def test_mixed_counter_node_has_no_unconditional_collection_rule():
+    yaml = pytest.importorskip("yaml")  # The conditional-mark plugin uses PyYAML.
+    policy = MODULE_PATH.parents[1] / "common/plugins/conditional_mark/tests_mark_conditions.yaml"
+    node = "high_frequency_telemetry/test_high_frequency_telemetry.py::test_hft_full_counters"
+    marks = yaml.safe_load(policy.read_text(encoding="utf-8")).get(node, {})
+    assert "skip" not in marks or (marks["skip"] or {}).get("conditions"), "A blanket skip bypasses module recovery"
 
 
 @pytest.mark.parametrize("original_hft", [None, "sink_only", "enabled", "disabled"],
                          ids=["clean", "sink_only", "enabled", "disabled"])
-def test_recovery_precedes_capability_skip(lifecycle, dut_actions, monkeypatch, pytester, original_hft):
+@pytest.mark.parametrize("case", ["test_hft_full_counters", "test_hft_port_shutdown_stream"])
+def test_recovery_precedes_capability_skip(lifecycle, dut_actions, monkeypatch, pytester, original_hft, case):
     hft, dut, ptf, files = lifecycle
+    dut.facts = {"platform": "unit-no-supported-counters"}
+    baseline = _baseline("disabled" if original_hft == "disabled" else "enabled")
     if original_hft == "sink_only":
-        files[hft.OTEL_BASELINE] = json.dumps(dict(_baseline(), sink_only=True))
+        files[hft.OTEL_BASELINE] = json.dumps(dict(baseline, sink_only=True))
     elif original_hft is not None:
-        baseline = _baseline(original_hft)
         ptf.start.return_value = 123
         monkeypatch.setattr(hft, "_feature_fields", MagicMock(side_effect=RuntimeError("collector probe failed")))
         dut_actions._restore_otel.side_effect = [RuntimeError("restore failed"), None]
@@ -325,12 +344,7 @@ def test_recovery_precedes_capability_skip(lifecycle, dut_actions, monkeypatch, 
         dut_actions.reset_mock()
         ptf.reset_mock()
 
-    def unsupported(host, counter_type):
-        assert hft.OTEL_BASELINE not in files  # Recovery must finish before this per-case probe.
-        return ()
-
-    monkeypatch.setattr(hft, "get_support_counter_list", unsupported)
-    _run_unsupported_case(pytester, monkeypatch, hft, dut, ptf)
+    _run_unsupported_case(pytester, monkeypatch, lifecycle, case)
     if original_hft is None:
         assert not dut_actions.mock_calls and not dut.method_calls and not ptf.method_calls
     elif original_hft == "sink_only":

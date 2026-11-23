@@ -73,7 +73,8 @@ HFT Phase 1 supports key AI data center statistics across four object types:
 ### Prerequisites
 - DUT must have the `swss` container running and stable (uptime ≥ 10 seconds).
 - The DUT must provide the locally managed standalone `hft` feature on a single ASIC.
-- Reserve the DUT and PTF host exclusively for HFT. Setup starts a healthy PTF InfluxDB server
+- Reserve the DUT and PTF host exclusively for HFT; all `influxdb3 serve` processes on that PTF host
+  are disposable. Setup starts a healthy PTF InfluxDB server
   and saves the original settings before clearing DUT profiles, groups and `docker-hft:latest` containers.
   It stops `hft.service` and runs `docker-hft:latest` directly with `--enable-otel` and
   `--otel-endpoint=http://localhost:4317` as Docker `Cmd` arguments. Teardown removes the test
@@ -92,7 +93,7 @@ the module looks for `/var/lib/sonic-mgmt-hft-otel.json` and finishes any outsta
 If only sink startup was reached, recovery stops the sink and leaves DUT services alone. Once DUT
 setup has started, recovery stops the test exporter and sink, clears the HFT profiles and waits for
 the operational sessions to disappear before restoring OTEL and starting stock HFT. A failure retains
-the backup for retry. Other CONFIG_DB tables and unrelated PTF listeners are not cleared.
+the backup for retry. Other CONFIG_DB tables and non-InfluxDB listeners are left alone.
 
 ### Platform Support
 
@@ -125,9 +126,10 @@ monitoring remains enabled for all HFT cases.
 Each case declares its counter, object, and port prerequisites with the
 `hft_requirements` marker. Before that case can request HFT infrastructure, the
 `skip_unsupported_hft_test` fixture checks those prerequisites and returns the
-validated objects and counters. On a clean testbed, a capability skip does not start InfluxDB
-or change the DUT. On an interrupted testbed, module recovery runs even if that capability check
-then skips every selected case. Services started by a supported case remain available until module teardown.
+validated objects and counters. On a clean testbed, a capability skip does not change the DUT,
+start InfluxDB, or initialize the PTF dataplane adapter. On an interrupted testbed, module recovery
+runs before a case-specific skip, including the reserved mixed-object case. Services started by a
+supported case remain available until module teardown.
 
 For counter coverage tests, the expected set is generated independently from
 the configured object and counter lists. Validation requires every expected
