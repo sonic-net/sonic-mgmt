@@ -20,7 +20,7 @@ from tests.common.fixtures.duthost_utils import disable_route_checker   # noqa: 
 from tests.common.fixtures.duthost_utils import disable_fdb_aging       # noqa: F401
 from tests.common.utilities import wait_until, get_data_acl, is_ipv6_only_topology, get_plt_wait_time
 from tests.common.mellanox_data import is_mellanox_device
-from tests.common.helpers.dut_utils import get_sai_sdk_dump_file
+from tests.common.helpers.dut_utils import get_sai_sdk_dump_file, is_virtual_platform
 
 
 pytestmark = [
@@ -1141,8 +1141,9 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         expected_nexthop_used = new_crm_stats_nexthop_used + neighbours_num - CRM_COUNTER_TOLERANCE
         logger.info("Waiting for {} nexthop resources to stabilize (expecting ~{} total used)...".format(
             neighbours_num, expected_nexthop_used))
+        nexthop_timeout = 300 if asic_type == "vpp" and is_virtual_platform(duthost) else 60
         wait_for_crm_counter_update(get_nexthop_stats, duthost, expected_used=expected_nexthop_used,
-                                    oper_used=">=", timeout=60, interval=5)
+                                    oper_used=">=", timeout=nexthop_timeout, interval=5)
 
         RESTORE_CMDS["wait"] = SONIC_RES_CLEANUP_UPDATE_TIME
 
