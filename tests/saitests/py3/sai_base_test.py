@@ -237,16 +237,18 @@ class ThriftInterface(BaseTest):
     def _read_dut_value(self, cmd):
         """Run cmd on the dst DUT and return its first stdout line, stripped.
 
-        Returns '' when the command produced no output, which is what
-        'sonic-db-cli ... hget' yields for an unset field -- so callers must not
-        index into the result unconditionally.
+        Returns '' when the command ran but printed nothing, which is what
+        'sonic-db-cli ... hget' yields for an unset field. Returns None when the
+        command could not be run or wrote to stderr, so callers can tell a
+        failed read apart from an empty value.
         """
         stdOut, stdErr, retValue = self.exec_cmd_on_dut(
             self.dst_server_ip, self.test_params['dut_username'],
             self.test_params['dut_password'], cmd)
-        if stdErr:
+        if retValue != 0 or stdErr:
             print("_read_dut_value: command failed (retValue={}, stdErr={}): {}".format(
                 retValue, stdErr, cmd))
+            return None
         return stdOut[0].strip() if stdOut else ''
 
     def _run_shaper_cmds(self, cmds, caller):
@@ -274,7 +276,10 @@ class ThriftInterface(BaseTest):
         is validated only on Broadcom XGS/DNX; other vendors manage the port
         scheduler differently). Rate/burst are bytes/sec and bytes; burst
         defaults to ~1% of the rate. Pair with clear_egress_shaper() in a finally
-        block."""
+        block.
+
+        Raises RuntimeError, without touching CONFIG_DB, if the port's current
+        scheduler binding cannot be read, since cleanup could not restore it."""
         if not max_rate:
             return
         if self.test_params.get('sonic_asic_type') != 'broadcom':
@@ -285,12 +290,19 @@ class ThriftInterface(BaseTest):
             burst = max(max_rate // 100, 8192)
         sched_name = "egress_shaper_{}".format(dut_port)
         ns_opt = self._dst_ns_opt()
-        # Remember any pre-existing port-level scheduler binding so cleanup can
-        # restore it.
         saved = self._read_dut_value(
             'sudo sonic-db-cli {}CONFIG_DB hget "PORT_QOS_MAP|{}" scheduler'.format(
                 ns_opt, dut_port))
-        self.saved_port_scheduler = '' if saved == sched_name else saved
+        if saved is None:
+            raise RuntimeError(
+                "apply_egress_shaper: could not read PORT_QOS_MAP|{} scheduler; "
+                "not shaping the port".format(dut_port))
+        # clear_egress_shaper() acts only on ports recorded here, so it never
+        # removes a binding that was not snapshotted. Record before writing so a
+        # partially applied shaper is still cleaned up.
+        if not hasattr(self, 'egress_shaper_saved'):
+            self.egress_shaper_saved = {}
+        self.egress_shaper_saved[dut_port] = '' if saved == sched_name else saved
         cmds = [
             'sudo sonic-db-cli {}CONFIG_DB hset "SCHEDULER|{}" meter_type bytes pir {} pbs {}'.format(
                 ns_opt, sched_name, int(max_rate), int(burst)),
@@ -303,14 +315,14 @@ class ThriftInterface(BaseTest):
 
     def clear_egress_shaper(self, dut_port, max_rate):
         """Remove the shaper applied by apply_egress_shaper(), putting back any
-        port-level scheduler binding that was there before. No-op when max_rate
-        is falsy or the platform is not Broadcom, mirroring apply_egress_shaper()
-        so it is safe to call unconditionally in a finally block."""
-        if not max_rate or self.test_params.get('sonic_asic_type') != 'broadcom':
+        port-level scheduler binding that was there before. No-op unless
+        apply_egress_shaper() recorded dut_port, so it is safe to call
+        unconditionally in a finally block."""
+        saved = getattr(self, 'egress_shaper_saved', {}).pop(dut_port, None)
+        if saved is None:
             return
         sched_name = "egress_shaper_{}".format(dut_port)
         ns_opt = self._dst_ns_opt()
-        saved = getattr(self, 'saved_port_scheduler', '')
         if saved:
             unbind_cmd = 'sudo sonic-db-cli {}CONFIG_DB hset "PORT_QOS_MAP|{}" scheduler {}'.format(
                 ns_opt, dut_port, saved)

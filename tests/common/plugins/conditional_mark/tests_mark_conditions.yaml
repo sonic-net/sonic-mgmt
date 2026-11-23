@@ -4617,7 +4617,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDscpEcn:
     conditions_logical_operator: and
     conditions:
       - "platform not in ['x86_64-nokia_ixr7250e_36x400g-r0']"
-      - "asic_gen not in ['q3d']"
+      - "not (hwsku in ['NH-5010-F-O64'] and topo_name in ['t2_single_node_min', 't2-single-node-min'])"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDscpQueueMapping:
   skip:

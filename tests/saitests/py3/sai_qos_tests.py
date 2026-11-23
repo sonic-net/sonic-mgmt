@@ -4662,10 +4662,7 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
         # Cache the dst DUT port name and per-asic namespace flag once, so the
         # pre/post-test wredcounter blocks below can share them.
         dut_port = self.get_dut_port(dst_port_id)
-        dst_is_multi_asic = self.test_params.get('dst_is_multi_asic', False)
-        ns_opt = ("-n asic{} ".format(self.dst_asic_index)
-                  if dst_is_multi_asic and self.dst_asic_index is not None
-                  else "")
+        ns_opt = self._dst_ns_opt()
         verify_wred_drops = self.test_params.get('verify_wred_drops', False)
 
         # Get a snapshot of counter values
@@ -4745,8 +4742,15 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
                     result = self.dataplane.poll(
                         device_number=0, port_number=dst_port_id, timeout=3)
                     if isinstance(result, self.dataplane.PollFailure):
-                        self.fail("Expected packet was not received on port %d. Total received: %d.\n%s" % (
-                            dst_port_id, total_recv_cnt, result.format()))
+                        # DUT TX >= num_of_pkts with a PTF shortfall means the
+                        # loss is on the fanout->PTF capture path, not the DUT.
+                        self.fail(
+                            "Expected packet was not received on port %d. Total received: %d, "
+                            "DUT dst port TX delta: %d, egress drop delta: %d.\n%s" % (
+                                dst_port_id, total_recv_cnt,
+                                port_counters[TRANSMITTED_PKTS] - port_counters_base[TRANSMITTED_PKTS],
+                                port_counters[EGRESS_DROP] - port_counters_base[EGRESS_DROP],
+                                result.format()))
                     recv_pkt = scapy.Ether(result.packet)
                     try:
                         if (recv_pkt.payload.src == src_port_ip) and (recv_pkt.payload.dst == dst_port_ip):
@@ -4870,10 +4874,13 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
                 for cntr in ingress_counters:
                     assert (port_counters[cntr] <= port_counters_base[cntr] + COUNTER_MARGIN)
         finally:
-            # RELEASE PORT
-            self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
-            self.clear_egress_shaper(dut_port, egress_shaper_rate)
-            print("END OF TEST")
+            # RELEASE PORT. tx_enable can assert on DNX, so remove the shaper
+            # in its own finally.
+            try:
+                self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
+            finally:
+                self.clear_egress_shaper(dut_port, egress_shaper_rate)
+                print("END OF TEST")
 
 
 class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
