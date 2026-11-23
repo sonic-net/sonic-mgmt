@@ -701,7 +701,7 @@ class SanityControls(unittest.TestCase):
     def test_successful_neighbor_keyed_workers_keep_existing_result_schema(self):
         load(PARALLEL, ['parallel_run'], self.ns)
         results = {}
-        worker = SimpleNamespace(name='neighbor-worker', exitcode=0, exception=None, start=Mock(),
+        worker = SimpleNamespace(name='neighbor-worker', pid=123, exitcode=0, exception=None, start=Mock(),
                                  is_alive=lambda: False, is_running=lambda: False)
 
         def wait(active, **kwargs):
