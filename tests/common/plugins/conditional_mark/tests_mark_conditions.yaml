@@ -1744,7 +1744,7 @@ dut_console/test_console_chassis_conn.py::test_console_availability_serial_ports
     reason: "Skipping test because test is not supported on this hwsku"
     conditions_logical_operator: or
     conditions:
-      - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0', 'x86_64-nokia_ixr7250_x3b-r0']"
+      - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0', 'x86_64-nokia_ixr7250_x3b-r0', 'x86_64-nvidia_sn5640-r0']"
       - "'t2_single_node' in topo_name or topo_type in ['lrh', 'urh']"
 
 dut_console/test_console_stress.py:
@@ -4402,12 +4402,6 @@ pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[IPv6-async_storm:
 #####     platform_tests          #####
 #######################################
 
-platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_info:
-  xfail:
-    reason: "Testcase ignored on nvidia sn4700 and sn4280 due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/23426"
-    conditions:
-    - "https://github.com/sonic-net/sonic-buildimage/issues/23426 and ('sn4700' in platform or 'sn4280' in platform)"
-
 platform_tests/counterpoll/test_counterpoll_watermark.py:
   xfail:
     reason: "Testcase fails sporadically due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/24900"
@@ -4651,6 +4645,8 @@ qos/test_qos_probe.py:
       # Broadcom-DNX - Test provides duplicate coverage to test_qos_sai.py so disabling on DNX to avoid longer runtimes
       # If we do want to run this on DNX SKUs we'll need https://github.com/sonic-net/sonic-mgmt/issues/27076 fixed
       - "asic_subtype in ['broadcom-dnx']"
+      # Nexthop (NH-4010 / NH-4210 / NH-4220)
+      - "platform in ['x86_64-nexthop_4010-r0', 'x86_64-nexthop_4010-r1', 'x86_64-nexthop_4210-r0021', 'x86_64-nexthop_4220-r1021'] and https://github.com/sonic-net/sonic-mgmt/issues/27057"
 
 qos/test_qos_probe.py::TestQosProbe:
   skip:
@@ -6343,8 +6339,10 @@ vxlan/test_vxlan_decap_ttl.py::test_vxlan_decap_ttl\[v6-.*\]:
 vxlan/test_vxlan_ecmp.py:
   skip:
     reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
+    conditions_logical_operator: or
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
+      - "is_multi_asic == True"
+      - "(platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-8102_28fh_dpu_o-r0']) and (asic_type not in ['mellanox'])"
 
 vxlan/test_vxlan_ecmp_switchover.py:
   skip:
