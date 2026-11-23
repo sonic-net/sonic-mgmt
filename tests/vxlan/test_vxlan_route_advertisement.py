@@ -4,16 +4,24 @@
     provided with each test.
 '''
 
-import time
+from collections.abc import Mapping
+import json
 import logging
+import re
+import time
+
 import pytest
+from tests.common.devices.csonic import CsonicHost
 from tests.common.helpers.assertions import pytest_assert as py_assert
+from tests.common.utilities import wait_until
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils
 
 Logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
 WAIT_TIME = 2
 WAIT_TIME_EXTRA = 5
+ROUTE_CONVERGENCE_TIMEOUT = 30
+ROUTE_CONVERGENCE_INTERVAL = 2
 
 # This is the list of encapsulations that will be tested in this script.
 SUPPORTED_ENCAP_TYPES = ['v4_in_v4', 'v6_in_v4']
@@ -23,6 +31,119 @@ pytestmark = [
     # This script supports any T1 topology: t1, t1-64-lag, t1-56-lag, t1-lag.
     pytest.mark.topology("t1")
 ]
+
+
+def _is_logical_converged_csonic(host):
+    """Return whether route reads must use a logical cSONiC runtime VRF."""
+    return isinstance(host, CsonicHost) and bool(host.bgp_vrf)
+
+
+def _command_stdout(result):
+    """Return stdout, or None for a failed/invalid command result."""
+    if not isinstance(result, Mapping):
+        return None
+    if result.get('failed', False) or result.get('rc', 0) != 0:
+        return None
+    stdout = result.get('stdout', '')
+    if isinstance(stdout, list):
+        return stdout[0] if stdout else ''
+    return stdout if isinstance(stdout, str) else None
+
+
+def _route_prefixes_from_output(output):
+    """Extract exact IPv4/IPv6 CIDR tokens from a text BGP table."""
+    return set(re.findall(
+        r'(?<![0-9a-fA-F:.])[0-9a-fA-F:.]+/\d+(?![0-9a-fA-F:.])',
+        output or '',
+    ))
+
+
+def _scale_route_command(host, prefix_type, community=''):
+    """Build the FRR table read used only by logical cSONiC peers."""
+    command = 'show {} bgp '.format('ip' if prefix_type == 'v4' else 'ipv6')
+    if community:
+        command += 'community ' + community
+    return command
+
+
+def _route_present_in_data(route_data, prefix):
+    """Require direct FRR route JSON to identify the requested prefix."""
+    if not isinstance(route_data, dict):
+        return False
+    returned_prefix = route_data.get('prefix')
+    if returned_prefix is not None and returned_prefix != prefix:
+        return False
+    return returned_prefix == prefix and bool(route_data.get('paths'))
+
+
+def _neighbor_route_data(host, route):
+    """Read one logical cSONiC route and fail closed on query errors."""
+    if not _is_logical_converged_csonic(host):
+        return host.get_route(route)
+
+    afi = 'ipv6' if ':' in route else 'ip'
+    result = host.command(
+        'show {} bgp {} json'.format(afi, route),
+        module_ignore_errors=True,
+    )
+    output = _command_stdout(result)
+    if output is None:
+        raise RuntimeError('Neighbor route-table query failed')
+    if not output.strip():
+        raise RuntimeError('Neighbor route-table query returned no output')
+    try:
+        route_data = json.loads(output)
+    except (json.JSONDecodeError, ValueError) as error:
+        raise ValueError(
+            'Neighbor route-table query returned invalid JSON') from error
+    if not isinstance(route_data, dict):
+        raise ValueError('Neighbor route-table query did not return an object')
+    return route_data
+
+
+def _community_tokens(value):
+    """Return exact standard/large BGP community tokens from route JSON."""
+    tokens = set()
+    if isinstance(value, Mapping):
+        for nested in value.values():
+            tokens.update(_community_tokens(nested))
+    elif isinstance(value, (list, tuple, set)):
+        for nested in value:
+            tokens.update(_community_tokens(nested))
+    elif isinstance(value, str):
+        for token in re.split(r'[\s,]+', value):
+            token = token.strip("[]{}()'\"")
+            if re.fullmatch(r'\d+:\d+(?::\d+)?', token):
+                tokens.add(token)
+    return tokens
+
+
+def _neighbor_route_matches(host, route, expected_present, community=''):
+    """Return whether a logical cSONiC route reached the expected state."""
+    try:
+        result = _neighbor_route_data(host, route)
+    except Exception as error:
+        Logger.debug('Failed to query route %s on %s: %s', route, host, error)
+        return False
+    present = _route_present_in_data(result, route)
+    if present != expected_present:
+        return False
+    if not community:
+        return True
+    community_present = community in _community_tokens(result)
+    return community_present if expected_present else not community_present
+
+
+def _csonic_scale_routes_match(host, command, expected_routes, present):
+    """Check one complete logical cSONiC scale-table snapshot."""
+    output = _command_stdout(host.run_command(command))
+    if output is None:
+        return False
+    observed_routes = _route_prefixes_from_output(output)
+    expected_routes = set(expected_routes)
+    if present:
+        return expected_routes <= observed_routes
+    return expected_routes.isdisjoint(observed_routes)
 
 
 @pytest.fixture(
@@ -260,11 +381,21 @@ class Test_VxLAN_route_Advertisement():
             for prefix in routes[vnet]:
                 route = f'{prefix}/{prefix_mask}'
                 for t2device in self.vxlan_test_setup['t2']:
-                    result = t2device['host'].get_route(route)
-                    py_assert(route in result['vrfs']['default']['bgpRouteEntries'],
-                              "Route not propogated to the T2")
-                    if community != "":
-                        py_assert(community in str(result), "community not propogated.")
+                    host = t2device['host']
+                    if _is_logical_converged_csonic(host):
+                        py_assert(wait_until(
+                            ROUTE_CONVERGENCE_TIMEOUT,
+                            ROUTE_CONVERGENCE_INTERVAL, 0,
+                            _neighbor_route_matches, host, route, True,
+                            community),
+                            "Route {} with community {} did not propagate to T2 {}"
+                            .format(route, community or '<any>', host))
+                    else:
+                        result = host.get_route(route)
+                        py_assert(route in result['vrfs']['default']['bgpRouteEntries'],
+                                  "Route not propogated to the T2")
+                        if community != "":
+                            py_assert(community in str(result), "community not propogated.")
         return
 
     def verify_nighbor_doesnt_have_routes(self, routes, community=""):
@@ -276,11 +407,21 @@ class Test_VxLAN_route_Advertisement():
             for prefix in routes[vnet]:
                 route = f'{prefix}/{prefix_mask}'
                 for t2device in self.vxlan_test_setup['t2']:
-                    result = t2device['host'].get_route(route)
-                    py_assert(route not in result['vrfs']['default']['bgpRouteEntries'],
-                              "Route not propogated to the T2")
-                    if community != "":
-                        py_assert(community not in str(result), "community is still getting propogated.")
+                    host = t2device['host']
+                    if _is_logical_converged_csonic(host):
+                        py_assert(wait_until(
+                            ROUTE_CONVERGENCE_TIMEOUT,
+                            ROUTE_CONVERGENCE_INTERVAL, 0,
+                            _neighbor_route_matches, host, route, False,
+                            community),
+                            "Route {} or community {} is still propagated to T2 {}"
+                            .format(route, community or '<any>', host))
+                    else:
+                        result = host.get_route(route)
+                        py_assert(route not in result['vrfs']['default']['bgpRouteEntries'],
+                                  "Route not propogated to the T2")
+                        if community != "":
+                            py_assert(community not in str(result), "community is still getting propogated.")
         return
 
     def verify_nighbor_has_routes_scale(self, routes, community=""):
@@ -298,10 +439,26 @@ class Test_VxLAN_route_Advertisement():
 
         retry_count = 4
         for t2device in self.vxlan_test_setup['t2']:
-            result = t2device['host'].run_command(cmd)
+            host = t2device['host']
+            if _is_logical_converged_csonic(host):
+                expected_routes = [
+                    f'{prefix}/{prefix_mask}'
+                    for vnet in routes
+                    for prefix in routes[vnet]
+                ]
+                csonic_cmd = _scale_route_command(
+                    host, self.prefix_type, community)
+                py_assert(wait_until(
+                    40, 10, 0, _csonic_scale_routes_match,
+                    host, csonic_cmd, expected_routes, True),
+                    "Routes with community {} did not propagate to T2 {}"
+                    .format(community or '<any>', host))
+                continue
+
+            result = host.run_command(cmd)
             while len(result['stdout'][0]) == 0 and retry_count > 0:
                 time.sleep(10)
-                result = t2device['host'].run_command(cmd)
+                result = host.run_command(cmd)
                 retry_count = retry_count - 1
             if len(result['stdout'][0]) == 0:
                 py_assert(False, "Routes not propogated to the T2.")
@@ -326,7 +483,24 @@ class Test_VxLAN_route_Advertisement():
             cmd = cmd + "community " + community
         cmd = cmd + grepdata
         for t2device in self.vxlan_test_setup['t2']:
-            result = t2device['host'].run_command(cmd)
+            host = t2device['host']
+            if _is_logical_converged_csonic(host):
+                expected_routes = [
+                    f'{prefix}/{prefix_mask}'
+                    for vnet in routes
+                    for prefix in routes[vnet]
+                ]
+                csonic_cmd = _scale_route_command(
+                    host, self.prefix_type, community)
+                py_assert(wait_until(
+                    ROUTE_CONVERGENCE_TIMEOUT,
+                    ROUTE_CONVERGENCE_INTERVAL, 0,
+                    _csonic_scale_routes_match,
+                    host, csonic_cmd, expected_routes, False),
+                    "Routes are still propagated to T2 {}".format(host))
+                continue
+
+            result = host.run_command(cmd)
             for vnet in routes:
                 for prefix in routes[vnet]:
                     route = f'{prefix}/{prefix_mask}'
