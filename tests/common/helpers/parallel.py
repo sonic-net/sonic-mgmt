@@ -9,6 +9,11 @@ import tempfile
 import threading
 import time
 import traceback
+from contextlib import contextmanager
+from contextvars import ContextVar
+from ansible.errors import AnsibleConnectionFailure
+from pytest_ansible.errors import AnsibleConnectionFailure as PytestAnsibleConnectionFailure
+from tests.common.errors import RunAnsibleModuleFail
 from multiprocessing import Process, Manager, Pipe, TimeoutError
 from multiprocessing.pool import ThreadPool
 from ansible.executor.process.worker import WorkerProcess
@@ -18,6 +23,47 @@ from psutil import wait_procs
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 
 logger = logging.getLogger(__name__)
+
+
+# Opt in only around sanity check invocation, never around fixture setup. Context
+# locality avoids changing concurrent/non-sanity callers of parallel_run.
+_sanity_worker_check = ContextVar("sanity_worker_check", default=None)
+
+
+class SanityWorkerError(Exception):
+    """Safe, pickleable worker evidence; no exception strings or traceback locals."""
+
+    def __init__(self, failures, results):
+        super().__init__(failures, results)
+        self.failures = failures
+        self.results = results
+
+    def __str__(self):
+        return "Sanity workers failed: {}".format(self.failures)
+
+
+@contextmanager
+def sanity_worker_context(check_item):
+    token = _sanity_worker_check.set(check_item)
+    try:
+        yield
+    finally:
+        _sanity_worker_check.reset(token)
+
+
+def _sanity_worker_failure(check_item, hostname, worker_exception):
+    error = worker_exception[0] if worker_exception else None
+    operational = isinstance(error, (
+        RunAnsibleModuleFail, AnsibleConnectionFailure, PytestAnsibleConnectionFailure,
+    ))
+    return {
+        "check_item": check_item,
+        "host": hostname,
+        "exception_type": type(error).__name__,
+        "operational": operational,
+        "error_msg": ("DUT command or connection failed" if operational
+                      else "Unexpected worker failure; inspect worker traceback"),
+    }
 
 
 def patch_ansible_worker_process():
@@ -197,6 +243,7 @@ def parallel_run(
         len(nodes)/float(concurrent_tasks)
     ) if timeout else None
     failed_processes = {}
+    worker_hosts = {}
 
     # Before spawning the child process, ensure current thread is
     # holding the logging handler locks to avoid deadlock in child process.
@@ -225,6 +272,8 @@ def parallel_run(
                         name=process_name, target=target, args=args,
                         kwargs=kwargs
                     )
+            if _sanity_worker_check.get() is not None:
+                worker_hosts[process_name] = getattr(node, "hostname", None)
             worker.start()
             tasks_running += 1
             logger.debug('Started process {} running target "{}"'.format(
@@ -285,6 +334,17 @@ def parallel_run(
 
     # if we have failed processes, we should log the exception and exit code
     # of each Process and fail
+    if failed_processes and _sanity_worker_check.get() is not None:
+        failures = [
+            _sanity_worker_failure(_sanity_worker_check.get(), worker_hosts.get(name), process.get('exception'))
+            for name, process in failed_processes.items()
+        ]
+        # Initial timeout placeholders can say failed=False. Never return those
+        # as completed checks for a worker which actually raised.
+        failed_hosts = {failure['host'] for failure in failures}
+        completed = {host: result for host, result in dict(results).items() if host not in failed_hosts}
+        raise SanityWorkerError(failures, completed)
+
     if len(list(failed_processes.keys())):
         for process_name, process in list(failed_processes.items()):
             p_exitcode = ""
