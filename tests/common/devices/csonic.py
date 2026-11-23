@@ -431,7 +431,9 @@ class CsonicHost(NeighborDevice):
         """Get BGP route info for a prefix from FRR.
 
         Stock cSONiC keeps its historical default-instance command. A converged
-        logical host scopes the same query to its runtime VRF.
+        logical host scopes the same query to its runtime VRF. FRR returns an
+        empty JSON object when the prefix is absent; query and output failures
+        raise so callers cannot mistake them for a valid route withdrawal.
         """
         afi = 'ipv6' if ipaddress.ip_network(prefix, strict=False).version == 6 else 'ipv4'
         effective_vrf = vrf or self.bgp_vrf
@@ -444,13 +446,28 @@ class CsonicHost(NeighborDevice):
                 'vtysh -c "show bgp vrf {} {} unicast {} json"'.format(
                     effective_vrf, afi, prefix),
                 module_ignore_errors=True)
-        if result.get('rc') != 0 or not result.get('stdout'):
-            return {}
+        rc = result.get('rc')
+        if rc != 0:
+            error_output = result.get('stderr') or result.get('stdout') or 'no error output'
+            raise RuntimeError(
+                "CsonicHost [{}] get_route({}) failed (rc={}): {}".format(
+                    self.hostname, prefix, rc, error_output))
+        output = result.get('stdout')
+        if not isinstance(output, str) or not output.strip():
+            raise RuntimeError(
+                "CsonicHost [{}] get_route({}) returned empty stdout".format(
+                    self.hostname, prefix))
         try:
-            data = json.loads(result['stdout'])
-        except (json.JSONDecodeError, ValueError):
-            return {}
-        return data if isinstance(data, dict) else {}
+            data = json.loads(output)
+        except (json.JSONDecodeError, ValueError) as error:
+            raise ValueError(
+                "CsonicHost [{}] get_route({}) returned invalid JSON: {!r}".format(
+                    self.hostname, prefix, output[:200])) from error
+        if not isinstance(data, dict):
+            raise TypeError(
+                "CsonicHost [{}] get_route({}) expected a JSON object, got {}"
+                .format(self.hostname, prefix, type(data).__name__))
+        return data
 
     def get_port_channel_status(self, pc_name=None):
         """Get PortChannel status."""
