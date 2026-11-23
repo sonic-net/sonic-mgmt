@@ -16,8 +16,11 @@ pytestmark = [pytest.mark.topology("any")]
 class DutHost:
     hostname = 'dut'
 
-    def __init__(self, bgp_entries=None):
+    def __init__(self, bgp_entries=None, devices=None):
         self.bgp_entries = bgp_entries or []
+        self.devices = (devices if devices is not None else {
+            entry['name']: {} for entry in self.bgp_entries
+        })
 
     def minigraph_facts(self, host):
         assert host == self.hostname
@@ -25,6 +28,7 @@ class DutHost:
             'ansible_facts': {
                 'minigraph_bgp_asn': 65100,
                 'minigraph_bgp': self.bgp_entries,
+                'minigraph_devices': self.devices,
             },
         }
 
@@ -145,6 +149,31 @@ def test_converged_route_snapshot_accepts_valid_empty_map():
         host, '10.0.0.32', 4) == {}
 
 
+def test_converged_route_snapshot_filters_on_frr_communities():
+    host = CsonicHost('csonic-prime', bgp_vrf='VrfARISTA01T0')
+    host._docker_exec = lambda command, **kwargs: {
+        'rc': 0,
+        'stdout': json.dumps({
+            'routes': {
+                '172.16.10.0/24': [{
+                    'community': {
+                        'list': ['1234:5678', 'no-export'],
+                    },
+                }],
+                '172.16.20.0/24': [{
+                    'community': {'list': ['1234:5678']},
+                }],
+                '172.16.30.0/24': [{}],
+            },
+        }),
+    }
+
+    assert route_checker._parse_routes_on_csonic_host(
+        host, '10.0.0.32', 4, ['no-export', '9999:1']) == {
+            '172.16.10.0/24': 'no-export',
+        }
+
+
 def test_dual_dut_peer_selection_matches_selected_dut():
     mg_facts = {
         'minigraph_bgp': [
@@ -243,6 +272,59 @@ def test_multi_logical_peer_dispatch_keeps_result_keys_isolated(monkeypatch):
     }
 
 
+def test_multi_dut_snapshot_excludes_unattached_neighbors(monkeypatch):
+    attached = CsonicHost('csonic-prime', bgp_vrf='VrfARISTA01T0')
+    foreign = CsonicHost('csonic-prime', bgp_vrf='VrfARISTA03T0')
+    peers = {}
+    peers.update(_logical_peer('ARISTA01T0', attached, ['10.0.0.1']))
+    peers.update(_logical_peer('ARISTA03T0', foreign, ['10.0.0.3']))
+    visited = []
+
+    def sequential_run(target, args, kwargs, nodes, **options):
+        results = {}
+        for node in nodes:
+            visited.append(node['host'].bgp_vrf)
+            target(node=node, results=results)
+        return results
+
+    monkeypatch.setattr(route_checker, 'parallel_run', sequential_run)
+    monkeypatch.setattr(
+        route_checker,
+        '_parse_routes_on_csonic_host',
+        lambda host, peer, ip_ver, exp_community: {'172.16.1.0/24': ''},
+    )
+
+    assert route_checker.parse_routes_on_csonic(
+        DutHost(
+            [{
+                'name': 'ARISTA01T0',
+                'addr': '10.0.0.2',
+                'peer_addr': '10.0.0.1',
+            }],
+            devices={'ARISTA01T0': {}},
+        ),
+        peers,
+        4,
+    ) == {'ARISTA01T0': {'172.16.1.0/24': ''}}
+    assert visited == ['VrfARISTA01T0']
+
+
+def test_attached_neighbor_still_requires_exact_peer_match(monkeypatch):
+    host = CsonicHost('csonic-prime', bgp_vrf='VrfARISTA01T0')
+    peers = _logical_peer('ARISTA01T0', host, ['10.0.0.1'])
+
+    def sequential_run(target, args, kwargs, nodes, **options):
+        results = {}
+        for node in nodes:
+            target(node=node, results=results)
+        return results
+
+    monkeypatch.setattr(route_checker, 'parallel_run', sequential_run)
+    with pytest.raises(ValueError, match='Expected exactly one'):
+        route_checker.parse_routes_on_csonic(
+            DutHost(devices={'ARISTA01T0': {}}), peers, 4)
+
+
 def test_parent_rejects_incomplete_snapshot(monkeypatch):
     first = CsonicHost('csonic-prime', bgp_vrf='VrfARISTA01T0')
     second = CsonicHost('csonic-prime', bgp_vrf='VrfARISTA03T0')
@@ -258,7 +340,13 @@ def test_parent_rejects_incomplete_snapshot(monkeypatch):
     with pytest.raises(
             RuntimeError, match=r"missing=\['ARISTA03T0'\]"):
         route_checker.parse_routes_on_csonic(
-            DutHost(), peers, 4)
+            DutHost(devices={
+                'ARISTA01T0': {},
+                'ARISTA03T0': {},
+            }),
+            peers,
+            4,
+        )
 
 
 def test_real_parallel_run_propagates_failed_route_query():
@@ -282,6 +370,79 @@ def test_real_parallel_run_propagates_failed_route_query():
             peers,
             4,
         )
+
+
+def test_converged_dispatch_preserves_community_filter(monkeypatch):
+    host = CsonicHost('csonic-prime', bgp_vrf='VrfARISTA01T0')
+    neighbors = _logical_peer('ARISTA01T0', host, ['10.0.0.1'])
+    calls = []
+
+    def parse_csonic(*args):
+        calls.append(args)
+        return {'ARISTA01T0': {'172.16.10.0/24': 'no-export'}}
+
+    monkeypatch.setattr(
+        route_checker, 'parse_routes_on_csonic', parse_csonic)
+    expected_communities = ['no-export', '1234:5678']
+
+    assert route_checker.parse_routes_on_neighbors(
+        object(), neighbors, 4, expected_communities) == {
+            'ARISTA01T0': {'172.16.10.0/24': 'no-export'},
+        }
+    assert calls[0][-1] == expected_communities
+
+
+def test_converged_community_verification_requires_every_original_prefix(
+        monkeypatch):
+    host = CsonicHost('csonic-prime', bgp_vrf='VrfARISTA01T0')
+    neighbors = _logical_peer('ARISTA01T0', host, ['10.0.0.1'])
+    original = {
+        'ARISTA01T0': {
+            '172.16.10.0/24': '',
+            '172.16.20.0/24': '',
+        },
+    }
+
+    monkeypatch.setattr(
+        route_checker,
+        'parse_routes_on_neighbors',
+        lambda *args: {
+            'ARISTA01T0': {'172.16.10.0/24': 'no-export'},
+        },
+    )
+    assert not route_checker.verify_current_routes_announced_to_neighs(
+        object(), neighbors, original, {}, 4, ['no-export'])
+
+    monkeypatch.setattr(
+        route_checker,
+        'parse_routes_on_neighbors',
+        lambda *args: {
+            'ARISTA01T0': {
+                '172.16.10.0/24': 'no-export',
+                '172.16.20.0/24': 'no-export',
+            },
+        },
+    )
+    assert route_checker.verify_current_routes_announced_to_neighs(
+        object(), neighbors, original, {}, 4, ['no-export'])
+
+
+def test_converged_route_diff_fallback_is_strict(monkeypatch):
+    host = CsonicHost('csonic-prime', bgp_vrf='VrfARISTA01T0')
+    neighbors = _logical_peer('ARISTA01T0', host, ['10.0.0.1'])
+    monkeypatch.setattr(
+        route_checker, 'parse_rib', lambda *args: {
+            '172.16.10.0/24': ['65000'],
+        })
+    monkeypatch.setattr(route_checker.logger, 'warning', lambda *args: None)
+
+    assert not route_checker.check_and_log_routes_diff(
+        object(),
+        neighbors,
+        {'ARISTA01T0': {'172.16.10.0/24': ''}},
+        {'ARISTA01T0': {}},
+        4,
+    )
 
 
 def test_ordinary_csonic_keeps_historical_vsonic_commands(monkeypatch):
