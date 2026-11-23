@@ -2233,7 +2233,7 @@ class TestQosSai(QosSaiBase):
         self, get_src_dst_asic_and_duts, duthost,
         request, ptfhost, dutTestParams, dutConfig, dut_qos_maps,  # noqa: F811
         change_lag_lacp_timer, dutQosConfig,
-        permit_only_test_traffic_on_fanout
+        permit_only_test_traffic_on_fanout, disable_lldp_transmit_on_src_vm
     ):
         """
             Test QoS SAI DSCP to PG mapping ptf test

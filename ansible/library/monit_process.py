@@ -38,7 +38,7 @@ def monit_process(module, interval, iterations):
     """Retrieve process statistics."""
 
     def _monit_processes_with_top(module, interval, iterations):
-        cmd = 'top -d {interval} -n {iterations} -b -E k'.format(
+        cmd = 'top -d {interval} -n {iterations} -b -E k -w 512'.format(
             interval=interval, iterations=(iterations + 1)
         )
         rc, stdout, _ = module.run_command(args=cmd)

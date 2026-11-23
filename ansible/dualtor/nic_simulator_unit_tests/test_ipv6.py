@@ -11,7 +11,7 @@ from unittest.mock import Mock, call
 import grpc
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "nic_simulator"))
 import nic_simulator as simulator  # noqa: E402
 
 
