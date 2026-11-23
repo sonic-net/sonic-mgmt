@@ -8,6 +8,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.utilities import is_ipv4_address
 from tests.common.utilities import is_ipv6_only_topology
+from tests.common.devices.csonic import CsonicHost
 
 
 pytestmark = [
@@ -17,6 +18,125 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__name__)
+
+
+def _is_converged_csonic_t1_lag_neighbor(neighbor, tbinfo):
+    """Return whether this peer belongs to the T1-LAG shared cSONiC path."""
+    topo = tbinfo.get('topo', {})
+    properties = topo.get('properties', {})
+    host = neighbor.get('host')
+    return (
+        topo.get('name') == 't1-lag'
+        and properties.get('topo_is_multi_vrf', False)
+        and neighbor.get('is_multi_vrf_peer', False)
+        and isinstance(host, CsonicHost)
+        and bool(host.bgp_vrf)
+    )
+
+
+def get_csonic_t1_lag_prime_peer_names(nbrhosts, selected_neighbor, tbinfo):
+    """Return logical T1-LAG peers sharing the selected cSONiC daemon."""
+    selected = nbrhosts[selected_neighbor]
+    if not _is_converged_csonic_t1_lag_neighbor(selected, tbinfo):
+        return [selected_neighbor]
+    selected_host = selected['host']
+    return sorted(
+        name for name, neighbor in nbrhosts.items()
+        if _is_converged_csonic_t1_lag_neighbor(neighbor, tbinfo)
+        and neighbor['host'].container_name == selected_host.container_name
+    )
+
+
+def get_complete_csonic_t1_lag_session_map(peer_names, bgp_neighbors):
+    """Map every logical peer to at least one DUT BGP session."""
+    session_map = {
+        peer_name: sorted(
+            bgp_neighbor
+            for bgp_neighbor, details in bgp_neighbors.items()
+            if details.get('name') == peer_name
+        )
+        for peer_name in peer_names
+    }
+    missing = sorted(
+        peer_name for peer_name, sessions in session_map.items()
+        if not sessions
+    )
+    if not session_map or missing:
+        raise ValueError(
+            'Missing DUT BGP sessions for logical peers: {}'.format(missing))
+    return session_map
+
+
+def verify_shared_prime_routes_during_graceful_restart(
+        prime_neighbor_routes, rib, prime_bgp_neighbors):
+    """Require one stale shared-prime path for every pre-restart prefix."""
+    expected_prefixes = set()
+    for neighbor_routes in prime_neighbor_routes.values():
+        expected_prefixes.update(neighbor_routes)
+    if not expected_prefixes:
+        pytest.fail('No shared-prime routes were captured before restart')
+    prime_bgp_neighbors = set(prime_bgp_neighbors)
+
+    for prefix in expected_prefixes:
+        if prefix not in rib:
+            pytest.fail(
+                "Route to prefix {} doesn't exist during prime-wide graceful "
+                "restart.".format(prefix))
+        prime_paths = [
+            path for path in rib[prefix]
+            if path.get('peerId') in prime_bgp_neighbors
+        ]
+        if not prime_paths:
+            pytest.fail(
+                'Route to prefix {} has no path from the restarting prime.'
+                .format(prefix))
+        if any(not path.get('stale', False) for path in prime_paths):
+            pytest.fail(
+                'Route to prefix {} should have only stale paths from the '
+                'restarting prime.'.format(prefix))
+
+
+def get_shared_prime_preserved_prefix_counters(walk_counters):
+    """Return the complete accepted-route counter baseline."""
+    return {
+        name: walk_counters[name]
+        for name in ('All RIB', 'Valid', 'Useable')
+    }
+
+
+def shared_prime_prefix_counter_snapshots_match(
+        previous, current, expected_keys):
+    """Return whether a non-empty, complete snapshot stayed unchanged."""
+    return (
+        previous is not None
+        and bool(current)
+        and set(current) == set(expected_keys)
+        and previous == current
+        and all(counters.get('All RIB', 0) > 0
+                for counters in current.values())
+    )
+
+
+def shared_prime_prefix_counters_preserved(
+        counters, expected_counters, during_restart):
+    """Return whether one logical session retained its route counts."""
+    walk_counters = counters['ribTableWalkCounters']
+    expected_all_rib = expected_counters['All RIB']
+    if during_restart:
+        return (
+            walk_counters['Stale'] == expected_all_rib
+            and all(
+                walk_counters.get(name, 0) == value
+                for name, value in expected_counters.items()
+            )
+        )
+    return (
+        walk_counters['Stale'] == 0
+        and all(
+            walk_counters.get(name, 0) >= value
+            for name, value in expected_counters.items()
+        )
+    )
 
 
 def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhosts,
@@ -103,6 +223,70 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
                     return False
         return True
 
+    def _snapshot_shared_prime_counters(duthost, expected_counter_keys):
+        snapshots = {}
+        for bgp_neighbor, namespace in expected_counter_keys:
+            counters = _get_prefix_counters(
+                duthost, bgp_neighbor, namespace)['ribTableWalkCounters']
+            snapshots[(bgp_neighbor, namespace)] = (
+                get_shared_prime_preserved_prefix_counters(counters)
+            )
+        return snapshots
+
+    def _snapshot_shared_prime_state_when_stable(
+            duthost, bgp_neighbors, expected_counter_keys):
+        state = {'previous': None, 'routes': None, 'counters': None}
+
+        def _capture_if_stable():
+            counters = _snapshot_shared_prime_counters(
+                duthost, expected_counter_keys)
+            if not shared_prime_prefix_counter_snapshots_match(
+                    state['previous'], counters, expected_counter_keys):
+                state['previous'] = counters
+                return False
+
+            routes = {
+                bgp_neighbor: _get_learned_bgp_routes_from_neighbor(
+                    duthost, bgp_neighbor)
+                for bgp_neighbor in bgp_neighbors
+            }
+            counters_after_routes = _snapshot_shared_prime_counters(
+                duthost, expected_counter_keys)
+            state['previous'] = counters_after_routes
+            if not shared_prime_prefix_counter_snapshots_match(
+                    counters, counters_after_routes, expected_counter_keys):
+                return False
+
+            state['routes'] = routes
+            state['counters'] = counters_after_routes
+            return True
+
+        pytest_assert(
+            wait_until(300, 10, 0, _capture_if_stable),
+            'shared-prime BGP prefix counters did not stabilize before GR'
+        )
+        return state['routes'], state['counters']
+
+    def _shared_prime_counters_stale(
+            duthost, expected_counters, expected_counter_keys):
+        for bgp_neighbor, namespace in expected_counter_keys:
+            counters = _get_prefix_counters(duthost, bgp_neighbor, namespace)
+            if not shared_prime_prefix_counters_preserved(
+                    counters, expected_counters[(bgp_neighbor, namespace)],
+                    during_restart=True):
+                return False
+        return True
+
+    def _shared_prime_counters_recovered(
+            duthost, expected_counters, expected_counter_keys):
+        for bgp_neighbor, namespace in expected_counter_keys:
+            counters = _get_prefix_counters(duthost, bgp_neighbor, namespace)
+            if not shared_prime_prefix_counters_preserved(
+                    counters, expected_counters[(bgp_neighbor, namespace)],
+                    during_restart=False):
+                return False
+        return True
+
     duthost = duthosts[rand_one_dut_hostname]
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
@@ -165,6 +349,112 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
         exabgp_ips = list(filter(None, exabgp_ips))
         exabgp_ips = [ip.split("/")[0] for ip in exabgp_ips]
     test_neighbor_host = nbrhost['host']
+
+    # A converged cSONiC T1-LAG prime has one bgpd shared by all logical VRFs.
+    # Keep this physical-runtime behavior isolated from every established
+    # cEOS, SONiC, ordinary cSONiC, and converged cSONiC T0 path below.
+    prime_peer_names = get_csonic_t1_lag_prime_peer_names(
+        nbrhosts, test_neighbor_name, tbinfo)
+    if len(prime_peer_names) > 1:
+        prime_session_map = get_complete_csonic_t1_lag_session_map(
+            prime_peer_names, bgp_neighbors)
+        prime_bgp_neighbors = sorted({
+            bgp_neighbor
+            for sessions in prime_session_map.values()
+            for bgp_neighbor in sessions
+        })
+        namespaces = list(duthost.get_frontend_asic_namespace_list())
+        expected_counter_keys = {
+            (bgp_neighbor, namespace)
+            for bgp_neighbor in prime_bgp_neighbors
+            for namespace in namespaces
+        }
+        pytest_assert(
+            bool(expected_counter_keys),
+            'No complete shared-prime BGP counter map was produced'
+        )
+
+        (prime_neighbor_routes_before_gr,
+         prime_prefix_counters_before_gr) = (
+            _snapshot_shared_prime_state_when_stable(
+                duthost, prime_bgp_neighbors, expected_counter_keys))
+
+        pytest_assert(
+            test_neighbor_host.check_bgp_session_state(
+                exabgp_ips, exabgp_sessions, vrf=vrf),
+            'exabgp sessions {} are not up before graceful restart'.format(
+                exabgp_sessions)
+        )
+
+        try:
+            logger.info(
+                'shutdown shared BGP process on cSONiC T1-LAG prime %s',
+                test_neighbor_host.container_name)
+            test_neighbor_host.kill_bgpd()
+
+            for prime_bgp_neighbor in prime_bgp_neighbors:
+                pytest_assert(
+                    wait_until(60, 5, 0, duthost.check_bgp_session_nsf,
+                               prime_bgp_neighbor),
+                    'prime-wide neighbor {} does not enter NSF state'.format(
+                        prime_bgp_neighbor)
+                )
+
+            verify_shared_prime_routes_during_graceful_restart(
+                prime_neighbor_routes_before_gr, _get_rib(duthost),
+                prime_bgp_neighbors)
+            pytest_assert(
+                wait_until(
+                    60, 5, 0, _shared_prime_counters_stale,
+                    duthost, prime_prefix_counters_before_gr,
+                    expected_counter_keys),
+                'shared-prime route counters did not become completely stale'
+            )
+        except Exception:
+            test_neighbor_host.start_bgpd()
+            raise
+
+        try:
+            logging.info(
+                'shutdown the ports connected to neighbor %s: %s',
+                test_neighbor_name, nbr_ports)
+            for nbr_port in nbr_ports:
+                test_neighbor_host.shutdown(nbr_port)
+
+            logger.info(
+                'startup shared BGP process on cSONiC T1-LAG prime %s',
+                test_neighbor_host.container_name)
+            test_neighbor_host.start_bgpd()
+
+            pytest_assert(
+                wait_until(
+                    300, 10, 0, test_neighbor_host.check_bgp_session_state,
+                    exabgp_ips, exabgp_sessions, vrf=vrf),
+                'exabgp sessions {} are not coming back'.format(
+                    exabgp_sessions)
+            )
+        finally:
+            logging.info(
+                'unshut the ports connected to neighbor %s: %s',
+                test_neighbor_name, nbr_ports)
+            for nbr_port in nbr_ports:
+                test_neighbor_host.no_shutdown(nbr_port)
+
+        pytest_assert(
+            wait_until(
+                300, 10, 0, duthost.check_bgp_session_state,
+                prime_bgp_neighbors),
+            'prime-wide graceful restarted BGP sessions {} are not coming back'
+            .format(prime_bgp_neighbors)
+        )
+        pytest_assert(
+            wait_until(
+                300, 10, 0, _shared_prime_counters_recovered,
+                duthost, prime_prefix_counters_before_gr,
+                expected_counter_keys),
+            'after prime-wide graceful restart, collateral RIBs are not restored'
+        )
+        return
 
     # get neighbor BGP peers
     test_bgp_neighbors = _find_test_bgp_neighbors(test_neighbor_name, bgp_neighbors)

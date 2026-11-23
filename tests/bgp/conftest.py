@@ -3,6 +3,7 @@ import contextlib
 import ipaddress
 import json
 import logging
+from collections.abc import Mapping
 import netaddr
 import pytest
 import random
@@ -50,6 +51,148 @@ def check_results(results):
         pt_assert(False, 'Some processes for updating nbr hosts configuration returned failed results')
 
 
+def _is_converged_csonic_t1_lag_neighbor(neighbor, tbinfo):
+    """Return whether this peer uses the T1-LAG shared cSONiC runtime."""
+    topo = tbinfo.get('topo', {})
+    properties = topo.get('properties', {})
+    host = neighbor.get('host')
+    return (
+        topo.get('name') == 't1-lag'
+        and properties.get('topo_is_multi_vrf', False)
+        and neighbor.get('is_multi_vrf_peer', False)
+        and isinstance(host, CsonicHost)
+        and bool(host.bgp_vrf)
+    )
+
+
+def _checked_csonic_gr_result(result, action):
+    """Make an ignored cSONiC command error visible to ``check_results``."""
+    if (
+        not isinstance(result, Mapping)
+        or result.get('failed', False)
+        or result.get('rc', 0) != 0
+    ):
+        return {
+            'failed': True,
+            'msg': 'Failed to {}'.format(action),
+            'result': dict(result) if isinstance(result, Mapping) else repr(result),
+        }
+    return result
+
+
+def _configure_csonic_t1_lag_gr(node, enable):
+    """Configure one logical T1-LAG peer and retain every command result."""
+    node_results = []
+    asn = node['conf']['bgp']['asn']
+    if enable:
+        lines = [
+            'bgp graceful-restart',
+            'bgp graceful-restart restart-time 300',
+        ]
+        neighbor_command = 'neighbor {} graceful-restart'
+        action = 'enable graceful restart'
+    else:
+        lines = [
+            'no bgp graceful-restart',
+            'no bgp graceful-restart restart-time 300',
+        ]
+        neighbor_command = 'no neighbor {} graceful-restart'
+        action = 'disable graceful restart'
+
+    node_results.append(_checked_csonic_gr_result(
+        node['host'].config(
+            lines=lines,
+            parents=['router bgp {}'.format(asn)],
+            module_ignore_errors=True),
+        '{} on {}'.format(action, node['host'].hostname)))
+
+    bgp_peers = node['conf']['bgp'].get('peers', {})
+    if not bgp_peers:
+        node_results.append({
+            'failed': True,
+            'msg': 'DUT ASN not found in BGP peers',
+        })
+        return node_results
+    dut_asn = int(next(iter(bgp_peers.keys())))
+    peers = bgp_peers[dut_asn]
+    if not peers:
+        node_results.append({
+            'failed': True,
+            'msg': 'DUT ASN not found in BGP peers',
+        })
+        return node_results
+
+    for neighbor_ip in peers:
+        node_results.append(_checked_csonic_gr_result(
+            node['host'].config(
+                lines=[neighbor_command.format(neighbor_ip)],
+                parents=['router bgp {}'.format(asn)],
+                module_ignore_errors=True),
+            '{} for neighbor {} on {}'.format(
+                action, neighbor_ip, node['host'].hostname)))
+
+    for afi in ('ipv4', 'ipv6'):
+        node_results.append(_checked_csonic_gr_result(
+            node['host'].command(
+                "sudo vtysh -c 'clear bgp {} *'".format(afi),
+                module_ignore_errors=True),
+            'clear {} BGP on {}'.format(afi, node['host'].hostname)))
+    return node_results
+
+
+def _csonic_t1_lag_gr_vrfs_ready(peers):
+    """Return whether every logical VRF has reappeared after one restart."""
+    for peer in peers:
+        host = peer['host']
+        result = host.command(
+            "vtysh -c 'show bgp vrf {} summary json'".format(host.bgp_vrf),
+            module_ignore_errors=True)
+        if (
+            not isinstance(result, Mapping)
+            or result.get('failed', False)
+            or result.get('rc', 0) != 0
+        ):
+            return False
+        try:
+            summary = json.loads(result.get('stdout') or '{}')
+        except (TypeError, ValueError):
+            return False
+        if not any(
+            name in ('ipv4Unicast', 'ipv6Unicast')
+            and isinstance(details, dict)
+            for name, details in summary.items()
+        ):
+            return False
+    return bool(peers)
+
+
+def _run_csonic_t1_lag_gr_group(node, operation, start_bgpd=False):
+    """Serialize one shared container's logical-peer GR operations."""
+    results = []
+    if start_bgpd:
+        start_result = _checked_csonic_gr_result(
+            node['host'].start_bgpd(),
+            'start shared BGP daemon on {}'.format(
+                node['host'].container_name))
+        results.append(start_result)
+        if start_result.get('failed', False):
+            return results
+        if not wait_until(
+            30, 2, 0, _csonic_t1_lag_gr_vrfs_ready,
+            node['csonic_t1_lag_peers']
+        ):
+            results.append({
+                'failed': True,
+                'msg': 'Not all shared cSONiC BGP VRFs became ready: {}'.format(
+                    [peer['host'].bgp_vrf
+                     for peer in node['csonic_t1_lag_peers']]),
+            })
+            return results
+    for peer in node['csonic_t1_lag_peers']:
+        results.extend(operation(peer))
+    return results
+
+
 @pytest.fixture(scope='module')
 def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo, cct=8):
     duthost = duthosts[rand_one_dut_hostname]
@@ -65,6 +208,14 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
             if primary_host not in gr_neighbors:
                 gr_neighbors[primary_host] = {**nbrhosts[primary_host], 'vrfs': []}
             gr_neighbors[primary_host]['vrfs'].append(neighbor['multi_vrf_data']['vrf'])
+        elif _is_converged_csonic_t1_lag_neighbor(neighbor, tbinfo):
+            runtime_key = ('csonic-t1-lag', neighbor['host'].container_name)
+            if runtime_key not in gr_neighbors:
+                gr_neighbors[runtime_key] = {
+                    **neighbor,
+                    'csonic_t1_lag_peers': [],
+                }
+            gr_neighbors[runtime_key]['csonic_t1_lag_peers'].append(neighbor)
         else:
             gr_neighbors[name] = neighbor
 
@@ -124,7 +275,12 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
         asn = node['conf']['bgp']['asn']
         logger.info('enable graceful restart on neighbor host {}'.format(node['host'].hostname))
         logger.info('bgp asn {}'.format(asn))
-        if isinstance(node['host'], EosHost):
+        if node.get('csonic_t1_lag_peers'):
+            node_results.extend(_run_csonic_t1_lag_gr_group(
+                node,
+                lambda peer: _configure_csonic_t1_lag_gr(peer, enable=True),
+            ))
+        elif isinstance(node['host'], EosHost):
             if node.get('is_multi_vrf_peer', False):
                 node_results.append(configure_multi_vrf_gr(node, enable=True))
             else:
@@ -171,7 +327,12 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
                 'msg': f"Unsupported host type: {type(node['host'])}"
             })
 
-        results[node['host'].hostname] = node_results
+        result_name = (
+            node['host'].container_name
+            if node.get('csonic_t1_lag_peers')
+            else node['host'].hostname
+        )
+        results[result_name] = node_results
 
     @reset_ansible_local_tmp
     def restore_nbr_gr(node=None, results=None):
@@ -184,6 +345,16 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
         """
         if node is None or results is None:
             logger.error('Missing kwarg "node" or "results"')
+            return
+
+        if node.get('csonic_t1_lag_peers'):
+            node_results = _run_csonic_t1_lag_gr_group(
+                node,
+                lambda peer: _configure_csonic_t1_lag_gr(
+                    peer, enable=False),
+                start_bgpd=True,
+            )
+            results[node['host'].container_name] = node_results
             return
 
         # start bgpd if not started
