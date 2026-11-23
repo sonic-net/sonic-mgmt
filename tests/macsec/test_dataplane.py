@@ -127,9 +127,15 @@ class TestDataPlane():
 
             # Ping from 0->1, 1->2, ..., N->0.
             for i, requester in enumerate(ring_neighbors):
+                # With two neighbors, the first ping already exercises both directions.
+                if len(ring_neighbors) == 2 and i == 1:
+                    break
                 responser = ring_neighbors[(i + 1) % len(ring_neighbors)]
                 assert not requester["host"].shell(
-                    "ping -c 6 -v {}".format(responser["local_ipv4_addr"]))["failed"]
+                    "ping -c 6 -v {}".format(responser["local_ipv4_addr"]))["failed"], \
+                    "Ping from neighbor {} ({}) to neighbor {} ({}) failed".format(
+                        requester["name"], requester["local_ipv4_addr"],
+                        responser["name"], responser["local_ipv4_addr"])
         finally:
             route_cleanup.close()
 
