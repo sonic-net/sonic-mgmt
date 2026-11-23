@@ -5,6 +5,7 @@ import re
 import scapy.all as scapy
 import ptf.testutils as testutils
 from collections import Counter
+from contextlib import ExitStack
 
 from tests.common.utilities import wait_until, ping_ip
 from tests.common.devices.eos import EosHost
@@ -87,12 +88,18 @@ class TestDataPlane():
             ), "Ping from DUT to upstream neighbor {} on port {} failed after retries".format(dst_ip, up_port)
 
     def test_neighbor_to_neighbor(self, duthost, ctrl_links, upstream_links, wait_mka_establish):
-        portchannels = list(get_portchannel(duthost).values())
-        # filter to upstream portchannels
-        portchannels = [portchannel for portchannel in portchannels
-                        if portchannel["members"][0] in upstream_links]
-        if len(portchannels) <= 1:
-            pytest.skip("Not enough upstream port-channels")
+        all_portchannels = list(get_portchannel(duthost).values())
+        # Keep all upstream ctrl_links portchannels and at most one non-ctrl_links portchannel.
+        upstream_portchannels = [portchannel for portchannel in all_portchannels
+                                 if portchannel["members"]
+                                 and portchannel["members"][0] in upstream_links]
+        non_ctrl_upstream_portchannels = [portchannel for portchannel in upstream_portchannels
+                                          if portchannel["members"][0] not in ctrl_links]
+        ctrl_upstream_portchannels = [portchannel for portchannel in upstream_portchannels
+                                      if portchannel["members"][0] in ctrl_links]
+        ring_portchannels = ctrl_upstream_portchannels + non_ctrl_upstream_portchannels[:1]
+        if len(ring_portchannels) <= 1:
+            pytest.skip("Not enough eligible upstream port-channels")
 
         def _configure_route(neigh):
             if isinstance(neigh["host"], EosHost):
@@ -110,21 +117,21 @@ class TestDataPlane():
                 neigh["host"].shell("ip route del 0.0.0.0/0 via {}".format(
                     neigh["peer_ipv4_addr"]), module_ignore_errors=True)
 
-        # Ping from 0->1, 1-> 2, ... n ->n+1, ..., len(portchannels)-1 -> 0
-        for i in range(len(portchannels)):
-            assert portchannels[i]["members"]
-            requester = upstream_links[portchannels[i]["members"][0]]
-            _configure_route(requester)
-            if i == len(portchannels) - 1:  # loop back to index 0
-                j = 0
-            else:
-                j = i+1
-            responser = upstream_links[portchannels[j]["members"][0]]
-            _configure_route(responser)
-            assert not requester["host"].shell(
-                "ping -c 6 -v {}".format(responser["local_ipv4_addr"]))["failed"]
-            _unconfigure_route(responser)
-            _unconfigure_route(requester)
+        ring_neighbors = [upstream_links[portchannel["members"][0]]
+                          for portchannel in ring_portchannels]
+        route_cleanup = ExitStack()
+        try:
+            for neighbor in ring_neighbors:
+                route_cleanup.callback(_unconfigure_route, neighbor)
+                _configure_route(neighbor)
+
+            # Ping from 0->1, 1->2, ..., N->0.
+            for i, requester in enumerate(ring_neighbors):
+                responser = ring_neighbors[(i + 1) % len(ring_neighbors)]
+                assert not requester["host"].shell(
+                    "ping -c 6 -v {}".format(responser["local_ipv4_addr"]))["failed"]
+        finally:
+            route_cleanup.close()
 
     def _get_counters(self, duthost, up_ports):
         egress_counters = Counter()
