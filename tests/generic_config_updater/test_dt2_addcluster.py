@@ -360,16 +360,19 @@ def build_golden_override(duthost):
     Returns:
         str or None: DUT path to the override file, or None if the device carries none
         of these tables, in which case the reload needs no override.
+
+    Raises:
+        ValueError: The running configuration cannot be read as a JSON object.
     """
     result = duthost.shell("sonic-cfggen -d --print-data", module_ignore_errors=True, verbose=False)
     if result['rc'] != 0 or not result['stdout'].strip():
-        logger.warning("Could not read running config; reloading without a golden override")
-        return None
+        raise ValueError("Could not read running config; refusing to reload minigraph")
     try:
         running_config = json.loads(result['stdout'])
     except (json.JSONDecodeError, ValueError):
-        logger.warning("Running config is not valid JSON; reloading without a golden override")
-        return None
+        raise ValueError("Running config is not valid JSON; refusing to reload minigraph") from None
+    if not isinstance(running_config, dict):
+        raise ValueError("Running config is not a JSON object; refusing to reload minigraph")
 
     override = {table: running_config[table]
                 for table in GOLDEN_OVERRIDE_TABLES if running_config.get(table)}
@@ -528,6 +531,13 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
     neighbor_interfaces = get_interfaces_for_neighbor(mg_facts, target_t1)
     logger.info(f"Interfaces connected to {target_t1}: {neighbor_interfaces}")
 
+    # Capture the override before the first reload, while the device still holds its
+    # as-deployed config -- afterwards BGP_DEVICE_GLOBAL is gone and cannot be read
+    # back. Without it a confederated device cannot establish sessions to peers
+    # outside the confederation. See build_golden_override().
+    # Do this before creating MINIGRAPH_BACKUP: its presence triggers teardown reload.
+    golden_override = build_golden_override(duthost)
+
     # Step 1: Backup minigraph
     logger.info(f"Backing up current minigraph from {MINIGRAPH} to {MINIGRAPH_BACKUP}")
     if not duthost.stat(path=MINIGRAPH)["stat"]["exists"]:
@@ -535,13 +545,6 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
     duthost.shell(f"sudo cp -p {MINIGRAPH} {MINIGRAPH_BACKUP}")
 
     # Step 1.1: Reload minigraph to ensure clean state.
-    #
-    # Capture the override before the first reload, while the device still holds its
-    # as-deployed config -- afterwards BGP_DEVICE_GLOBAL is gone and cannot be read
-    # back. Without it a confederated device cannot establish sessions to peers
-    # outside the confederation. See build_golden_override().
-    golden_override = build_golden_override(duthost)
-
     logger.info("Reloading minigraph (with T1)")
     reload_minigraph(duthost, golden_override)
 

@@ -24,6 +24,8 @@ Key Design Considerations:
    'ports' field updated to include the new ports. These patches must come last.
 """
 
+from collections import Counter
+
 import json
 import jsonpatch
 import logging
@@ -595,6 +597,10 @@ def split_existing_acl_table_patches(acl_patches, no_leaf_config, is_multi_asic)
 
     Returns:
         tuple: (whole_entry_patches, append_patches)
+
+    Raises:
+        ValueError: A single-ASIC binding-only change requires removing ports,
+            which cannot be represented by append-only operations.
     """
     whole_entry_patches = []
     append_patches = []
@@ -622,6 +628,10 @@ def split_existing_acl_table_patches(acl_patches, no_leaf_config, is_multi_asic)
 
         full_ports = target_entry.get('ports', [])
         existing_ports = existing_entry.get('ports', [])
+        if not is_multi_asic and Counter(existing_ports) - Counter(full_ports):
+            raise ValueError(
+                "ACL_TABLE {} requires removing existing port bindings; "
+                "single-ASIC binding-only updates are append-only".format(acl_name))
         ports_to_add = [p for p in full_ports if p not in existing_ports]
         if not ports_to_add:
             continue
