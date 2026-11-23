@@ -25,6 +25,40 @@ sudo -H ./setup-management-network.sh
 
 4. [Install Docker CE](https://docs.docker.com/install/linux/docker-ce/ubuntu/). Be sure to follow the [post-install instructions](https://docs.docker.com/install/linux/linux-postinstall/) so that you don't need sudo privileges to run docker commands.
 
+### Optional service check on an already-provisioned KVM host
+
+On an already-provisioned KVM host, pass `--check-kvm-host` to
+`setup-container.sh` to check local host services before creating or reusing the
+management container. From the `sonic-mgmt/ansible` directory used above, run as
+the regular user with Docker access:
+
+```bash
+../setup-container.sh -n sonic-mgmt --check-kvm-host
+```
+
+The check is opt-in so physical-test and first-time provisioning workflows are
+unchanged. It checks Docker, containerd, and both OVS daemons, and probes the
+Docker API, libvirt connection, and OVS database. Libvirt is checked through its
+API to support monolithic and modular, socket-activated daemons. The check targets
+the machine running `setup-container.sh`, not a remote inventory host or a DUT.
+The flag does not install prerequisites and should not be enabled before host
+provisioning is complete.
+
+From the repository's `ansible/` directory, the same check can run directly:
+
+```bash
+sudo ./roles/vm_set/files/check_kvm_host.sh
+```
+
+Failures include the failed probes, host OS/kernel, service states, and recent
+OVS logs. Failed health probes return exit status `42`, which `setup-container.sh`
+preserves so callers can distinguish unhealthy services from other setup errors.
+The existing user Docker-access check runs before the optional probes; its failure
+retains exit status `1`. Without the flag, container setup behavior is unchanged.
+The script does not audit packages or hardware, install dependencies,
+restart services, or change host configuration; recover unhealthy services before
+retrying.
+
 ## Download a VM image
 We currently support EOS-based or SONiC VMs to simulate neighboring devices in the virtual testbed, much like we do for physical testbeds. To do so, we need to download the image to our testbed host.
 
