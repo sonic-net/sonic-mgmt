@@ -728,10 +728,11 @@ class SanityControls(unittest.TestCase):
 
                 def process(**kwargs):
                     node = kwargs['kwargs']['node']
+                    raises_error = node.hostname == 'dut1' and programming is not None
                     worker = SimpleNamespace(name=kwargs['name'], pid=len(workers) + 1,
-                                             exitcode=1 if node.hostname == 'dut1' and programming is not None else 0,
+                                             exitcode=1 if raises_error else 0,
                                              exception=((error, 'private traceback')
-                                                        if node.hostname == 'dut1' and programming is not None else None),
+                                                        if raises_error else None),
                                              alive=node.hostname == 'dut2', start=Mock(), terminate=Mock())
                     worker.is_alive = lambda worker=worker: worker.alive
                     worker.is_running = worker.is_alive
@@ -776,8 +777,10 @@ class SanityControls(unittest.TestCase):
                                      [self.process_failure, carrier.results['dut3']])
                 else:
                     collected = self.checks('post')
-                    self.assertEqual(sum(result['failed'] for result in collected), 2 if programming is None else 3)
-                    self.assertEqual(set(result['host'] for result in collected if result['failed']), {'dut1', 'dut2'})
+                    expected_failures = 2 if programming is None else 3
+                    self.assertEqual(sum(result['failed'] for result in collected), expected_failures)
+                    failed_hosts = {result['host'] for result in collected if result['failed']}
+                    self.assertEqual(failed_hosts, {'dut1', 'dut2'})
 
 
 if __name__ == "__main__":
