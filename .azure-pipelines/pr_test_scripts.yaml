@@ -850,6 +850,8 @@ t0-vpp:
   - gnmi/test_gnoi_os.py
   - gnmi/test_gnoi_system.py
   - hash/test_generic_hash.py
+  - high_frequency_telemetry/test_hft_end_to_end.py
+  - high_frequency_telemetry/test_high_frequency_telemetry.py
   - http/test_http_copy.py
   - iface_loopback_action/test_iface_loopback_action.py
   - iface_namingmode/test_iface_namingmode.py
