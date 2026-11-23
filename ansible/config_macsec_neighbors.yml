@@ -157,7 +157,7 @@
           DUT priority {{ macsec_profiles[item.profile]['priority'] }})
       loop: "{{ macsec_nbr_vms }}"
       loop_control:
-        # The prepare log keeps only the task's "ok" line, so the label
+        # A non-verbose run prints only the task's "ok" line, so the label
         # carries the message too.
         label: >-
           {{ item.vm }} ({{ item.profile }}): key server =

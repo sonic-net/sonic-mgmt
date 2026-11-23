@@ -1241,8 +1241,8 @@ def _get_csonic_vm_host(request, tbinfo):
     """Address and SSH user of the test server hosting the cSONiC containers.
 
     Returns (None, None, None) when the server cannot be resolved, which
-    leaves CsonicHost on its local `docker exec` path -- correct for a vtb,
-    where the containers are on this same host.
+    leaves CsonicHost on its local `docker exec` path -- correct for a virtual
+    testbed, where the containers are on this same host.
     """
     server = tbinfo.get("server")
     if not server:
@@ -1375,7 +1375,7 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                     }
                 )
             else:
-                # On a vtb the containers share a host with the sonic-mgmt container,
+                # On a virtual testbed the containers share a host with the sonic-mgmt container,
                 # so CsonicHost's default `docker exec` runs locally. On a physical
                 # testbed they live on the test server, and the sonic-mgmt container
                 # has no docker socket of its own -- pass the test server so
