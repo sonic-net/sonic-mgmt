@@ -212,6 +212,19 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
             logger.error("MACsec is only available in Python3")
             raise Exception("MACsec is only available in Python3")
         host.create_macsec_info()
+    elif hasattr(host, "macsec_enabled"):
+        # Clear any MACsec info left behind by an earlier run. The presence of
+        # this pickle is what activates MACsec encoding on the PTF: both the
+        # ptftests/macsec.py monkeypatch and the native codec (ptf_macsec,
+        # installed from DataPlane.__init__) key their activation on the file.
+        # A stale pickle would make a non-MACsec run encrypt frames for a DUT
+        # that no longer has MACsec configured, and every one of them would be
+        # dropped at ingress.
+        # Lazy import: tests.common.devices.ptf's import chain re-enters this
+        # module, so importing MACSEC_INFO_FILE at module scope creates a
+        # circular-import failure.  Import it here, at call time, instead.
+        from tests.common.devices.ptf import MACSEC_INFO_FILE
+        host.file(path="/root/" + MACSEC_INFO_FILE, state="absent")
 
     try:
         if pdb:
