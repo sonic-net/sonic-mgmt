@@ -293,7 +293,9 @@ class SanityControls(unittest.TestCase):
             with self.assertRaises(KeyError):
                 with self.ns["sanity_worker_context"]("inner"):
                     self.assertEqual(self.ns["_sanity_worker_check"].get(), "inner")
-                    raise KeyError("bug")
+                    trigger = Mock(side_effect=KeyError("bug"))
+                    trigger()
+            trigger.assert_called_once_with()
             self.assertEqual(self.ns["_sanity_worker_check"].get(), "outer")
         self.assertIsNone(self.ns["_sanity_worker_check"].get())
 
@@ -302,6 +304,93 @@ class SanityControls(unittest.TestCase):
         self.fixtures["check_dbmemory"].side_effect = None
         self.fixtures["check_dbmemory"].return_value = infra
         self.assertEqual(self.checks(), [self.process_failure, infra])
+
+    def frontend_filtered_items(self, nodes, items):
+        load(SANITY, ['filter_check_items'], self.ns)
+        self.hosts.frontend_nodes = nodes
+        return self.ns['filter_check_items']({'topo': {'type': 't0', 'name': 't0'}}, self.hosts, items)
+
+    def test_no_frontend_checks_excluded_before_invocation_preserving_prior_results(self):
+        for stage in ['pre', 'post']:
+            items = self.frontend_filtered_items([], ['check_processes', 'check_interfaces', 'check_bgp'])
+            self.assertEqual(items, ['check_processes'])
+            self.fixtures['check_interfaces'] = Mock(return_value=[])
+            self.fixtures['check_bgp'] = Mock(return_value=[])
+            results = self.ns['_run_sanity_checks'](self.request, items, stage=stage)
+            self.assertEqual(results, [self.process_failure])
+            self.fixtures['check_interfaces'].assert_not_called()
+            self.fixtures['check_bgp'].assert_not_called()
+            requested = [call.args[0] for call in self.request.getfixturevalue.call_args_list]
+            self.assertNotIn('check_interfaces', requested)
+            self.assertNotIn('check_bgp', requested)
+
+    def test_eligible_frontend_unexpected_empty_result_remains_error(self):
+        for item in ['check_interfaces', 'check_bgp']:
+            for stage in ['pre', 'post']:
+                items = self.frontend_filtered_items([self.host], ['check_processes', item])
+                self.assertEqual(items, ['check_processes', item])
+                self.fixtures[item] = Mock(return_value=[])
+                with self.assertRaises(ValueError) as caught:
+                    self.ns['_run_sanity_checks'](self.request, items, stage=stage)
+                self.assertEqual(caught.exception.sanity_check_results, [self.process_failure])
+                self.assertTrue(self.cache[stage + '_sanity_check_failed'])
+                self.ns['recover'].assert_not_called()
+
+    def test_no_frontend_does_not_hide_empty_results_from_other_checks(self):
+        items = self.frontend_filtered_items([], ['check_processes', 'check_dbmemory'])
+        self.fixtures['check_dbmemory'].side_effect = None
+        self.fixtures['check_dbmemory'].return_value = []
+        with self.assertRaises(ValueError):
+            self.ns['_run_sanity_checks'](self.request, items, stage='post')
+        self.assertTrue(self.cache['post_sanity_check_failed'])
+
+    def test_supervisor_only_normal_pre_post_runs_other_checks_without_recovery(self):
+        self.frontend_filtered_items([], [])
+        self.ns['SUPPORTED_CHECKS'] = [
+            'check_processes', 'check_interfaces', 'check_bgp', 'check_neighbor_macsec_empty']
+        self.fixtures['check_processes'].return_value = [dict(self.process_failure, failed=False)]
+        self.fixtures['check_interfaces'] = Mock(return_value=[])
+        self.fixtures['check_bgp'] = Mock(return_value=[])
+        self.request.config.option.allow_recover = True
+        generator = self.ns['sanity_check_full'](
+            None, False, None, self.hosts, self.request, {}, {'topo': {'type': 't0', 'name': 't0'}})
+        next(generator)
+        with self.assertRaises(StopIteration):
+            next(generator)
+        self.assertEqual(self.fixtures['check_processes'].call_args_list[0].kwargs, {'stage': 'pre'})
+        self.assertEqual(self.fixtures['check_processes'].call_args_list[1].kwargs, {'stage': 'post'})
+        self.fixtures['check_interfaces'].assert_not_called()
+        self.fixtures['check_bgp'].assert_not_called()
+        self.ns['recover'].assert_not_called()
+        self.assertFalse(self.cache)
+
+    def test_supervisor_only_recovery_rechecks_only_applicable_stage_checks(self):
+        for stage in ['pre', 'post']:
+            self.frontend_filtered_items([], [])
+            self.ns['SUPPORTED_CHECKS'] = [
+                'check_processes', 'check_interfaces', 'check_bgp', 'check_neighbor_macsec_empty']
+            self.fixtures['check_processes'].return_value = [self.process_failure]
+            self.fixtures['check_interfaces'] = Mock(return_value=[])
+            self.fixtures['check_bgp'] = Mock(return_value=[])
+            self.request.config.option.allow_recover = True
+            self.request.config.option.enable_pre_sanity = stage == 'pre'
+            self.request.config.option.skip_post_check = stage == 'pre'
+
+            def recovered(*args):
+                self.fixtures['check_processes'].return_value = [dict(self.process_failure, failed=False)]
+
+            self.ns['recover'].side_effect = recovered
+            generator = self.ns['sanity_check_full'](
+                None, False, None, self.hosts, self.request, {}, {'topo': {'type': 't0', 'name': 't0'}})
+            next(generator)
+            with self.assertRaises(StopIteration):
+                next(generator)
+            self.ns['recover'].assert_called_once()
+            self.fixtures['check_processes'].assert_called_with(stage=stage, after_recovery=True)
+            self.fixtures['check_interfaces'].assert_not_called()
+            self.fixtures['check_bgp'].assert_not_called()
+            self.assertIn(('dut.{}_sanity_recovery_failed'.format(stage), False), self.messages)
+            self.ns['recover'].reset_mock()
 
     def test_empty_result_is_not_pass(self):
         for empty in [None, [], {}]:

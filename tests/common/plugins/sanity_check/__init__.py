@@ -125,6 +125,14 @@ def print_logs(duthosts, ptfhost, print_dual_tor_logs=False, check_ptf_mgmt=True
 def filter_check_items(tbinfo, duthosts, check_items):
     filtered_check_items = copy.deepcopy(check_items)
 
+    # These fixtures run only on frontend_nodes. Supervisor-only selections
+    # have no eligible targets: exclude before fixture resolution/invocation,
+    # not by treating an unexpected empty check result as a PASS.
+    if any(item in filtered_check_items for item in ('check_interfaces', 'check_bgp')):
+        if not duthosts.frontend_nodes:
+            filtered_check_items = [item for item in filtered_check_items
+                                    if item not in ('check_interfaces', 'check_bgp')]
+
     # ignore interface, BGP, and orchagent checks for BMC topology
     if tbinfo["topo"]["type"] == "bmc":
         for item in ["check_interfaces", "check_bgp", "check_orchagent_usage"]:
