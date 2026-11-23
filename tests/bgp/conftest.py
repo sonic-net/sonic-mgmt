@@ -9,6 +9,7 @@ import random
 import re
 import six
 import socket
+import tempfile
 
 from jinja2 import Template
 from tests.bgp.constants import SHOW_IP_INTERFACE_CMD
@@ -55,6 +56,56 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
 
+    gr_neighbors = {}
+    for name, neighbor in nbrhosts.items():
+        if isinstance(neighbor['host'], EosHost) and neighbor.get('is_multi_vrf_peer', False):
+            primary_host = neighbor['multi_vrf_data']['primary_host']
+            # VRF peers share a cEOS VM. Apply all VRF configuration through the primary peer.
+            if primary_host not in gr_neighbors:
+                gr_neighbors[primary_host] = {**nbrhosts[primary_host], 'vrfs': []}
+            gr_neighbors[primary_host]['vrfs'].append(neighbor['multi_vrf_data']['vrf'])
+        else:
+            gr_neighbors[name] = neighbor
+
+    def configure_multi_vrf_gr(node, enable):
+        # Apply all VRFs in one Ansible call to avoid repeated eos_config.
+        # Repeat the VRF block for every VRF on the primary host:
+        # Setup config:
+        # router bgp <primary_asn>
+        #    vrf <vrf1>
+        #       graceful-restart restart-time 300
+        #       address-family ipv4
+        #          graceful-restart
+        #       address-family ipv6
+        #          graceful-restart
+        #    vrf <vrf2>
+        #       ...
+        #
+        # Disable config:
+        # router bgp <primary_asn>
+        #    vrf <vrf1>
+        #       address-family ipv4
+        #          no graceful-restart
+        #       address-family ipv6
+        #          no graceful-restart
+        #    vrf <vrf2>
+        #       ...
+        asn = node['multi_vrf_data']['primary_host_asn']
+        lines = ['router bgp {}'.format(asn)]
+        command = 'graceful-restart' if enable else 'no graceful-restart'
+        for vrf in node['vrfs']:
+            lines.append('   vrf {}'.format(vrf))
+            if enable:
+                lines.append('      graceful-restart restart-time 300')
+            for af in ['ipv4', 'ipv6']:
+                lines.append('      address-family {}'.format(af))
+                lines.append('         {}'.format(command))
+
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.cfg') as config_file:
+            config_file.write('\n'.join(lines) + '\n')
+            config_file.flush()
+            return node['host'].eos_config(src=config_file.name, module_ignore_errors=True)
+
     @reset_ansible_local_tmp
     def configure_nbr_gr(node=None, results=None):
         """Target function will be used by multiprocessing for configuring VM hosts.
@@ -74,23 +125,7 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
         logger.info('bgp asn {}'.format(asn))
         if isinstance(node['host'], EosHost):
             if node.get('is_multi_vrf_peer', False):
-                vrf = node['multi_vrf_data']['vrf']
-                asn = node['multi_vrf_data']['primary_host_asn']
-                node_results.append(node['host'].config(
-                        lines=['graceful-restart restart-time 300'],
-                        parents=['router bgp {}'.format(asn), 'vrf {}'.format(vrf)],
-                        module_ignore_errors=True)
-                    )
-                node_results.append(node['host'].config(
-                        lines=['graceful-restart'],
-                        parents=['router bgp {}'.format(asn), 'vrf {}'.format(vrf), 'address-family ipv4'],
-                        module_ignore_errors=True)
-                    )
-                node_results.append(node['host'].config(
-                        lines=['graceful-restart'],
-                        parents=['router bgp {}'.format(asn), 'vrf {}'.format(vrf), 'address-family ipv6'],
-                        module_ignore_errors=True)
-                    )
+                node_results.append(configure_multi_vrf_gr(node, enable=True))
             else:
                 node_results.append(node['host'].config(
                         lines=['graceful-restart restart-time 300'],
@@ -157,18 +192,7 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
         asn = (node['conf']['bgp']['asn'])
         if isinstance(node['host'], EosHost):
             if node.get('is_multi_vrf_peer', False):
-                vrf = node['multi_vrf_data']['vrf']
-                asn = node['multi_vrf_data']['primary_host_asn']
-                node_results.append(node['host'].config(
-                        lines=['no graceful-restart'],
-                        parents=['router bgp {}'.format(asn), 'vrf {}'.format(vrf), 'address-family ipv4'],
-                        module_ignore_errors=True)
-                    )
-                node_results.append(node['host'].config(
-                        lines=['no graceful-restart'],
-                        parents=['router bgp {}'.format(asn), 'vrf {}'.format(vrf), 'address-family ipv6'],
-                        module_ignore_errors=True)
-                    )
+                node_results.append(configure_multi_vrf_gr(node, enable=False))
             else:
                 node_results.append(node['host'].config(
                         lines=['no graceful-restart'],
@@ -208,11 +232,7 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
         results[node['host'].hostname] = node_results
 
     # enable graceful restart on neighbors
-    if tbinfo['topo']['properties'].get('topo_is_multi_vrf', False):
-        # cEOSLab only supports running 5 concurrent in-progress config sessions.
-        # We run this task sequentially to avoid races
-        cct = 1
-    results = parallel_run(configure_nbr_gr, (), {}, list(nbrhosts.values()), timeout=120, concurrent_tasks=cct)
+    results = parallel_run(configure_nbr_gr, (), {}, list(gr_neighbors.values()), timeout=120, concurrent_tasks=cct)
 
     check_results(results)
 
@@ -234,12 +254,12 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
 
     if not res:
         # Disable graceful restart in case of failure
-        parallel_run(restore_nbr_gr, (), {}, list(nbrhosts.values()), timeout=120, concurrent_tasks=cct)
+        parallel_run(restore_nbr_gr, (), {}, list(gr_neighbors.values()), timeout=120, concurrent_tasks=cct)
         pytest.fail(err_msg)
 
     yield
 
-    results = parallel_run(restore_nbr_gr, (), {}, list(nbrhosts.values()), timeout=120, concurrent_tasks=cct)
+    results = parallel_run(restore_nbr_gr, (), {}, list(gr_neighbors.values()), timeout=120, concurrent_tasks=cct)
 
     check_results(results)
 
