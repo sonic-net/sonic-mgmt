@@ -198,6 +198,10 @@ def parallel_run(
             spawned processes.
     """
     nodes = [node for node in nodes_list]
+    sanity_check = _sanity_worker_check.get()
+    completed_results = {}
+    completed_workers = set()
+    timed_out_workers = set()
 
     # Callback API for wait_procs
     def on_terminate(worker):
@@ -215,7 +219,9 @@ def parallel_run(
             for p in running_processes:
                 # If sanity check process is killed, it still has init results.
                 # set its failed to True.
-                if init_result:
+                if sanity_check is not None:
+                    timed_out_workers.add(p.name)
+                elif init_result:
                     init_result['failed'] = True
                     results[list(results.keys())[0]] = init_result
                 else:
@@ -264,7 +270,7 @@ def parallel_run(
             # For sanity check process, initial results in case of timeout.
             if init_result:
                 init_result["host"] = node.hostname
-                results[node.hostname] = init_result
+                results[node.hostname] = dict(init_result) if sanity_check is not None else init_result
             kwargs['node'] = node
             kwargs['results'] = results
             process_name = "{}--{}".format(target.__name__, node)
@@ -272,7 +278,7 @@ def parallel_run(
                         name=process_name, target=target, args=args,
                         kwargs=kwargs
                     )
-            if _sanity_worker_check.get() is not None:
+            if sanity_check is not None:
                 worker_hosts[process_name] = getattr(node, "hostname", None)
             worker.start()
             tasks_running += 1
@@ -301,6 +307,18 @@ def parallel_run(
                     'exception': worker_exception
                 }
 
+        if sanity_check is not None:
+            for worker in gone:
+                if worker.name not in failed_processes and worker.exitcode == 0:
+                    completed_workers.add(worker.name)
+                    hostname = worker_hosts[worker.name]
+                    if hostname in results:
+                        completed_results[hostname] = results[hostname]
+                elif worker.name not in failed_processes:
+                    # Nonzero exit without transported exception is unexpected,
+                    # not a successful completion or guessed DUT condition.
+                    failed_processes[worker.name] = {'exit_code': worker.exitcode, 'exception': None}
+
         if len(gone) == 0:
             logger.debug("all processes have timedout")
             tasks_running -= len(workers)
@@ -320,7 +338,9 @@ def parallel_run(
             worker.terminate()
             # If sanity check process is killed, it still has init results.
             # set its failed to True.
-            if init_result:
+            if sanity_check is not None:
+                timed_out_workers.add(worker.name)
+            elif init_result:
                 init_result['failed'] = True
                 results[list(results.keys())[0]] = init_result
             else:
@@ -334,16 +354,27 @@ def parallel_run(
 
     # if we have failed processes, we should log the exception and exit code
     # of each Process and fail
-    if failed_processes and _sanity_worker_check.get() is not None:
+    if sanity_check is not None:
         failures = [
-            _sanity_worker_failure(_sanity_worker_check.get(), worker_hosts.get(name), process.get('exception'))
+            _sanity_worker_failure(sanity_check, worker_hosts.get(name), process.get('exception'))
             for name, process in failed_processes.items()
         ]
-        # Initial timeout placeholders can say failed=False. Never return those
-        # as completed checks for a worker which actually raised.
-        failed_hosts = {failure['host'] for failure in failures}
-        completed = {host: result for host, result in dict(results).items() if host not in failed_hosts}
-        raise SanityWorkerError(failures, completed)
+        # Only workers observed exited successfully contribute completed data.
+        # A terminated peer's failed=False initial record is never a PASS.
+        unfinished = set(worker_hosts) - completed_workers - set(failed_processes)
+        unfinished.update(timed_out_workers - set(failed_processes))
+        timeout_hosts = [worker_hosts[name] for name in unfinished]
+        timeout_hosts.extend(getattr(node, 'hostname', None) for node in nodes)
+        for hostname in timeout_hosts:
+            failures.append({
+                'check_item': sanity_check, 'host': hostname, 'exception_type': 'WorkerTimeout',
+                'operational': True, 'error_msg': 'DUT check worker did not complete before termination',
+            })
+        if failures:
+            raise SanityWorkerError(failures, completed_results)
+        # Some successful non-DUT checks key results by neighbor name instead
+        # of node.hostname. All workers completed here, so retain their schema.
+        return dict(results)
 
     if len(list(failed_processes.keys())):
         for process_name, process in list(failed_processes.items()):

@@ -125,13 +125,15 @@ def print_logs(duthosts, ptfhost, print_dual_tor_logs=False, check_ptf_mgmt=True
 def filter_check_items(tbinfo, duthosts, check_items):
     filtered_check_items = copy.deepcopy(check_items)
 
-    # These fixtures run only on frontend_nodes. Supervisor-only selections
-    # have no eligible targets: exclude before fixture resolution/invocation,
-    # not by treating an unexpected empty check result as a PASS.
-    if any(item in filtered_check_items for item in ('check_interfaces', 'check_bgp')):
+    # Iteration refreshes DutHosts.nodes and cached subsets after a parallel
+    # stage transition. Read target subsets only after that actual roster refresh.
+    active_hosts = list(duthosts)
+    frontend_checks = ('check_interfaces', 'check_bgp', 'check_bfd_up_count')
+    if any(item in filtered_check_items for item in frontend_checks):
         if not duthosts.frontend_nodes:
-            filtered_check_items = [item for item in filtered_check_items
-                                    if item not in ('check_interfaces', 'check_bgp')]
+            filtered_check_items = [item for item in filtered_check_items if item not in frontend_checks]
+    if 'check_mac_entry_count' in filtered_check_items and not duthosts.supervisor_nodes:
+        filtered_check_items.remove('check_mac_entry_count')
 
     # ignore interface, BGP, and orchagent checks for BMC topology
     if tbinfo["topo"]["type"] == "bmc":
@@ -155,7 +157,7 @@ def filter_check_items(tbinfo, duthosts, check_items):
     if 'ft2' in tbinfo['topo']['name'] or \
         'lt2' in tbinfo['topo']['name'] or \
             't2' not in tbinfo['topo']['name'] or \
-            _is_voq_chassis(duthosts):
+            _is_voq_chassis(active_hosts):
         if 'check_bfd_up_count' in filtered_check_items:
             filtered_check_items.remove('check_bfd_up_count')
         if 'check_mac_entry_count' in filtered_check_items:

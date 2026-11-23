@@ -392,6 +392,81 @@ class SanityControls(unittest.TestCase):
             self.assertIn(('dut.{}_sanity_recovery_failed'.format(stage), False), self.messages)
             self.ns['recover'].reset_mock()
 
+    def test_t2_bfd_and_mac_count_filter_actual_target_sets_only(self):
+        load(SANITY, ['filter_check_items'], self.ns)
+        self.host.facts = {'switch_type': 'non-voq'}
+        items = ['check_processes', 'check_bfd_up_count', 'check_mac_entry_count']
+        topology = {'topo': {'type': 't2', 'name': 't2'}}
+        for frontends, supervisors, expected in [([], [self.host], ['check_processes', 'check_mac_entry_count']),
+                                                 ([self.host], [], ['check_processes', 'check_bfd_up_count'])]:
+            self.hosts.frontend_nodes = frontends
+            self.hosts.supervisor_nodes = supervisors
+            filtered = self.ns['filter_check_items'](topology, self.hosts, items)
+            self.assertEqual(filtered, expected)
+            eligible = expected[-1]
+            self.fixtures[eligible] = Mock(return_value=[])
+            for stage in ['pre', 'post']:
+                with self.assertRaises(ValueError) as caught:
+                    self.ns['_run_sanity_checks'](self.request, filtered, stage=stage)
+                self.assertEqual(caught.exception.sanity_check_results, [self.process_failure])
+                self.assertTrue(self.cache[stage + '_sanity_check_failed'])
+
+    def test_actual_duthosts_stage_refresh_precedes_target_filter(self):
+        path = COMMON / 'devices' / 'duthosts.py'
+        original = next(node for node in ast.parse(path.read_text()).body
+                        if isinstance(node, ast.ClassDef) and node.name == 'DutHosts')
+        names = {'__iter__', 'nodes', 'frontend_nodes', 'supervisor_nodes',
+                 '__should_reinit_when_parallel', '__reinit_nodes_for_parallel'}
+        body = [node for node in original.body if isinstance(node, ast.FunctionDef) and node.name in names]
+        selected = ast.ClassDef(name='DutHosts', bases=[], keywords=[], body=body, decorator_list=[])
+        ast.fix_missing_locations(selected)
+        namespace = {'INITIAL_CHECKS_STAGE': 'initial', 'NON_INITIAL_CHECKS_STAGE': 'non-initial',
+                     'is_initial_checks_active': lambda request: True}
+        exec(compile(ast.Module(body=[selected], type_ignores=[]), str(path), 'exec'), namespace)
+        hosts = namespace['DutHosts']()
+        hosts._Nodes = list
+        hosts.request = object()
+        hosts.is_parallel_run = hosts.is_parallel_leader = True
+        hosts.parallel_run_stage = 'non-initial'
+        frontend = SimpleNamespace(is_frontend_node=lambda: True, is_supervisor_node=lambda: False)
+        supervisor = SimpleNamespace(is_frontend_node=lambda: False, is_supervisor_node=lambda: True)
+        hosts._nodes_for_parallel_initial_checks = [frontend, supervisor]
+        hosts._nodes_for_parallel_tests = hosts._nodes_for_parallel = [supervisor]
+        hosts._frontend_nodes, hosts._supervisor_nodes = [], [supervisor]
+        load(SANITY, ['filter_check_items'], self.ns)
+        items = ['check_interfaces', 'check_bgp', 'check_bfd_up_count', 'check_mac_entry_count']
+        # Use non-t2 to avoid topology-specific device facts; interfaces/BGP
+        # must still be retained after actual stage refresh from supervisor-only.
+        filtered = self.ns['filter_check_items']({'topo': {'type': 't0', 'name': 't0'}}, hosts, items)
+        self.assertEqual(filtered, ['check_interfaces', 'check_bgp'])
+        self.assertEqual(hosts.frontend_nodes, [frontend])
+        self.assertEqual(hosts.parallel_run_stage, 'initial')
+
+    def test_t2_no_target_bfd_or_mac_does_not_block_other_pre_post_checks(self):
+        load(SANITY, ['filter_check_items'], self.ns)
+        self.host.facts = {'switch_type': 'non-voq'}
+        self.ns['SUPPORTED_CHECKS'] = [
+            'check_processes', 'check_bfd_up_count', 'check_mac_entry_count', 'check_neighbor_macsec_empty']
+        for frontends, supervisors in [([], [self.host]), ([self.host], [])]:
+            self.hosts.frontend_nodes, self.hosts.supervisor_nodes = frontends, supervisors
+            self.fixtures['check_processes'].return_value = [dict(self.process_failure, failed=False)]
+            self.fixtures['check_bfd_up_count'] = Mock(return_value=[
+                {'failed': False, 'check_item': 'bfd_up_count', 'host': 'dut1'}] if frontends else [])
+            self.fixtures['check_mac_entry_count'] = Mock(return_value=[
+                {'failed': False, 'check_item': 'mac_entry_count', 'host': 'dut1'}] if supervisors else [])
+            generator = self.ns['sanity_check_full'](
+                None, False, None, self.hosts, self.request, {}, {'topo': {'type': 't2', 'name': 't2'}})
+            next(generator)
+            with self.assertRaises(StopIteration):
+                next(generator)
+            inactive = 'check_bfd_up_count' if not frontends else 'check_mac_entry_count'
+            active = 'check_mac_entry_count' if not frontends else 'check_bfd_up_count'
+            self.fixtures[inactive].assert_not_called()
+            self.assertEqual([call.kwargs for call in self.fixtures[active].call_args_list],
+                             [{'stage': 'pre'}, {'stage': 'post'}])
+            self.assertFalse(self.cache)
+            self.ns['recover'].assert_not_called()
+
     def test_empty_result_is_not_pass(self):
         for empty in [None, [], {}]:
             self.fixtures["check_dbmemory"].side_effect = None
@@ -617,6 +692,92 @@ class SanityControls(unittest.TestCase):
                     self.assertIn("legacy command details", str(caught.exception))
                     self.assertIn("legacy traceback", str(caught.exception))
             self.assertIsNone(self.ns["_sanity_worker_check"].get())
+
+    @staticmethod
+    def named_worker(worker, name):
+        worker.name = name
+        return worker
+
+    def test_successful_neighbor_keyed_workers_keep_existing_result_schema(self):
+        load(PARALLEL, ['parallel_run'], self.ns)
+        results = {}
+        worker = SimpleNamespace(name='neighbor-worker', exitcode=0, exception=None, start=Mock(),
+                                 is_alive=lambda: False, is_running=lambda: False)
+
+        def wait(active, **kwargs):
+            results['neighbor1'] = False
+            return list(active), []
+
+        self.ns.update({'Manager': lambda: SimpleNamespace(dict=lambda: results), 'datetime': datetime, 'math': math,
+                        'SonicProcess': lambda **kwargs: self.named_worker(worker, kwargs['name']), 'wait_procs': wait,
+                        'fix_logging_handler_fork_lock': Mock()})
+        # Actual neighbor checks use dictionary nodes and key by neighbor name,
+        # not hostname. All completed success must preserve those raw booleans.
+        with self.ns['sanity_worker_context']('check_neighbor_macsec_empty'):
+            returned = self.ns['parallel_run'](self.worker_failure, (), {}, [{'nbr_name': 'neighbor1'}], timeout=1)
+        self.assertEqual(returned, {'neighbor1': False})
+
+    def test_operational_worker_and_timed_out_peer_are_attributed_without_placeholder_pass(self):
+        load(PARALLEL, ['parallel_run'], self.ns)
+        for order in [('dut1', 'dut2', 'dut3'), ('dut2', 'dut1', 'dut3')]:
+            for programming in [False, True, None]:
+                results = {}
+                workers = {}
+                node_list = [SimpleNamespace(hostname=hostname) for hostname in order]
+                error = KeyError('programming bug') if programming else RunAnsibleModuleFail('SECRET')
+
+                def process(**kwargs):
+                    node = kwargs['kwargs']['node']
+                    worker = SimpleNamespace(name=kwargs['name'], pid=len(workers) + 1,
+                                             exitcode=1 if node.hostname == 'dut1' and programming is not None else 0,
+                                             exception=((error, 'private traceback')
+                                                        if node.hostname == 'dut1' and programming is not None else None),
+                                             alive=node.hostname == 'dut2', start=Mock(), terminate=Mock())
+                    worker.is_alive = lambda worker=worker: worker.alive
+                    worker.is_running = worker.is_alive
+                    workers[node.hostname] = worker
+                    return worker
+
+                def wait(active, **kwargs):
+                    if len(active) == 3:
+                        results['dut3'] = {'host': 'dut3', 'failed': False, 'check_item': 'dbmemory'}
+                        if programming is None:
+                            results['dut1'] = {'host': 'dut1', 'failed': False, 'check_item': 'dbmemory'}
+                        return [workers['dut1'], workers['dut3']], [workers['dut2']]
+                    return [], list(active)
+
+                def kill(pid, sig):
+                    for worker in workers.values():
+                        if worker.pid == pid:
+                            worker.alive = False
+
+                self.ns.update({'Manager': lambda: SimpleNamespace(dict=lambda: results),
+                                'datetime': datetime, 'math': math, 'SonicProcess': process, 'wait_procs': wait,
+                                'fix_logging_handler_fork_lock': Mock(), 'os': SimpleNamespace(kill=kill),
+                                'signal': SimpleNamespace(SIGKILL=9)})
+                with self.ns['sanity_worker_context']('check_dbmemory'):
+                    with self.assertRaises(self.ns['SanityWorkerError']) as caught:
+                        self.ns['parallel_run'](self.worker_failure, (), {}, node_list, timeout=1,
+                                                init_result={'failed': False, 'check_item': 'dbmemory'})
+                carrier = caught.exception
+                self.assertEqual(set(failure['host'] for failure in carrier.failures),
+                                 {'dut2'} if programming is None else {'dut1', 'dut2'})
+                timeout = next(failure for failure in carrier.failures if failure['host'] == 'dut2')
+                self.assertEqual(timeout['exception_type'], 'WorkerTimeout')
+                expected_peers = {'dut3': {'host': 'dut3', 'failed': False, 'check_item': 'dbmemory'}}
+                if programming is None:
+                    expected_peers['dut1'] = {'host': 'dut1', 'failed': False, 'check_item': 'dbmemory'}
+                self.assertEqual(carrier.results, expected_peers)
+                self.fixtures['check_dbmemory'].side_effect = carrier
+                if programming:
+                    with self.assertRaises(self.ns['SanityWorkerError']) as rejected:
+                        self.checks('post')
+                    self.assertEqual(rejected.exception.sanity_check_results,
+                                     [self.process_failure, carrier.results['dut3']])
+                else:
+                    collected = self.checks('post')
+                    self.assertEqual(sum(result['failed'] for result in collected), 2 if programming is None else 3)
+                    self.assertEqual(set(result['host'] for result in collected if result['failed']), {'dut1', 'dut2'})
 
 
 if __name__ == "__main__":
