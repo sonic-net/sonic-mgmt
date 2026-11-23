@@ -4569,8 +4569,9 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
         'show queue wredcounters'): the ingress VOQ<dscp> (with --voq) on DNX,
         or the egress unicast queue UC<dscp> on XGS, depending on `voq`.
 
-        Returns the int counter, or None if the row is missing or shows N/A.
-        Raises RuntimeError if the underlying CLI fails (stderr non-empty).
+        Returns the int counter, 'N/A' when the row exists but the counter is
+        not in COUNTERS_DB (WRED flex counters not polled), or None when no row
+        matched. Raises RuntimeError if the underlying CLI fails (stderr non-empty).
         """
         voq_flag = '--voq ' if voq else ''
         cmd = 'show queue wredcounters {}{}| grep -w {}'.format(voq_flag, ns_opt, dut_port)
@@ -4597,7 +4598,7 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
             if port_match and fields[1] == label:
                 value = fields[2]
                 if value == 'N/A':
-                    return None
+                    return value
                 return int(value.replace(',', ''))
         return None
 
@@ -4631,6 +4632,7 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
         # defaults to 0 (disabled) so a platform that does not need it is left
         # untouched. The base-class helper also no-ops on non-Broadcom.
         egress_shaper_rate = int(self.test_params.get('egress_shaper_rate', 0))
+        update_COUNTER_MARGIN(self.test_params.get('dut_asic', ''))
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
         src_port_vlan = self.test_params['src_port_vlan']
         limit = self.test_params['limit']
@@ -4835,14 +4837,18 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
                 allowed_slack = max(5, int(port_drops_this_run * 0.1))
                 drop_delta = self._poll_until(
                     lambda: self._read_wred_drop_pkts(dut_port, dscp, ns_opt, voq),
-                    lambda v: v is not None and abs(v - port_drops_this_run) <= allowed_slack)
+                    lambda v: v == 'N/A' or (v is not None and abs(v - port_drops_this_run) <= allowed_slack))
                 print("----WredCounters on DUT (port={}, {}): WredDrp/pkts={}----"
                       .format(dut_port, counter_id, drop_delta))
                 assert drop_delta is not None, \
-                    "WredDrp/pkts row unavailable for port={} {}".format(dut_port, counter_id)
-                assert abs(drop_delta - port_drops_this_run) <= allowed_slack, \
-                    "WRED drop delta ({}) differs from port drops ({}) by more than {}".format(
-                        drop_delta, port_drops_this_run, allowed_slack)
+                    "WredDrp/pkts row not found for port={} {}".format(dut_port, counter_id)
+                if drop_delta == 'N/A':
+                    print("Skipping WRED drop counter cross-check: WRED counters unavailable "
+                          "(flex counters not polled, or unsupported)")
+                else:
+                    assert abs(drop_delta - port_drops_this_run) <= allowed_slack, \
+                        "WRED drop delta ({}) differs from port drops ({}) by more than {}".format(
+                            drop_delta, port_drops_this_run, allowed_slack)
             if ecn == 0:
                 # ecn==0 -> non-ECT flow; WRED drops above threshold, so
                 # transmitted_pkts < num_of_pkts is expected. Bound by queue limit instead.

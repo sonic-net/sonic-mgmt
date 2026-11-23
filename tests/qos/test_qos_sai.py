@@ -2848,6 +2848,7 @@ class TestQosSai(QosSaiBase):
             "min_limit": qosConfig["min_limit"],
             "cell_size": qosConfig["cell_size"],
             "hwsku": dutTestParams['hwsku'],
+            "dut_asic": dutConfig.get("dutAsic", ""),
         })
         if "packet_size" in qosConfig:
             testParams["packet_size"] = qosConfig["packet_size"]
