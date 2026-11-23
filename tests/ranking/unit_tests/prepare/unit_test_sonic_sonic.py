@@ -243,11 +243,12 @@ def test_concrete_profile_executes_exact_ptf_then_dut_mutations(runtime):
     assert mutations[8] == ('dut', 'command', ('/usr/bin/saiserverv2.sh', 'start'))
 
 
-def test_concrete_profile_leaves_an_already_stopped_ptf_server_stopped(runtime):
+@pytest.mark.parametrize('server_state', ['STOPPED', 'EXITED'])
+def test_concrete_profile_leaves_an_already_stopped_ptf_server_stopped(runtime, server_state):
     profile = importlib.import_module('tests.ranking.environments.sonic_sonic.prepare')
     events = []
     ptf = RecordingHost('ptf', events)
-    ptf._ptf_supervisor_state = 'STOPPED'
+    ptf._ptf_supervisor_state = server_state
     ptf._ptf_processes = {'saiserver': [], 'saiserverv2': []}
 
     profile.prepare_ptf(ptf, runtime)
@@ -401,12 +402,13 @@ def test_concrete_profile_always_copies_checked_in_assets(runtime):
     ]
 
 
-def test_verify_is_read_only_and_checks_both_roles(runtime):
+@pytest.mark.parametrize('server_state', ['STOPPED', 'EXITED'])
+def test_verify_is_read_only_and_checks_both_roles(runtime, server_state):
     profile = importlib.import_module('tests.ranking.environments.sonic_sonic.prepare')
     events = []
     ptf = RecordingHost('ptf', events)
     ptf._ptf_processes = {'saiserver': [], 'saiserverv2': []}
-    ptf._ptf_supervisor_state = 'STOPPED'
+    ptf._ptf_supervisor_state = server_state
     dut = RecordingHost('dut', events)
 
     profile.verify(dut, ptf, runtime)

@@ -265,9 +265,7 @@ def controller_spec(environment):
             'auto_recover': 'False',
             'comment': 'Ranking generated controller adapter',
         },
-        'topology_source': str(
-            Path(__file__).resolve().parents[4] / 'ansible' / 'vars' /
-            'topo_{}.yml'.format(topology)),
+        'topology_source': 'ansible/vars/topo_{}.yml'.format(topology),
         'testbed_name': controller['testbed'],
         'host_pattern': controller['host_pattern'],
     }

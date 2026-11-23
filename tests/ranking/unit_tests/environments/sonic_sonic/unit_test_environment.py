@@ -92,6 +92,14 @@ def test_controller_connection_is_optional_and_defaults_to_ssh(tmp_path):
     assert _load(_write(tmp_path, value))['controller']['connection'] == 'ssh'
 
 
+def test_controller_topology_path_is_relative_to_the_checkout():
+    from tests.ranking.environments.sonic_sonic.environment import controller_spec
+
+    spec = controller_spec(_load(EXAMPLE))
+
+    assert spec['topology_source'] == 'ansible/vars/topo_ptf32.yml'
+
+
 def test_optional_password_is_accepted_but_never_echoed_in_validation_error(tmp_path):
     value = _values()
     value['hosts']['dut']['auth'] = {'password': 'sensitive-value'}

@@ -10,6 +10,7 @@ import uuid
 
 SAI_CONTAINER = 'saiserverv2'
 SAI_PROCESS_NAMES = ('saiserver', 'saiserverv2')
+PTF_SERVER_INACTIVE_STATES = frozenset(('STOPPED', 'EXITED'))
 PROFILE_ROOT = Path(__file__).resolve().parent
 SAFE_HOSTNAME = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,252}\Z')
 
@@ -199,14 +200,14 @@ def _supervisor_state(ptfhost):
 
 
 def _stop_ptf_server(ptfhost):
-    if _supervisor_state(ptfhost) != 'STOPPED':
+    if _supervisor_state(ptfhost) not in PTF_SERVER_INACTIVE_STATES:
         _command(
             ptfhost, 'PTF', 'stop SAIserver through supervisor',
             ['docker', 'exec', SAI_CONTAINER, 'supervisorctl',
              'stop', 'saiserver'])
-        if _supervisor_state(ptfhost) != 'STOPPED':
+        if _supervisor_state(ptfhost) not in PTF_SERVER_INACTIVE_STATES:
             raise SonicSonicProfileError(
-                '{} did not reach STOPPED'.format(
+                '{} did not reach STOPPED or EXITED'.format(
                     _context(ptfhost, 'PTF', 'SAIserver supervisor state')))
     pids = []
     for name in SAI_PROCESS_NAMES:
@@ -233,9 +234,9 @@ def _stop_ptf_server(ptfhost):
                         _context(
                             ptfhost, 'PTF',
                             'inspect exact {} process'.format(name))))
-    if _supervisor_state(ptfhost) != 'STOPPED':
+    if _supervisor_state(ptfhost) not in PTF_SERVER_INACTIVE_STATES:
         raise SonicSonicProfileError(
-            '{} did not remain STOPPED'.format(
+            '{} did not remain STOPPED or EXITED'.format(
                 _context(ptfhost, 'PTF', 'SAIserver supervisor state')))
 
 
@@ -363,9 +364,9 @@ def _container_running(host, role):
 def verify(duthost, ptfhost, config):
     """Read back the prepared role states without changing either device."""
     _container_running(ptfhost, 'PTF')
-    if _supervisor_state(ptfhost) != 'STOPPED':
+    if _supervisor_state(ptfhost) not in PTF_SERVER_INACTIVE_STATES:
         raise SonicSonicProfileError(
-            '{} must remain STOPPED'.format(
+            '{} must remain STOPPED or EXITED'.format(
                 _context(ptfhost, 'PTF', 'SAIserver supervisor state')))
     for name in SAI_PROCESS_NAMES:
         if _process_ids(ptfhost, 'PTF', name):
