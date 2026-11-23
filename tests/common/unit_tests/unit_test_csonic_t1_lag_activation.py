@@ -19,6 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 CONFTEST_PATH = REPO_ROOT / "tests" / "conftest.py"
 TESTBED_CLI_PATH = REPO_ROOT / "ansible" / "testbed-cli.sh"
 ADD_TOPO_PLAYBOOK_PATH = REPO_ROOT / "ansible" / "testbed_add_vm_topology.yml"
+MISSING = object()
 
 
 def _load_pytest_convergence_helpers():
@@ -144,8 +145,7 @@ def _write_cli_testbed(tmp_path, file_format, use_converged_peers=False):
         )
         return testbed_file
 
-    testbed_file = tmp_path / "testbed.yaml"
-    testbed_file.write_text(yaml.safe_dump([{
+    testbed = {
         "conf-name": "unit-testbed",
         "group-name": "vms6-2",
         "topo": "t1-lag",
@@ -157,21 +157,31 @@ def _write_cli_testbed(tmp_path, file_format, use_converged_peers=False):
         "vm_base": "VM0104",
         "dut": ["vlab-03"],
         "inv_name": "veos_vtb",
-        "use_converged_peers": use_converged_peers,
-    }]))
+    }
+    if use_converged_peers is not MISSING:
+        testbed["use_converged_peers"] = use_converged_peers
+    testbed_file = tmp_path / "testbed.yaml"
+    testbed_file.write_text(yaml.safe_dump([testbed]))
     return testbed_file
 
 
 def _run_cli(tmp_path, action, file_format="yaml",
-             use_converged_peers=False, vm_type="csonic"):
-    testbed_file = _write_cli_testbed(
-        tmp_path, file_format, use_converged_peers)
+             use_converged_peers=False, vm_type="csonic",
+             testbed_file=None):
+    if testbed_file is None:
+        testbed_file = _write_cli_testbed(
+            tmp_path, file_format, use_converged_peers)
     command_log = tmp_path / "commands.log"
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
     python_wrapper = fake_bin / "python"
     python_wrapper.write_text(
-        "#!/bin/bash\nexec {!r} \"$@\"\n".format(sys.executable))
+        "#!/bin/bash\n"
+        "if [[ \"$1\" == -m && \"$2\" == *_topo_converger ]]; then\n"
+        "    printf 'python %s\\n' \"$*\" >> \"$CLI_COMMAND_LOG\"\n"
+        "    exit 0\n"
+        "fi\n"
+        "exec {!r} \"$@\"\n".format(sys.executable))
     python_wrapper.chmod(0o755)
     for command in ("ansible-playbook", "sleep"):
         executable = fake_bin / command
@@ -306,6 +316,62 @@ def test_cli_rejects_redeploy_before_teardown_or_sleep(tmp_path):
     assert result.returncode != 0
     assert "unconverged cSONiC T1-LAG is not supported" in result.stderr
     assert command_log == ""
+
+
+def test_cli_propagates_yaml_parse_failure_before_any_playbook(tmp_path):
+    testbed_file = tmp_path / "broken.yaml"
+    testbed_file.write_text("- conf-name: unit-testbed\n  dut: [unterminated\n")
+
+    result, command_log = _run_cli(
+        tmp_path, "remove-topo", testbed_file=testbed_file)
+
+    assert result.returncode != 0
+    assert "ParserError" in result.stderr
+    assert command_log == ""
+
+
+@pytest.mark.parametrize("flag", [True, "True", "true"])
+def test_cli_cleanup_normalizes_true_and_uses_converged_topology(
+        tmp_path, flag):
+    result, command_log = _run_cli(
+        tmp_path, "remove-topo", use_converged_peers=flag)
+
+    assert result.returncode == 0, result.stderr
+    assert "python -m csonic_topo_converger" in command_log
+    assert "testbed_remove_vm_topology.yml" in command_log
+
+
+@pytest.mark.parametrize("flag", [False, "False", "false", MISSING])
+def test_cli_cleanup_allows_false_or_missing_without_convergence(
+        tmp_path, flag):
+    result, command_log = _run_cli(
+        tmp_path, "remove-topo", use_converged_peers=flag)
+
+    assert result.returncode == 0, result.stderr
+    assert "topo_converger" not in command_log
+    assert "testbed_remove_vm_topology.yml" in command_log
+
+
+def test_cli_redeploy_validation_does_not_add_an_extra_convergence(tmp_path):
+    result, command_log = _run_cli(
+        tmp_path, "redeploy-topo", use_converged_peers="true")
+
+    assert result.returncode == 0, result.stderr
+    assert command_log.count("python -m csonic_topo_converger") == 2
+    assert command_log.count("testbed_remove_vm_topology.yml") == 1
+    assert command_log.count("testbed_add_vm_topology.yml") == 1
+
+
+def test_cli_refresh_dut_forwards_converged_flag_to_direct_playbook(tmp_path):
+    result, command_log = _run_cli(
+        tmp_path, "refresh-dut", use_converged_peers="true")
+
+    assert result.returncode == 0, result.stderr
+    refresh_call = next(
+        line for line in command_log.splitlines()
+        if "testbed_add_vm_topology.yml" in line
+    )
+    assert "use_converged_peers=True" in refresh_call
 
 
 @pytest.mark.parametrize(
