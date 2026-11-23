@@ -267,6 +267,18 @@ class FanoutPfcStorm():
         self.intfsEnabled = []
 
 
+def announce(level, msg):
+    '''
+    Report a milestone both to the rsyslog server and on stdout.
+
+    The syslog copy goes to the DUT, which only test_pfcwd_timer_accuracy
+    listens to. The stdout copy lands in the log file pfc_storm.py redirects
+    this script into, and is what PFCStorm.start_storm() waits for.
+    '''
+    logger.log(level, msg)
+    print(msg, flush=True)
+
+
 def main():
     usage = "usage: %prog [options] arg1 arg2"
     parser = optparse.OptionParser(usage=usage)
@@ -314,13 +326,13 @@ def main():
         if options.os == 'eos':
             interfaces = [frontPanelIntfFromKernelIntfName(intf) for intf in interfaces]
         fs.startPfcStorm(interfaces)
-        logger.debug('PFC_STORM_START')
+        announce(logging.DEBUG, 'PFC_STORM_START')
 
         # wait forever until stop
         while True:
             time.sleep(100)
     except Exception as e:
-        logger.error(f'PFC_STORM_ERROR {e}')
+        announce(logging.ERROR, f'PFC_STORM_ERROR {e}')
         raise
     finally:
         # An interface missing from the portmap raises part way through the
