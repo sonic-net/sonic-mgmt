@@ -224,7 +224,7 @@ def test_community_and_prefix_tokens_reject_substring_collisions():
     assert '2001:db8:1::/64' not in _route_prefixes_from_output(output)
 
 
-def test_failed_or_wrong_prefix_query_never_masquerades_as_state():
+def test_failed_query_never_masquerades_as_state():
     prefix = '99.1.2.0/24'
     csonic = CsonicHost('csonic-prime', bgp_vrf='VrfARISTA01T2')
     csonic._docker_exec = lambda command, **kwargs: {
@@ -235,14 +235,37 @@ def test_failed_or_wrong_prefix_query_never_masquerades_as_state():
     assert not _neighbor_route_matches(csonic, prefix, False)
     assert not _neighbor_route_matches(csonic, prefix, True)
 
+
+@pytest.mark.parametrize('route_data', [
+    {
+        'prefix': '199.1.2.0/24',
+        'paths': [{'valid': True}],
+    },
+    {
+        'paths': [{'valid': True}],
+    },
+])
+def test_withdrawal_rejects_nonempty_unidentified_route_data(route_data):
+    prefix = '99.1.2.0/24'
+    csonic = CsonicHost('csonic-prime', bgp_vrf='VrfARISTA01T2')
     csonic._docker_exec = lambda command, **kwargs: {
         'rc': 0,
-        'stdout': json.dumps({
-            'prefix': '199.1.2.0/24',
-            'paths': [{'valid': True}],
-        }),
+        'stdout': json.dumps(route_data),
         'stderr': '',
     }
+    assert not _neighbor_route_matches(csonic, prefix, False)
+    assert not _neighbor_route_matches(csonic, prefix, True)
+
+
+def test_withdrawal_accepts_frr_empty_object_absence():
+    prefix = '99.1.2.0/24'
+    csonic = CsonicHost('csonic-prime', bgp_vrf='VrfARISTA01T2')
+    csonic._docker_exec = lambda command, **kwargs: {
+        'rc': 0,
+        'stdout': '{}',
+        'stderr': '',
+    }
+    assert _neighbor_route_matches(csonic, prefix, False)
     assert not _neighbor_route_matches(csonic, prefix, True)
 
 

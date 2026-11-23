@@ -125,6 +125,8 @@ def _neighbor_route_matches(host, route, expected_present, community=''):
     except Exception as error:
         Logger.debug('Failed to query route %s on %s: %s', route, host, error)
         return False
+    if result and result.get('prefix') != route:
+        return False
     present = _route_present_in_data(result, route)
     if present != expected_present:
         return False
