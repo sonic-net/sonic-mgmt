@@ -129,7 +129,6 @@ def skip_unsupported_hft_platform(
     if (duthost.is_multi_asic or hft.get("state") not in ("disabled", "enabled", "always_enabled") or
             hft.get("set_owner", "local") not in ("", "local")):
         pytest.skip("HFT tests require a locally managed standalone hft feature on one ASIC")
-    duthost.command("test -r /usr/bin/hft.sh")
     duthost.command("docker image inspect -f installed docker-hft:latest")
     original_feature = _feature_fields(duthost, "otel")
     if original_feature and "state" not in original_feature:
@@ -196,20 +195,27 @@ def _wait_hft_state(duthost, *states):
 
 
 def _start_test_hft(duthost):
-    """Create from the platform's stock launcher with real Docker CMD arguments."""
-    script = os.path.join(os.path.dirname(__file__), "files", "create_hft.sh")
-    duthost.script(" ".join([script, *HFT_OTEL_ARGS]), executable="/bin/bash")
-    # Repeated module runs can hit hft.service's three-start limit. An inactive unit may not be loaded yet.
-    duthost.command("systemctl reset-failed hft.service", module_ignore_errors=True)
-    if _feature_fields(duthost, "hft")["state"] == "disabled":
-        duthost.command("config feature state hft enabled")
-    else:
-        duthost.command("systemctl start hft.service")
+    """Run the single-ASIC test container directly; the stock service stays stopped."""
+    platform = duthost.facts["platform"]
+    device = f"/usr/share/sonic/device/{platform}"
+    hwsku = duthost.facts["hwsku"]
+    container_id = duthost.command(argv=[
+        "docker", "run", "-d", "--name", "hft", "--network", "host", "--uts", "host", "--cap-add", "NET_ADMIN",
+        "-e", "RUNTIME_OWNER=local", "-e", "CONTAINER_NAME=hft", "-e", f"PLATFORM={platform}",
+        "-e", "SYSLOG_TARGET_IP=127.0.0.1", "-e", "NAMESPACE_COUNT=1", "-e", "NAMESPACE_PREFIX=asic",
+        "--mount", "type=bind,src=/etc/sonic,dst=/etc/sonic,readonly",
+        "--mount", "type=bind,src=/etc/fips/fips_enable,dst=/etc/fips/fips_enable,readonly",
+        "--mount", "type=bind,src=/var/run/redis,dst=/var/run/redis",
+        "--mount", f"type=bind,src={device},dst=/usr/share/sonic/platform,readonly",
+        "--mount", f"type=bind,src={device}/{hwsku},dst=/usr/share/sonic/hwsku,readonly",
+        "--log-opt", "max-size=2m", "--log-opt", "max-file=5",
+        "docker-hft:latest", *HFT_OTEL_ARGS,
+    ])["stdout"].strip()
     if not wait_until(60, 2, 0, ensure_countersyncd_daemon, duthost):
         pytest.fail("countersyncd did not start in the new hft container")
-    cmd = json.loads(duthost.command("docker inspect hft", verbose=False)["stdout"])[0]["Config"]["Cmd"]
-    if cmd != HFT_OTEL_ARGS:
-        pytest.fail(f"Unexpected hft container Cmd: {cmd}")
+    current = json.loads(duthost.command("docker inspect hft", verbose=False)["stdout"])[0]
+    if current["Id"] != container_id or current["Config"]["Cmd"] != HFT_OTEL_ARGS:
+        pytest.fail(f"Expected hft container {container_id} with Cmd {HFT_OTEL_ARGS}")
 
 
 def _restore_hft_feature(duthost, state):
