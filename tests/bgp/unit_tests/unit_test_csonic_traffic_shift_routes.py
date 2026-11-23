@@ -175,18 +175,18 @@ def test_converged_route_snapshot_filters_detailed_peer_communities():
                 'routes': {
                     '172.16.10.0/24': [
                         {
-                            'peer': {'peerId': '10.0.0.31'},
+                            'peerId': '10.0.0.31',
                             'community': {'list': ['no-export']},
                         },
                         {
-                            'peer': {'peerId': '10.0.0.32'},
+                            'peerId': '10.0.0.32',
                             'community': {
                                 'list': ['1234:5678', 'no-export'],
                             },
                         },
                     ],
                     '172.16.20.0/24': [{
-                        'peer': {'peerId': '10.0.0.32'},
+                        'peerId': '10.0.0.32',
                         'community': {'list': ['1234:5678']},
                     }],
                 },
@@ -200,8 +200,10 @@ def test_converged_route_snapshot_filters_detailed_peer_communities():
             '172.16.10.0/24': 'no-export',
         }
     assert commands == [
-        'vtysh -c "show bgp vrf VrfARISTA01T0 ipv4 unicast '
-        'neighbors 10.0.0.32 routes json"',
+        ''.join([
+            'vtysh -c "show bgp vrf VrfARISTA01T0 ipv4 unicast ',
+            'neighbors 10.0.0.32 routes json"',
+        ]),
         'vtysh -c "show bgp vrf VrfARISTA01T0 ipv4 unicast json"',
     ]
 

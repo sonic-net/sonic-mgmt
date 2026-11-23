@@ -313,9 +313,8 @@ def _parse_routes_on_csonic_host(
                 .format(prefix))
         peer_paths = [
             path for path in paths
-            if isinstance(path, dict)
-            and path.get('peer', {}).get('peerId')
-            and str(ipaddress.IPAddress(path['peer']['peerId'])).lower()
+            if isinstance(path, dict) and path.get('peerId')
+            and str(ipaddress.IPAddress(path['peerId'])).lower()
             == str(ipaddress.IPAddress(peer_ip)).lower()
         ]
         if not peer_paths:
