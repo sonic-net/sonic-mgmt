@@ -275,19 +275,51 @@ def _parse_routes_on_csonic_host(
             "cSONiC route query did not return a valid 'routes' map")
 
     routes = {}
-    for prefix, paths in route_data['routes'].items():
+    for prefix in route_data['routes']:
         if not exp_community:
             routes[prefix] = ''
             continue
-        if isinstance(paths, dict):
-            paths = paths.get('paths', [paths])
-        if not isinstance(paths, list):
+
+        detail_command = (
+            'vtysh -c "show bgp vrf {} {} unicast {} json"'
+            .format(host.bgp_vrf, afi, prefix)
+        )
+        detail_result = host.command(detail_command, verbose=False)
+        if detail_result.get('rc', 1) != 0:
+            raise RuntimeError(
+                'Failed to retrieve cSONiC route detail for {} (rc={}): {}'
+                .format(prefix, detail_result.get('rc'),
+                        detail_result.get('stderr', '')))
+        detail_output = detail_result.get('stdout')
+        if not isinstance(detail_output, str) or not detail_output.strip():
+            raise RuntimeError(
+                'cSONiC route detail query returned empty output for {}'
+                .format(prefix))
+        try:
+            detail_data = json.loads(detail_output)
+        except (TypeError, ValueError) as error:
             raise ValueError(
-                'cSONiC route query returned invalid paths for {}'.format(
-                    prefix))
+                'cSONiC route detail query returned invalid JSON for {}'
+                .format(prefix)) from error
+        if not isinstance(detail_data, dict) or not isinstance(
+                detail_data.get('paths'), list):
+            raise ValueError(
+                "cSONiC route detail for {} lacks a valid 'paths' list"
+                .format(prefix))
+
+        peer_paths = [
+            path for path in detail_data['paths']
+            if isinstance(path, dict) and path.get('peerId')
+            and str(ipaddress.IPAddress(path['peerId'])).lower()
+            == str(ipaddress.IPAddress(peer_ip)).lower()
+        ]
+        if not peer_paths:
+            raise ValueError(
+                'cSONiC route detail for {} has no path from peer {}'
+                .format(prefix, peer_ip))
         communities = {
             community
-            for path in paths if isinstance(path, dict)
+            for path in peer_paths
             for community in path.get('community', {}).get('list', [])
         }
         matched = next(

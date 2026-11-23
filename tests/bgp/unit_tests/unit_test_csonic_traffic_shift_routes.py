@@ -149,29 +149,68 @@ def test_converged_route_snapshot_accepts_valid_empty_map():
         host, '10.0.0.32', 4) == {}
 
 
-def test_converged_route_snapshot_filters_on_frr_communities():
+def test_converged_route_snapshot_filters_detailed_peer_communities():
     host = CsonicHost('csonic-prime', bgp_vrf='VrfARISTA01T0')
-    host._docker_exec = lambda command, **kwargs: {
-        'rc': 0,
-        'stdout': json.dumps({
-            'routes': {
-                '172.16.10.0/24': [{
-                    'community': {
-                        'list': ['1234:5678', 'no-export'],
+    commands = []
+
+    def docker_exec(command, **kwargs):
+        commands.append(command)
+        if 'neighbors 10.0.0.32 routes json' in command:
+            return {
+                'rc': 0,
+                'stdout': json.dumps({
+                    'routes': {
+                        '172.16.10.0/24': [{
+                            'peerId': '10.0.0.32',
+                        }],
+                        '172.16.20.0/24': [{
+                            'peerId': '10.0.0.32',
+                        }],
                     },
-                }],
-                '172.16.20.0/24': [{
+                }),
+            }
+        if '172.16.10.0/24 json' in command:
+            return {
+                'rc': 0,
+                'stdout': json.dumps({
+                    'paths': [
+                        {
+                            'peerId': '10.0.0.31',
+                            'community': {'list': ['no-export']},
+                        },
+                        {
+                            'peerId': '10.0.0.32',
+                            'community': {
+                                'list': ['1234:5678', 'no-export'],
+                            },
+                        },
+                    ],
+                }),
+            }
+        return {
+            'rc': 0,
+            'stdout': json.dumps({
+                'paths': [{
+                    'peerId': '10.0.0.32',
                     'community': {'list': ['1234:5678']},
                 }],
-                '172.16.30.0/24': [{}],
-            },
-        }),
-    }
+            }),
+        }
+
+    host._docker_exec = docker_exec
 
     assert route_checker._parse_routes_on_csonic_host(
         host, '10.0.0.32', 4, ['no-export', '9999:1']) == {
             '172.16.10.0/24': 'no-export',
         }
+    assert commands == [
+        'vtysh -c "show bgp vrf VrfARISTA01T0 ipv4 unicast '
+        'neighbors 10.0.0.32 routes json"',
+        'vtysh -c "show bgp vrf VrfARISTA01T0 ipv4 unicast '
+        '172.16.10.0/24 json"',
+        'vtysh -c "show bgp vrf VrfARISTA01T0 ipv4 unicast '
+        '172.16.20.0/24 json"',
+    ]
 
 
 def test_dual_dut_peer_selection_matches_selected_dut():
