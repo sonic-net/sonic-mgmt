@@ -60,7 +60,7 @@ def test_reports_every_logical_peer_only_for_converged_csonic_t1_lag():
 def test_requires_a_complete_nonempty_logical_peer_session_map():
     bgp_neighbors = {
         '10.0.0.1': {'name': 'ARISTA01T2'},
-        'fc00::1': {'name': 'ARISTA01T2'},
+        'FC00::1': {'name': 'ARISTA01T2'},
         '10.0.0.5': {'name': 'ARISTA03T2'},
     }
 

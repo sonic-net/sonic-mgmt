@@ -406,7 +406,27 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
     # enable graceful restart on neighbors
     results = parallel_run(configure_nbr_gr, (), {}, list(gr_neighbors.values()), timeout=120, concurrent_tasks=cct)
 
-    check_results(results)
+    try:
+        check_results(results)
+    except pytest.fail.Exception:
+        # A generator fixture that fails before ``yield`` never runs its normal
+        # teardown. Restore only the shared-prime path introduced above; keep
+        # every established backend on its existing setup-failure behavior.
+        shared_prime_groups = [
+            node for node in gr_neighbors.values()
+            if node.get('csonic_t1_lag_peers')
+        ]
+        if shared_prime_groups:
+            rollback_results = parallel_run(
+                restore_nbr_gr, (), {}, shared_prime_groups,
+                timeout=120, concurrent_tasks=cct)
+            try:
+                check_results(rollback_results)
+            except pytest.fail.Exception:
+                logger.exception(
+                    'Failed to restore shared cSONiC T1-LAG primes after '
+                    'graceful-restart setup failure')
+        raise
 
     logger.info("bgp neighbors: {}".format(list(bgp_neighbors.keys())))
     res = True

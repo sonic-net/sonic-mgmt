@@ -51,7 +51,7 @@ def get_complete_csonic_t1_lag_session_map(peer_names, bgp_neighbors):
     """Map every logical peer to at least one DUT BGP session."""
     session_map = {
         peer_name: sorted(
-            bgp_neighbor
+            str(ipaddress.ip_address(bgp_neighbor))
             for bgp_neighbor, details in bgp_neighbors.items()
             if details.get('name') == peer_name
         )
@@ -355,6 +355,7 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
     # cEOS, SONiC, ordinary cSONiC, and converged cSONiC T0 path below.
     prime_peer_names = get_csonic_t1_lag_prime_peer_names(
         nbrhosts, test_neighbor_name, tbinfo)
+    prime_session_map = {}
     if len(prime_peer_names) > 1:
         prime_session_map = get_complete_csonic_t1_lag_session_map(
             prime_peer_names, bgp_neighbors)

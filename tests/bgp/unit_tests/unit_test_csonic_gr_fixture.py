@@ -3,7 +3,6 @@
 import ast
 import copy
 import json
-import logging
 import tempfile
 from collections.abc import Mapping
 from pathlib import Path
@@ -106,7 +105,19 @@ class FakeDut:
 
 class FakeAssert:
     def __call__(self, condition, message="assertion failed"):
-        assert condition, message
+        if not condition:
+            pytest.fail(message)
+
+
+class FakeLogger:
+    def info(self, *_args, **_kwargs):
+        pass
+
+    def error(self, *_args, **_kwargs):
+        pass
+
+    def exception(self, *_args, **_kwargs):
+        pass
 
 
 def _wait_until(_timeout, _interval, _delay, function, *args, **kwargs):
@@ -127,7 +138,7 @@ def _namespace():
         "SonicHost": FakeSonicHost,
         "Mapping": Mapping,
         "json": json,
-        "logger": logging.getLogger(__name__),
+        "logger": FakeLogger(),
         "parallel_run": _parallel_run,
         "pt_assert": FakeAssert(),
         "pytest": pytest,
@@ -277,6 +288,69 @@ def test_shared_group_does_not_clean_before_every_vrf_is_ready():
     assert observed == []
     assert results[-1]["failed"]
     assert "VrfARISTA03T2" in results[-1]["msg"]
+
+
+def test_shared_setup_failure_rolls_back_every_partially_configured_peer():
+    helpers = _load(include_fixture=True)
+    first = FakeCsonicHost("prime", "VrfARISTA01T2")
+    second = FakeCsonicHost("prime", "VrfARISTA03T2")
+    first.config_results = [
+        {"failed": False, "rc": 0},
+        {"failed": True, "rc": 7, "stderr": "neighbor rejected"},
+    ]
+    generator = helpers["setup_bgp_graceful_restart"](
+        {"dut": FakeDut()}, "dut",
+        {
+            "ARISTA01T2": _peer(first, "ARISTA01T2"),
+            "ARISTA03T2": _peer(second, "ARISTA03T2"),
+        },
+        T1_LAG,
+    )
+
+    with pytest.raises(pytest.fail.Exception, match="updating nbr hosts"):
+        next(generator)
+
+    assert first.start_count == 1
+    assert second.start_count == 0
+    for host in (first, second):
+        assert any(
+            "no bgp graceful-restart" in call["lines"]
+            for call in host.config_calls
+        )
+        assert any(
+            line.startswith("no neighbor ")
+            for call in host.config_calls
+            for line in call["lines"]
+        )
+
+
+def test_setup_failure_rollback_is_limited_to_shared_t1_lag_groups():
+    helpers = _load(include_fixture=True)
+    shared = FakeCsonicHost("prime", "VrfARISTA01T2")
+    ordinary = FakeCsonicHost("ordinary")
+    ordinary.config_results = [{"failed": True, "rc": 5}]
+    generator = helpers["setup_bgp_graceful_restart"](
+        {"dut": FakeDut()}, "dut",
+        {
+            "ARISTA01T2": _peer(shared, "ARISTA01T2"),
+            "ORDINARY": _peer(ordinary, "ORDINARY"),
+        },
+        T1_LAG,
+    )
+
+    with pytest.raises(pytest.fail.Exception, match="updating nbr hosts"):
+        next(generator)
+
+    assert shared.start_count == 1
+    assert any(
+        "no bgp graceful-restart" in call["lines"]
+        for call in shared.config_calls
+    )
+    assert ordinary.start_count == 0
+    assert not any(
+        any(line.startswith("no ") for line in call["lines"])
+        for call in ordinary.config_calls
+    )
 
 
 def test_ceos_fixture_still_batches_all_vrfs_in_one_eos_config_call():
