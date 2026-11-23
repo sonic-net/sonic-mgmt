@@ -120,7 +120,13 @@ def _configure_ceos_ospf(nbr_info, enable_bfd=False):
                 lines=["no agent Bfd shutdown"],
             )
 
-        lines = ["router-id {}".format(loopback.split("/", 1)[0])]
+        # Stock VPP does not map the OSPF CoPP trap to a dataplane match key.
+        # Use NBMA unicast hellos so the existing local-protocol punt can
+        # deliver OSPF to FRR without a platform-specific multicast trap.
+        lines = [
+            "router-id {}".format(loopback.split("/", 1)[0]),
+            "neighbor {}".format(ipv4),
+        ]
         if enable_bfd:
             lines.extend(["bfd default", "bfd adjacency state any"])
         details["ospf_process_changed"] = True
@@ -135,7 +141,10 @@ def _configure_ceos_ospf(nbr_info, enable_bfd=False):
             details["ospf_interfaces"].append(interface)
             lines = ["ip ospf area 0.0.0.0"]
             if interface.startswith("Port-Channel"):
-                lines.append("ip ospf mtu-ignore")
+                lines.extend([
+                    "ip ospf mtu-ignore",
+                    "ip ospf network non-broadcast",
+                ])
             _eos_config_or_raise(
                 host,
                 "enabling OSPF on {} {}".format(host.hostname, interface),
@@ -163,7 +172,10 @@ def _cleanup_ceos_ospf(host, details):
     for interface in reversed(details.get("ospf_interfaces", [])):
         lines = ["no ip ospf area 0.0.0.0"]
         if interface.startswith("Port-Channel"):
-            lines.append("no ip ospf mtu-ignore")
+            lines.extend([
+                "no ip ospf mtu-ignore",
+                "no ip ospf network non-broadcast",
+            ])
         cleanup(
             "removing OSPF from {} {}".format(host.hostname, interface),
             lines=lines,
@@ -202,19 +214,22 @@ def _linux_interface_for_peer(host, peer_ip):
 
 
 def _configure_dut_ospf(duthost, peer_ips, dut_asn):
+    peer_ips = list(peer_ips)
     _start_dut_daemon(duthost, "ospfd")
     interfaces = sorted({_linux_interface_for_peer(duthost, ip) for ip in peer_ips})
     commands = [
         "configure terminal",
         "no router bgp {}".format(dut_asn),
         "router ospf",
-        "exit",
     ]
+    commands.extend("neighbor {}".format(ip) for ip in peer_ips)
+    commands.append("exit")
     for interface in interfaces:
         commands.extend([
             "interface {}".format(interface),
             "ip ospf area 0.0.0.0",
             "ip ospf mtu-ignore",
+            "ip ospf network non-broadcast",
             "exit",
         ])
     commands.extend(["do write", "end"])
