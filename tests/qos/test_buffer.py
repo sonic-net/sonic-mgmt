@@ -1695,11 +1695,6 @@ def test_shared_headroom_pool_configure(duthosts,
         if not shp_enabled:
             return
 
-        duthost.shell(
-            'config buffer shared-headroom-pool over-subscribe-ratio 2')
-        if original_configured_shp_size and original_configured_shp_size != '0':
-            duthost.shell('config buffer shared-headroom-pool size 0')
-
         # Make sure the shared headroom pool configuration has been deployed
         def _check_shp_config_deployed(duthost):
             pool_info = duthost.shell(
