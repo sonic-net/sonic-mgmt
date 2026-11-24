@@ -209,19 +209,27 @@ class SonicProcess(Process):
     def is_running(self):
         return self.is_alive()
 
-    @property
-    def exception(self):
-        """Read exception data once and close parent-side pipe."""
+    def read_exception(self, final=False):
+        """Keep a live empty pipe pending; finalize only payload or terminal read."""
         if not self._exception_read:
+            received = False
             try:
                 if self._pconn.poll():
                     self._exception = self._pconn.recv()
+                    received = True
             except (EOFError, OSError):
-                pass
+                # An ended/broken pipe is terminal, not a reusable pending read.
+                received = True
             finally:
-                self._pconn.close()
-                self._exception_read = True
+                if received or final:
+                    self._pconn.close()
+                    self._exception_read = True
         return self._exception
+
+    @property
+    def exception(self):
+        """Preserve the legacy one-shot read/close behavior for other callers."""
+        return self.read_exception(final=True)
 
 
 def parallel_run(
@@ -353,7 +361,8 @@ def parallel_run(
         # Therefore, explicitly check the processes exception to prevent any error miss.
         logger.info("Force read exception regardless of whether the process exited normally.")
         for worker in gone + alive:
-            worker_exception = worker.exception  # Force-read to prevent pipe hangs
+            worker_exception = (worker.read_exception(final=worker in gone) if sanity_check is not None
+                                else worker.exception)  # Drain available payload without closing a live empty pipe
             if worker_exception is not None:
                 logger.info(f"Process {worker.name} has exception, is_alive={worker.is_running()}, record the error.")
                 failed_processes[worker.name] = {

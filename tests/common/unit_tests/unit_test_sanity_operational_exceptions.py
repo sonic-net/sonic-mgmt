@@ -694,6 +694,7 @@ class SanityControls(unittest.TestCase):
 
             def process(**kwargs):
                 worker.name = kwargs["name"]
+                worker.read_exception = lambda final=False: worker.exception
                 return worker
 
             def wait(workers, **kwargs):
@@ -740,6 +741,7 @@ class SanityControls(unittest.TestCase):
     @staticmethod
     def named_worker(worker, name):
         worker.name = name
+        worker.read_exception = lambda final=False: worker.exception
         return worker
 
     def test_successful_neighbor_keyed_workers_keep_existing_result_schema(self):
@@ -819,6 +821,7 @@ class SanityControls(unittest.TestCase):
             worker = SimpleNamespace(name=kwargs['name'], pid=123, exitcode=0, exception=None, start=Mock(),
                                      is_alive=lambda: False, is_running=lambda: False,
                                      results=kwargs['kwargs']['results'])
+            worker.read_exception = lambda final=False: worker.exception
             workers[hostname] = worker
             return worker
 
@@ -845,6 +848,90 @@ class SanityControls(unittest.TestCase):
                          [self.process_failure, caught.exception.results['dut2']])
         self.ns['recover'].assert_not_called()
 
+    def test_live_empty_pipe_retains_late_exception_and_terminal_no_error(self):
+        source = next(node for node in ast.parse(PARALLEL.read_text()).body
+                      if isinstance(node, ast.ClassDef) and node.name == 'SonicProcess')
+        methods = [node for node in source.body if isinstance(node, ast.FunctionDef)
+                   and node.name in ('read_exception', 'exception')]
+        selected = ast.ClassDef(name='PipeReader', bases=[], keywords=[], body=methods, decorator_list=[])
+        ast.fix_missing_locations(selected)
+        namespace = {}
+        exec(compile(ast.Module(body=[selected], type_ignores=[]), str(PARALLEL), 'exec'), namespace)
+        for payload in [(RunAnsibleModuleFail('command'), 'traceback'), None]:
+            reader = namespace['PipeReader']()
+            reader._exception, reader._exception_read = None, False
+            reader._pconn = Mock()
+            reader._pconn.poll.side_effect = [False, True]
+            reader._pconn.recv.return_value = payload
+            self.assertIsNone(reader.read_exception(final=False))
+            self.assertFalse(reader._exception_read)
+            reader._pconn.close.assert_not_called()
+            self.assertIs(reader.read_exception(final=True), payload)
+            self.assertTrue(reader._exception_read)
+            reader._pconn.close.assert_called_once()
+            self.assertIs(reader.read_exception(), payload)
+            reader._pconn.recv.assert_called_once()
+        reader = namespace['PipeReader']()
+        reader._exception, reader._exception_read = None, False
+        reader._pconn = Mock()
+        reader._pconn.poll.return_value = False
+        self.assertIsNone(reader.exception)
+        self.assertTrue(reader._exception_read)  # Legacy property still finalizes.
+        reader._pconn.close.assert_called_once()
+
+    def test_late_operational_exception_after_pending_poll_is_collected(self):
+        load(PARALLEL, ['parallel_run'], self.ns)
+        results, reads = {}, []
+        error = RunAnsibleModuleFail('command')
+        worker = SimpleNamespace(name='late-worker', pid=123, exitcode=None, start=Mock(),
+                                 exception=None, is_alive=lambda: True, is_running=lambda: True)
+        self.phase = 0
+
+        def read(final=False):
+            reads.append(final)
+            return (error, 'private traceback') if self.phase == 2 else None
+
+        worker.read_exception = read
+
+        def process(**kwargs):
+            worker.name = kwargs['name']
+            return worker
+
+        def wait(active, **kwargs):
+            self.phase += 1
+            if self.phase == 1:
+                # Include a successful peer so normal parallel_run continues
+                # rather than treating all live workers as timed out.
+                return [workers[1]], [workers[0]]
+            worker.exitcode = 1
+            return [worker], []
+
+        workers = []
+
+        def create(**kwargs):
+            if not workers:
+                created = process(**kwargs)
+            else:
+                created = SimpleNamespace(name=kwargs['name'], pid=124, exitcode=0, exception=None, start=Mock(),
+                                          read_exception=lambda final=False: None,
+                                          is_alive=lambda: False, is_running=lambda: False)
+                kwargs['kwargs']['results']['dut2'] = {'host': 'dut2', 'failed': False, 'check_item': 'dbmemory'}
+            workers.append(created)
+            return created
+
+        self.ns.update({'Manager': lambda: SimpleNamespace(dict=self.manager_maps(results)),
+                        'datetime': datetime, 'math': math, 'SonicProcess': create, 'wait_procs': wait,
+                        'fix_logging_handler_fork_lock': Mock()})
+        with self.ns['sanity_worker_context']('check_dbmemory'):
+            with self.assertRaises(self.ns['SanityWorkerError']) as caught:
+                self.ns['parallel_run'](self.worker_failure, (), {},
+                                        [self.host, SimpleNamespace(hostname='dut2')], timeout=1,
+                                        init_result={'failed': False, 'check_item': 'dbmemory'})
+        self.assertEqual(reads, [False, True])
+        self.assertTrue(caught.exception.failures[0]['operational'])
+        self.assertEqual(caught.exception.failures[0]['exception_type'], 'RunAnsibleModuleFail')
+        self.assertEqual(set(caught.exception.results), {'dut2'})
+
     def test_operational_worker_and_timed_out_peer_are_attributed_without_placeholder_pass(self):
         load(PARALLEL, ['parallel_run'], self.ns)
         for order in [('dut1', 'dut2', 'dut3'), ('dut2', 'dut1', 'dut3')]:
@@ -865,6 +952,7 @@ class SanityControls(unittest.TestCase):
                     worker.is_alive = lambda worker=worker: worker.alive
                     worker.is_running = worker.is_alive
                     worker.results = kwargs['kwargs']['results']
+                    worker.read_exception = lambda final=False, worker=worker: worker.exception
                     workers[node.hostname] = worker
                     return worker
 
