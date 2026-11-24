@@ -100,6 +100,7 @@ def regenerate_and_apply_golden_config_db(dut, tbinfo, conn_graph_facts, dns_con
 def restore_image_ut2(localhost, duthosts, upgrade_path_lists, tbinfo, conn_graph_facts):
     """Restore a standalone UT2 image and its golden configuration after the test."""
     dns_config = None
+    dut = None
     if 't2_single_node' in tbinfo['topo']['name']:
         dut = duthosts[0]
         config = json.loads(dut.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
@@ -108,7 +109,7 @@ def restore_image_ut2(localhost, duthosts, upgrade_path_lists, tbinfo, conn_grap
     yield dns_config
 
     restore_to_image = upgrade_path_lists[3]
-    if dns_config is not None and restore_to_image:
+    if dut and dns_config and restore_to_image:
         logger.info("Preparing to cleanup and restore to {}".format(restore_to_image))
         install_sonic(dut, restore_to_image, tbinfo)
         reboot(dut, localhost)
