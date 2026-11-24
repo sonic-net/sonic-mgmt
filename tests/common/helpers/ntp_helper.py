@@ -240,8 +240,14 @@ def run_ntp(duthost, ntp_daemon_in_use):
         duthost.command("timeout 20 ntpd -gq -u {}".format(ntp_uid))
         duthost.service(name='ntp', state='restarted')
     elif ntp_daemon_in_use == NtpDaemon.CHRONY:
-        duthost.service(name='chrony', state='stopped')
-        duthost.command("timeout 20 chronyd -q -F 1")
+        # ConfigDB updates restart Chrony asynchronously. Its ExecStartPre
+        # generates chrony.conf, so wait for a native service restart to finish
+        # before stopping it for one-shot synchronization.
         duthost.service(name='chrony', state='restarted')
+        duthost.service(name='chrony', state='stopped')
+        try:
+            duthost.command("timeout 20 chronyd -q -F 1")
+        finally:
+            duthost.service(name='chrony', state='restarted')
     pytest_assert(wait_until(720, 10, 0, check_ntp_status, duthost, ntp_daemon_in_use),
                   "NTP not in sync")
