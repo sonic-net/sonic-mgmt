@@ -6,7 +6,7 @@ This module provides a user-friendly wrapper around PtfGrpc for gNOI
 gRPC complexity behind clean, Pythonic method interfaces.
 """
 import logging
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
@@ -66,6 +66,86 @@ class PtfGnoi:
                 logger.warning(f"Failed to convert time to int: {e}")
 
         return response
+
+    def system_traceroute(
+        self,
+        destination: str,
+        initial_ttl: Optional[int] = None,
+        max_ttl: Optional[int] = None,
+        wait: Optional[int] = None,
+        source: Optional[str] = None,
+        do_not_fragment: bool = False,
+        do_not_resolve: bool = False,
+        l3protocol: Optional[str] = None,
+        l4protocol: Optional[str] = None,
+        network_instance: Optional[str] = None,
+        metadata=None,
+    ) -> List[Dict]:
+        """
+        Trace the route to a destination from the device using gNOI System.Traceroute
+        (server-streaming RPC).
+
+        The request is sent as given, without client-side validation, so that
+        the server's handling of invalid requests can be tested.
+
+        Args:
+            destination: Address or host name to trace the route to
+            initial_ttl: TTL of the first probes
+            max_ttl: Maximum number of hops
+            wait: Time to wait for a reply to a probe, in nanoseconds
+            source: Source address to send the probes from
+            do_not_fragment: Set the do-not-fragment bit (IPv4 only)
+            do_not_resolve: Do not resolve the hop addresses to names
+            l3protocol: L3Protocol enum name ("IPV4" or "IPV6")
+            l4protocol: L4Protocol enum name ("ICMP", "TCP" or "UDP")
+            network_instance: Network instance (VRF) to trace the route in
+
+        Returns:
+            List of response dicts: first a summary with the destination
+            address and hop limit, then one per probe with its hop, address
+            and round-trip time. Fields that are zero are omitted; the int64
+            rtt field is converted to int.
+
+        Raises:
+            GrpcConnectionError: If connection fails
+            GrpcCallError: If the gRPC call fails
+            GrpcTimeoutError: If the call times out
+        """
+        request: Dict = {}
+        if destination:
+            request["destination"] = destination
+        if initial_ttl is not None:
+            request["initial_ttl"] = initial_ttl
+        if max_ttl is not None:
+            request["max_ttl"] = max_ttl
+        if wait is not None:
+            request["wait"] = wait
+        if source:
+            request["source"] = source
+        if do_not_fragment:
+            request["do_not_fragment"] = True
+        if do_not_resolve:
+            request["do_not_resolve"] = True
+        if l3protocol:
+            request["l3protocol"] = l3protocol
+        if l4protocol:
+            request["l4protocol"] = l4protocol
+        if network_instance:
+            request["network_instance"] = network_instance
+
+        logger.debug("Traceroute via gNOI System.Traceroute: %s", request)
+
+        responses = self.grpc_client.call_server_streaming(
+            "gnoi.system.System", "Traceroute", request, metadata=metadata
+        )
+
+        # int64 fields are encoded as JSON strings
+        for response in responses:
+            if "rtt" in response:
+                response["rtt"] = int(response["rtt"])
+
+        logger.info("Traceroute %s: received %d responses", destination, len(responses))
+        return responses
 
     # File service operations
     # TODO: Add file_get(), file_put(), file_remove() methods
