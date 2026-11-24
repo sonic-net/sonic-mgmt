@@ -411,7 +411,7 @@ class QosSaiBase(QosBase):
                 return dump_buffer_profile
 
         result = dut_asic.run_redis_cmd(
-            argv=redis_cli_argv(dut_asic, db) + ["HGETALL", bufferProfileName]
+            argv=redis_cli_argv(dut_asic, db, use_tcp=False) + ["HGETALL", bufferProfileName]
         )
         it = iter(result)
         bufferProfile = dict(list(zip(it, it)))
@@ -461,7 +461,7 @@ class QosSaiBase(QosBase):
             db = "CONFIG_DB"
             keystr = "BUFFER_POOL|ingress_lossless_pool"
         result = dut_asic.run_redis_cmd(
-            argv=redis_cli_argv(dut_asic, db) + ["HGETALL", keystr]
+            argv=redis_cli_argv(dut_asic, db, use_tcp=False) + ["HGETALL", keystr]
         )
         it = iter(result)
         ingressLosslessPool = dict(list(zip(it, it)))
@@ -506,7 +506,7 @@ class QosSaiBase(QosBase):
             )[0])
 
         result = dut_asic.run_redis_cmd(
-            argv=redis_cli_argv(dut_asic, 'CONFIG_DB') + ["HGETALL", wredProfileName]
+            argv=redis_cli_argv(dut_asic, 'CONFIG_DB', use_tcp=False) + ["HGETALL", wredProfileName]
         )
         it = iter(result)
         wredProfile = dict(list(zip(it, it)))
@@ -3008,7 +3008,7 @@ class QosSaiBase(QosBase):
         """
         ptf_port_dut_port_dict = dict(zip(mgFacts["minigraph_ptf_indices"].values(),
                                           mgFacts["minigraph_ptf_indices"].keys()))
-        get_interface_cable_length_info = (redis_cli_command(duthost, 'CONFIG_DB') + ' hgetall "CABLE_LENGTH|AZURE"')
+        get_interface_cable_length_info = (redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + ' hgetall "CABLE_LENGTH|AZURE"')
         interface_cable_length_list = duthost.shell(get_interface_cable_length_info)['stdout_lines']
         interface_status = duthost.show_interface(command="status")["ansible_facts"]['int_status']
 

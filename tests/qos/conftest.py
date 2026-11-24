@@ -159,7 +159,7 @@ def is_lossy_only_pool(duthost):
     Args:
         duthost: The DUT host fixtute
     """
-    cables_len_data = duthost.shell((redis_cli_command(duthost, 'CONFIG_DB') +
+    cables_len_data = duthost.shell((redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) +
                                     " hgetall 'CABLE_LENGTH|AZURE'"))['stdout'].splitlines()
     all_zero_m = all(cables_len_data[i + 1] == "0m" for i in range(0, len(cables_len_data), 2))
     yield all_zero_m

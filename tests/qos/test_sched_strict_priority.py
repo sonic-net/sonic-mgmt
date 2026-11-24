@@ -469,7 +469,7 @@ class StrictPriorityRateLimitingDriver:
 
             # Show the queue configuration after setting scheduler
             queue_config = self.duthost.shell(
-                (redis_cli_command(self.duthost, 'CONFIG_DB') + f" HGETALL '{queue_key}'"))
+                (redis_cli_command(self.duthost, 'CONFIG_DB', use_tcp=False) + f" HGETALL '{queue_key}'"))
             logger.info("Queue configuration after setting scheduler:")
             logger.info(f"  {queue_config['stdout']}")
 

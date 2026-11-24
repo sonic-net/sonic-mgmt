@@ -640,7 +640,7 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
 
 def get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid):
     pool_sai = _compose_dict_from_cli(duthost.shell(
-        (redis_cli_command(duthost, 'ASIC_DB') + ' hgetall ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_POOL:{}'
+        (redis_cli_command(duthost, 'ASIC_DB', use_tcp=False) + ' hgetall ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_POOL:{}'
          .format(ingress_lossless_pool_oid)))['stdout'].split('\n'))
     return pool_sai.get('SAI_BUFFER_POOL_ATTR_SIZE'), pool_sai.get('SAI_BUFFER_POOL_ATTR_XOFF_SIZE')
 
@@ -661,7 +661,7 @@ def ensure_pool_size(duthost, timeout, expected_pool_size, expected_shp_size, in
             duthost.shell(
                 (redis_cli_command(
                     duthost,
-                    'APPL_DB') +
+                    'APPL_DB', use_tcp=False) +
                     ' hgetall "BUFFER_POOL_TABLE:ingress_lossless_pool"'))['stdout'].split('\n'))
 
         if expected_pool_size and int(pool_app['size']) != expected_pool_size:
@@ -752,18 +752,18 @@ def check_lossless_profile_removed(duthost, profile, sai_oid=None):
                  If it is None the ASIC_DB won't be checked
     """
     profile_info = duthost.shell(
-        (redis_cli_command(duthost, 'STATE_DB') + ' hgetall "BUFFER_PROFILE_TABLE|{}"'.format(profile)))['stdout']
+        (redis_cli_command(duthost, 'STATE_DB', use_tcp=False) + ' hgetall "BUFFER_PROFILE_TABLE|{}"'.format(profile)))['stdout']
     pytest_assert(not profile_info,
                   "Profile {} isn't removed from STATE_DB".format(profile))
     profile_info = duthost.shell(
-        (redis_cli_command(duthost, 'APPL_DB') + ' hgetall "BUFFER_PROFILE_TABLE:{}"'.format(profile)))['stdout']
+        (redis_cli_command(duthost, 'APPL_DB', use_tcp=False) + ' hgetall "BUFFER_PROFILE_TABLE:{}"'.format(profile)))['stdout']
     pytest_assert(not profile_info,
                   "Profile {} isn't removed from APPL_DB".format(profile))
     logging.debug(
         'Profile {} has been removed from STATE_DB and APPL_DB'.format(profile))
     if sai_oid:
         profile_info = duthost.shell(
-            (redis_cli_command(duthost, 'ASIC_DB') + ' hgetall {}'.format(sai_oid)))['stdout']
+            (redis_cli_command(duthost, 'ASIC_DB', use_tcp=False) + ' hgetall {}'.format(sai_oid)))['stdout']
         pytest_assert(
             not profile_info, "Profile {} hasn't been removed from ASIC_DB".format(sai_oid))
 
@@ -804,7 +804,7 @@ def check_buffer_profile_details(duthost, initial_profiles, profile_name, profil
         duthost.shell(
             (redis_cli_command(
                 duthost,
-                'APPL_DB') +
+                'APPL_DB', use_tcp=False) +
                 ' hgetall BUFFER_PROFILE_TABLE:{}'.format(profile_name)))['stdout'].split('\n'))
     logging.debug("APPL_DB buffer profile {}: {} ".format(
         profile_name, profile_appldb))
@@ -874,7 +874,7 @@ def check_buffer_profile_details(duthost, initial_profiles, profile_name, profil
         initial_profiles, profiles_in_asicdb, diff))
 
     profile_sai = _compose_dict_from_cli(duthost.shell(
-        (redis_cli_command(duthost, 'ASIC_DB') + ' hgetall {}'.format(profile_oid)))['stdout'].split('\n'))
+        (redis_cli_command(duthost, 'ASIC_DB', use_tcp=False) + ' hgetall {}'.format(profile_oid)))['stdout'].split('\n'))
 
     logging.debug("SAI object for new profile {}: oid {} content {}".format(
         profile_name, profile_oid, profile_sai))
@@ -1514,7 +1514,7 @@ def test_headroom_override(duthosts, rand_one_dut_hostname, conn_graph_facts, po
             'config buffer profile remove headroom-override', module_ignore_errors=True)
 
         profile = duthost.shell(
-            (redis_cli_command(duthost, 'APPL_DB') + ' hgetall "BUFFER_PROFILE_TABLE:headroom-override"'))['stdout']
+            (redis_cli_command(duthost, 'APPL_DB', use_tcp=False) + ' hgetall "BUFFER_PROFILE_TABLE:headroom-override"'))['stdout']
         pytest_assert(
             profile, 'Headroom override profile has been removed when being referenced')
         logging.info("[Restore configuration]")
@@ -1552,7 +1552,7 @@ def check_buffer_profiles_for_shp(duthost, shp_enabled=True):
             m = re.search(LOSSLESS_PROFILE_PATTERN, profile_name)
             if m:
                 profile_obj = _compose_dict_from_cli(duthost.shell(
-                    (redis_cli_command(duthost, 'APPL_DB') + ' hgetall {}'.format(profile_name)))['stdout'].split('\n'))
+                    (redis_cli_command(duthost, 'APPL_DB', use_tcp=False) + ' hgetall {}'.format(profile_name)))['stdout'].split('\n'))
                 if shp_enabled:
                     if not profile_obj['xon'] == profile_obj['size']:
                         return False
@@ -1632,7 +1632,7 @@ def test_shared_headroom_pool_configure(duthosts,
                 lambda: duthost.shell(
                     (redis_cli_command(
                         duthost,
-                        'APPL_DB') +
+                        'APPL_DB', use_tcp=False) +
                         ' hgetall "BUFFER_PROFILE_TABLE:{}"'.format(expected_profile)))['stdout'] != ''),
             "Buffer profile {} not created in time".format(expected_profile))
         profile_oid, pool_oid = check_buffer_profile_details(
@@ -1651,7 +1651,7 @@ def test_shared_headroom_pool_configure(duthosts,
                 lambda: duthost.shell(
                     (redis_cli_command(
                         duthost,
-                        'APPL_DB') +
+                        'APPL_DB', use_tcp=False) +
                         ' hgetall "BUFFER_PROFILE_TABLE:{}"'.format(restored_profile)))['stdout'] != ''),
             "Buffer profile {} not restored in time".format(restored_profile))
 
@@ -2637,7 +2637,7 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname,
             duthost.shell(
                 (redis_cli_command(
                     duthost,
-                    'APPL_DB') +
+                    'APPL_DB', use_tcp=False) +
                     ' hgetall BUFFER_PROFILE_TABLE:{}'.format(maximum_profile_name)))['stdout'].split())
 
         # Config the cable length to the longest acceptable value and check the profile
@@ -3016,11 +3016,11 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
 
     # Check whether the COUNTERS_PG_NAME_MAP and COUNTERS_QUEUE_NAME_MAP exists. Skip ASIC_DB checking if it isn't
     pg_name_map = _compose_dict_from_cli(duthost.shell(
-        (redis_cli_command(duthost, 'COUNTERS_DB') + ' hgetall COUNTERS_PG_NAME_MAP'))['stdout'].split())
+        (redis_cli_command(duthost, 'COUNTERS_DB', use_tcp=False) + ' hgetall COUNTERS_PG_NAME_MAP'))['stdout'].split())
     queue_name_map = _compose_dict_from_cli(duthost.shell(
-        (redis_cli_command(duthost, 'COUNTERS_DB') + ' hgetall COUNTERS_QUEUE_NAME_MAP'))['stdout'].split())
+        (redis_cli_command(duthost, 'COUNTERS_DB', use_tcp=False) + ' hgetall COUNTERS_QUEUE_NAME_MAP'))['stdout'].split())
     cable_length_map = _compose_dict_from_cli(duthost.shell(
-        (redis_cli_command(duthost, 'CONFIG_DB') + ' hgetall "CABLE_LENGTH|AZURE"'))['stdout'].split())
+        (redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + ' hgetall "CABLE_LENGTH|AZURE"'))['stdout'].split())
 
     if not pg_name_map or not queue_name_map or not cable_length_map:
         raise Exception("COUNTERS_PG_NAME_MAP, COUNTERS_QUEUE_NAME_MAP or CABLE_LENGTH|AZURE not found in the database")
@@ -3339,7 +3339,7 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     # effective speed is the maximum speed in the speeds list
     # else the effective speed can not be conducted and the test fail
     port_info = _compose_dict_from_cli(duthost.shell(
-        (redis_cli_command(duthost, 'CONFIG_DB') + ' hgetall "PORT|{}"'.format(port_to_test)))['stdout'].split('\n'))
+        (redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + ' hgetall "PORT|{}"'.format(port_to_test)))['stdout'].split('\n'))
     if port_info.get('autoneg') == 'on':
         adv_speeds = port_info.get('adv_speeds')
         if adv_speeds and adv_speeds != 'all':
