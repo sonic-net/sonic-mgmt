@@ -10,7 +10,7 @@ from collections import defaultdict
 
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, DisableLogrotateCronContext
 
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, is_neighbor_of_type
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 
 from tests.ptf_runner import ptf_runner
@@ -284,7 +284,7 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a="ethernet"
             minigraph_facts = dut.get_extended_minigraph_facts(tbinfo)
             minigraph_neighbors = minigraph_facts['minigraph_neighbors']
             for key, value in list(minigraph_neighbors.items()):
-                if 'T3' in value['name']:
+                if is_neighbor_of_type(value['name'], 'T3', tbinfo):
                     other_dut_to_use = dut
                     break
 

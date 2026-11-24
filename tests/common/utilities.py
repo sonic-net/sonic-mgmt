@@ -958,6 +958,25 @@ def get_image_type(duthost):
     return "public"
 
 
+# FW4 (FairWater) single-node T2 topologies name their upstream core VMs AristaT2xx / AristaFwaXX
+# instead of ARISTAxxT3.
+FW4_UPSTREAM_NEIGHBOR_PATTERN = re.compile(r"^arista(?:t2|fwa)\d+$", re.IGNORECASE)
+
+
+def is_neighbor_of_type(neighbor_name, neigh_type, tbinfo):
+    """
+    @summary: Check whether a neighbor belongs to a neighbor type such as "T3"
+    @param neighbor_name: neighbor name from minigraph or the topology file
+    @param neigh_type: neighbor type that is part of the neighbor name, e.g. "T3" or "t3"
+    @param tbinfo: testbed info
+    @return True if the neighbor is of the given type
+    """
+    if neigh_type in neighbor_name:
+        return True
+    return (neigh_type.upper() == "T3" and "fw4" in tbinfo["topo"]["name"]
+            and FW4_UPSTREAM_NEIGHBOR_PATTERN.match(neighbor_name) is not None)
+
+
 def find_duthost_on_role(duthosts, role, tbinfo):
     role_set = False
     role_host = None
@@ -969,7 +988,7 @@ def find_duthost_on_role(duthosts, role, tbinfo):
 
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
-            if role in neighbor["name"]:
+            if is_neighbor_of_type(neighbor["name"], role, tbinfo):
                 role_host = duthost
                 role_set = True
     pytest_assert(role_host, "Could not find {} duthost".format(role))

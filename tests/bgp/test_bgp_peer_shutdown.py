@@ -63,7 +63,9 @@ def common_setup_teardown(
     elif dut_type == "UpperSpineRouter" and confed_asn is not None:
         # On confederation-based UT2 topologies the UpperSpineRouter peers with
         # AZNGHub neighbors using the confederation ASN, not the per-DUT ASN.
-        neigh_type = "AZNGHub"
+        # FW4 does not run azng_migration, so AZNGHub peers only accept FABRIC_INFRA_COMMUNITY
+        # routes there; use the FrontEndWanAggregator peer type, which accepts all routes.
+        neigh_type = "FrontEndWanAggregator" if "fw4" in tbinfo["topo"]["name"] else "AZNGHub"
         dut_asn = int(confed_asn)
     elif dut_type in ["UpperSpineRouter", "FabricSpineRouter"]:
         neigh_type = "LowerSpineRouter"
