@@ -16,7 +16,7 @@ import math
 import pickle
 import unittest
 from collections import defaultdict
-from collections.abc import Mapping
+from collections.abc import Mapping, MutableMapping
 from contextlib import contextmanager, nullcontext
 from contextvars import ContextVar
 from pathlib import Path
@@ -39,7 +39,11 @@ class Skipped(BaseException):
 
 
 class RunAnsibleModuleFail(Exception):
-    pass
+    def __init__(self, message, results=None):
+        super().__init__(message)
+        # Existing controls simulate a genuine command nonzero, not a blanket
+        # recoverable exception type. Explicit negative cases override results.
+        self.results = results if results is not None else {'cmd': 'redis-cli client list', 'rc': 1}
 
 
 class AnsibleConnectionFailure(Exception):
@@ -95,6 +99,7 @@ class SanityControls(unittest.TestCase):
             "PytestAnsibleConnectionFailure": PytestAnsibleConnectionFailure,
             "logger": Mock(), "pytest": SimpleNamespace(fail=fail),
             "copy": copy, "json": json, "defaultdict": defaultdict, "Mapping": Mapping,
+            "MutableMapping": MutableMapping,
             "DUT_CHECK_NAMESPACE": "dut", "STAGE_PRE_TEST": "pre", "STAGE_POST_TEST": "post",
             "pt_assert": check_assert,
             "add_custom_msg": lambda request, key, value: self.messages.append((key, value)),
@@ -104,7 +109,8 @@ class SanityControls(unittest.TestCase):
             "print_logs": Mock(), "filter_check_items": lambda tb, hosts, items: items,
             "recover": Mock(), "recover_chassis": Mock(),
         }
-        load(PARALLEL, ["SanityWorkerError", "sanity_worker_context", "_sanity_worker_failure"], self.ns)
+        load(PARALLEL, ["SanityWorkerError", "sanity_worker_context", "_PublishedResults", "_is_command_result",
+                        "_is_operational_module_result", "_sanity_worker_failure"], self.ns)
         # Enable round-trip pickling of the actual AST-loaded carrier class.
         globals()["SanityWorkerError"] = self.ns["SanityWorkerError"]
         load(SANITY, ["fallback_serializer", "_update_check_items", "_validate_check_result",
@@ -177,6 +183,35 @@ class SanityControls(unittest.TestCase):
         detail = self.ns["_sanity_worker_failure"](
             "check_dbmemory", "dut1", (KeyError("Host unreachable in the inventory"), "traceback"))
         self.assertFalse(detail['operational'])
+
+    def test_actual_module_error_class_requires_structured_operational_evidence(self):
+        namespace = {'AnsibleError': Exception}
+        load(COMMON / 'errors.py', ['RunAnsibleModuleFail'], namespace)
+        actual_type = namespace['RunAnsibleModuleFail']
+        self.ns['RunAnsibleModuleFail'] = actual_type
+        positive = [
+            {'cmd': 'redis-cli client list', 'rc': 1},
+            {'cmd': 'redis-cli client list', 'rc': 1, 'exception': '(traceback unavailable)'},
+            {'unreachable': True},
+            {'results': [{'cmd': 'redis-cli', 'rc': 1}, {'cmd': 'true', 'rc': 0}]},
+        ]
+        negative = [None, {'failed': True, 'msg': 'unsupported parameters'},
+                    {'cmd': 'redis-cli', 'rc': 0, 'exception': 'Traceback: TypeError'},
+                    {'cmd': 'redis-cli', 'rc': 1, 'exception': 'Traceback: programming bug'},
+                    {'cmd': 'redis-cli', 'rc': '1'},
+                    {'results': [{'cmd': 'true', 'rc': 0}, {'exception': 'module bug'}]}]
+        for result in positive + negative:
+            error = actual_type('safe-control-message', result)
+            summary = self.ns['_sanity_worker_failure']('check_dbmemory', 'dut1', (error, 'private traceback'))
+            self.assertEqual(summary['operational'], result in positive)
+            self.fixtures['check_dbmemory'].side_effect = self.ns['SanityWorkerError']([summary], {})
+            if result in positive:
+                self.assertTrue(self.checks()[-1]['failed'])
+            else:
+                with self.assertRaises(self.ns['SanityWorkerError']) as caught:
+                    self.checks()
+                self.assertEqual(caught.exception.sanity_check_results, [self.process_failure])
+                self.ns['recover'].assert_not_called()
 
     def test_other_workers_completed_results_are_retained(self):
         completed = dict(self.normal, host="dut2")
@@ -694,6 +729,15 @@ class SanityControls(unittest.TestCase):
             self.assertIsNone(self.ns["_sanity_worker_check"].get())
 
     @staticmethod
+    def manager_maps(results):
+        maps = iter([results, {}])
+        return lambda: next(maps)
+
+    def publishing_worker(self, worker, kwargs):
+        self.worker_results = kwargs['kwargs']['results']
+        return self.named_worker(worker, kwargs['name'])
+
+    @staticmethod
     def named_worker(worker, name):
         worker.name = name
         return worker
@@ -705,17 +749,101 @@ class SanityControls(unittest.TestCase):
                                  is_alive=lambda: False, is_running=lambda: False)
 
         def wait(active, **kwargs):
-            results['neighbor1'] = False
+            self.worker_results['neighbor1'] = False
             return list(active), []
 
-        self.ns.update({'Manager': lambda: SimpleNamespace(dict=lambda: results), 'datetime': datetime, 'math': math,
-                        'SonicProcess': lambda **kwargs: self.named_worker(worker, kwargs['name']), 'wait_procs': wait,
+        self.ns.update({'Manager': lambda: SimpleNamespace(dict=self.manager_maps(results)),
+                        'datetime': datetime, 'math': math,
+                        'SonicProcess': lambda **kwargs: self.publishing_worker(worker, kwargs),
+                        'wait_procs': wait,
                         'fix_logging_handler_fork_lock': Mock()})
         # Actual neighbor checks use dictionary nodes and key by neighbor name,
         # not hostname. All completed success must preserve those raw booleans.
         with self.ns['sanity_worker_context']('check_neighbor_macsec_empty'):
             returned = self.ns['parallel_run'](self.worker_failure, (), {}, [{'nbr_name': 'neighbor1'}], timeout=1)
         self.assertEqual(returned, {'neighbor1': False})
+
+    def test_exit_zero_requires_a_real_write_even_if_identical_to_initial_result(self):
+        load(PARALLEL, ['parallel_run'], self.ns)
+        for publishes in [False, True]:
+            results = {}
+            worker = SimpleNamespace(name='dut-worker', pid=123, exitcode=0, exception=None, start=Mock(),
+                                     is_alive=lambda: False, is_running=lambda: False)
+
+            def wait(active, **kwargs):
+                if publishes:
+                    self.worker_results['dut1'] = dict(results['dut1'])
+                return list(active), []
+
+            self.ns.update({'Manager': lambda: SimpleNamespace(dict=self.manager_maps(results)),
+                            'datetime': datetime, 'math': math,
+                            'SonicProcess': lambda **kwargs: self.publishing_worker(worker, kwargs),
+                            'wait_procs': wait, 'fix_logging_handler_fork_lock': Mock()})
+            with self.ns['sanity_worker_context']('check_dbmemory'):
+                if publishes:
+                    returned = self.ns['parallel_run'](
+                        self.worker_failure, (), {}, [self.host], timeout=1,
+                        init_result={'failed': False, 'check_item': 'dbmemory'})
+                    self.assertEqual(returned, {'dut1': {'host': 'dut1', 'failed': False, 'check_item': 'dbmemory'}})
+                else:
+                    with self.assertRaises(self.ns['SanityWorkerError']) as caught:
+                        self.ns['parallel_run'](
+                            self.worker_failure, (), {}, [self.host], timeout=1,
+                            init_result={'failed': False, 'check_item': 'dbmemory'})
+                    self.assertEqual(caught.exception.results, {})
+                    self.assertFalse(caught.exception.failures[0]['operational'])
+                    self.fixtures['check_dbmemory'].side_effect = caught.exception
+                    with self.assertRaises(self.ns['SanityWorkerError']) as missing:
+                        self.checks('post')
+                    self.assertEqual(missing.exception.sanity_check_results, [self.process_failure])
+                    self.assertTrue(self.cache['post_sanity_check_failed'])
+
+    def test_publication_view_update_preserves_schema_and_independent_write_marker(self):
+        results, published = {}, {}
+        view = self.ns['_PublishedResults'](results, published, 'worker1')
+        view.update({'neighbor1': False})
+        view['neighbor1'] = False
+        self.assertEqual(published, {'worker1': ['neighbor1']})
+        self.assertEqual(dict(view), {'neighbor1': False})
+        # Serialization shape contains proxy references and a primitive name,
+        # not locks/closures. Real Manager IPC remains separate native evidence.
+        self.assertEqual(set(view.__dict__), {'results', 'published', 'worker_name'})
+
+    def test_missing_result_worker_preserves_published_peer_and_never_recovers_programming_gap(self):
+        load(PARALLEL, ['parallel_run'], self.ns)
+        results = {}
+        workers = {}
+
+        def process(**kwargs):
+            hostname = kwargs['kwargs']['node'].hostname
+            worker = SimpleNamespace(name=kwargs['name'], pid=123, exitcode=0, exception=None, start=Mock(),
+                                     is_alive=lambda: False, is_running=lambda: False,
+                                     results=kwargs['kwargs']['results'])
+            workers[hostname] = worker
+            return worker
+
+        def wait(active, **kwargs):
+            workers['dut2'].results['dut2'] = dict(results['dut2'])
+            return list(active), []
+
+        self.ns.update({'Manager': lambda: SimpleNamespace(dict=self.manager_maps(results)),
+                        'datetime': datetime, 'math': math, 'SonicProcess': process, 'wait_procs': wait,
+                        'fix_logging_handler_fork_lock': Mock()})
+        with self.ns['sanity_worker_context']('check_dbmemory'):
+            with self.assertRaises(self.ns['SanityWorkerError']) as caught:
+                self.ns['parallel_run'](self.worker_failure, (), {},
+                                        [self.host, SimpleNamespace(hostname='dut2')], timeout=1,
+                                        init_result={'failed': False, 'check_item': 'dbmemory'})
+        self.assertEqual(caught.exception.results,
+                         {'dut2': {'failed': False, 'check_item': 'dbmemory', 'host': 'dut2'}})
+        self.assertEqual(caught.exception.failures[0]['host'], 'dut1')
+        self.assertFalse(caught.exception.failures[0]['operational'])
+        self.fixtures['check_dbmemory'].side_effect = caught.exception
+        with self.assertRaises(self.ns['SanityWorkerError']) as missing:
+            self.checks('pre')
+        self.assertEqual(missing.exception.sanity_check_results,
+                         [self.process_failure, caught.exception.results['dut2']])
+        self.ns['recover'].assert_not_called()
 
     def test_operational_worker_and_timed_out_peer_are_attributed_without_placeholder_pass(self):
         load(PARALLEL, ['parallel_run'], self.ns)
@@ -736,14 +864,17 @@ class SanityControls(unittest.TestCase):
                                              alive=node.hostname == 'dut2', start=Mock(), terminate=Mock())
                     worker.is_alive = lambda worker=worker: worker.alive
                     worker.is_running = worker.is_alive
+                    worker.results = kwargs['kwargs']['results']
                     workers[node.hostname] = worker
                     return worker
 
                 def wait(active, **kwargs):
                     if len(active) == 3:
-                        results['dut3'] = {'host': 'dut3', 'failed': False, 'check_item': 'dbmemory'}
+                        workers['dut3'].results['dut3'] = {
+                            'host': 'dut3', 'failed': False, 'check_item': 'dbmemory'}
                         if programming is None:
-                            results['dut1'] = {'host': 'dut1', 'failed': False, 'check_item': 'dbmemory'}
+                            workers['dut1'].results['dut1'] = {
+                                'host': 'dut1', 'failed': False, 'check_item': 'dbmemory'}
                         return [workers['dut1'], workers['dut3']], [workers['dut2']]
                     return [], list(active)
 
@@ -752,7 +883,7 @@ class SanityControls(unittest.TestCase):
                         if worker.pid == pid:
                             worker.alive = False
 
-                self.ns.update({'Manager': lambda: SimpleNamespace(dict=lambda: results),
+                self.ns.update({'Manager': lambda: SimpleNamespace(dict=self.manager_maps(results)),
                                 'datetime': datetime, 'math': math, 'SonicProcess': process, 'wait_procs': wait,
                                 'fix_logging_handler_fork_lock': Mock(), 'os': SimpleNamespace(kill=kill),
                                 'signal': SimpleNamespace(SIGKILL=9)})

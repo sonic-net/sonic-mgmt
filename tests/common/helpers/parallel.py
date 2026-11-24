@@ -11,6 +11,7 @@ import time
 import traceback
 from contextlib import contextmanager
 from contextvars import ContextVar
+from collections.abc import Mapping, MutableMapping
 from ansible.errors import AnsibleConnectionFailure
 from pytest_ansible.errors import AnsibleConnectionFailure as PytestAnsibleConnectionFailure
 from tests.common.errors import RunAnsibleModuleFail
@@ -51,11 +52,61 @@ def sanity_worker_context(check_item):
         _sanity_worker_check.reset(token)
 
 
+class _PublishedResults(MutableMapping):
+    """Per-worker view of existing Manager data with independent write evidence."""
+
+    def __init__(self, results, published, worker_name):
+        self.results = results
+        self.published = published
+        self.worker_name = worker_name
+
+    def __getitem__(self, key):
+        return self.results[key]
+
+    def __setitem__(self, key, value):
+        self.results[key] = value
+        keys = list(self.published.get(self.worker_name, []))
+        if key not in keys:
+            keys.append(key)
+        self.published[self.worker_name] = keys
+
+    def __delitem__(self, key):
+        del self.results[key]
+
+    def __iter__(self):
+        return iter(self.results.keys())
+
+    def __len__(self):
+        return len(self.results)
+
+
+def _is_operational_module_result(result):
+    if not isinstance(result, Mapping):
+        return False
+    # This exact Ansible metadata sentinel is not a module traceback. Anything
+    # else in exception remains an execution/programming error, even with rc.
+    if result.get('exception') not in (None, '', '(traceback unavailable)'):
+        return False
+    if result.get('unreachable') is True:
+        return True
+    if isinstance(result.get('results'), list):
+        records = result['results']
+        return bool(records) and all(_is_command_result(record) for record in records) and any(
+            record['rc'] != 0 for record in records)
+    return _is_command_result(result) and result['rc'] != 0
+
+
+def _is_command_result(result):
+    return (isinstance(result, Mapping) and type(result.get('rc')) is int and
+            isinstance(result.get('cmd'), (str, list)) and bool(result['cmd']) and
+            result.get('exception') in (None, '', '(traceback unavailable)'))
+
+
 def _sanity_worker_failure(check_item, hostname, worker_exception):
     error = worker_exception[0] if worker_exception else None
-    operational = isinstance(error, (
-        RunAnsibleModuleFail, AnsibleConnectionFailure, PytestAnsibleConnectionFailure,
-    ))
+    operational = isinstance(error, (AnsibleConnectionFailure, PytestAnsibleConnectionFailure))
+    if isinstance(error, RunAnsibleModuleFail):
+        operational = _is_operational_module_result(error.results)
     return {
         "check_item": check_item,
         "host": hostname,
@@ -240,7 +291,9 @@ def parallel_run(
                     )
 
     workers = []
-    results = Manager().dict()
+    manager = Manager()
+    results = manager.dict()
+    published = manager.dict() if sanity_check is not None else None
     start_time = datetime.datetime.now()
     tasks_done = 0
     total_tasks = len(nodes)
@@ -272,8 +325,9 @@ def parallel_run(
                 init_result["host"] = node.hostname
                 results[node.hostname] = dict(init_result) if sanity_check is not None else init_result
             kwargs['node'] = node
-            kwargs['results'] = results
             process_name = "{}--{}".format(target.__name__, node)
+            kwargs['results'] = (_PublishedResults(results, published, process_name)
+                                 if sanity_check is not None else results)
             worker = SonicProcess(
                         name=process_name, target=target, args=args,
                         kwargs=kwargs
@@ -310,10 +364,16 @@ def parallel_run(
         if sanity_check is not None:
             for worker in gone:
                 if worker.name not in failed_processes and worker.exitcode == 0:
-                    completed_workers.add(worker.name)
+                    keys = published.get(worker.name, [])
                     hostname = worker_hosts[worker.name]
-                    if hostname in results:
-                        completed_results[hostname] = results[hostname]
+                    if not keys or (hostname is not None and hostname not in keys):
+                        # Exit status is not publication. Do not accept the
+                        # parent-prefilled placeholder as evidence from a DUT.
+                        failed_processes[worker.name] = {'exit_code': 0, 'exception': None, 'missing_result': True}
+                    else:
+                        completed_workers.add(worker.name)
+                        for key in keys:
+                            completed_results[key] = results[key]
                 elif worker.name not in failed_processes:
                     # Nonzero exit without transported exception is unexpected,
                     # not a successful completion or guessed DUT condition.
@@ -355,10 +415,13 @@ def parallel_run(
     # if we have failed processes, we should log the exception and exit code
     # of each Process and fail
     if sanity_check is not None:
-        failures = [
-            _sanity_worker_failure(sanity_check, worker_hosts.get(name), process.get('exception'))
-            for name, process in failed_processes.items()
-        ]
+        failures = []
+        for name, process in failed_processes.items():
+            failure = _sanity_worker_failure(sanity_check, worker_hosts.get(name), process.get('exception'))
+            if process.get('missing_result'):
+                failure.update(exception_type='MissingWorkerResult',
+                               error_msg='DUT check worker exited without publishing a result')
+            failures.append(failure)
         # Only workers observed exited successfully contribute completed data.
         # A terminated peer's failed=False initial record is never a PASS.
         unfinished = set(worker_hosts) - completed_workers - set(failed_processes)
@@ -372,9 +435,8 @@ def parallel_run(
             })
         if failures:
             raise SanityWorkerError(failures, completed_results)
-        # Some successful non-DUT checks key results by neighbor name instead
-        # of node.hostname. All workers completed here, so retain their schema.
-        return dict(results)
+        # Keep original neighbor keys/values, but only actual published data.
+        return completed_results
 
     if len(list(failed_processes.keys())):
         for process_name, process in list(failed_processes.items()):
