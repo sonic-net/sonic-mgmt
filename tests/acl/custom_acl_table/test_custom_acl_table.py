@@ -99,18 +99,15 @@ def parse_acl_packet_count(counters, rule_name):
     -----------  ------------  ------  ---------------  -------------
     RULE_1       L3_MIX_TABLE    9999                0              0
     """
-    for counter in counters:
-        if counter['rule name'] != rule_name:
-            continue
-        packets = counter['packets count']
-        if packets == 'N/A':
-            return None
-        try:
-            return int(packets)
-        except ValueError:
-            pytest.fail("aclshow reported a non-numeric packet count {!r} for rule {}".format(packets, rule_name))
-
-    pytest.fail("aclshow -a has no row for rule {}, so it is not in CONFIG_DB ACL_RULE".format(rule_name))
+    row = next((counter for counter in counters if counter['rule name'] == rule_name), None)
+    pytest_assert(row is not None,
+                  "aclshow -a has no row for rule {}, so it is not in CONFIG_DB ACL_RULE".format(rule_name))
+    packets = row['packets count']
+    if packets == 'N/A':
+        return None
+    pytest_assert(packets.isdigit(),
+                  "aclshow reported a non-numeric packet count {!r} for rule {}".format(packets, rule_name))
+    return int(packets)
 
 
 def read_acl_counter(duts, rule_name, expected, timeout=120, interval=2):
