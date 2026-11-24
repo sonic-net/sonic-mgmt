@@ -49,7 +49,7 @@ class Recorder(object):
                 f.flush()
 
 
-class DialOutHandler(grpc.GenericRpcHandler):
+class DialOutHandler(grpc.GenericRpcHandler):  # type: ignore[misc]
     """Serves gnmi.sonic.gNMIDialOut/Publish over raw bytes."""
 
     def __init__(self, recorder):
@@ -71,8 +71,7 @@ class DialOutHandler(grpc.GenericRpcHandler):
             return
             yield  # pragma: no cover - makes publish a generator
 
-        return grpc.stream_stream_rpc_method_handler(
-            publish, request_deserializer=None, response_serializer=None)
+        return grpc.stream_stream_rpc_method_handler(publish, request_deserializer=None, response_serializer=None)
 
 
 def main():
@@ -92,14 +91,12 @@ def main():
     # e.g. from another sonic-mgmt session sharing this PTF — bind the same
     # port and silently steal a share of the publish streams. Disable it so
     # a port collision fails loudly here instead.
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=4),
-                         options=(("grpc.so_reuseport", 0),))
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=4), options=(("grpc.so_reuseport", 0),))
     server.add_generic_rpc_handlers((DialOutHandler(Recorder(args.data)),))
     creds = grpc.ssl_server_credentials([(key_bytes, crt_bytes)])
     bound = server.add_secure_port("[::]:%d" % args.port, creds)
     if bound != args.port:
-        print("FATAL: could not bind port %d (got %d) — already in use?"
-              % (args.port, bound))
+        print("FATAL: could not bind port %d (got %d) — already in use?" % (args.port, bound))
         sys.stdout.flush()
         sys.exit(1)
     server.start()

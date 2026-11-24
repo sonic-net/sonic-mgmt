@@ -52,8 +52,7 @@ def setup_vrf_configuration():
 # match. Note: single-asic container names only — on multi-asic DUTs the
 # per-asic containers (gnmi0, telemetry0, ...) are not probed, so the module
 # skips there.
-SUPERVISOR_PROGRAM_STATES = ("RUNNING", "STARTING", "STOPPING", "STOPPED",
-                             "EXITED", "FATAL", "BACKOFF", "UNKNOWN")
+SUPERVISOR_PROGRAM_STATES = ("RUNNING", "STARTING", "STOPPING", "STOPPED", "EXITED", "FATAL", "BACKOFF", "UNKNOWN")
 
 
 def dialout_program_status(duthost, container, timeout=30):
@@ -68,8 +67,7 @@ def dialout_program_status(duthost, container, timeout=30):
     result = {"out": None}
 
     def _answered():
-        res = duthost.shell("docker exec %s supervisorctl status dialout" % container,
-                            module_ignore_errors=True)
+        res = duthost.shell("docker exec %s supervisorctl status dialout" % container, module_ignore_errors=True)
         out = (res["stdout"] or "") + (res["stderr"] or "")
         if res["rc"] in (0, 3) or "no such process" in out:
             result["out"] = res["stdout"]
@@ -89,8 +87,7 @@ def find_dialout_container(duthost):
     image booted into. Returns (None, None) if no container has the program.
     """
     for container in ("gnmi", "telemetry"):
-        res = duthost.shell("docker ps --filter name=%s --format '{{.Names}}'" % container,
-                            module_ignore_errors=True)
+        res = duthost.shell("docker ps --filter name=%s --format '{{.Names}}'" % container, module_ignore_errors=True)
         # The docker name filter is a substring match ("gnmi" also matches a
         # multi-asic "gnmi0"), so require an exact name before docker exec.
         if res["rc"] != 0 or container not in [ln.strip() for ln in res["stdout_lines"]]:
@@ -110,19 +107,17 @@ def dump_telemetry_client_rows(duthost):
     (before anything is deleted) rather than silently dropping a row it
     cannot snapshot.
     """
-    res = duthost.shell("redis-dump -d 4 -k 'TELEMETRY_CLIENT|*'",
-                        module_ignore_errors=True)
-    pt_assert(res["rc"] == 0,
-              "could not snapshot TELEMETRY_CLIENT rows: %s" % res["stderr"])
+    res = duthost.shell("redis-dump -d 4 -k 'TELEMETRY_CLIENT|*'", module_ignore_errors=True)
+    pt_assert(res["rc"] == 0, "could not snapshot TELEMETRY_CLIENT rows: %s" % res["stderr"])
     dump = json.loads(res["stdout"].strip() or "{}")
     return {key: entry["value"] for key, entry in dump.items()}
 
 
 def hset_row(duthost, key, fields, ignore_errors=False):
-    pairs = " ".join("%s %s" % (shlex.quote(str(k)), shlex.quote(str(v)))
-                     for k, v in sorted(fields.items()))
-    res = duthost.shell("sonic-db-cli CONFIG_DB HSET %s %s" % (shlex.quote(key), pairs),
-                        module_ignore_errors=ignore_errors)
+    pairs = " ".join("%s %s" % (shlex.quote(str(k)), shlex.quote(str(v))) for k, v in sorted(fields.items()))
+    res = duthost.shell(
+        "sonic-db-cli CONFIG_DB HSET %s %s" % (shlex.quote(key), pairs), module_ignore_errors=ignore_errors
+    )
     if ignore_errors and res["rc"] != 0:
         logger.error("HSET %s failed: %s", key, res["stderr"])
     return res
@@ -153,8 +148,10 @@ def dialout_setup(request, duthosts, enum_rand_one_per_hwsku_hostname, ptfhost):
         return True
 
     if not wait_until(180, 15, 0, _discover):
-        pytest.skip("No single-asic gnmi/telemetry container with a dialout program on %s "
-                    "(multi-asic DUTs are not covered by this suite)" % duthost.hostname)
+        pytest.skip(
+            "No single-asic gnmi/telemetry container with a dialout program on %s "
+            "(multi-asic DUTs are not covered by this suite)" % duthost.hostname
+        )
     container, initial_status = found["container"], found["status"]
 
     # The program is autostart=false and brought up via dependent_startup
@@ -163,6 +160,7 @@ def dialout_setup(request, duthosts, enum_rand_one_per_hwsku_hostname, ptfhost):
     # bounded window to reach RUNNING before freezing the snapshot that
     # test_dialout_process_running asserts on.
     if "RUNNING" not in (initial_status or ""):
+
         def _booted():
             status = dialout_program_status(duthost, container, timeout=5)
             if status:
@@ -174,8 +172,7 @@ def dialout_setup(request, duthosts, enum_rand_one_per_hwsku_hostname, ptfhost):
 
     saved_rows = dump_telemetry_client_rows(duthost)
     if saved_rows:
-        logger.info("snapshotting %d pre-existing TELEMETRY_CLIENT rows: %s",
-                    len(saved_rows), sorted(saved_rows))
+        logger.info("snapshotting %d pre-existing TELEMETRY_CLIENT rows: %s", len(saved_rows), sorted(saved_rows))
 
     # Registered before the first delete so the restore runs even if this
     # fixture fails between the delete and its yield (a generator fixture
@@ -189,16 +186,13 @@ def dialout_setup(request, duthosts, enum_rand_one_per_hwsku_hostname, ptfhost):
         # Restoring rows in redis does not reset the client's in-memory
         # state (e.g. the retry interval from this suite's Global row), so
         # restart the program once the original configuration is back.
-        duthost.shell("docker exec %s supervisorctl restart dialout" % container,
-                      module_ignore_errors=True)
-        if not wait_until(30, 3, 0, lambda: "RUNNING" in
-                          (dialout_program_status(duthost, container, timeout=5) or "")):
+        duthost.shell("docker exec %s supervisorctl restart dialout" % container, module_ignore_errors=True)
+        if not wait_until(30, 3, 0, lambda: "RUNNING" in (dialout_program_status(duthost, container, timeout=5) or "")):
             logger.warning("dialout did not reach RUNNING after config restore")
 
     request.addfinalizer(_restore)
     for key in saved_rows:
-        duthost.shell("sonic-db-cli CONFIG_DB DEL %s" % shlex.quote(key),
-                      module_ignore_errors=True)
+        duthost.shell("sonic-db-cli CONFIG_DB DEL %s" % shlex.quote(key), module_ignore_errors=True)
 
     def dialout_running():
         status = dialout_program_status(duthost, container, timeout=5)
@@ -207,13 +201,10 @@ def dialout_setup(request, duthosts, enum_rand_one_per_hwsku_hostname, ptfhost):
     # Restart the client so no publish/retry state from earlier sessions
     # survives: a subscription deleted while its goroutine was still dialing
     # can keep retrying and connect to a later collector on the same port.
-    duthost.shell("docker exec %s supervisorctl restart dialout" % container,
-                  module_ignore_errors=True)
-    pt_assert(wait_until(30, 3, 0, dialout_running),
-              "dialout program did not reach RUNNING in %s" % container)
+    duthost.shell("docker exec %s supervisorctl restart dialout" % container, module_ignore_errors=True)
+    pt_assert(wait_until(30, 3, 0, dialout_running), "dialout program did not reach RUNNING in %s" % container)
 
-    yield {"duthost": duthost, "container": container, "ptfhost": ptfhost,
-           "initial_dialout_status": initial_status}
+    yield {"duthost": duthost, "container": container, "ptfhost": ptfhost, "initial_dialout_status": initial_status}
 
 
 class TelemetryClientConfig(object):
@@ -234,8 +225,7 @@ class TelemetryClientConfig(object):
         hset_row(self.duthost, "TELEMETRY_CLIENT|%s" % key, fields)
 
     def delete(self, key):
-        self.duthost.shell("sonic-db-cli CONFIG_DB DEL 'TELEMETRY_CLIENT|%s'" % key,
-                           module_ignore_errors=True)
+        self.duthost.shell("sonic-db-cli CONFIG_DB DEL 'TELEMETRY_CLIENT|%s'" % key, module_ignore_errors=True)
 
     def cleanup(self):
         for key in OWNED_KEYS:
@@ -253,9 +243,11 @@ def telemetry_client_config(dialout_setup):
     duthost = dialout_setup["duthost"]
     container = dialout_setup["container"]
     status = dialout_program_status(duthost, container, timeout=5)
-    pt_assert(status is not None and "RUNNING" in status,
-              "dialout program is not RUNNING before test (status: %s) — it may have "
-              "crashed during an earlier test (autorestart=false)" % (status or "unknown"))
+    pt_assert(
+        status is not None and "RUNNING" in status,
+        "dialout program is not RUNNING before test (status: %s) — it may have "
+        "crashed during an earlier test (autorestart=false)" % (status or "unknown"),
+    )
     config = TelemetryClientConfig(duthost)
     config.cleanup()
     yield config
@@ -391,10 +383,10 @@ def start_collector(ptfhost, copy_collector):
         port = next(_port_counter)
         handle = CollectorHandle(ptfhost, port)
         ptfhost.shell("rm -f %s %s" % (handle.data_file, handle.log_file))
-        res = ptfhost.shell("nohup python3 %s --port %d --data %s --cert %s --key %s > %s 2>&1 "
-                            "& echo $!"
-                            % (COLLECTOR_DST, port, handle.data_file, CERT_DST, KEY_DST,
-                               handle.log_file))
+        res = ptfhost.shell(
+            "nohup python3 %s --port %d --data %s --cert %s --key %s > %s 2>&1 "
+            "& echo $!" % (COLLECTOR_DST, port, handle.data_file, CERT_DST, KEY_DST, handle.log_file)
+        )
         handle.pid = int(res["stdout_lines"][-1].strip())
         # Registered before the readiness wait so teardown also stops a
         # collector that launched but never became ready. A process that
@@ -404,15 +396,12 @@ def start_collector(ptfhost, copy_collector):
         handles.append(handle)
 
         def ready():
-            res = ptfhost.shell("grep -c 'Ready to serve' %s" % handle.log_file,
-                                module_ignore_errors=True)
+            res = ptfhost.shell("grep -c 'Ready to serve' %s" % handle.log_file, module_ignore_errors=True)
             return res["rc"] == 0 and int(res["stdout"].strip()) > 0
 
         if not wait_until(30, 1, 0, ready):
-            log_tail = ptfhost.shell("tail -20 %s" % handle.log_file,
-                                     module_ignore_errors=True)["stdout"]
-            pt_assert(False, "dialout collector on port %d did not become ready; "
-                             "collector log:\n%s" % (port, log_tail))
+            log_tail = ptfhost.shell("tail -20 %s" % handle.log_file, module_ignore_errors=True)["stdout"]
+            pt_assert(False, "dialout collector on port %d did not become ready; collector log:\n%s" % (port, log_tail))
         return handle
 
     yield _start
