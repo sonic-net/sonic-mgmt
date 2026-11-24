@@ -64,7 +64,7 @@ ELS_INFO_FIELDS = [
     "is_replaceable",
 ] + _lanes("fiber_mapping_lane{n}") + _lanes("frequency_lane{n}")
 
-ELS_FIRMWARE_INFO_FIELDS = ["active_firmware", "inactive_firmware", "last_update_time"]
+ELS_FIRMWARE_INFO_FIELDS = ["active_firmware", "inactive_firmware"]
 
 ELS_DOM_SENSOR_FIELDS = [
     "temperature", "voltage", "icc", "last_update_time",
@@ -153,7 +153,7 @@ OE_INFO_FIELDS = [
     "vdm_supported", "is_replaceable",
 ] + _lanes("active_apsel_hostlane{n}")
 
-OE_FIRMWARE_INFO_FIELDS = ["active_firmware", "inactive_firmware"] + _LAST_UPDATE
+OE_FIRMWARE_INFO_FIELDS = ["active_firmware", "inactive_firmware"]
 
 OE_DOM_SENSOR_FIELDS = (
     ["temperature", "voltage"] + _LAST_UPDATE
@@ -275,13 +275,11 @@ CPO_REFRESHED_TABLES = (
     "TRANSCEIVER_DOM_SENSOR",
     "TRANSCEIVER_DOM_TEMPERATURE",
     "TRANSCEIVER_DOM_FLAG",
-    "TRANSCEIVER_FIRMWARE_INFO",
     "TRANSCEIVER_STATUS",
     "TRANSCEIVER_STATUS_FLAG",
     "TRANSCEIVER_ELS_DOM_SENSOR",
     "TRANSCEIVER_ELS_DOM_TEMPERATURE",
     "TRANSCEIVER_ELS_DOM_FLAG",
-    "TRANSCEIVER_ELS_FIRMWARE_INFO",
     "TRANSCEIVER_ELS_STATUS",
     "TRANSCEIVER_ELS_STATUS_FLAG",
     "TRANSCEIVER_VDM_REAL_VALUE",

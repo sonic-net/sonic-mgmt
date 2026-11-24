@@ -55,9 +55,9 @@ For each type `HALARM`, `LALARM`, `HWARN`, and `LWARN`, require `TRANSCEIVER_VDM
 
 **Function**: `test_cpo_tables_last_update_time_fresh`
 
-- Read `last_update_time` from the 13 tables in `CPO_REFRESHED_TABLES`.
+- Read `last_update_time` from the 11 tables in `CPO_REFRESHED_TABLES`.
 - Require UTC timestamp age relative to the DUT clock to be **-2 to 60 seconds**; missing or unparsable timestamps fail.
-- Retry for up to 30 seconds at 5-second intervals. Static threshold tables are excluded from this check.
+- Retry for up to 30 seconds at 5-second intervals. Static threshold tables and the firmware info tables (`TRANSCEIVER_FIRMWARE_INFO`, `TRANSCEIVER_ELS_FIRMWARE_INFO`), which do not publish `last_update_time`, are excluded from this check.
 
 ## 3. Coverage Limits
 
