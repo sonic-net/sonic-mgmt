@@ -205,6 +205,23 @@ class TestNeighborMac:
             module_ignore_errors=True
         )
 
+    def __is_neighbor_mac_updated(self, duthost, expected_mac):
+        result = duthost.shell(
+            argv=["redis-cli", "-n", "1", "KEYS", "ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY*"]
+        )
+        neighbor_key = next(
+            (key for key in result["stdout_lines"] if self.PTF_HOST_IP in key),
+            None
+        )
+        if not neighbor_key:
+            return False
+
+        result = duthost.shell(argv=["redis-cli", "-n", "1", "HGETALL", neighbor_key])
+        return (
+            len(result["stdout_lines"]) > 1
+            and result["stdout_lines"][1].lower() == expected_mac
+        )
+
     @pytest.fixture(autouse=True)
     def configureNeighborIpAndPing(self, duthosts, rand_one_dut_hostname, ptfhost, macIndex):
         """
@@ -251,6 +268,17 @@ class TestNeighborMac:
                 ping_result.get("stderr", "")
             )
         )
+
+        if is_vpp:
+            pytest_assert(
+                wait_until(
+                    self.PING_RETRY_TIMEOUT, 1, 0,
+                    self.__is_neighbor_mac_updated, duthost, self.TEST_MAC[macIndex]
+                ),
+                "Failed to update Redis neighbor MAC for IP {} to {} within {} seconds".format(
+                    self.PTF_HOST_IP, self.TEST_MAC[macIndex], self.PING_RETRY_TIMEOUT
+                )
+            )
 
         time.sleep(2)
 
