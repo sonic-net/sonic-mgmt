@@ -9,10 +9,25 @@ from tests.common.helpers.assertions import pytest_assert
 logger = logging.getLogger(__name__)
 
 TIME_INSERT_SED_PASSWORD = 2
+REDACTED = '<redacted>'
+
+
+def redact(text, *secrets):
+    """Return text with every non-empty secret replaced, so it is safe to log or put in an assertion message."""
+    text = text or ""
+    for secret in secrets:
+        if secret:
+            text = text.replace(secret, REDACTED)
+    return text
 
 
 class SED_Change_Password_General:
-    """Base class for vendor-specific SED password change implementations."""
+    """
+    Base class for vendor-specific SED password change implementations.
+
+    SED passwords, including the persistent default one, must never reach logs, assertion messages or Allure
+    steps: every shell call that carries or returns a password uses verbose=False.
+    """
 
     def get_disk_name(self, duthost):
         """
@@ -42,13 +57,13 @@ class SED_Change_Password_General:
 
         logger.info(f"Verifying SED password works on disk {disk_name}")
         cmd = f"sudo sedutil-cli --listLockingRanges '{password}' '{disk_name}'"
-        result = duthost.shell(cmd, module_ignore_errors=True)
+        result = duthost.shell(cmd, module_ignore_errors=True, verbose=False)
 
         if result['rc'] == 0:
             logger.info("SED password verification successful")
             return True
 
-        logger.warning(f"SED password verification failed: {result['stderr']}")
+        logger.warning(f"SED password verification failed: {redact(result['stderr'], password)}")
         return False
 
     def change_sed_pass_via_cli(self, duthost, new_pass, expect_success=True):
@@ -59,18 +74,18 @@ class SED_Change_Password_General:
             duthost: DUT host object
             new_pass: The new SED password to set
         """
-        logger.info(f"Changing SED password to: {new_pass}")
+        logger.info(f"Changing SED password to a {len(new_pass)}-character password")
         cli_cmd = 'sudo config sed change-password'
         pass_change_cmd = (
             f"( sleep {TIME_INSERT_SED_PASSWORD}; printf '%s\\n' {new_pass}; "
             f"sleep {TIME_INSERT_SED_PASSWORD}; printf '%s\\n' {new_pass} ) | "
             f"script -q -c '{cli_cmd}' /dev/null"
         )
-        result = duthost.shell(pass_change_cmd, module_ignore_errors=True)
+        result = duthost.shell(pass_change_cmd, module_ignore_errors=True, verbose=False)
         output = ((result.get("stdout") or "") + (result.get("stderr") or "")).lower()
         success = result.get("rc") == 0 and "error" not in output
         if expect_success:
-            pytest_assert(success, f"Failed to change SED password: {result.get('stdout', '')}")
+            pytest_assert(success, f"Failed to change SED password: {redact(result.get('stdout'), new_pass)}")
 
         return success
 
@@ -99,10 +114,12 @@ class SED_Change_Password_General:
     def verify_default_pass(self, duthost, localhost):
         """
         Verify that the default SED password is set correctly.
+        On a TPM bank or SED mismatch, cold reboot to recover the DUT, then fail.
         """
         real_default_pass = self.get_default_sed_pass(duthost)
+        pytest_assert(real_default_pass, "Failed to read the default SED password from its TPM bank")
 
-        if (not self.verify_pass_saved(duthost, real_default_pass) or
+        if (not self.is_pass_saved(duthost, real_default_pass) or
                 not self.verify_sed_pass_works(duthost, real_default_pass)):
             logger.warning(
                 "TPM banks/SED password mismatch with the default SED password. "
@@ -145,7 +162,8 @@ class SED_Change_Password_General:
         tpm_auth_arg = f'-p "{tpm_auth_pass}"' if tpm_auth_pass else ""
         result = duthost.shell(
             f"sudo tpm2_unseal -c '{tpm_bank}' {tpm_auth_arg}",
-            module_ignore_errors=True
+            module_ignore_errors=True,
+            verbose=False
         )
         if result['rc'] == 0:
             return result['stdout'].strip()
@@ -154,26 +172,32 @@ class SED_Change_Password_General:
         )
         return None
 
+    def is_pass_saved(self, duthost, expected_pass):
+        """
+        Return True if both TPM banks (primary and secondary) hold the expected password, False otherwise.
+        A bank that cannot be unsealed counts as a mismatch.
+        """
+        logger.info("Checking that both TPM banks hold the expected SED password")
+        saved = True
+        for bank_role, tpm_bank in (("Primary", self.get_primary_sed_tpm_bank()),
+                                    ("Secondary", self.get_secondary_sed_tpm_bank())):
+            password = self.get_sed_pass_from_tpm_bank(duthost, tpm_bank)
+            if password is None:
+                logger.warning(f"{bank_role} TPM bank {tpm_bank} could not be unsealed")
+                saved = False
+            elif password != expected_pass:
+                logger.warning(f"{bank_role} TPM bank {tpm_bank} does not hold the expected SED password")
+                saved = False
+        return saved
+
     def verify_pass_saved(self, duthost, expected_pass):
         """
-        Verify that both TPM banks (primary and secondary) have the expected password.
+        Assert that both TPM banks (primary and secondary) hold the expected password.
         """
-        logger.info(f"Verifying TPM banks have password: {expected_pass}")
-
-        password_primary = self.get_sed_pass_from_tpm_bank(duthost, self.get_primary_sed_tpm_bank())
-        assert password_primary == expected_pass, (
-            f"Primary TPM bank password mismatch. Expected: '{expected_pass}', "
-            f"Got: '{password_primary}'"
+        pytest_assert(
+            self.is_pass_saved(duthost, expected_pass),
+            "TPM primary/secondary bank does not hold the expected SED password, see the warnings above"
         )
-
-        password_secondary = self.get_sed_pass_from_tpm_bank(
-            duthost, self.get_secondary_sed_tpm_bank()
-        )
-        assert password_secondary == expected_pass, (
-            f"Secondary TPM bank password mismatch. Expected: '{expected_pass}', "
-            f"Got: '{password_secondary}'"
-        )
-        return True
 
     def set_sed_pass_in_tpm_bank(self, duthost, tpm_bank, password, tpm_auth_pass=None):
         """
@@ -195,10 +219,11 @@ class SED_Change_Password_General:
             'sudo rm -f seal.* prim.ctx',
         ]
         for command in commands:
-            result = duthost.shell(command, module_ignore_errors=True)
+            result = duthost.shell(command, module_ignore_errors=True, verbose=False)
             pytest_assert(
                 result['rc'] == 0,
-                f"Failed to execute command: {command}\nError: {result['stderr']}"
+                f"Failed to execute command: {redact(command, password)}\n"
+                f"Error: {redact(result['stderr'], password)}"
             )
 
     def get_default_sed_pass(self, duthost):

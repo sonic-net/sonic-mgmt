@@ -36,13 +36,13 @@ def test_change_sed_password(duthosts, enum_rand_one_per_hwsku_hostname, vendor_
     min_len, max_len = vendor_sed_class.get_min_and_max_pass_len(duthost)
     new_sed_pass = vendor_sed_class.generate_pass_with_len(min_len=min_len, max_len=max_len)
 
-    with allure.step(f"Setting new SED password: {new_sed_pass}"):
+    with allure.step(f"Setting new {len(new_sed_pass)}-character SED password"):
         vendor_sed_class.change_sed_pass_via_cli(duthost, new_sed_pass)
 
     with allure.step("Verifying SED password works via sed util"):
         pytest_assert(
             vendor_sed_class.verify_sed_pass_works(duthost, new_sed_pass),
-            f"SED password verification failed for password: {new_sed_pass}"
+            "SED password verification failed for the new password"
         )
     with allure.step("Verifying TPM banks have the new password"):
         vendor_sed_class.verify_pass_saved(duthost, new_sed_pass)
@@ -61,11 +61,11 @@ def test_set_default_pass(duthosts, enum_rand_one_per_hwsku_hostname, localhost,
     min_len, max_len = vendor_sed_class.get_min_and_max_pass_len(duthost)
     rand_pass = vendor_sed_class.generate_pass_with_len(min_len=min_len, max_len=max_len)
 
-    with allure.step(f"Setting SED password to: {rand_pass}"):
+    with allure.step(f"Setting a random {len(rand_pass)}-character SED password"):
         vendor_sed_class.change_sed_pass_via_cli(duthost, rand_pass)
         pytest_assert(
             vendor_sed_class.verify_sed_pass_works(duthost, rand_pass),
-            f"SED password verification failed for some password: {rand_pass}"
+            "SED password verification failed for the random password"
         )
 
     with allure.step("Resetting SED password"):
@@ -129,20 +129,20 @@ def test_reboot_recovery_password(duthosts, enum_rand_one_per_hwsku_hostname, lo
         min_len=min_len, max_len=max_len, exclude_passwords=[new_sed_pass])
     primary_sed_tpm_bank = vendor_sed_class.get_primary_sed_tpm_bank()
 
-    with allure.step(f"Setting new SED password: {new_sed_pass}"):
+    with allure.step(f"Setting new {len(new_sed_pass)}-character SED password"):
         vendor_sed_class.change_sed_pass_via_cli(duthost, new_sed_pass)
         vendor_sed_class.verify_pass_saved(duthost, new_sed_pass)
 
-    with allure.step(f"Setting primary TPM bank to wrong password: {neg_pass}"):
+    with allure.step(f"Setting primary TPM bank {primary_sed_tpm_bank} to a wrong password"):
         vendor_sed_class.set_sed_pass_in_tpm_bank(duthost, primary_sed_tpm_bank, neg_pass)
         primary_pass = vendor_sed_class.get_sed_pass_from_tpm_bank(duthost, primary_sed_tpm_bank)
         pytest_assert(
             primary_pass == neg_pass,
-            f"Failed to set wrong password in primary bank. Got: {primary_pass}"
+            f"Primary TPM bank {primary_sed_tpm_bank} does not hold the wrong password that was just written"
         )
 
     with allure.step("Rebooting the system"):
         reboot(duthost, localhost, reboot_type='cold', safe_reboot=False)
 
-    with allure.step(f"Verifying TPM banks have recovered to the {new_sed_pass} password"):
+    with allure.step("Verifying TPM banks have recovered to the new SED password"):
         vendor_sed_class.verify_pass_saved(duthost, new_sed_pass)
