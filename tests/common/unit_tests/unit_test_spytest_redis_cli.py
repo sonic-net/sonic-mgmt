@@ -144,8 +144,16 @@ def test_named_dump_uses_database_option(client, mode):
         "sonic-db-dump -t unix_socket -n CONFIG_DB -k 'PORT|*' -y"
 
 
-@pytest.mark.parametrize('output,expected', [('OK', True), ('NOPERM denied', False),
-    ('NOAUTH Authentication required', False), ('WRONGPASS invalid', False), ('Permission denied', False)])
+@pytest.mark.parametrize(
+    'output,expected',
+    [
+        ('OK', True),
+        ('NOPERM denied', False),
+        ('NOAUTH Authentication required', False),
+        ('WRONGPASS invalid', False),
+        ('Permission denied', False),
+    ],
+)
 def test_interactive_writer_reports_redis_errors(client, monkeypatch, output, expected):
     from types import SimpleNamespace
     monkeypatch.setattr(client.st, 'log', lambda message: None, raising=False)

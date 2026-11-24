@@ -51,9 +51,12 @@ def config_bbr_by_gcu(duthost, status):
     bbr_key_exists = int(duthost.shell(
         (redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + ' EXISTS "BGP_BBR|all"'), module_ignore_errors=True
     )["stdout"])
-    bbr_field_exists = int(duthost.shell(
-        (redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + ' HEXISTS "BGP_BBR|all" "status"'), module_ignore_errors=True
-    )["stdout"])
+    bbr_field_exists = int(
+        duthost.shell(
+            (redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + ' HEXISTS "BGP_BBR|all" "status"'),
+            module_ignore_errors=True,
+        )["stdout"]
+    )
 
     logger.info("BGP_BBR|all key exists: %d, status field exists: %d", bbr_key_exists, bbr_field_exists)
 

@@ -147,7 +147,9 @@ def get_all_config(module, namespace=None):
     @return: Return parsed config in dict
     """
     if namespace:
-        rc, stdout, stderr = module.run_command('sonic-cfggen -n {} -d --redis-unix-socket --print-data'.format(namespace))
+        rc, stdout, stderr = module.run_command(
+            'sonic-cfggen -n {} -d --redis-unix-socket --print-data'.format(namespace)
+        )
         if rc != 0:
             module.fail_json(msg='Failed to get DUT running config, rc=%s, stdout=%s, stderr=%s' % (rc, stdout, stderr))
     else:
@@ -158,7 +160,9 @@ def get_all_config(module, namespace=None):
         return module.from_json(stdout)
     except Exception as e:
         module.fail_json(
-            msg='Failed to parse config from output of "sonic-cfggen -d --redis-unix-socket --print-data", err=' + str(e))
+            msg='Failed to parse config from output of "sonic-cfggen -d --redis-unix-socket --print-data", err='
+            + str(e)
+        )
 
     return None
 

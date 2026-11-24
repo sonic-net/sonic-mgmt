@@ -262,12 +262,17 @@ def validate_state_db_entry(duthost, peer, vnet, dynamic_peer):
         peer_config_db_key = "BGP_NEIGHBOR" + "|" + vnet + "|" + peer
     peer_state_db_key = "BGP_PEER_CONFIGURED_TABLE" + "|" + vnet + "|" + peer
     expected_state = duthost.shell(
-        (redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + ' --json HGETALL "{}"'.format(str(peer_config_db_key))))['stdout']
+        (
+            redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False)
+            + ' --json HGETALL "{}"'.format(str(peer_config_db_key))
+        )
+    )['stdout']
     expected_state = json.loads(expected_state)
     if isinstance(expected_state, dict):
         expected_state = {k.rstrip('@'): v for k, v in expected_state.items()}
     peer_state = duthost.shell(
-        (redis_cli_command(duthost, 'STATE_DB', use_tcp=False) + ' --json HGETALL "{}"'.format(str(peer_state_db_key))))['stdout']
+        (redis_cli_command(duthost, 'STATE_DB', use_tcp=False) + ' --json HGETALL "{}"'.format(str(peer_state_db_key)))
+    )['stdout']
     peer_state = json.loads(peer_state)
     assert peer_state == expected_state, \
         "Peer {} vnet {} state in state db is not {}. Found {}".format(peer, vnet, expected_state, peer_state)

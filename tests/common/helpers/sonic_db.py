@@ -36,6 +36,7 @@ def redis_cli_command(host, database, *, use_tcp):
     """Quote the configured native CLI prefix for a shell command."""
     return " ".join(shlex.quote(argument) for argument in redis_cli_argv(host, database, use_tcp=use_tcp))
 
+
 def get_chassis_db_address_from_dut(host):
     """Return chassis DB / supervisor midplane IP configured on the DUT."""
     paths = [

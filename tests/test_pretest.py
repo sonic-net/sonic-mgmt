@@ -764,8 +764,12 @@ def test_generate_running_golden_config(duthosts):
         if dut.is_multi_asic:
             for asic_index in range(0, dut.facts.get('num_asic')):
                 asic_ns = 'asic{}'.format(asic_index)
-                dut.shell("sonic-cfggen -n {} -d --redis-unix-socket --print-data > /etc/sonic/running_golden_config{}.json".
-                          format(asic_ns, asic_index))
+                dut.shell(
+                    "sonic-cfggen -n {} -d --redis-unix-socket --print-data "
+                    "> /etc/sonic/running_golden_config{}.json".format(
+                        asic_ns, asic_index
+                    )
+                )
 
     with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
         for duthost in duthosts:

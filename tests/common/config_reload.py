@@ -237,7 +237,9 @@ def config_reload_minigraph_with_rendered_golden_config_override(
     # If dut_template_path is being set, we can directly generate Golden Config from there.
     # Otherwise, we can copy and parse the template in sonic-mgmt repo
     if dut_golden_config_template:
-        sonic_host.shell("sonic-cfggen -d --redis-unix-socket -t {} > {}".format(dut_golden_config_template, golden_config_path))
+        sonic_host.shell(
+            "sonic-cfggen -d --redis-unix-socket -t {} > {}".format(dut_golden_config_template, golden_config_path)
+        )
     else:
         dut_golden_config_template = '/tmp/golden_config_db.j2'
         # default src: tests/common/templates/golden_config_db.j2
@@ -245,7 +247,9 @@ def config_reload_minigraph_with_rendered_golden_config_override(
         # Check test_config_reload_with_rendered_golden_config.py
         sonic_host.copy(src=local_golden_config_template, dest=dut_golden_config_template, remote_src=remote_src)
         # run sonic-cfggen to generate golden_config_db.json with existing config.
-        sonic_host.shell("sonic-cfggen -d --redis-unix-socket -t {} > {}".format(dut_golden_config_template, golden_config_path))
+        sonic_host.shell(
+            "sonic-cfggen -d --redis-unix-socket -t {} > {}".format(dut_golden_config_template, golden_config_path)
+        )
 
     config_reload(sonic_host, 'minigraph', wait, start_bgp, start_dynamic_buffer, safe_reload,
                   wait_before_force_reload, wait_for_bgp, check_intf_up_ports, traffic_shift_away,

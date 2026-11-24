@@ -361,7 +361,9 @@ def packets_for_test(request, ptfadapter, duthost, config_facts, tbinfo, ip_and_
         if 'dualtor' in topology:
             dut_mac = vlan_details['mac'].lower()
         else:
-            dut_mac = duthost.shell('sonic-cfggen -d --redis-unix-socket -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0]
+            dut_mac = duthost.shell('sonic-cfggen -d --redis-unix-socket -v \'DEVICE_METADATA.localhost.mac\'')[
+                "stdout_lines"
+            ][0]
         break
 
     if ip_version == 'v4':

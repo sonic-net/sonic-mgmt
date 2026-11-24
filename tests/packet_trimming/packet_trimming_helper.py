@@ -681,7 +681,9 @@ def get_buffer_profile_trimming_status(duthost, buffer_profile_name):
     logger.info(f"Checking packet discard action for buffer profile: {buffer_profile_name}")
 
     # Check if buffer profile exists
-    cmd_check = (redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + f" exists 'BUFFER_PROFILE|{buffer_profile_name}'")
+    cmd_check = (
+        redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + f" exists 'BUFFER_PROFILE|{buffer_profile_name}'"
+    )
     result = duthost.shell(cmd_check)
 
     if result["stdout"].strip() == "0":
@@ -2028,7 +2030,9 @@ def update_service_port_buffer_profile(duthost, service_port):
 
     # Verify buffer configuration
     logger.info("Verifying buffer configuration")
-    result = duthost.shell((redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + f" HGETALL 'BUFFER_PG|{service_port}|0'"))
+    result = duthost.shell(
+        (redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + f" HGETALL 'BUFFER_PG|{service_port}|0'")
+    )
     logger.info(f"BUFFER_PG|{service_port}|0 configuration:\n{result['stdout']}")  # noqa: E231
 
     result = duthost.shell((redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) +
@@ -2087,7 +2091,9 @@ def update_service_port_qos_map(duthost, service_port):
 
     # Verify QoS map configuration
     logger.info("Verifying QoS map configuration")
-    result = duthost.shell((redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + f" HGETALL 'PORT_QOS_MAP|{service_port}'"))
+    result = duthost.shell(
+        (redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + f" HGETALL 'PORT_QOS_MAP|{service_port}'")
+    )
     logger.info(f"PORT_QOS_MAP|{service_port} configuration:\n{result['stdout']}")  # noqa: E231
 
     if "AZURE" not in result["stdout"]:

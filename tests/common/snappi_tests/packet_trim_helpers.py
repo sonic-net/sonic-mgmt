@@ -137,9 +137,9 @@ def apply_trim_mode(
         # Ensure TC_TO_DSCP_MAP & PORT_QOS_MAP entries exist
         # Create TC_TO_DSCP_MAP if missing
         tc_map_key = f"TC_TO_DSCP_MAP|{ASYM_MAP_NAME}"
-        existing = _run_cmd(duthost, (redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + f" EXISTS '{tc_map_key}'"))[
-            "stdout"
-        ].strip()
+        existing = _run_cmd(
+            duthost, (redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + f" EXISTS '{tc_map_key}'")
+        )["stdout"].strip()
         if existing != "1":
             _run_cmd(
                 duthost,
@@ -336,9 +336,9 @@ def redis_hgetall_table_prefix(duthost, table_prefix):
 
 def get_port_qos_map_names(duthost, port_name):
     """Return (dscp_to_tc_map, tc_to_queue_map) names for a port."""
-    port_qos = duthost.shell((redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + f" HGETALL 'PORT_QOS_MAP|{port_name}'"))[
-        "stdout"
-    ].splitlines()
+    port_qos = duthost.shell(
+        (redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + f" HGETALL 'PORT_QOS_MAP|{port_name}'")
+    )["stdout"].splitlines()
     dscp_to_tc = tc_to_q = None
     for i in range(0, len(port_qos), 2):
         if i + 1 >= len(port_qos):

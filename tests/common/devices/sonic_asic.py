@@ -74,7 +74,11 @@ class SonicAsic(object):
     @cached(name='is_frontend_asic', zone_getter=sonic_asic_zone_getter)
     def is_it_frontend(self):
         if self.sonichost.is_multi_asic:
-            sub_role_cmd = 'sudo sonic-cfggen -d --redis-unix-socket  -v DEVICE_METADATA.localhost.sub_role -n {}'.format(self.namespace)
+            sub_role_cmd = (
+                'sudo sonic-cfggen -d --redis-unix-socket  -v DEVICE_METADATA.localhost.sub_role -n {}'.format(
+                    self.namespace
+                )
+            )
             sub_role = self.sonichost.shell(sub_role_cmd)["stdout_lines"][0]
             if sub_role is not None and sub_role.lower() == 'frontend':
                 return True
@@ -83,7 +87,11 @@ class SonicAsic(object):
     @cached(name='is_backend_asic', zone_getter=sonic_asic_zone_getter)
     def is_it_backend(self):
         if self.sonichost.is_multi_asic:
-            sub_role_cmd = 'sudo sonic-cfggen -d --redis-unix-socket  -v DEVICE_METADATA.localhost.sub_role -n {}'.format(self.namespace)
+            sub_role_cmd = (
+                'sudo sonic-cfggen -d --redis-unix-socket  -v DEVICE_METADATA.localhost.sub_role -n {}'.format(
+                    self.namespace
+                )
+            )
             sub_role = self.sonichost.shell(sub_role_cmd)["stdout_lines"][0]
             if sub_role is not None and sub_role.lower() == 'backend':
                 return True

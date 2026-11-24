@@ -3,7 +3,8 @@ import importlib.util
 from pathlib import Path
 import pytest
 
-spec = importlib.util.spec_from_file_location("redis_reader", Path(__file__).resolve().parents[1] / "helpers/redis_reader.py")
+path = Path(__file__).resolve().parents[1] / "helpers/redis_reader.py"
+spec = importlib.util.spec_from_file_location("redis_reader", path)
 reader = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(reader)
 

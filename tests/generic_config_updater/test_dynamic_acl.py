@@ -259,7 +259,9 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
         if 'dualtor' in topology:
             dut_mac = vlan_details['mac'].lower()
         else:
-            dut_mac = rand_selected_dut.shell('sonic-cfggen -d --redis-unix-socket -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0]
+            dut_mac = rand_selected_dut.shell(
+                'sonic-cfggen -d --redis-unix-socket -v \'DEVICE_METADATA.localhost.mac\''
+            )["stdout_lines"][0]
         break
 
     # Obtain MAC address of an uplink interface because vlan mac may be different than that of physical interfaces
