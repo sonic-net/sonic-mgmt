@@ -132,13 +132,6 @@ def test_hft_full_buffer_pool_counters(
         cleanup_hft_config(duthost, profile_name, ["BUFFER_POOL"])
 
 
-@pytest.mark.skip(
-    reason="Target platforms do not support multiple object types in one HFT session"
-)
-def test_hft_full_counters():
-    """Reserved for platforms that support mixed object types in one session."""
-
-
 @pytest.mark.hft_requirements(
     CounterObjectType.PORT, counter="IF_IN_OCTETS"
 )
@@ -285,7 +278,7 @@ def test_hft_poll_interval_validation(
     CounterObjectType.PORT, counter="IF_IN_OCTETS", oper_up_port=True
 )
 def test_hft_port_shutdown_stream(
-        duthosts, enum_rand_one_per_hwsku_hostname, tbinfo, ptfadapter,
+        request, duthosts, enum_rand_one_per_hwsku_hostname, tbinfo,
         hft_influxdb, skip_unsupported_hft_test):
     """Verify counter values grow when up, stay stable when down, and recover."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -295,7 +288,7 @@ def test_hft_port_shutdown_stream(
         "minigraph_ptf_indices"
     ][test_port]
     traffic = ContinuousTraffic(
-        ptfadapter, ptf_port_index, duthost.facts["router_mac"]
+        request.getfixturevalue("ptfadapter"), ptf_port_index, duthost.facts["router_mac"]
     )
     expected = build_expected_series(
         CounterObjectType.PORT, [test_port], ["IF_IN_OCTETS"]
