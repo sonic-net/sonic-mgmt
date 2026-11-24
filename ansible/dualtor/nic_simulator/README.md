@@ -64,16 +64,18 @@ partial IPv4/IPv6 service.
 ## Standalone unit tests
 
 No testbed, OVS daemon, root privileges, proto regeneration, or integration
-conftest is needed. From the repository root, use a dedicated virtual environment:
+conftest is needed. The suite lives outside the simulator directory because
+the integration test tree symlinks to that directory. From the repository
+root, use a dedicated virtual environment:
 
 ```bash
 python3 -m venv .venv-nic-simulator
 .venv-nic-simulator/bin/python -m pip install \
-  -r ansible/dualtor/nic_simulator/unit_tests/requirements.txt
+  -r ansible/dualtor/nic_simulator_unit_tests/requirements.txt
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv-nic-simulator/bin/python -m pytest \
-  -c ansible/dualtor/nic_simulator/unit_tests/pytest.ini \
-  --confcutdir=ansible/dualtor/nic_simulator/unit_tests \
-  ansible/dualtor/nic_simulator/unit_tests -q
+  -c ansible/dualtor/nic_simulator_unit_tests/pytest.ini \
+  --confcutdir=ansible/dualtor/nic_simulator_unit_tests \
+  ansible/dualtor/nic_simulator_unit_tests -q
 ```
 
 If the OS lacks `ensurepip`, an already-installed `virtualenv` can create the
