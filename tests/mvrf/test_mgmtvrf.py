@@ -12,7 +12,7 @@ import logging
 import json
 import ipaddress
 import secrets
-from pathlib import Path
+from contextlib import contextmanager
 
 from pytest_ansible.errors import AnsibleConnectionFailure
 
@@ -1139,7 +1139,7 @@ class TestReboot():
                                         if feature_status.get(name) in ('enabled', 'always_enabled')]
         duthost.command("sudo config save -y")  # This will override config_db.json with mgmt vrf config
         reboot(duthost, localhost, reboot_type="warm")
-        pytest_assert(wait_until(120, 20, 0, duthost.critical_services_fully_started),
+        pytest_assert(wait_until(120, 5, 0, duthost.critical_services_fully_started),
                       "Not all critical services are fully started")
 
         duthost.reset_critical_services_tracking_list(critical_services)
@@ -1199,19 +1199,27 @@ GAP_DB_SCRIPT = SNMP_RESTART_POLICY_SCRIPT + NTP_APPLY_SCRIPT + r'''
 import fcntl
 import hashlib
 import hmac
+import ipaddress
 import json
 import os
 import secrets
+import shlex
 import subprocess
 import sys
 import time
 import traceback
-from swsscommon.swsscommon import ConfigDBConnector
+from contextlib import contextmanager
 
 root = os.path.dirname(os.path.abspath(__file__))
 snapshot = os.path.join(root, 'snapshot.json')
-db = ConfigDBConnector()
-db.connect()
+
+def connect_database():
+    # Withdrawing an owned firewall lease must not depend on Redis or its
+    # Python bindings being available during recovery.
+    global db, ConfigDBConnector
+    from swsscommon.swsscommon import ConfigDBConnector
+    db = ConfigDBConnector()
+    db.connect()
 
 def flat(table):
     connector, name = table_source(table)
@@ -1245,6 +1253,306 @@ def checked(argv):
     if result.returncode:
         raise RuntimeError('DUT-local operation failed (rc={}); see operations.log'.format(result.returncode))
 
+def service_client_save(lease):
+    path = os.path.join(root, 'service-client-lease.json')
+    with open(path + '.tmp', 'w') as out:
+        json.dump(lease, out, sort_keys=True)
+        out.flush()
+        os.fsync(out.fileno())
+    os.chmod(path + '.tmp', 0o600)
+    os.replace(path + '.tmp', path)
+    directory = os.open(root, os.O_DIRECTORY)
+    try:
+        os.fsync(directory)
+    finally:
+        os.close(directory)
+
+
+@contextmanager
+def service_client_lock():
+    with open(os.path.join(root, 'restore.lock'), 'a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        yield
+
+
+def service_client_command(arguments):
+    command = ['iptables', '-w', '5'] + arguments
+    with open(os.path.join(root, 'operations.log'), 'a') as out:
+        out.write(json.dumps(command) + '\n')
+        out.flush()
+        result = subprocess.run(command, capture_output=True, text=True, timeout=15)
+        out.write(result.stdout + result.stderr)
+    return result
+
+
+def service_client_input():
+    # -S excludes counters; compare the complete INPUT policy and rule order.
+    result = service_client_command(['-S', 'INPUT'])
+    rows = result.stdout.splitlines()
+    if result.returncode or not rows or not rows[0].startswith('-P INPUT '):
+        raise RuntimeError('Cannot record the INPUT policy and rules')
+    return rows
+
+
+def service_client_owned(rows, comment):
+    owned = []
+    for row in rows:
+        words = shlex.split(row)
+        if any(words[index:index + 2] == ['--comment', comment]
+               for index in range(len(words) - 1)):
+            owned.append(row)
+    return owned
+
+
+def service_client_close():
+    # Closing an empty lease also rejects a delayed acquire after restoration.
+    path = os.path.join(root, 'service-client.closed')
+    with open(path, 'a') as out:
+        out.flush()
+        os.fsync(out.fileno())
+    os.chmod(path, 0o600)
+    directory = os.open(root, os.O_DIRECTORY)
+    try:
+        os.fsync(directory)
+    finally:
+        os.close(directory)
+
+
+def service_client_unit():
+    return 'mvrf-service-' + root.rsplit('.', 1)[-1]
+
+
+def service_client_unit_inactive(unit):
+    result = subprocess.run(['systemctl', 'show', unit, '--property=LoadState',
+                             '--property=ActiveState', '--property=Job'],
+                            capture_output=True, text=True, timeout=15)
+    properties = dict(line.split('=', 1) for line in result.stdout.splitlines() if '=' in line)
+    known = (result.returncode == 0
+             or (result.returncode == 1 and properties.get('LoadState') == 'not-found'))
+    return (known and properties.get('ActiveState') == 'inactive'
+            and properties.get('Job') in ('', '0'))
+
+
+def service_client_stop_timer():
+    timer = service_client_unit() + '.timer'
+    result = subprocess.run(['systemctl', 'stop', timer], capture_output=True, text=True, timeout=30)
+    status = {'returncode': result.returncode}
+    if result.returncode:
+        # A failed/ambiguous arm may not have created a timer. Preserve the raw
+        # stop status and accept only explicit evidence that it is absent.
+        found = subprocess.run(['systemctl', 'show', timer, '--property=LoadState',
+                                '--property=ActiveState', '--property=Job'],
+                               capture_output=True, text=True, timeout=15)
+        properties = dict(line.split('=', 1) for line in found.stdout.splitlines() if '=' in line)
+        if (found.returncode in (0, 1) and properties.get('LoadState') == 'not-found'
+                and properties.get('ActiveState') == 'inactive'
+                and properties.get('Job') in ('', '0')):
+            status.update(command_returncode=result.returncode, returncode=0, not_present=True)
+    return status
+
+
+def service_client_release_locked():
+    errors = []
+    try:
+        service_client_close()
+    except Exception as error:
+        # Closing must not prevent withdrawing permits already installed.
+        errors.append(type(error).__name__)
+    path = os.path.join(root, 'service-client-lease.json')
+    if not os.path.exists(path):
+        if errors:
+            raise RuntimeError('Could not close the empty service-client lease')
+        return  # Other cases, including isolation, never inspect/change INPUT.
+    # Read after taking restore.lock, shared by controller and DUT watchdog.
+    with open(path) as inp:
+        lease = json.load(inp)
+    for rule in lease['rules']:
+        try:
+            # The unique comment was absent before preparation. Remove only
+            # this full specification, even when insertion's outcome is unknown.
+            removed = service_client_command(['-D', 'INPUT'] + rule)
+            present = service_client_command(['-C', 'INPUT'] + rule)
+            if removed.returncode not in (0, 1) or present.returncode != 1:
+                errors.append('OwnedRuleRemovalError')
+        except Exception as error:
+            # A failed removal must not prevent attempting the other rule.
+            errors.append(type(error).__name__)
+    input_restored = False
+    try:
+        current = service_client_input()
+        if service_client_owned(current, lease['comment']):
+            errors.append('OwnedRulesRemain')
+        if current != lease['input_before']:
+            # Never flush INPUT or overwrite concurrent/unowned changes.
+            errors.append('InputBaselineMismatch')
+        else:
+            input_restored = not service_client_owned(current, lease['comment'])
+    except Exception as error:
+        errors.append(type(error).__name__)
+    if input_restored:
+        try:
+            # Stop future activation only after verified withdrawal. Never
+            # stop a running expiry service, which may be waiting on our lock.
+            lease['timer_stop'] = service_client_stop_timer()
+            if lease['timer_stop']['returncode']:
+                errors.append('AclTimerStopError')
+        except Exception as error:
+            errors.append(type(error).__name__)
+    if os.path.exists(os.path.join(root, 'service-client-expired')):
+        errors.append('AclRecoveryFired')
+    lease['cleanup_errors'] = lease.get('cleanup_errors', []) + errors
+    lease['released'] = not errors
+    service_client_save(lease)
+    if lease['cleanup_errors']:
+        # Keep earlier cleanup failures visible even if later recovery succeeds.
+        raise RuntimeError('Service-client INPUT restoration failed; see private lease')
+
+
+def service_client_acquire(source, destination):
+    with service_client_lock():
+        path = os.path.join(root, 'service-client-lease.json')
+        if (os.path.exists(os.path.join(root, 'service-client.closed'))
+                or os.path.exists(os.path.join(root, 'watchdog-fired')) or os.path.exists(path)):
+            raise RuntimeError('Service-client lease is closed or already recorded')
+        source, destination = ipaddress.ip_address(source), ipaddress.ip_address(destination)
+        if (source.version != 4 or destination.version != 4 or source == destination
+                or any(address.is_unspecified or address.is_multicast or address.is_loopback
+                       for address in (source, destination))):
+            raise RuntimeError('Service-client endpoints must be distinct unicast IPv4 addresses')
+        addresses = subprocess.run(['ip', '-j', '-4', 'address', 'show'], capture_output=True,
+                                   text=True, timeout=15)
+        if addresses.returncode or not any(
+                row.get('local') == str(destination)
+                for link in json.loads(addresses.stdout) for row in link.get('addr_info', [])):
+            raise RuntimeError('Selected service destination is not assigned on the DUT')
+        timer = 'mvrf-gap-' + root.rsplit('.', 1)[-1] + '.timer'
+        active = subprocess.run(['systemctl', 'is-active', '--quiet', timer],
+                                capture_output=True, text=True, timeout=15)
+        if active.returncode:
+            raise RuntimeError('Service-client preparation requires the active DUT recovery timer')
+        before = service_client_input()
+        comment = 'mvrf-service-' + secrets.token_hex(12)
+        if service_client_owned(before, comment):
+            raise RuntimeError('Service-client ownership marker already exists')
+        rules = [
+            ['-s', str(source) + '/32', '-d', str(destination) + '/32', '-p', protocol,
+             '-m', protocol, '--dport', port, '-m', 'comment', '--comment', comment, '-j', 'ACCEPT']
+            for protocol, port in (('udp', '161'), ('tcp', '22'))
+        ]
+        lease = {'version': 1, 'comment': comment, 'input_before': before, 'rules': rules,
+                 'attempted': [], 'cleanup_errors': [], 'released': False, 'timer_attempted': False}
+        # Save both complete undo specifications BEFORE any kernel mutation.
+        service_client_save(lease)
+        armed = False
+        try:
+            lease['timer_attempted'] = True
+            service_client_save(lease)
+            arm = subprocess.run(['systemd-run', '--unit=' + service_client_unit(), '--on-active=600s',
+                                  'python3', os.path.join(root, 'db.py'), 'service-client-expire'],
+                                 capture_output=True, text=True, timeout=30)
+            active = subprocess.run(['systemctl', 'is-active', '--quiet', service_client_unit() + '.timer'],
+                                    capture_output=True, text=True, timeout=15)
+            if arm.returncode or active.returncode:
+                raise RuntimeError('Could not arm the owned service-client recovery timer')
+            armed = True
+            for index, rule in enumerate(rules):
+                lease['attempted'].append(index)
+                service_client_save(lease)
+                result = service_client_command(['-I', 'INPUT', str(index + 1)] + rule)
+                if result.returncode:
+                    raise RuntimeError('Could not prepare the selected service client')
+            current = service_client_input()
+            owned = service_client_owned(current, comment)
+            if len(owned) != 2 or [row for row in current if row not in owned] != before:
+                raise RuntimeError('Service-client preparation changed unexpected INPUT rules')
+            for rule in rules:
+                if service_client_command(['-C', 'INPUT'] + rule).returncode:
+                    raise RuntimeError('A required service-client permit is absent')
+        except BaseException:
+            try:
+                if not armed:
+                    lease['cleanup_errors'].append('AclTimerArmError')
+                    service_client_save(lease)
+            finally:
+                # Error-evidence persistence must not prevent withdrawing an
+                # ambiguously armed timer or a partially inserted rule.
+                try:
+                    service_client_release_locked()
+                except Exception:
+                    with open(os.path.join(root, 'helper-errors.log'), 'a') as out:
+                        traceback.print_exc(file=out)
+            raise
+
+
+def service_client_finish():
+    path = os.path.join(root, 'service-client-lease.json')
+    if not os.path.exists(path):
+        return
+    deadline = time.monotonic() + 180
+    while not (service_client_unit_inactive(service_client_unit() + '.timer')
+               and service_client_unit_inactive(service_client_unit() + '.service')):
+        if time.monotonic() >= deadline:
+            raise RuntimeError('Owned service-client recovery unit is still active or queued')
+        time.sleep(1)
+    with service_client_lock():
+        with open(path) as inp:
+            lease = json.load(inp)
+        if (lease['cleanup_errors'] or not lease['released']
+                or os.path.exists(os.path.join(root, 'service-client-expired'))):
+            raise RuntimeError('Service-client recovery was not clean; retain private lease')
+
+
+def service_client_expire():
+    with service_client_lock():
+        try:
+            with open(os.path.join(root, 'service-client-expired'), 'a') as out:
+                os.fchmod(out.fileno(), 0o600)
+                out.flush()
+                os.fsync(out.fileno())
+        finally:
+            # Late expiry can only withdraw this lease's owned INPUT permits.
+            # It NEVER invokes global Redis, network or service restoration.
+            service_client_release_locked()
+
+
+@contextmanager
+def service_client_restore_guard():
+    cleanup_failed = False
+    restore_failed = False
+    try:
+        with service_client_lock():
+            try:
+                service_client_release_locked()
+            except Exception:
+                cleanup_failed = True
+                with open(os.path.join(root, 'helper-errors.log'), 'a') as out:
+                    traceback.print_exc(file=out)
+            try:
+                yield
+            except BaseException:
+                restore_failed = True
+                raise
+            finally:
+                # A firewall cleanup failure cannot prevent other DUT restore.
+                try:
+                    service_client_release_locked()
+                except Exception:
+                    cleanup_failed = True
+                    with open(os.path.join(root, 'helper-errors.log'), 'a') as out:
+                        traceback.print_exc(file=out)
+    finally:
+        # Expiry may already be queued on restore.lock; never wait under it.
+        try:
+            service_client_finish()
+        except Exception:
+            cleanup_failed = True
+            with open(os.path.join(root, 'helper-errors.log'), 'a') as out:
+                traceback.print_exc(file=out)
+        if cleanup_failed and not restore_failed:
+            raise RuntimeError('Service-client cleanup failed during DUT restoration')
+
+
+
 def linux_ready(enabled):
     # Wait for the real network before restoring VRF-bound service sockets.
     end = time.monotonic() + 180
@@ -1275,11 +1583,14 @@ def redact(value, salt):
 def main():
     action, args = sys.argv[1], sys.argv[2:]
     if action == 'snapshot':
+        connect_database()
         save({'salt': secrets.token_hex(32), 'tables': {t: flat(t) for t in args}})
         print('{}')
         return
-    with open(snapshot) as inp:
-        state = json.load(inp)
+    if action not in ('service-client-acquire', 'service-client-release', 'service-client-expire', 'restore'):
+        connect_database()
+        with open(snapshot) as inp:
+            state = json.load(inp)
     if action == 'extend':
         for table in args:
             if table not in state['tables']:
@@ -1343,10 +1654,23 @@ def main():
         for key in db.get_table('SNMP_AGENT_ADDRESS_CONFIG'):
             db.set_entry('SNMP_AGENT_ADDRESS_CONFIG', key, None)
         print('{}')
+    elif action == 'service-client-acquire':
+        service_client_acquire(*args)
+        print('{}')
+    elif action == 'service-client-release':
+        with service_client_lock():
+            service_client_release_locked()
+        service_client_finish()
+        print('{}')
+    elif action == 'service-client-expire':
+        service_client_expire()
+        print('{}')
     elif action == 'restore':
         # Main cleanup and the emergency timer share a lock; never race writes.
-        with open(os.path.join(root, 'restore.lock'), 'w') as lock:
-            fcntl.flock(lock, fcntl.LOCK_EX)
+        with service_client_restore_guard():
+            connect_database()
+            with open(snapshot) as inp:
+                state = json.load(inp)
             wanted = state['tables']['MGMT_VRF_CONFIG'].get('vrf_global', {}).get(
                 'mgmtVrfEnabled') == 'true'
             now = (db.get_entry('MGMT_VRF_CONFIG', 'vrf_global') or {}).get(
@@ -1437,6 +1761,8 @@ if __name__ == '__main__':
 '''
 
 
+
+
 def _gap_run(host, command, accepted=(0,)):
     """Require success, or an explicitly allowed status code; never hide errors."""
     result = host.shell(command, module_ignore_errors=True, verbose=False)
@@ -1454,6 +1780,8 @@ def _gap_wait(description, predicate):
     # wait_until returns as soon as the condition succeeds. Unlike sleep(5),
     # it checks completion. Remote commands may add to the polling budget.
     pytest_assert(wait_until(GAP_TIMEOUT, 5, 0, predicate), description)
+
+
 
 
 def _gap_network(host):
@@ -1968,8 +2296,12 @@ class TestMvrfRegressionGaps:
 # SECTION 3 — TWO HLD TRAFFIC CHECKS, AFTER THE EXISTING 22 CASES
 #
 # These need two working IPv4 PTF endpoints: management and front-panel.
-# Use addresses already assigned by the testbed; never guess an unused IP,
-# move eth0, change an ACL/sysctl, or install a route to force a passing test.
+# Use existing addresses, or prepare a scoped T0 client from the testbed's
+# per-port server allocation. Do not move links, change sysctls, or add routing
+# exceptions to force a pass. Only the service case authorizes its selected
+# default client for UDP/161 and TCP/22, then restores INPUT exactly. This is
+# service-client preparation, not an SNMP/SSH repair or ACL configuration test.
+# The isolation case never opens service permissions or changes DUT ACLs.
 # If no suitable PTF endpoint exists, report a prerequisite skip, not a pass.
 # Existing module and per-case backups still own DUT configuration rollback.
 # ===========================================================================
@@ -2146,8 +2478,9 @@ if __name__ == '__main__':
 '''
 
 
-def _dual_path_endpoints(dut_links, ptf_links, management_ip, management_interface, ptf_ports):
-    """Find two existing, directly connected IPv4 clients; allocate no addresses."""
+def _dual_path_endpoints(dut_links, ptf_links, management_ip, management_interface, ptf_ports,
+                         require_both=True):
+    """Find directly connected IPv4 clients on the supplied live interfaces."""
     management = ipaddress.ip_address(management_ip)
     if management.version != 4:
         return None
@@ -2183,6 +2516,8 @@ def _dual_path_endpoints(dut_links, ptf_links, management_ip, management_interfa
                     if source.ip != target.ip and source.ip in target.network and target.ip in source.network:
                         endpoints.setdefault(side, {'interface': interface, 'source': str(source.ip),
                                                     'dut': str(target.ip), 'dut_interface': name})
+    if not require_both:
+        return endpoints
     if set(endpoints) != {'mgmt', 'default'}:
         return None
     if (endpoints['mgmt']['interface'] == endpoints['default']['interface'] or
@@ -2191,10 +2526,150 @@ def _dual_path_endpoints(dut_links, ptf_links, management_ip, management_interfa
     return endpoints
 
 
+def _dual_path_ptf_network(ptfhost):
+    """Snapshot IPv4 addresses, routes and rules without transient counters."""
+    links = _gap_json(ptfhost, 'ip -j -4 address show')
+    addresses = sorted(json.dumps({'interface': link['ifname'], 'address': {
+                            key: value for key, value in address.items()
+                            if key not in ('valid_life_time', 'preferred_life_time')}}, sort_keys=True)
+                       for link in links for address in link.get('addr_info', [])
+                       if address.get('family') == 'inet')
+    routes = _gap_json(ptfhost, 'ip -j -4 route show table all')
+    return {'addresses': addresses,
+            'routes': sorted(json.dumps({key: value for key, value in route.items()
+                                        if key not in ('cache', 'expires', 'used', 'lastuse')}, sort_keys=True)
+                             for route in routes),
+            'rules': sorted(json.dumps(rule, sort_keys=True)
+                            for rule in _gap_json(ptfhost, 'ip -j -4 rule show'))}
+
+
+@pytest.fixture
+def mvrf_dual_path_clients(mvrf_gap_state, ptfhost, tbinfo):
+    """Prepare one topology-owned PTF server address when the T0 has none."""
+    host = mvrf_gap_state.host
+    verify_show_command(host, mvrf=True)
+    if ipaddress.ip_address(host.mgmt_ip).version != 4:
+        pytest.skip('These two HLD cases currently need IPv4 management and front-panel endpoints')
+    dependency = ptfhost.command('python3 -c "import paramiko; import scapy.layers.snmp"',
+                                 module_ignore_errors=True, verbose=False)
+    pytest_assert(dependency.get('rc') == 0, 'PTF needs Python 3 Scapy SNMP and Paramiko for these tests')
+    route = _gap_json(ptfhost, 'ip -j -4 route get ' + shlex.quote(host.mgmt_ip))[0]
+    graph = host.get_extended_minigraph_facts(tbinfo)
+    indices = graph['minigraph_ptf_indices']
+    ports = {'eth{}'.format(index) for index in indices.values()}
+    dut_links = _gap_json(host, 'ip -j -4 address show')
+    ptf_links = _gap_json(ptfhost, 'ip -j -4 address show')
+    endpoints = _dual_path_endpoints(dut_links, ptf_links, host.mgmt_ip, route.get('dev'), ports)
+    if endpoints is not None:
+        yield endpoints
+        return
+    partial = _dual_path_endpoints(dut_links, ptf_links, host.mgmt_ip, route.get('dev'), ports,
+                                  require_both=False)
+    if 'mgmt' not in partial:
+        pytest.skip('Needs a separate, existing on-link IPv4 PTF management endpoint')
+    topology = tbinfo['topo'].get('properties', {}).get('topology', {})
+    host_ports = topology.get('host_interfaces', [])
+    if (tbinfo['topo']['type'] != 't0' or 'dualtor' in tbinfo['topo']['name']
+            or not host_ports or not all(isinstance(index, int) for index in host_ports)):
+        pytest.skip('Needs existing front-panel IPv4 or a single-DUT T0 host-port allocation')
+    excluded = set(topology.get('disabled_host_interfaces') or [])
+    excluded.update(index for vm in topology.get('VMs', {}).values() for index in vm.get('vlans', []))
+    host_ports = set(host_ports) - excluded
+    vlan_configs = topology.get('DUT', {}).get('vlan_configs', {})
+    vlan_config = vlan_configs.get(vlan_configs.get('default_vlan_config'), {})
+    facts = host.config_facts(host=host.hostname, source='running')['ansible_facts']
+    live_dut = {link['ifname']: link for link in dut_links}
+    live_ptf = {link['ifname']: link for link in _gap_json(ptfhost, 'ip -j link show')}
+    assigned = {address['local'] for link in dut_links + ptf_links
+                for address in link.get('addr_info', []) if address.get('family') == 'inet'}
+    for vm in tbinfo['topo'].get('properties', {}).get('configuration', {}).values():
+        for interface in vm.get('interfaces', {}).values():
+            if interface.get('ipv4'):
+                assigned.add(str(ipaddress.ip_interface(interface['ipv4']).ip))
+    candidate = None
+    for vlan, addresses in sorted(facts.get('VLAN_INTERFACE', {}).items()):
+        dut = live_dut.get(vlan, {})
+        definition = vlan_config.get(vlan, {})
+        if 'UP' not in dut.get('flags', []) or dut.get('master'):
+            continue
+        members = facts.get('VLAN_MEMBER', {}).get(vlan, {})
+        for prefix in sorted(addresses):
+            try:
+                gateway = ipaddress.ip_interface(prefix)
+            except ValueError:
+                continue
+            if (gateway.version != 4 or str(gateway) != definition.get('prefix')
+                    or str(facts.get('VLAN', {}).get(vlan, {}).get('vlanid')) != str(definition.get('id'))
+                    or not any(address.get('local') == str(gateway.ip)
+                    and address.get('prefixlen') == gateway.network.prefixlen
+                    for address in dut.get('addr_info', []))):
+                continue
+            for member in sorted(members, key=lambda name: indices.get(name, -1)):
+                index = indices.get(member)
+                interface = 'eth{}'.format(index)
+                client = live_ptf.get(interface, {})
+                if (index not in host_ports or index not in definition.get('intfs', [])
+                        or interface == route.get('dev') or client.get('master')
+                        or 'UP' not in client.get('flags', [])
+                        or members[member].get('tagging_mode') != 'untagged'
+                        or member not in graph.get('minigraph_vlans', {}).get(vlan, {}).get('members', [])
+                        or any(link['ifname'] == interface for link in ptf_links)):
+                    continue
+                # Match setup_vlan_arp_responder's per-PTF-port server allocation.
+                source = gateway.ip + index + 1
+                pytest_assert(source in gateway.network and source not in
+                              (gateway.network.network_address, gateway.network.broadcast_address)
+                              and str(source) not in assigned,
+                              'Topology server IPv4 allocation conflicts with a configured endpoint')
+                candidate = (interface, '{}/{}'.format(source, gateway.network.prefixlen),
+                             gateway.network, client['address'].lower())
+                break
+            if candidate:
+                break
+        if candidate:
+            break
+    if candidate is None:
+        pytest.skip('Needs an active untagged T0 VLAN member mapped to an available PTF host port')
+    interface, prefix, network, mac = candidate
+    original = _dual_path_ptf_network(ptfhost)
+    for encoded in original['routes']:
+        destination = json.loads(encoded).get('dst', 'default')
+        if destination != 'default':
+            pytest_assert(not network.overlaps(ipaddress.ip_network(destination, strict=False)),
+                          'PTF has an existing route overlapping the topology server subnet')
+    source = prefix.split('/')[0]
+    conflict_probe = ("import json\nfrom scapy.all import ARP,Ether,srp\n"
+                      "answers=srp(Ether(src={mac!r},dst='ff:ff:ff:ff:ff:ff')/"
+                      "ARP(hwsrc={mac!r},psrc='0.0.0.0',pdst={source!r}),iface={interface!r},"
+                      "timeout=2,retry=1,verbose=False)[0]\n"
+                      "print(json.dumps(sorted({{reply[ARP].hwsrc.lower() for _,reply in answers "
+                      "if reply.haslayer(ARP) and reply[ARP].psrc=={source!r}}})))\n").format(
+                          mac=mac, source=source, interface=interface)
+    owners = _gap_json(ptfhost, 'python3 -c ' + shlex.quote(conflict_probe))
+    # A PTF ARP responder may already represent this same topology server/MAC.
+    pytest_assert(not set(owners) - {mac}, 'Topology server IPv4 has another ARP owner')
+    try:
+        # The owned address is recorded before add, covering partial setup failure.
+        _gap_run(ptfhost, 'ip address add {} dev {}'.format(shlex.quote(prefix), shlex.quote(interface)))
+        endpoints = _dual_path_endpoints(dut_links, _gap_json(ptfhost, 'ip -j -4 address show'),
+                                        host.mgmt_ip, route.get('dev'), ports)
+        pytest_assert(endpoints is not None, 'Allocated topology server did not produce both IPv4 endpoints')
+        yield endpoints
+    finally:
+        try:
+            # This exact address was absent before our add attempt. Delete it
+            # without another discovery query, even after partially failed setup.
+            ptfhost.command('ip address del {} dev {}'.format(shlex.quote(prefix), shlex.quote(interface)),
+                            module_ignore_errors=True, verbose=False)
+        finally:
+            pytest_assert(_dual_path_ptf_network(ptfhost) == original,
+                          'Dual-path cleanup did not restore PTF IPv4 addresses, routes and rules')
+
+
 def _dual_path_probe(ptfhost, directory, action):
-    command = 'sudo timeout 100 python3 {} {}'.format(shlex.quote(directory + '/probe.py'), action)
+    command = 'timeout 100 python3 {} {}'.format(shlex.quote(directory + '/probe.py'), action)
     result = ptfhost.shell(command, module_ignore_errors=True, verbose=False)
-    output = _gap_json(ptfhost, 'sudo cat ' + shlex.quote(directory + '/' + action + '.json'))
+    output = _gap_json(ptfhost, 'cat ' + shlex.quote(directory + '/' + action + '.json'))
     pytest_assert(result.get('rc') == 0 and output.get('ok'),
                   'Dual-path {} check failed: {}'.format(action, output))
     return output['result']
@@ -2222,26 +2697,13 @@ def _dual_path_service_input(host, ptfhost, directory, config, request):
 
 
 @pytest.fixture
-def mvrf_dual_path(mvrf_gap_state, ptfhost, tbinfo):
-    """Use real assigned PTF addresses; leave interfaces, routes and ACLs alone."""
+def mvrf_dual_path(mvrf_gap_state, mvrf_dual_path_clients, ptfhost):
+    """Use real PTF clients and retain the service and packet positive controls."""
     state = mvrf_gap_state
-    host = state.host
-    verify_show_command(host, mvrf=True)
-    if ipaddress.ip_address(host.mgmt_ip).version != 4:
-        pytest.skip('These two HLD cases currently need IPv4 management and front-panel endpoints')
-    route = _gap_json(ptfhost, 'ip -j -4 route get ' + shlex.quote(host.mgmt_ip))[0]
-    graph = host.get_extended_minigraph_facts(tbinfo)
-    ports = {'eth{}'.format(index) for index in graph['minigraph_ptf_indices'].values()}
-    endpoints = _dual_path_endpoints(_gap_json(host, 'ip -j -4 address show'),
-                                     _gap_json(ptfhost, 'ip -j -4 address show'),
-                                     host.mgmt_ip, route.get('dev'), ports)
-    if endpoints is None:
-        pytest.skip('Needs an existing PTF IPv4 address in a directly connected DUT front-panel subnet '
-                    'and a separate on-link management endpoint; no IP was guessed or changed')
-    dependency = ptfhost.command('python3 -c "import paramiko; import scapy.layers.snmp"',
-                                 module_ignore_errors=True, verbose=False)
-    pytest_assert(dependency.get('rc') == 0, 'PTF needs Python 3 Scapy SNMP and Paramiko for these tests')
-    directory = _gap_run(ptfhost, 'sudo mktemp -d /tmp/mvrf-dual.XXXXXXXX')['stdout'].strip()
+    endpoints = mvrf_dual_path_clients
+    # PTFHost already enables Ansible privilege escalation. PTF images do not
+    # need an additional sudo binary inside each command.
+    directory = _gap_run(ptfhost, 'mktemp -d /tmp/mvrf-dual.XXXXXXXX')['stdout'].strip()
     pytest_assert(re.fullmatch(r'/tmp/mvrf-dual\.[A-Za-z0-9]+', directory), 'Unexpected PTF backup path')
     config = {'endpoints': endpoints, 'token': directory.rsplit('.', 1)[-1], 'port': 49161}
     try:
@@ -2262,8 +2724,29 @@ def mvrf_dual_path(mvrf_gap_state, ptfhost, tbinfo):
                 "   time.sleep(0.1)\n"
                 "  else: raise RuntimeError('Owned capture did not stop; keeping private files')\n"
                 "except (FileNotFoundError,ProcessLookupError):\n pass\n").format(directory)
-        _gap_run(ptfhost, 'sudo python3 -c ' + shlex.quote(stop))
+        _gap_run(ptfhost, 'python3 -c ' + shlex.quote(stop))
         ptfhost.file(path=directory, state='absent')
+
+
+@contextmanager
+def _dual_path_service_client(state, endpoint):
+    """Authorize one validated default client; never alter the isolation case."""
+    pytest_assert(state.timer_armed, 'Service-client preparation needs the DUT recovery timer')
+    original_failed = False
+    try:
+        state.db('service-client-acquire', endpoint['source'], endpoint['dut'])
+        yield
+    except BaseException:
+        original_failed = True
+        raise
+    finally:
+        try:
+            # Also runs after partial preparation or a lost acquire response.
+            state.db('service-client-release')
+        except (Exception, pytest.fail.Exception):
+            if not original_failed:
+                raise
+            logger.error('Service-client cleanup failed; DUT recovery will retry and retain the failure')
 
 
 class TestMvrfDualPath:
@@ -2281,7 +2764,8 @@ class TestMvrfDualPath:
         # Secrets stay in this root-only PTF directory and are never printed.
         _dual_path_service_input(host, ptfhost, directory, config, request)
         logger.info('Checking real SNMP replies and authenticated SSH through management and front-panel paths')
-        _dual_path_probe(ptfhost, directory, 'services')
+        with _dual_path_service_client(state, config['endpoints']['default']):
+            _dual_path_probe(ptfhost, directory, 'services')
         verify_show_command(host, mvrf=True)
 
     def test_no_forwarding_between_mgmt_and_default(self, mvrf_dual_path):
@@ -2289,9 +2773,9 @@ class TestMvrfDualPath:
         ptfhost.copy(content=json.dumps(config), dest=directory + '/input.json', mode=0o600, verbose=False)
         launch = ('nohup timeout 100 python3 {0}/probe.py isolation > {0}/capture.log 2>&1 '
                   '< /dev/null & echo $! > {0}/capture.pid').format(shlex.quote(directory))
-        _gap_run(ptfhost, 'sudo sh -c ' + shlex.quote(launch))
+        _gap_run(ptfhost, 'sh -c ' + shlex.quote(launch))
         _gap_wait('PTF packet capture did not become ready', lambda: ptfhost.command(
-            'sudo test -e ' + shlex.quote(directory + '/capture-ready'),
+            'test -e ' + shlex.quote(directory + '/capture-ready'),
             module_ignore_errors=True, verbose=False).get('rc') == 0)
         # Prove both receivers can see packets sent by the DUT in their own
         # VRF before interpreting missing cross-VRF packets as successful isolation.
@@ -2303,9 +2787,9 @@ class TestMvrfDualPath:
                 shlex.quote(config['token'] + ':control:' + side), config['port'])
             _gap_run(state.host, command)
         _gap_wait('PTF isolation capture did not finish', lambda: ptfhost.command(
-            'sudo test -e ' + shlex.quote(directory + '/isolation.json'),
+            'test -e ' + shlex.quote(directory + '/isolation.json'),
             module_ignore_errors=True, verbose=False).get('rc') == 0)
-        result = _gap_json(ptfhost, 'sudo cat ' + shlex.quote(directory + '/isolation.json'))
+        result = _gap_json(ptfhost, 'cat ' + shlex.quote(directory + '/isolation.json'))
         pytest_assert(result.get('ok'), 'Isolation check failed: {}'.format(result))
         pytest_assert(result['result']['controls'] == ['default', 'mgmt'] and not result['result']['crossed'],
                       'Both positive controls and zero cross-VRF packets are required')
@@ -2347,7 +2831,7 @@ class MvrfRadiusServer:
         self.failed = False
 
     def call(self, action):
-        result = self.ptfhost.shell('sudo python3 {} {}'.format(
+        result = self.ptfhost.shell('python3 {} {}'.format(
             shlex.quote(self.directory + '/probe.py'), shlex.quote(action)),
             module_ignore_errors=True, verbose=False)
         try:
@@ -2427,13 +2911,14 @@ def mvrf_radius_server(mvrf_radius_state, ptfhost):
     if ipaddress.ip_address(state.host.mgmt_ip).version != 4 or ipaddress.ip_address(ptfhost.mgmt_ip).version != 4:
         pytest.skip('Private RADIUS login fixture currently supports IPv4 management endpoints')
     state.local_login()
-    directory = _gap_run(ptfhost, 'sudo mktemp -d /tmp/mvrf-radius.XXXXXXXX')['stdout'].strip()
+    directory = _gap_run(ptfhost, 'mktemp -d /tmp/mvrf-radius.XXXXXXXX')['stdout'].strip()
     pytest_assert(re.fullmatch(r'/tmp/mvrf-radius\.[A-Za-z0-9]+', directory), 'Unexpected PTF RADIUS directory')
     server = MvrfRadiusServer(state, ptfhost, directory)
     copied = False
     try:
-        ptfhost.copy(content=Path(radius_test_helper.__file__).read_text(),
-                     dest=directory + '/probe.py', mode=0o600, verbose=False)
+        # A file transfer preserves the helper's literal configuration braces.
+        ptfhost.copy(src=radius_test_helper.__file__, dest=directory + '/probe.py',
+                     mode=0o600, verbose=False)
         copied = True
         server.prepare()
         yield server
