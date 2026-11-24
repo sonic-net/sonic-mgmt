@@ -37,6 +37,7 @@ See test_dt2_addcluster_workflow() docstring for detailed explanation.
 """
 
 import json
+import shlex
 import logging
 import os
 import tempfile
@@ -457,6 +458,10 @@ def setup_env(duthosts, rand_one_dut_hostname):
     logger.info("Preserving pre-test configuration in %s", backup_dir)
     duthost.shell(f"cp -p {config_db} {saved_config}")
     duthost.shell(f"sonic-cfggen -d --print-data > {running_config}")
+    validate_snapshot = (
+        "python3 -c 'import json, sys; "
+        "sys.exit(0 if isinstance(json.load(sys.stdin), dict) else 1)' < {}".format(shlex.quote(running_config)))
+    duthost.shell(validate_snapshot, verbose=False)
 
     try:
         yield
@@ -468,6 +473,7 @@ def setup_env(duthosts, rand_one_dut_hostname):
                 duthost.shell(f"cp -p {MINIGRAPH_BACKUP} {MINIGRAPH}")
                 # Minigraph reload saved the without-T1 state; load the full pre-test
                 # snapshot instead, including tables that minigraph cannot represent.
+                duthost.shell(validate_snapshot, verbose=False)
                 duthost.shell(f"cp {running_config} {config_db}")
                 logger.info("Restoring pre-test running configuration")
                 config_reload(duthost, config_source="config_db", safe_reload=True)
