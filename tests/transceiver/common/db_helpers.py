@@ -24,6 +24,8 @@ Bulk/once-per-test accessors read many rows in one shot:
 :func:`get_config_db_port_table` and :func:`get_config_db_port_names` return
 their values directly, while :func:`get_state_db_table` keeps the ``(value,
 err)`` tuple so a dump failure can be surfaced as a clean per-test failure.
+:func:`read_state_db_table_for_ports` batches selected ports by namespace and
+returns per-port rows plus aggregated read errors.
 """
 import ast
 import json
@@ -428,6 +430,44 @@ def get_state_db_table(duthost, table, namespace=None):
     preserves the existing STATE_DB call sites unchanged.
     """
     return get_db_table(duthost, "STATE_DB", table, namespace=namespace, sep="|")
+
+
+def read_state_db_table_for_ports(duthost, ports, table_name):
+    """Read a table once per namespace and return ``(rows_by_port, errors)``.
+
+    A port row is ``None`` when its namespace read fails, or ``{}`` when the
+    read succeeds but that port has no published row.
+    """
+    ports = list(ports)
+    rows_by_port = {port: {} for port in ports}
+    errors = []
+    ports_by_namespace = group_ports_by_namespace(duthost, ports)
+
+    for namespace, namespace_ports in ports_by_namespace.items():
+        table_data, error = get_state_db_table(duthost, table_name, namespace=namespace)
+        if error:
+            errors.append(
+                "{} namespace {} ({} port(s) under test): {}".format(
+                    table_name, namespace or "default", len(namespace_ports), error,
+                )
+            )
+            logger.warning(
+                "Failed to read %s namespace %s for %d port(s): %s",
+                table_name, namespace or "default", len(namespace_ports), error,
+            )
+            for port in namespace_ports:
+                rows_by_port[port] = None
+            continue
+
+        for port in namespace_ports:
+            rows_by_port[port] = table_data.get(port, {}) or {}
+
+    logger.debug(
+        "Read %s data for %d port(s) across %d namespace(s); %d port(s) returned data",
+        table_name, len(ports), len(ports_by_namespace),
+        sum(1 for row in rows_by_port.values() if row),
+    )
+    return rows_by_port, errors
 
 
 def get_config_db_port_table(duthost):

@@ -26,7 +26,7 @@ def get_downstream_vm(duthost, nbrhosts, tbinfo):
     )
     pytest_assert(downstream_neighbors, "No downstream neighbor found for topology {}".format(tbinfo["topo"]["type"]))
     # Pick deterministically so failures are reproducible.
-    return nbrhosts[downstream_neighbors[0]]['host']
+    return nbrhosts[downstream_neighbors[0]]
 
 
 def check_no_export_routes(vm_host, is_v6_topo, expected):
@@ -62,7 +62,7 @@ def test_bgp_bounce(duthost, nbrhosts, tbinfo, deploy_plain_bgp_config, deploy_n
     is_v6_topo = is_ipv6_only_topology(tbinfo)
 
     # Get downstream VM
-    vm_host = get_downstream_vm(duthost, nbrhosts, tbinfo)
+    vm = get_downstream_vm(duthost, nbrhosts, tbinfo)
 
     # Start all bgp sessions
     duthost.shell('config bgp startup all')
@@ -71,10 +71,10 @@ def test_bgp_bounce(duthost, nbrhosts, tbinfo, deploy_plain_bgp_config, deploy_n
     apply_bgp_config(duthost, bgp_plain_config)
 
     # Verify downstream VM has no no-export routes yet
-    check_no_export_routes(vm_host, is_v6_topo, expected=False)
+    check_no_export_routes(vm, is_v6_topo, expected=False)
 
     # Apply bgp no export config
     apply_bgp_config(duthost, bgp_no_export_config)
 
     # Verify downstream VM now sees the no-export community
-    check_no_export_routes(vm_host, is_v6_topo, expected=True)
+    check_no_export_routes(vm, is_v6_topo, expected=True)

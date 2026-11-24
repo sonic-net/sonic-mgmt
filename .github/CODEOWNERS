@@ -13,7 +13,7 @@
 /tests/arp/                                                                  @prsunny
 /tests/autorestart/                                                          @augusdn
 /tests/bfd/                                                                  @prsunny
-/tests/bgp/                                                                  @deepak-singhal0408
+/tests/bgp/                                                                  @deepak-singhal0408 @wenyiz2021
 /tests/bmp/                                                                  @FengPan-Frank
 /tests/cacl/                                                                 @yyynini @shreyansh-nexthop
 /tests/clock/                                                                @wsycqyz
@@ -65,10 +65,10 @@
 /tests/test_nbr_health.py                                                    @Pterosaur
 /tests/ntp/                                                                  @wsycqyz
 /tests/override_config_table/                                                @vaibhavhd @arista-nwolfe
-/tests/packet_trimming/                                                      @kperumalbfn @weiguo-nvidia
+/tests/packet_trimming/                                                      @prsunny @weiguo-nvidia
 /tests/passw_hardening/                                                      @qiluo-msft
 /tests/pc/                                                                   @saiarcot895 @peterbailey-arista
-/tests/pfc_asym/                                                             @kperumalbfn
+/tests/pfc_asym/                                                             @prsunny
 /tests/pfcwd/                                                                @lipxu @peterbailey-arista @dcaugher @indrashis-nexthop
 /tests/platform_tests/                                                       @rlhui @JibinBao @aisjoshi-cisco @chander-nexthop
 /tests/portstat/                                                             @judyjoseph
@@ -198,7 +198,7 @@
 /tests/generic_config_updater/test_ecn_config_update.py                      @lipxu @anamehra
 /tests/generic_config_updater/test_incremental_qos.py                        @lipxu @anamehra
 /tests/generic_config_updater/test_pg_headroom_update.py                     @lipxu @anamehra
-/tests/generic_config_updater/test_mmu_dynamic_threshold_config_update.py    @developfast @anamehra
+/tests/generic_config_updater/test_mmu_dynamic_threshold_config_update.py    @prsunny @anamehra
 /tests/generic_config_updater/test_dynamic_acl.py                            @jongorel @anamehra
 /tests/generic_config_updater/test_srv6.py                                   @r12f @anamehra
 /tests/generic_config_updater/test_srv6_link_isolation_acl.py                @r12f @anamehra
@@ -213,7 +213,7 @@
 /tests/gnmi/test_gnoi_system_reboot.py                                       @ryanzhu706 @ronan-nexthop
 
 # ip
-/tests/ip/test_mgmt_ipv6_only.py                                             @opcoder0 @illia-kotvitskyi @ashutosh-agrawal
+/tests/ip/test_mgmt_ipv6_only.py                                             @saiarcot895 @illia-kotvitskyi @ashutosh-agrawal
 
 # override_config_table
 /tests/override_config_table/test_override_config_table_masic.py             @wenyiz2021 @arista-nwolfe
@@ -239,12 +239,12 @@
 
 # qos
 /tests/qos/test_qos_masic.py                                                 @rlhui @rick-arista @zhixzhu @purush-nexthop
-/tests/qos/test_qos_dscp_mapping.py                                          @kperumalbfn @rick-arista @zhixzhu @purush-nexthop
+/tests/qos/test_qos_dscp_mapping.py                                          @prsunny @rick-arista @zhixzhu @purush-nexthop
 
 # srv6
-/tests/srv6/test_srv6_static_config.py                                       @BYGX-wcr @echuawu
-/tests/srv6/test_srv6_dataplane.py                                           @BYGX-wcr @echuawu
-/tests/srv6/test_srv6_vlan_forwarding.py                                     @BYGX-wcr @echuawu
+/tests/srv6/test_srv6_static_config.py                                       @r12f @echuawu
+/tests/srv6/test_srv6_dataplane.py                                           @r12f @echuawu
+/tests/srv6/test_srv6_vlan_forwarding.py                                     @r12f @echuawu
 
 # sub_port_interfaces
 /tests/sub_port_interfaces/test_sub_port_interfaces.py                       @StormLiangMS

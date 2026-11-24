@@ -34,6 +34,8 @@ def is_policer_supported(duthost):
         return False
     if platform.startswith("x86_64-nexthop_4210"):
         return False
+    if platform.startswith("x86_64-micas_m2-w6940"):
+        return False
     return True
 
 

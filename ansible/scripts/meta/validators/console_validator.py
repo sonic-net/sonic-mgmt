@@ -304,6 +304,18 @@ class ConsoleValidator(GlobalValidator):
                         {"device": device_name, "field": field}
                     )
 
+        console_type = console_port_info.get('type', '')
+        if console_type and str(console_type).lower() == 'ssh_to_port':
+            direct_ssh_port = console_port_info.get('direct_ssh_port')
+            if direct_ssh_port is None or (
+                isinstance(direct_ssh_port, str) and not direct_ssh_port.strip()
+            ):
+                # missing_direct_ssh_port: ssh_to_port console type requires direct_ssh_port
+                self.result.add_issue(
+                    'E3011',
+                    {"device": device_name, "console_type": console_type},
+                )
+
     @staticmethod
     def _build_bmc_host_pairs(testbed_info):
         """

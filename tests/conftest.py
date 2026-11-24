@@ -9,6 +9,7 @@ import random
 import re
 import sys
 import shutil
+import tempfile
 
 import pytest
 import yaml
@@ -134,7 +135,8 @@ GOLDEN_CONFIG_DB_PATH_ORI = constants.GOLDEN_CONFIG_DB_PATH_ORI
 RUNTIME_MANAGED_CONFIG_RESTORE_TIMEOUT = 120
 RUNTIME_MANAGED_CONFIG_RESTORE_INTERVAL = 10
 
-pytest_plugins = ('tests.common.plugins.ptfadapter',
+pytest_plugins = ('tests.common.plugins.nasa_debug',
+                  'tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
                   'tests.common.plugins.dut_monitor',
                   'tests.common.plugins.loganalyzer',
@@ -155,7 +157,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.fixtures.duthost_utils',
                   'tests.common.plugins.parallel_fixture',
                   'tests.common.plugins.erspan_mirror',
-                  'tests.common.port_attributes.pytest_plugin')
+                  'tests.common.port_attributes.pytest_plugin',
+                  'tests.common.plugins.dualtor_enum_one_tor')
 
 
 # NOTE: This is to backport fix https://github.com/python/cpython/pull/126098
@@ -186,6 +189,10 @@ def pytest_addoption(parser):
     # qos_sai options
     parser.addoption("--ptf_portmap", action="store", default=None, type=str,
                      help="PTF port index to DUT port alias map")
+    parser.addoption("--hash-seed", action="store", default=None, type=int,
+                     help="Replay IPinIP hash packet generation with this integer seed")
+    parser.addoption("--hash-debug", action="store_true", default=False,
+                     help="Log IPinIP protocol distribution and ASIC_DB hash/ECMP diagnostics")
     parser.addoption("--qos_swap_syncd", action="store", type=str2bool, default=True,
                      help="Swap syncd container with syncd-rpc container")
 
@@ -485,7 +492,7 @@ def _load_testbed_config(tbfile, tbname):
         if tb.get('conf-name') == tbname:
             return tb
 
-    logger.warning(f"Testbed '{tbname}' not found in '{tbfile}'")
+    logger.warning(f"Testbed '{tbname}' is not in '{tbfile}'")
     return
 
 
@@ -615,7 +622,7 @@ def converge_topo_if_needed(config):
 
         os.chmod(topo_file, original_mode)
         os.chown(topo_file, original_uid, original_gid)
-        logger.info(f"File permissions restored to {original_uid}:{original_gid}")
+        logger.info(f"File permissions restored to {original_uid}: {original_gid}")
 
         config.cache.set("converged_topo_file", topo_file)
         config.cache.set("converged_topo_backup", backup_file)
@@ -994,6 +1001,7 @@ def set_rand_one_dut_hostname(request):
             dut_hostnames = random.sample(dut_hostnames, 1)
         rand_one_dut_hostname_var = dut_hostnames[0]
         logger.info("Randomly select dut {} for testing".format(rand_one_dut_hostname_var))
+    return rand_one_dut_hostname_var
 
 
 @pytest.fixture(scope="module")
@@ -1540,7 +1548,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
 
             logging.debug(
                 f"Added serial port mapping: {dut_name} Console{host_port} -> "
-                f"{fanout_host}:{fanout_port} (baud={link_info.get('baud_rate', '9600')})"
+                f"{fanout_host}: {fanout_port} (baud={link_info.get('baud_rate', '9600')})"
             )
 
     logging.info(f"fanouthosts fixture initialized with {len(fanout_hosts)} fanout devices")
@@ -4149,7 +4157,7 @@ def build_gnmi_stubs(request):
             text=True,
             check=False  # Do not raise an exception automatically on non-zero exit
         )
-        logger.info(f"Output of {script_path}:\n{result.stdout}")
+        logger.info(f"Output of {script_path}: \n{result.stdout}")
 
         if result.returncode != 0:
             logger.error(f"{script_path} failed with exit code {result.returncode}")
@@ -4254,7 +4262,14 @@ def update_golden_config_tsa_enabled(duthost, tsa_enabled=True):
         golden_config_db.setdefault("BGP_DEVICE_GLOBAL", {}) \
                         .setdefault("STATE", {})["tsa_enabled"] = tsa_enabled_str
 
-    duthost.copy(content=json.dumps(golden_config_db, indent=4), dest=GOLDEN_CONFIG_DB_PATH)
+    tmp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
+    try:
+        json.dump(golden_config_db, tmp_file, indent=4)
+        tmp_file.flush()
+        tmp_file.close()
+        duthost.copy(src=tmp_file.name, dest=GOLDEN_CONFIG_DB_PATH)
+    finally:
+        os.unlink(tmp_file.name)
 
 
 @pytest.fixture(scope="module", autouse=True)

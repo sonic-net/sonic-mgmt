@@ -296,35 +296,37 @@ def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
                 str(ipv4_base.ip + ip_offset), str(ipv6_base.ip + ip_offset)
             ]
 
-    CFG_FILE = '/tmp/arp_responder_vlan.json'
-    with open(CFG_FILE, 'w') as file:
-        json.dump(arp_responder_cfg, file)
-    ptfhost.copy(src=CFG_FILE, dest=CFG_FILE)
+    cfg_file = '/tmp/arp_responder_vlan.json'
+    ready_file = '/tmp/arp_responder_vlan.ready'
+    try:
+        ptfhost.copy(content=json.dumps(arp_responder_cfg), dest=cfg_file)
 
-    extra_vars = {
-            'arp_responder_args': '--conf {}'.format(CFG_FILE)
-    }
+        extra_vars = {
+            'arp_responder_args': '--conf {} --ready-file {}'.format(cfg_file, ready_file)
+        }
 
-    ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
-    ptfhost.template(src='templates/arp_responder.conf.j2',
-                     dest='/etc/supervisor/conf.d/arp_responder.conf')
-    ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ARP_RESPONDER_PY),
-                 dest=OPT_DIR)
+        ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
+        ptfhost.template(src='templates/arp_responder.conf.j2',
+                         dest='/etc/supervisor/conf.d/arp_responder.conf')
+        ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ARP_RESPONDER_PY),
+                     dest=OPT_DIR)
 
-    ptfhost.command('supervisorctl reread')
-    ptfhost.command('supervisorctl update')
+        ptfhost.command('supervisorctl reread')
+        ptfhost.command('supervisorctl update')
 
-    logger.info("Start arp_responder")
-    ptfhost.command('supervisorctl start arp_responder')
+        # Stop any previous instance before removing its readiness marker.
+        ptfhost.command('supervisorctl stop arp_responder', module_ignore_errors=True)
+        ptfhost.file(path=ready_file, state='absent')
+        logger.info("Start arp_responder")
+        ptfhost.command('supervisorctl start arp_responder')
+        ptfhost.wait_for(path=ready_file, state='present', timeout=60)
 
-    yield ArpResponderInfo(vlan=vlan, responder_cfg=arp_responder_cfg)
-
-    ptfhost.command('supervisorctl stop arp_responder')
-    # Remove the rendered config so it can't mislead diagnostics or be picked up
-    # by a later, stale invocation of arp_responder. The supervisor unit file
-    # itself is intentionally left in place because the autouse fixture re-renders
-    # it on every module setup; deleting only the data file is enough.
-    ptfhost.file(path=CFG_FILE, state="absent")
+        yield ArpResponderInfo(vlan=vlan, responder_cfg=arp_responder_cfg)
+    finally:
+        ptfhost.command('supervisorctl stop arp_responder', module_ignore_errors=True)
+        # Remove both config and readiness marker, including on setup failure.
+        for path in (ready_file, cfg_file):
+            ptfhost.file(path=path, state='absent')
 
 
 def _ptf_portmap_file(duthost, ptfhost, tbinfo):
@@ -379,6 +381,32 @@ def ptf_portmap_file_module(rand_selected_dut, ptfhost, tbinfo):
 icmp_responder_session_started = False
 
 
+def get_icmp_responder_ipv6_args(duthosts):
+    """Allow IPv6 probe sources only for ports selecting IPv6 over absent IPv4."""
+    sources = set()
+    for duthost in duthosts:
+        config = duthost.get_running_config_facts()
+        ipv6_selected = False
+        for mux in config.get("MUX_CABLE", {}).values():
+            endpoint = "soc" if mux.get("cable_type") == "active-active" else "server"
+            if endpoint + "_ipv4" not in mux and mux.get(endpoint + "_ipv6"):
+                ipv6_selected = True
+                break
+        if not ipv6_selected:
+            continue
+        host_sources = set()
+        for prefix in config.get("LOOPBACK_INTERFACE", {}).get("Loopback2", {}):
+            try:
+                address = ip_interface(prefix).ip
+            except ValueError:
+                continue
+            if address.version == 6 and not address.is_unspecified:
+                host_sources.add(str(address))
+        pt_assert(host_sources, "{}: IPv6 probing requires an IPv6 Loopback2 source".format(duthost.hostname))
+        sources.update(host_sources)
+    return "".join(" --src_ipv6 {}".format(source) for source in sorted(sources))
+
+
 @pytest.fixture(scope="session", autouse=True)
 def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo, request):
     """Run icmp_responder on ptfhost session-wise on dualtor testbeds with active-active ports."""
@@ -391,7 +419,8 @@ def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo, request):
 
     global icmp_responder_session_started
 
-    update_linkmgrd_probe_interval(duthosts, tbinfo, PROBER_INTERVAL_MS)
+    ipv6_args = get_icmp_responder_ipv6_args(duthosts)
+    update_linkmgrd_probe_interval(duthosts, tbinfo, PROBER_INTERVAL_MS, ipv6=bool(ipv6_args))
     duthosts.shell("config save -y")
 
     duthost = duthosts[0]
@@ -412,6 +441,7 @@ def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo, request):
     vlan_mac = duthost.get_dut_iface_mac(vlan_name)
     icmp_responder_args = " ".join("-i eth%s" % ptf_indices[_] for _ in vlan_intfs)
     icmp_responder_args += " " + "-m {}".format(vlan_mac)
+    icmp_responder_args += ipv6_args
     ptfhost.copy(
         content=templ.render(icmp_responder_args=icmp_responder_args),
         dest=os.path.join(SUPERVISOR_CONFIG_DIR, "icmp_responder.conf")
@@ -444,7 +474,8 @@ def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request
         yield
         return
 
-    update_linkmgrd_probe_interval(duthosts, tbinfo, PROBER_INTERVAL_MS)
+    ipv6_args = get_icmp_responder_ipv6_args(duthosts)
+    update_linkmgrd_probe_interval(duthosts, tbinfo, PROBER_INTERVAL_MS, ipv6=bool(ipv6_args))
     duthosts.shell("config save -y")
 
     duthost = duthosts[rand_one_dut_hostname]
@@ -460,6 +491,7 @@ def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request
     vlan_mac = duthost.get_dut_iface_mac(vlan_name)
     icmp_responder_args = " ".join("-i eth%s" % ptf_indices[_] for _ in vlan_intfs)
     icmp_responder_args += " " + "-m {}".format(vlan_mac)
+    icmp_responder_args += ipv6_args
     ptfhost.copy(
         content=templ.render(icmp_responder_args=icmp_responder_args),
         dest=os.path.join(SUPERVISOR_CONFIG_DIR, "icmp_responder.conf")
@@ -472,7 +504,7 @@ def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request
     logger.info("Stop running icmp_responder")
     ptfhost.shell("supervisorctl stop icmp_responder")
     logger.info("Recover linkmgrd probe interval")
-    recover_linkmgrd_probe_interval(duthosts, tbinfo)
+    recover_linkmgrd_probe_interval(duthosts, tbinfo, ipv6=bool(ipv6_args))
     duthosts.shell("config save -y")
 
 

@@ -12,7 +12,6 @@
     - [Test HFT Full Queue Counters](#test-case-test-hft-full-queue-counters)
     - [Test HFT Full Ingress Priority Group Counters](#test-case-test-hft-full-ingress-priority-group-counters)
     - [Test HFT Full Buffer Pool Counters](#test-case-test-hft-full-buffer-pool-counters)
-    - [Test HFT Full Counters](#test-case-test-hft-full-counters)
     - [Test HFT Full Port Counters](#test-case-test-hft-full-port-counters)
   - [State Transition Tests](#state-transition-tests)
     - [Test HFT Disabled Stream](#test-case-test-hft-disabled-stream)
@@ -29,7 +28,7 @@
 
 This test plan outlines the approach for validating the [High Frequency Telemetry (HFT)](https://github.com/sonic-net/SONiC/blob/master/doc/high-frequency-telemetry/high-frequency-telemetry-hld.md) feature in SONiC.
 
-HFT enables microsecond-level polling and streaming of network statistics (port counters, queue counters, ingress priority group counters, buffer pool counters) via the `countersyncd` daemon running inside the `swss` container. The tests verify that the system can accurately collect and report real-time telemetry data, respond correctly to dynamic configuration changes, and handle port state transitions gracefully.
+HFT enables microsecond-level polling and streaming of network statistics (port counters, queue counters, ingress priority group counters, buffer pool counters) via the `countersyncd` daemon running inside the `hft` container. The tests verify that the system can accurately collect and report real-time telemetry data, respond correctly to dynamic configuration changes, and handle port state transitions gracefully.
 
 ### Scope
 
@@ -40,7 +39,7 @@ The test suite covers:
 - **Configuration lifecycle**: Validating create → delete → recreate of HFT profiles/groups while `countersyncd` runs continuously.
 - **Poll interval accuracy**: Verifying the measured message rate matches expected rate based on configured poll interval.
 - **Port state interaction**: Confirming counter behavior (increasing vs. stable) when monitored ports are shut down/started up under traffic.
-- **Test infrastructure**: Validation of fixtures (`ensure_swss_ready`, `cleanup_high_frequency_telemetry`, `hft_influxdb`) and utility functions for HFT config management.
+- **Test infrastructure**: Validation of fixtures (`ensure_swss_ready`, `hft_influxdb`) and utility functions for HFT config management.
 
 ### Testbed
 
@@ -72,9 +71,14 @@ HFT Phase 1 supports key AI data center statistics across four object types:
 
 ### Prerequisites
 - DUT must have the `swss` container running and stable (uptime ≥ 10 seconds).
-- The `countersyncd` daemon must be functional inside the `swss` container.
-- The supervisor-owned `countersyncd` daemon must be running with `--enable-otel`.
-  Tests keep it continuous except for one explicit restart after the exhaustive
+- The DUT must provide the locally managed standalone `hft` feature on a single ASIC.
+- Reserve the DUT and PTF host exclusively for HFT; all `influxdb3 serve` processes on that PTF host
+  are disposable. Setup starts a healthy PTF InfluxDB server
+  and saves the original settings before clearing DUT profiles, groups and `docker-hft:latest` containers.
+  It stops `hft.service` and runs `docker-hft:latest` directly with `--enable-otel` and
+  `--otel-endpoint=http://localhost:4317` as Docker `Cmd` arguments. Teardown removes the test
+  container; an initially enabled feature gets a fresh stock container. The image and `hft.env` are kept.
+  Tests keep `countersyncd` running except for one explicit restart after the exhaustive
   Queue case, once that case's configuration and STATE_DB session are gone.
 - The DUT must provide the `otel` container image.
 - InfluxDB 3 Core (`influxdb3`) must be installed on the PTF host.
@@ -82,6 +86,13 @@ HFT Phase 1 supports key AI data center statistics across four object types:
 - CONFIG_DB (database 4) must be accessible for HFT table management.
 - COUNTERS_DB (database 2) must be accessible for queue/buffer object discovery.
 - For port shutdown tests: PTF adapter must be available for traffic injection.
+
+After an interruption, rerun on the same reserved DUT/PTF pair. Before checking case capabilities,
+the module looks for `/var/lib/sonic-mgmt-hft-otel.json` and finishes any outstanding cleanup.
+If only sink startup was reached, recovery stops the sink and leaves DUT services alone. Once DUT
+setup has started, recovery stops the test exporter and sink, clears the HFT profiles and waits for
+the operational sessions to disappear before restoring OTEL and starting stock HFT. A failure retains
+the backup for retry. Other CONFIG_DB tables and non-InfluxDB listeners are left alone.
 
 ### Platform Support
 
@@ -114,9 +125,9 @@ monitoring remains enabled for all HFT cases.
 Each case declares its counter, object, and port prerequisites with the
 `hft_requirements` marker. Before that case can request HFT infrastructure, the
 `skip_unsupported_hft_test` fixture checks those prerequisites and returns the
-validated objects and counters. A capability-skipped case therefore performs no
-InfluxDB startup, OTEL change, or HFT cleanup of its own. Infrastructure already
-owned by an earlier supported case remains module-scoped until module teardown.
+validated objects and counters. On a clean testbed, a capability skip does not change the DUT,
+start InfluxDB, or initialize the PTF dataplane adapter. On an interrupted testbed, module recovery
+runs before a case-specific skip. Services started by a supported case remain available until module teardown.
 
 For counter coverage tests, the expected set is generated independently from
 the configured object and counter lists. Validation requires every expected
@@ -158,7 +169,7 @@ boundary.
 5. Validate complete series/tag coverage, nonnegative values, and average source interval and CPS within 10%.
 6. Disable the profile and wait for the session to stop, then delete the group
    and profile.
-7. Restart only `countersyncd`, require a new running PID with `--enable-otel`,
+7. Restart only `countersyncd` in the test HFT container and require a new running PID,
    and leave the SWSS container and forwarding state intact.
 
 **Expected Results**
@@ -211,23 +222,6 @@ boundary.
 **Expected Results**
 - Counter values ≥ 0 are reported for buffer pool objects.
 - Every configured pool/counter combination is present.
-
----
-
-#### Test Case: Test HFT Full Counters
-
-| Item | Description |
-|---|---|
-| **Test Name** | `test_hft_full_counters` |
-| **Objective** | Verify HFT when monitoring all supported object types (PORT, QUEUE, INGRESS_PRIORITY_GROUP, BUFFER_POOL) under a single profile. |
-| **Fixtures** | `hft_influxdb`, `tbinfo` |
-| **Topology** | `any` |
-| **Status** | **Skipped** — Full counters HFT isn't supported. On SN5640, multiple types in one session are not supported. On 7060X6, HFT tests are not yet supported. |
-
-The test remains capability-skipped until a supported platform can carry
-multiple object types in one HFT session. When enabled, it will use the same
-complete InfluxDB series coverage and cadence validation as the individual
-object-type tests.
 
 ---
 
@@ -386,9 +380,9 @@ cadence validation to two port series.
 
 **Test Steps**
 1. **Start isolated infrastructure**: Reuse the module's test-owned in-memory InfluxDB process on port 8181.
-2. **Isolate the case**: Stop the collector, create a unique empty database, and install an OTEL configuration targeting it.
+2. **Isolate the case**: Create a unique empty database, then install the OTEL configuration targeting it.
 3. **Restart OTEL safely**: Restart the systemd-managed `otel.service` and require its critical collector process to become healthy.
-4. **Verify countersyncd**: Require the supervisor daemon to be running with `--enable-otel`; do not alter it.
+4. **Verify countersyncd**: Check that supervisor reports the daemon running in the test's OTEL-enabled `hft` container.
 5. **Configure HFT**: Get available ports (desired: 2, minimum: 1). Atomically create HFT profile `e2e_port_profile` (poll interval 10ms, stream `enabled`) and its PORT group monitoring `IF_IN_OCTETS`.
 6. **Poll InfluxDB for metrics**: Query the exact expected measurements and object tags.
 7. **Verify data arrived**: Require complete series coverage, values, interval, and CPS within 5%.
@@ -414,5 +408,5 @@ Pipeline:   metrics → [otlp] → [batch] → [influxdb]
 
 | Item | Notes |
 |---|---|
-| `test_hft_full_counters` | Currently skipped. Enable once platforms support multiple object types in a single HFT session. |
+| Mixed-object sessions | Add coverage when a target platform supports multiple object types in a single HFT session. |
 | Arista 7060X6 support | Platform is listed in conditional marks but has empty counter definitions — HFT tests not yet functional. |

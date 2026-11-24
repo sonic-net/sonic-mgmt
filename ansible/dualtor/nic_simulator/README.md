@@ -31,6 +31,15 @@ ip netns exec ns-example .venv-nic-simulator/bin/python \
   --ipv6-loopback-ips fc00::36,fc00::38,fc00::39
 ```
 
+The simulator namespace is an endpoint, not an IPv4 router. `vm_topology.py`
+disables `net.ipv4.ip_forward` when creating it. Downstream frames are copied to
+both the PTF and simulated NIC; if the NIC accepts a server's frame (for example,
+because their MAC addresses overlap), forwarding it back to both ToRs can create
+a packet amplification loop. Locally originated gRPC replies still use the
+per-interface policy routes. This setting does not change forwarding in the PTF,
+neighbor containers, or host namespace. Recreate an existing topology to apply
+the namespace-provisioning change; restarting only the simulator is insufficient.
+
 Both triplets are ordered **Loopback2, upper-ToR Loopback3, lower-ToR Loopback3**.
 Each must contain three bare literals of the correct family (no prefixes or zone
 IDs). The optional `--ipv6-loopback-ips` enables IPv6 listener discovery and adds
@@ -55,16 +64,18 @@ partial IPv4/IPv6 service.
 ## Standalone unit tests
 
 No testbed, OVS daemon, root privileges, proto regeneration, or integration
-conftest is needed. From the repository root, use a dedicated virtual environment:
+conftest is needed. The suite lives outside the simulator directory because
+the integration test tree symlinks to that directory. From the repository
+root, use a dedicated virtual environment:
 
 ```bash
 python3 -m venv .venv-nic-simulator
 .venv-nic-simulator/bin/python -m pip install \
-  -r ansible/dualtor/nic_simulator/unit_tests/requirements.txt
+  -r ansible/dualtor/nic_simulator_unit_tests/requirements.txt
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv-nic-simulator/bin/python -m pytest \
-  -c ansible/dualtor/nic_simulator/unit_tests/pytest.ini \
-  --confcutdir=ansible/dualtor/nic_simulator/unit_tests \
-  ansible/dualtor/nic_simulator/unit_tests -q
+  -c ansible/dualtor/nic_simulator_unit_tests/pytest.ini \
+  --confcutdir=ansible/dualtor/nic_simulator_unit_tests \
+  ansible/dualtor/nic_simulator_unit_tests -q
 ```
 
 If the OS lacks `ensurepip`, an already-installed `virtualenv` can create the
