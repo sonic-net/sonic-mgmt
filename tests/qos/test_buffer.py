@@ -1568,8 +1568,11 @@ def _restore_shared_headroom_pool_config(
         ('CABLE_LENGTH|AZURE', port, cable_length),
     ]
     for key, field, value in fields[:2]:
-        if not value:
+        if value == '':
             commands.append('redis-cli -n 4 hdel "{}" {}'.format(key, field))
+        elif value == '0':
+            # The CLI deletes zero-valued fields; preserve explicitly configured zeros.
+            commands.append('redis-cli -n 4 hset "{}" {} 0'.format(key, field))
 
     result = duthost.shell_cmds(cmds=commands, continue_on_fail=True, module_ignore_errors=True)
     results = result['results']

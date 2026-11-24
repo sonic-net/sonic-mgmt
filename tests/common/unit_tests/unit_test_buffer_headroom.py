@@ -1,8 +1,11 @@
 """Exercise buffer headroom checks without importing testbed dependencies."""
 
 import ast
+import copy
+import json
 import logging
 import math
+import os
 from pathlib import Path
 import re
 import shlex
@@ -140,11 +143,16 @@ class ConfigurableDut(Dut):
             key, field = (
                 ("DEFAULT_LOSSLESS_BUFFER_PARAMETER|AZURE", "over_subscribe_ratio")
                 if args[3] == "over-subscribe-ratio" else ("BUFFER_POOL|ingress_lossless_pool", "xoff"))
-            self.hashes[key][field] = args[4]
+            if args[4] == "0":
+                self.hashes[key].pop(field, None)
+            else:
+                self.hashes[key][field] = args[4]
         elif args[:3] == ["config", "interface", "cable-length"]:
             self.hashes["CABLE_LENGTH|AZURE"][args[3]] = args[4]
         elif args[:4] == ["redis-cli", "-n", "4", "hdel"]:
             self.hashes[args[4]].pop(args[5], None)
+        elif args[:4] == ["redis-cli", "-n", "4", "hset"]:
+            self.hashes[args[4]][args[5]] = args[6]
         else:
             return super().shell(command)
         return {"stdout": ""}
@@ -160,7 +168,9 @@ class ConfigurableDut(Dut):
         return {"results": results}
 
 
-@pytest.mark.parametrize("ratio,configured_size", [("0", "0"), ("2", "0"), ("0", "1000000"), ("", "")])
+@pytest.mark.parametrize("ratio,configured_size", [
+    ("0", "0"), ("2", "0"), ("0", "1000000"), ("", ""), ("", "0"), ("0", ""),
+])
 @pytest.mark.parametrize("shp_enabled", [False, True])
 def test_case_failure_restores_original_shp_state(buffer_namespace, ratio, configured_size, shp_enabled):
     dut = ConfigurableDut(ratio, configured_size)
@@ -210,29 +220,94 @@ def test_restore_rejects_unconverged_pool(buffer_namespace, stale):
             dut, "Ethernet0", "0", "0", "5m", "123456", "0", POOL_OID)
 
 
-@pytest.mark.parametrize("setup_fails", [False, True])
-def test_all_port_cables_restored_even_when_fixture_setup_fails(setup_fails):
+@pytest.fixture
+def cable_namespace(tmp_path):
     path = MODULE_PATH.with_name("buffer_helpers.py")
     tree = ast.parse(path.read_text())
-    fixture = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
-                   and node.name == "update_cable_len_for_all_ports")
-    fixture.decorator_list = []
-    original = {"Ethernet0": "300m"}
-    change = Mock(side_effect=[RuntimeError("cable update did not converge") if setup_fails else None, None])
+    names = {"change_ports_cable_len", "gen_ports_cable_info", "update_cable_len_for_all_ports"}
+    nodes = []
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef) and node.name in names:
+            node.decorator_list = []
+            nodes.append(node)
+        elif isinstance(node, ast.Assign) and any(
+                isinstance(target, ast.Name) and target.id == "BUFFER_POOL_SIZE_COMMAND" for target in node.targets):
+            nodes.append(node)
+    (tmp_path / "ports_cable_len.j2").write_text("")
+    template = Mock()
+    template.render.side_effect = lambda **kwargs: json.dumps(kwargs["ports_cable_info"])
     namespace = {
+        "copy": copy,
+        "os": os,
+        "logger": logging.getLogger(__name__),
+        "Template": Mock(return_value=template),
+        "PORT_CABLE_LEN_JSON_TEMPLATE_PATH": str(tmp_path),
+        "pytest": pytest,
+        "pytest_assert": _assert,
+        "wait_until": lambda timeout, interval, delay, condition, *args: condition(*args),
         "is_mellanox_device": lambda dut: True,
-        "get_ports_with_config_exceed_max_headroom": lambda dut: (original, original),
-        "gen_ports_cable_info": lambda *args: {"Ethernet0": "50m"},
-        "change_ports_cable_len": change,
+        "get_ports_with_config_exceed_max_headroom": lambda dut: (
+            dut.original_cables.copy(), dut.original_cables.copy()),
     }
-    exec(compile(ast.Module(body=[fixture], type_ignores=[]), str(path), "exec"), namespace)
-    dut = object()
-    generator = namespace["update_cable_len_for_all_ports"](dut, None)
-    if setup_fails:
-        with pytest.raises(RuntimeError, match="cable update did not converge"):
+    exec(compile(ast.Module(body=nodes, type_ignores=[]), str(path), "exec"), namespace)
+    return namespace
+
+
+class CableDut:
+    def __init__(self, setup_failure=None, restoration_failure=None):
+        self.original_cables = {"Ethernet0": "300m"}
+        self.cables = self.original_cables.copy()
+        self.pool_size = "1000"
+        self.pending_cables = {}
+        self.load_count = 0
+        self.setup_failure = setup_failure
+        self.restoration_failure = restoration_failure
+
+    def shell(self, command):
+        if command.startswith("cat << EOF"):
+            self.pending_cables = json.loads(command.split("\n", 1)[1])
+            return {"stdout": ""}
+        args = shlex.split(command)
+        if args[:5] == ["redis-cli", "-n", "0", "hget", "BUFFER_POOL_TABLE:ingress_lossless_pool"]:
+            if self.setup_failure == "snapshot":
+                raise RuntimeError("injected pool snapshot failure")
+            return {"stdout": self.pool_size}
+        if args[:5] == ["redis-cli", "-n", "4", "hgetall", "CABLE_LENGTH|AZURE"]:
+            return {"stdout": "\n".join(item for pair in self.cables.items() for item in pair)}
+        assert args[:3] == ["sudo", "config", "load"], command
+        self.load_count += 1
+        if self.load_count == 1 and self.setup_failure == "before-load":
+            raise RuntimeError("injected cable setup failure")
+        if self.load_count == 1 or self.restoration_failure != "cable":
+            self.cables = self.pending_cables.copy()
+        self.pool_size = "1000" if self.pending_cables == self.original_cables else "2000"
+        if self.load_count > 1 and self.restoration_failure == "pool":
+            self.pool_size = "999999"
+        if self.load_count == 1 and self.setup_failure == "after-load":
+            raise RuntimeError("injected cable setup failure")
+        return {"stdout": ""}
+
+
+@pytest.mark.parametrize("setup_failure", [None, "snapshot", "before-load", "after-load"])
+def test_all_port_cables_restored_even_when_fixture_setup_fails(cable_namespace, setup_failure):
+    dut = CableDut(setup_failure=setup_failure)
+    generator = cable_namespace["update_cable_len_for_all_ports"](dut, None)
+    if setup_failure:
+        with pytest.raises(RuntimeError, match="injected") as failure:
             next(generator)
+        assert failure.value.__context__ is None
     else:
         next(generator)
         generator.close()
-    assert change.call_count == 2
-    change.assert_called_with(dut, original)
+    assert dut.cables == dut.original_cables
+    assert dut.pool_size == "1000"
+    assert dut.load_count == (0 if setup_failure == "snapshot" else 2)
+
+
+@pytest.mark.parametrize("stale", ["pool", "cable"])
+def test_cable_restore_rejects_unconverged_state(cable_namespace, stale):
+    dut = CableDut(restoration_failure=stale)
+    generator = cable_namespace["update_cable_len_for_all_ports"](dut, None)
+    next(generator)
+    with pytest.raises(AssertionError, match="restore the cable configuration and buffer pool size"):
+        generator.close()

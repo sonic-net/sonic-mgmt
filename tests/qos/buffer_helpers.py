@@ -9,6 +9,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
 PORT_CABLE_LEN_JSON_TEMPLATE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "files/mellanox")
+BUFFER_POOL_SIZE_COMMAND = 'redis-cli -n 0 hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size'
 
 logger = logging.getLogger(__name__)
 
@@ -77,9 +78,8 @@ def get_ports_with_config_exceed_max_headroom(duthost):
     return ports_with_config_exceed_max_headroom_ports, map_port_to_cable_len
 
 
-def change_ports_cable_len(duthost, port_cable_info):
-    cmd_get_pool_size = 'redis-cli -n 0 hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size'
-    original_pool_size = duthost.shell(cmd_get_pool_size)['stdout']
+def change_ports_cable_len(duthost, port_cable_info, expected_pool_size=None):
+    original_pool_size = duthost.shell(BUFFER_POOL_SIZE_COMMAND)['stdout']
     ports_cable_len_j2_file_name = "ports_cable_len.j2"
     with open(os.path.join(PORT_CABLE_LEN_JSON_TEMPLATE_PATH, ports_cable_len_j2_file_name)) as template_file:
         t = Template(template_file.read())
@@ -93,15 +93,21 @@ def change_ports_cable_len(duthost, port_cable_info):
     duthost.shell(cmd_gen_port_cable_len_config)
     duthost.shell("sudo config load {} -y".format(ports_cable_len_config_json_file_name))
 
-    def _check_pool_size_is_updated(duthost, original_pool_size):
+    def _check_cable_change_is_applied(duthost, original_pool_size):
         logger.info(f"original_pool_size is {original_pool_size}")
-        new_pool_size = duthost.shell(cmd_get_pool_size)['stdout']
+        new_pool_size = duthost.shell(BUFFER_POOL_SIZE_COMMAND)['stdout']
         logger.info(f"new_pool_size is {new_pool_size}")
+        if expected_pool_size is not None:
+            if new_pool_size != expected_pool_size:
+                return False
+            cable_values = duthost.shell('redis-cli -n 4 hgetall "CABLE_LENGTH|AZURE"')['stdout'].splitlines()
+            return len(cable_values) % 2 == 0 and dict(zip(cable_values[::2], cable_values[1::2])) == port_cable_info
         return new_pool_size != original_pool_size
 
     pytest_assert(
-        wait_until(20, 2, 0, _check_pool_size_is_updated, duthost, original_pool_size),
-        "Failed to update the buffer pool size after changing the cable length")
+        wait_until(20, 2, 0, _check_cable_change_is_applied, duthost, original_pool_size),
+        "Failed to restore the cable configuration and buffer pool size" if expected_pool_size is not None
+        else "Failed to update the buffer pool size after changing the cable length")
 
 
 def gen_ports_cable_info(ports_with_config_exceed_max_headroom_ports, map_port_to_cable_len, updated_cable_len):
@@ -116,20 +122,22 @@ def gen_ports_cable_info(ports_with_config_exceed_max_headroom_ports, map_port_t
 
 @pytest.fixture(scope="function")
 def update_cable_len_for_all_ports(duthost, skip_traditional_model):
-    ports_cable_len_map_with_config_exceed_max_headroom = {}
+    restore_cables = False
     try:
         if is_mellanox_device(duthost):
             ports_cable_len_map_with_config_exceed_max_headroom, original_ports_cable_len_map = \
                 get_ports_with_config_exceed_max_headroom(duthost)
 
             if ports_cable_len_map_with_config_exceed_max_headroom:
+                original_pool_size = duthost.shell(BUFFER_POOL_SIZE_COMMAND)['stdout']
                 # Shorter cables avoid exceeding the maximum headroom during the test.
                 new_cable_len = "50m"
                 ports_cable_info = gen_ports_cable_info(
                     ports_cable_len_map_with_config_exceed_max_headroom, original_ports_cable_len_map, new_cable_len)
+                restore_cables = True
                 change_ports_cable_len(duthost, ports_cable_info)
 
         yield
     finally:
-        if ports_cable_len_map_with_config_exceed_max_headroom:
-            change_ports_cable_len(duthost, original_ports_cable_len_map)
+        if restore_cables:
+            change_ports_cable_len(duthost, original_ports_cable_len_map, expected_pool_size=original_pool_size)
