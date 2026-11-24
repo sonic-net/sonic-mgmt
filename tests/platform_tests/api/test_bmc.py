@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
-    pytest.mark.topology('any')
+    pytest.mark.topology('bmc')
 ]
 
 BMC_SHORTEST_PASSWD_LEN = 12
