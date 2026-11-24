@@ -359,7 +359,6 @@ class PendingNexthop(object):
         self.duthost = duthost
         self.tbinfo = tbinfo
         self.vrf = vrf
-        self.mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         self.targets = []
 
     def _ip(self, namespace, cmd, module_ignore_errors=False):
@@ -371,12 +370,27 @@ class PendingNexthop(object):
         return self.duthost.shell(self.duthost.get_vtysh_cmd_for_namespace(cmd, namespace),
                                   module_ignore_errors=module_ignore_errors)
 
-    def _find_peer(self, ip_ver, peer):
+    def _find_peer(self, vm, ip_ver):
+        """
+        Get the VM's BGP peer address, the namespace that owns the session and the peer's interface and MAC.
+        Remote ASICs of a VOQ chassis also have neighbor entries for the peer, so only the owner is queried.
+        """
+        owner = None
         for asichost in self.duthost.asics:
-            out = self._ip(asichost.namespace, "-{} neigh show {}".format(ip_ver, peer))["stdout"].split()
-            if "lladdr" in out:
-                return asichost.namespace, out[out.index("dev") + 1], out[out.index("lladdr") + 1]
-        pytest_assert(False, "No neighbor entry for BGP peer {} on {}".format(peer, self.duthost.hostname))
+            neighbors = asichost.config_facts(source="running", verbose=False)["ansible_facts"].get("BGP_NEIGHBOR", {})
+            if self.vrf in neighbors:
+                neighbors = neighbors[self.vrf]
+            elif self.vrf != DEFAULT:
+                continue
+            owner = next(((str(ipaddress.ip_address(addr)), asichost.namespace) for addr, info in neighbors.items()
+                          if info.get("name") == vm and ipaddress.ip_address(addr).version == ip_ver), None)
+            if owner:
+                break
+        pytest_assert(owner, "No IPv{} BGP neighbor configured for {}".format(ip_ver, vm))
+        peer, namespace = owner
+        out = self._ip(namespace, "-{} neigh show {}".format(ip_ver, peer))["stdout"].split()
+        pytest_assert("lladdr" in out, "No neighbor entry for BGP peer {} of {}".format(peer, vm))
+        return peer, namespace, out[out.index("dev") + 1], out[out.index("lladdr") + 1]
 
     def hold(self, exabgp_port, exabgp_port_v6, ipv4_route_list, ipv6_route_list):
         for ip_ver, port, base_port, route_list in [(IP_VER, exabgp_port, EXABGP_BASE_PORT, ipv4_route_list),
@@ -384,11 +398,7 @@ class PendingNexthop(object):
             if not route_list:
                 continue
             vm = _vm_for_exabgp_port(self.tbinfo, port, base_port)
-            local_ip = get_bgp_neighbor_ip(self.duthost, vm, self.vrf)[0 if ip_ver == IP_VER else 1]
-            peer = next((str(ipaddress.ip_address(bgp["addr"])) for bgp in self.mg_facts["minigraph_bgp"]
-                         if ipaddress.ip_address(bgp["peer_addr"]) == ipaddress.ip_address(local_ip)), None)
-            pytest_assert(peer, "No BGP peer for local address {} of {}".format(local_ip, vm))
-            namespace, interface, mac = self._find_peer(ip_ver, peer)
+            peer, namespace, interface, mac = self._find_peer(vm, ip_ver)
             family, afi = ("ip", "ipv4Unicast") if ip_ver == IP_VER else ("ipv6", "ipv6Unicast")
             vrf = "" if self.vrf == DEFAULT else "vrf {} ".format(self.vrf)
             neighbor = json.loads(self._vtysh(namespace, ["show bgp {}neighbors {} json".format(vrf, peer)])["stdout"])
@@ -400,10 +410,10 @@ class PendingNexthop(object):
 
             address, nexthop = PENDING_NEXTHOP[ip_ver]
             prefix_list = PENDING_PREFIX_LIST.format(ip_ver)
-            target = (ip_ver, namespace, interface, mac, route_map, family, prefix_list, address, nexthop)
-            self.targets.append(target)
             logger.info("Hold routes from {} ({}) pending via next-hop {} on {}".format(vm, peer, nexthop, interface))
+            # Fails if the address already exists; register for cleanup only once the test owns it
             self._ip(namespace, "-{} addr add {} dev {}".format(ip_ver, address, interface))
+            self.targets.append((ip_ver, namespace, interface, mac, route_map, family, prefix_list, address, nexthop))
             prefix_len = max(ipaddress.ip_network(route).prefixlen for route in route_list)
             networks = ipaddress.collapse_addresses(ipaddress.ip_network(route) for route in route_list)
             cmds = ["configure terminal"]
@@ -422,17 +432,47 @@ class PendingNexthop(object):
             self._ip(namespace, "-{} neigh replace {} lladdr {} nud permanent dev {}".format(
                 ip_ver, nexthop, mac, interface))
 
+    def check_not_installed(self, ipv4_route_list, ipv6_route_list):
+        """
+        Verify the routes reached APPL_DB via the unresolved next-hop but are not programmed into ASIC_DB
+        """
+        routes = {IP_VER: ipv4_route_list, IPV6_VER: ipv6_route_list}
+        vrf = "" if self.vrf == DEFAULT else "{}:".format(self.vrf)
+        for ip_ver, namespace, interface, _, _, _, _, _, nexthop in self.targets:
+            neighbor = self._ip(namespace, "-{} neigh show {} dev {}".format(ip_ver, nexthop, interface))["stdout"]
+            pytest_assert("lladdr" not in neighbor, "Next-hop {} is resolved: {}".format(nexthop, neighbor))
+            db_cli = "sonic-db-cli {}".format("-n {} ".format(namespace) if namespace else "")
+            for route in routes[ip_ver]:
+                appl_cmd = "{}APPL_DB HGET 'ROUTE_TABLE:{}{}' nexthop".format(db_cli, vrf, route)
+                pytest_assert(wait_until(30, 2, 0,
+                                         lambda: nexthop in self.duthost.shell(appl_cmd)["stdout"].split(",")),
+                              "Route {} is not in APPL_DB via next-hop {}".format(route, nexthop))
+                asic_cmd = "{}ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*\"dest\":\"{}\"*'".format(
+                    db_cli, route)
+                pytest_assert(not self.duthost.shell(asic_cmd)["stdout"].strip(),
+                              "Route {} is programmed into ASIC_DB".format(route))
+
     def remove(self):
         """
-        Remove the test configuration; tolerate it being already gone after a config reload
+        Remove the test configuration; tolerate it being already gone after a config reload,
+        but fail if any of it is left behind
         """
+        leftovers = []
         for ip_ver, namespace, interface, _, route_map, family, prefix_list, address, nexthop in self.targets:
             self._vtysh(namespace, ["configure terminal",
                                     "no route-map {} permit {}".format(route_map, PENDING_ROUTE_MAP_SEQ),
                                     "no {} prefix-list {}".format(family, prefix_list)], module_ignore_errors=True)
             self._ip(namespace, "-{} neigh del {} dev {}".format(ip_ver, nexthop, interface), module_ignore_errors=True)
             self._ip(namespace, "-{} addr del {} dev {}".format(ip_ver, address, interface), module_ignore_errors=True)
+            if re.search(r"sequence {}\b".format(PENDING_ROUTE_MAP_SEQ),
+                         self._vtysh(namespace, ["show route-map {}".format(route_map)])["stdout"]):
+                leftovers.append("route-map {} sequence {}".format(route_map, PENDING_ROUTE_MAP_SEQ))
+            if self._ip(namespace, "-{} neigh show {} dev {}".format(ip_ver, nexthop, interface))["stdout"].strip():
+                leftovers.append("neighbor {} on {}".format(nexthop, interface))
+            if self._ip(namespace, "-{} addr show dev {} to {}".format(ip_ver, interface, address))["stdout"].strip():
+                leftovers.append("address {} on {}".format(address, interface))
         self.targets = []
+        pytest_assert(not leftovers, "Failed to remove test configuration: {}".format(", ".join(leftovers)))
 
 
 def get_cfg_facts(duthost):
@@ -1282,9 +1322,11 @@ def test_bgp_route_with_suppress(duthosts, enum_downstream_dut_hostname, enum_up
                 finally:
                     with allure.step(f"Withdraw BGP ipv4 and ipv6 routes from Downstream VM by ExaBGP - "
                                      f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
-                        announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6,
-                                                  action=WITHDRAW)
-                        pending.remove()
+                        try:
+                            announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list,
+                                                      exabgp_port_v6, action=WITHDRAW)
+                        finally:
+                            pending.remove()
 
                     with allure.step("Validate BGP ipv4 and ipv6 routes are withdrawn from Upstream VM peer"):
                         validate_route_propagate(duthost_up, nbrhosts, tbinfo,
@@ -1343,6 +1385,9 @@ def test_bgp_route_without_suppress(duthosts, enum_downstream_dut_hostname, enum
                 validate_route_propagate(duthost_up, nbrhosts, tbinfo, ipv4_route_list,
                                          ipv6_route_list)
 
+            with allure.step("Validate BGP routes are not installed while their next-hop is unresolved"):
+                pending.check_not_installed(ipv4_route_list, ipv6_route_list)
+
             with allure.step("Resolve the routes' next-hop"):
                 pending.resolve()
 
@@ -1365,9 +1410,11 @@ def test_bgp_route_without_suppress(duthosts, enum_downstream_dut_hostname, enum
         finally:
             with allure.step(f"Withdraw BGP ipv4 and ipv6 routes from Downstream VM by ExaBGP - "
                              f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
-                announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6,
-                                          action=WITHDRAW)
-                pending.remove()
+                try:
+                    announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6,
+                                              action=WITHDRAW)
+                finally:
+                    pending.remove()
 
 
 def test_bgp_route_with_suppress_negative_operation(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname,
@@ -1490,9 +1537,11 @@ def test_bgp_route_with_suppress_negative_operation(duthosts, enum_downstream_du
             finally:
                 with allure.step(f"Withdraw BGP ipv4 and ipv6 routes from Downstream VM by ExaBGP - "
                                  f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
-                    announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6,
-                                              action=WITHDRAW)
-                    pending.remove()
+                    try:
+                        announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6,
+                                                  action=WITHDRAW)
+                    finally:
+                        pending.remove()
     finally:
         with allure.step("Delete static route and remove redistribute to BGP"):
             remove_static_route_and_redistribute(duthost_down, is_v6_topo, asic_namespace=namespace)
@@ -1580,9 +1629,11 @@ def test_credit_loop(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_h
         finally:
             with allure.step(f"Withdraw BGP ipv4 and ipv6 routes from Downstream VM by ExaBGP - "
                              f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
-                announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6,
-                                          action=WITHDRAW)
-                pending.remove()
+                try:
+                    announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6,
+                                              action=WITHDRAW)
+                finally:
+                    pending.remove()
 
 
 def test_suppress_fib_stress(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname, tbinfo, nbrhosts,
@@ -1666,9 +1717,11 @@ def test_suppress_fib_stress(duthosts, enum_downstream_dut_hostname, enum_upstre
         finally:
             with allure.step(f"Withdraw BGP ipv4 and ipv6 routes from T0 VM by ExaBGP - "
                              f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
-                announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list,
-                                          exabgp_port_v6, action=WITHDRAW)
-                pending.remove()
+                try:
+                    announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list,
+                                              exabgp_port_v6, action=WITHDRAW)
+                finally:
+                    pending.remove()
 
 
 def test_suppress_fib_performance(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname, tbinfo, nbrhosts,
