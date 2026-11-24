@@ -102,6 +102,16 @@
     fail: msg="Unknown topology {{ topo }}"
     when: base_topo not in topologies
 
+  - name: Require converged peers for cSONiC T1-LAG
+    fail:
+      msg: >-
+        cSONiC topo='t1-lag' requires use_converged_peers=True;
+        unconverged cSONiC T1-LAG is not supported.
+    when:
+      - vm_type | default('ceos') == 'csonic'
+      - topo == 't1-lag'
+      - not (use_converged_peers | default(false) | bool)
+
   - name: Check that variable ptf_imagename is defined
     fail: msg="Define ptf_imagename variable with -e ptf_imagename=something"
     when: ptf_imagename is not defined

@@ -9,6 +9,7 @@ import traceback
 import pytest
 import textfsm
 
+from tests.common.devices.csonic import CsonicHost
 from tests.common.devices.sonic import SonicHost
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
@@ -79,10 +80,25 @@ def all_bgp_sessions_established(duthost, asic_index, neighbor_ips):
     )
 
 
-def get_unique_neighbor_hosts(neighbors):
+def _is_converged_csonic_t1_lag_host(host, tbinfo):
+    """Return whether this handle shares a T1-LAG cSONiC container."""
+    topo = (tbinfo or {}).get('topo', {})
+    return (
+        topo.get('name') == 't1-lag'
+        and topo.get('properties', {}).get('topo_is_multi_vrf', False)
+        and isinstance(host, CsonicHost)
+        and bool(host.bgp_vrf)
+    )
+
+
+def get_unique_neighbor_hosts(neighbors, tbinfo=None):
     unique_neighbors = {}
     for neigh in neighbors:
-        unique_neighbors.setdefault(neigh.hostname, neigh)
+        if _is_converged_csonic_t1_lag_host(neigh, tbinfo):
+            key = ('csonic-t1-lag', neigh.container_name)
+        else:
+            key = neigh.hostname
+        unique_neighbors.setdefault(key, neigh)
     return list(unique_neighbors.values())
 
 
@@ -306,7 +322,8 @@ def setup(
         tor_neighbors[details['description']] = (
             nbrhosts[details['description']]["host"]
         )
-    neighbor_hosts = get_unique_neighbor_hosts(tor_neighbors.values())
+    neighbor_hosts = get_unique_neighbor_hosts(
+        tor_neighbors.values(), tbinfo)
     logger.info(
         "Selected %d unique neighbor hosts for %d external BGP peers",
         len(neighbor_hosts),
@@ -367,6 +384,14 @@ def setup(
     if isinstance(nbrhosts[tor1]["host"], SonicHost):
         logger.info("Neighbor BGP Config: {}".format(
            nbrhosts[tor1]["host"].command("show runningconfig bgp")))
+    elif _is_converged_csonic_t1_lag_host(
+            nbrhosts[tor1]["host"], tbinfo):
+        logger.info("Neighbor BGP Config: {}".format(
+            nbrhosts[tor1]["host"].command(
+                "vtysh -c 'show running-config bgp'",
+                module_ignore_errors=True,
+            )
+        ))
     else:
         # Else use industry standard 'show run | sec bgp'
         logger.info("Neighbor BGP Config: {}".format(

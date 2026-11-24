@@ -260,15 +260,18 @@ def ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo):
     return ports
 
 
-def check_orch_cpu_utilization(dut, orch_cpu_threshold):
+def check_orch_cpu_utilization(dut, orch_cpu_threshold, timeout):
     """
-    Check five DUT-local, one-second orchagent CPU samples against the threshold.
+    Wait on the DUT for five consecutive orchagent CPU samples below the threshold.
 
     Args:
         dut: DUT host object
         orch_cpu_threshold: orch cpu threshold
+        timeout: DUT-local polling timeout in seconds
     """
-    samples = dut.monit_process(delay_interval=1, iterations=5, verbose=False)["monit_results"]
+    result = dut.monit_process(delay_interval=1, iterations=5, process_name="orchagent",
+                               cpu_threshold=orch_cpu_threshold, timeout=timeout, verbose=False)
+    samples = result["monit_results"]
     if len(samples) != 5:
         logger.warning("Expected 5 CPU samples on %s, received %s", dut.hostname, len(samples))
         return False
@@ -281,7 +284,7 @@ def check_orch_cpu_utilization(dut, orch_cpu_threshold):
             return False
         if any(int(float(cpu)) > orch_cpu_threshold for cpu in orch_cpu.values()):
             return False
-    return True
+    return result["cpu_ready"]
 
 
 def check_ebgp_routes(num_v4_routes, num_v6_routes, duthost):
@@ -321,7 +324,7 @@ def duthost_shutdown_ebgp(duthost):
         # Verify that the total eBGP routes are 0.
         pt_assert(wait_until(60, 2, 5, check_ebgp_routes, 0, 0, duthost),
                   "eBGP routes are not 0 after shutting down all neighbors on {}".format(duthost))
-        pt_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+        pt_assert(check_orch_cpu_utilization(duthost, orch_cpu_threshold, orch_cpu_timeout),
                   "Orchagent CPU readiness check failed after shutdown all eBGP on {}; "
                   "threshold {}. See CPU samples in the log.".format(duthost.hostname, orch_cpu_threshold))
         shutdown_complete = True
@@ -347,7 +350,7 @@ def duthost_startup_ebgp(duthost, v4_routes_count, v6_routes_count):
     pt_assert(wait_until(120, 10, 10, check_ebgp_routes, v4_routes_count, v6_routes_count, duthost),
               "eBGP v4 routes are {}, and v6 route are {}, and not what they were originally after enabling "
               "all neighbors on {}".format(v4_routes_count, v6_routes_count, duthost))
-    pt_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+    pt_assert(check_orch_cpu_utilization(duthost, orch_cpu_threshold, orch_cpu_timeout),
               "Orchagent CPU readiness check failed after startup all eBGP on {}; "
               "threshold {}. See CPU samples in the log.".format(duthost.hostname, orch_cpu_threshold))
 

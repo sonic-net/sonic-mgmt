@@ -4,6 +4,7 @@ import re
 import json
 from tests.bgp.bgp_helpers import parse_rib
 from tests.common.devices.eos import EosHost
+from tests.common.devices.csonic import CsonicHost
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until
@@ -241,6 +242,165 @@ def parse_routes_on_vsonic(dut_host, neigh_hosts, ip_ver):
     return all_routes
 
 
+def _parse_routes_on_csonic_host(
+        host, peer_ip, ip_ver, exp_community=None):
+    """Read accepted routes from one converged cSONiC logical VRF."""
+    if not isinstance(host, CsonicHost) or not host.bgp_vrf:
+        raise TypeError(
+            "Logical-VRF route parsing requires a converged CsonicHost")
+
+    afi = 'ipv4' if ip_ver == 4 else 'ipv6'
+    command = (
+        'vtysh -c "show bgp vrf {} {} unicast neighbors {} routes json"'
+        .format(host.bgp_vrf, afi, peer_ip)
+    )
+    result = host.command(command, verbose=False)
+    if result.get('rc', 1) != 0:
+        raise RuntimeError(
+            'Failed to retrieve routes from cSONiC VRF {} (rc={}): {}'
+            .format(host.bgp_vrf, result.get('rc'),
+                    result.get('stderr', '')))
+
+    output = result.get('stdout')
+    if not isinstance(output, str) or not output.strip():
+        raise RuntimeError('cSONiC route query returned empty output')
+    try:
+        route_data = json.loads(output)
+    except (TypeError, ValueError) as error:
+        raise ValueError(
+            'cSONiC route query returned invalid JSON') from error
+    if not isinstance(route_data, dict) or not isinstance(
+            route_data.get('routes'), dict):
+        raise ValueError(
+            "cSONiC route query did not return a valid 'routes' map")
+
+    detail_routes = None
+    if exp_community:
+        detail_command = (
+            'vtysh -c "show bgp vrf {} {} unicast json"'
+            .format(host.bgp_vrf, afi)
+        )
+        detail_result = host.command(detail_command, verbose=False)
+        if detail_result.get('rc', 1) != 0:
+            raise RuntimeError(
+                'Failed to retrieve cSONiC route details (rc={}): {}'
+                .format(detail_result.get('rc'),
+                        detail_result.get('stderr', '')))
+        detail_output = detail_result.get('stdout')
+        if not isinstance(detail_output, str) or not detail_output.strip():
+            raise RuntimeError(
+                'cSONiC route detail query returned empty output')
+        try:
+            detail_data = json.loads(detail_output)
+        except (TypeError, ValueError) as error:
+            raise ValueError(
+                'cSONiC route detail query returned invalid JSON') from error
+        if not isinstance(detail_data, dict) or not isinstance(
+                detail_data.get('routes'), dict):
+            raise ValueError(
+                "cSONiC route detail lacks a valid 'routes' map")
+        detail_routes = detail_data['routes']
+
+    routes = {}
+    for prefix in route_data['routes']:
+        if not exp_community:
+            routes[prefix] = ''
+            continue
+        paths = detail_routes.get(prefix)
+        if not isinstance(paths, list):
+            raise ValueError(
+                "cSONiC route detail for {} lacks a valid paths list"
+                .format(prefix))
+        peer_paths = [
+            path for path in paths
+            if isinstance(path, dict) and path.get('peerId')
+            and str(ipaddress.IPAddress(path['peerId'])).lower()
+            == str(ipaddress.IPAddress(peer_ip)).lower()
+        ]
+        if not peer_paths:
+            raise ValueError(
+                'cSONiC route detail for {} has no path from peer {}'
+                .format(prefix, peer_ip))
+        communities = {
+            community
+            for path in peer_paths
+            for community in path.get('community', {}).get('list', [])
+        }
+        matched = next(
+            (community for community in exp_community
+             if community in communities), None)
+        if matched is not None:
+            routes[prefix] = matched
+    return routes
+
+
+def _select_csonic_dut_peer(mg_facts, hostname, peer_ips, ip_ver):
+    """Select the configured peer that belongs to this DUT and logical peer."""
+    configured = [
+        peer for peer in peer_ips
+        if ipaddress.IPNetwork(peer).version == ip_ver
+    ]
+    dut_peer_addrs = {
+        str(ipaddress.IPAddress(peer['peer_addr'])).lower()
+        for peer in mg_facts.get('minigraph_bgp', [])
+        if peer.get('name') == hostname
+        and peer.get('peer_addr')
+        and ipaddress.IPNetwork(peer['peer_addr']).version == ip_ver
+    }
+    matches = [
+        peer for peer in configured
+        if str(ipaddress.IPAddress(peer)).lower() in dut_peer_addrs
+    ]
+    if len(matches) != 1:
+        raise ValueError(
+            'Expected exactly one IPv{} peer for {} on this DUT; '
+            'configured={}, minigraph={}, matches={}'.format(
+                ip_ver, hostname, configured, sorted(dut_peer_addrs),
+                matches))
+    return matches[0]
+
+
+def parse_routes_on_csonic(
+        dut_host, neigh_hosts, ip_ver, exp_community=None):
+    """Parse accepted routes from attached logical peers' runtime VRFs."""
+    mg_facts = dut_host.minigraph_facts(
+        host=dut_host.hostname)['ansible_facts']
+    attached_devices = set(mg_facts.get('minigraph_devices', {}))
+    attached_neighbors = {
+        hostname: neighbor for hostname, neighbor in neigh_hosts.items()
+        if hostname in attached_devices
+    }
+    confed_asn = dut_host.get_bgp_confed_asn()
+    host_name_map = {
+        neighbor['host'].hostname: hostname
+        for hostname, neighbor in attached_neighbors.items()
+    }
+
+    def parse_routes_process(node=None, results=None):
+        hostname = host_name_map[node['host'].hostname]
+        peer_in_bgp_confed = node['conf']['bgp'].get(
+            'peer_in_bgp_confed', False)
+        dut_asn = mg_facts['minigraph_bgp_asn']
+        if peer_in_bgp_confed:
+            dut_asn = int(confed_asn)
+        peer_ips = node['conf']['bgp']['peers'][dut_asn]
+        peer_ip = _select_csonic_dut_peer(
+            mg_facts, hostname, peer_ips, ip_ver)
+        results[hostname] = _parse_routes_on_csonic_host(
+            node['host'], peer_ip, ip_ver, exp_community)
+
+    routes = parallel_run(
+        parse_routes_process, (), {}, list(attached_neighbors.values()),
+        timeout=120, concurrent_tasks=8)
+    expected = set(attached_neighbors)
+    observed = set(routes)
+    if observed != expected:
+        raise RuntimeError(
+            'Incomplete cSONiC route snapshot: missing={}, unexpected={}'
+            .format(sorted(expected - observed), sorted(observed - expected)))
+    return routes
+
+
 def verify_only_loopback_routes_are_announced_to_neighs(dut_hosts, duthost, neigh_hosts, community, is_v6_topo=False):
     """
     Verify only loopback routes with certain community are announced to neighs in TSA
@@ -472,8 +632,13 @@ def assert_only_loopback_routes_in_dut_advertised_routes(dut_hosts, duthost, is_
 
 
 def parse_routes_on_neighbors(dut_host, neigh_hosts, ip_ver, exp_community=[]):
-    if isinstance(list(neigh_hosts.items())[0][1]['host'], EosHost):
-        routes_on_all_nbrs = parse_routes_on_eos(dut_host, neigh_hosts, ip_ver, exp_community)
+    first_host = list(neigh_hosts.items())[0][1]['host']
+    if isinstance(first_host, EosHost):
+        routes_on_all_nbrs = parse_routes_on_eos(
+            dut_host, neigh_hosts, ip_ver, exp_community)
+    elif isinstance(first_host, CsonicHost) and first_host.bgp_vrf:
+        routes_on_all_nbrs = parse_routes_on_csonic(
+            dut_host, neigh_hosts, ip_ver, exp_community)
     else:
         routes_on_all_nbrs = parse_routes_on_vsonic(
             dut_host, neigh_hosts, ip_ver)
@@ -489,6 +654,13 @@ def verify_current_routes_announced_to_neighs(dut_host, neigh_hosts, orig_routes
         "Verifying all the original routes(ipv{}) are announced to bgp neighbors".format(ip_ver))
     cur_routes_on_all_nbrs.update(
         parse_routes_on_neighbors(dut_host, neigh_hosts, ip_ver, exp_community))
+    first_host = list(neigh_hosts.items())[0][1]['host']
+    if (exp_community and isinstance(first_host, CsonicHost)
+            and first_host.bgp_vrf):
+        return all(
+            set(cur_routes_on_all_nbrs.get(hostname, {})) == set(routes)
+            for hostname, routes in orig_routes_on_all_nbrs.items()
+        ) and set(cur_routes_on_all_nbrs) == set(orig_routes_on_all_nbrs)
     # Compare current routes after TSB with original routes advertised to neighbors
     if cur_routes_on_all_nbrs != orig_routes_on_all_nbrs:
         return False
@@ -504,8 +676,16 @@ def check_and_log_routes_diff(duthost, neigh_hosts, orig_routes_on_all_nbrs, cur
 
     routes_dut = parse_rib(duthost, ip_ver)
     all_diffs_in_host_aspath = True
+    first_host = list(neigh_hosts.items())[0][1]['host']
+    strict_csonic = (isinstance(first_host, CsonicHost)
+                     and first_host.bgp_vrf)
     for hostname in list(orig_routes_on_all_nbrs.keys()):
         if orig_routes_on_all_nbrs[hostname] != cur_routes_on_all_nbrs[hostname]:
+            if strict_csonic:
+                logger.warning(
+                    "Route snapshot mismatch on converged cSONiC host %s",
+                    hostname)
+                return False
             routes_diff = set(orig_routes_on_all_nbrs[hostname]) ^ set(
                 cur_routes_on_all_nbrs[hostname])
             for route in routes_diff:

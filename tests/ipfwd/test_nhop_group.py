@@ -7,6 +7,7 @@ import time
 
 from collections import namedtuple
 from collections import defaultdict
+from contextlib import contextmanager
 
 from ptf.mask import Mask
 import ptf.packet as scapy
@@ -326,6 +327,45 @@ def build_pkt(dest_mac, ip_addr, ttl, flow_count):
     return pkt, exp_packet
 
 
+@contextmanager
+def bgp_stopped_for_nhop_link_flap(duthost, asic, gather_facts, fanouthosts):
+    """Stop BGP only when this test will perform a real fanout link flap.
+
+    VS skips the physical fanout toggle, so restarting the full BGP service there
+    adds no test coverage and can leave unrelated sessions reconverging during
+    the next iteration.  On a physical DUT, preserve the original lifecycle and
+    guarantee restoration even when traffic validation raises.
+    """
+    if is_vs_device(duthost):
+        yield False
+        return
+
+    fanout, fanout_port = fanout_switch_port_lookup(
+        fanouthosts, duthost.hostname, gather_facts['src_port'][0])
+    logger.info("Simulate ECMP Acceleration with link flap where ECMP member are removed")
+    logger.info("Toggle link %s on %s", fanout_port, fanout)
+
+    bgp_stop_attempted = False
+    try:
+        # BGP is stopped so the test observes member add/remove rather than a
+        # route-withdrawal message from FRR.
+        bgp_stop_attempted = True
+        asic.stop_service("bgp")
+        time.sleep(15)
+        toggle_one_link(duthost, gather_facts['src_port'][0], fanout, fanout_port)
+        time.sleep(15)
+        yield True
+    finally:
+        if bgp_stop_attempted:
+            asic.start_service("bgp")
+            config_facts = duthost.config_facts(
+                host=duthost.hostname, source="running")["ansible_facts"]
+            bgp_neighbors = config_facts.get("BGP_NEIGHBOR", {}).keys()
+            pytest_assert(
+                wait_until(60, 5, 0, duthost.check_bgp_session_state, bgp_neighbors),
+                "bgp did not come up in expected time")
+
+
 def validate_asic_route(duthost, route, exist=True):
     logger.info(f"Checking ip route: {route}")
     asic_info = duthost.shell(f'redis-cli -n 1 keys "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*{route}*"', # noqa E231
@@ -570,32 +610,15 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
             built_and_send_tcp_ip_packet()
 
             if iter_count == 0:
-                logger.info("Simulate ECMP Acceleration with link flap where ECMP member are removed")
-                fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname,
-                                                                gather_facts['src_port'][0])
-                # Simulate ECMP Acceleration with link flap where ECMP member are removed
-                # and added back to the group
-                # BGP service is stopped so we don't get Route Removal message
-                # from FRR and it is just member add/remove trigger
-                asic.stop_service("bgp")
-                time.sleep(15)
-                logger.info("Toggle link {} on {}".format(fanout_port, fanout))
-                if is_vs_device(duthost) is False:
-                    toggle_one_link(duthost, gather_facts['src_port'][0], fanout, fanout_port)
-                time.sleep(15)
-
-                built_and_send_tcp_ip_packet()
+                with bgp_stopped_for_nhop_link_flap(
+                        duthost, asic, gather_facts, fanouthosts):
+                    built_and_send_tcp_ip_packet()
 
             for flow_count, nexthop_selected in recvd_pkt_result.items():
                 pytest_assert(len(nexthop_selected) == 1,
                               "Error flow {} received on different nexthop in iteration {}"
                               .format(flow_count, iter_count))
         finally:
-            asic.start_service("bgp")
-            config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
-            bgp_neighbors = config_facts.get("BGP_NEIGHBOR", {}).keys()
-            pytest_assert(wait_until(60, 5, 0, duthost.check_bgp_session_state, bgp_neighbors),
-                          "bgp did not come up in expected time")
             nhop.delete_routes()
             pytest_assert(wait_until(60, 5, 0, validate_asic_route, duthost, ip_prefix, False),
                           f"Static route: {ip_prefix} is failed to be removed!")

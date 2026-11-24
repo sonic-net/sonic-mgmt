@@ -20,7 +20,7 @@ from netaddr import IPNetwork
 
 
 pytestmark = [
-    pytest.mark.topology('t1'),
+    pytest.mark.topology('t1', 'lt2'),
     pytest.mark.device_type('vs'),
 ]
 
@@ -86,7 +86,7 @@ def get_dut_listen_range(tbinfo):
 
     for k, v in tbinfo['topo']['properties']['configuration'].items():
         if ((upstream_nbr_type == 'T0' and 'tor' in v['properties']) or
-                (upstream_nbr_type == 'T2' and 'spine' in v['properties'])):
+                (upstream_nbr_type in ('T2', 'UT2') and 'spine' in v['properties'])):
             bp_if = v['bp_interface']
             if not is_ipv6_only:
                 ipv4_addr = ipaddress.ip_interface(bp_if['ipv4'].encode().decode())
@@ -101,6 +101,34 @@ def get_dut_listen_range(tbinfo):
     return ipv4_subnet, ipv6_subnet, spine_bp_addr
 
 
+def get_sentinel_backplane(tbinfo):
+    ipv4_subnet, ipv6_subnet, spine_bp_addr = get_dut_listen_range(tbinfo)
+    properties = tbinfo['topo']['properties']
+    common = properties['configuration_properties']['common']
+    ptf_bp_v4 = common.get('nhipv4')
+    ptf_bp_v6 = common['nhipv6'].lower()
+    if properties.get('topo_is_multi_vrf'):
+        backplanes = properties['convergence_data']['ptf_backplane_addrs']
+        upstream = next((name for name in spine_bp_addr if name in backplanes), None)
+        pytest_assert(upstream is not None, "No converged upstream backplane for BGP sentinel")
+        addresses = {}
+        networks = {}
+        sources = {}
+        for family in ('ipv4', 'ipv6'):
+            if family not in backplanes[upstream]:
+                continue
+            interface = ipaddress.ip_interface(backplanes[upstream][family])
+            pytest_assert(interface.network.num_addresses == 2,
+                          "Expected a point-to-point converged backplane")
+            sources[family] = str(interface.ip)
+            networks[family] = str(interface.network)
+            addresses[family] = str(next(address for address in interface.network if address != interface.ip))
+        ipv4_subnet, ipv6_subnet = networks.get('ipv4'), networks['ipv6']
+        ptf_bp_v4, ptf_bp_v6 = sources.get('ipv4'), sources['ipv6']
+        spine_bp_addr = {upstream: addresses}
+    return ipv4_subnet, ipv6_subnet, spine_bp_addr, ptf_bp_v4, ptf_bp_v6
+
+
 def is_bgp_sentinel_session_established(duthost, ibgp_sessions):
     bgp_facts = duthost.bgp_facts()['ansible_facts']
     if set(ibgp_sessions) <= set(bgp_facts['bgp_neighbors'].keys()):
@@ -111,28 +139,34 @@ def is_bgp_sentinel_session_established(duthost, ibgp_sessions):
     return False
 
 
-def add_route_to_dut_lo(ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr, is_ipv6_only=False, ptf_bp_v6=None):
+def add_route_to_dut_lo(ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr, is_ipv6_only=False, ptf_bp_v6=None,
+                        ptf_bp_v4=None, use_converged_backplane=False):
     ipv4_nh, ipv6_nh = None, None
     for _, v in spine_bp_addr.items():
         # Add ptf route to dut lo address
         if not is_ipv6_only and ipv4_nh is None:
-            ptfhost.shell("ip route add {} via {}".format(lo_ipv4_addr, v['ipv4']), module_ignore_errors=True)
+            source = " src {}".format(ptf_bp_v4) if use_converged_backplane else ""
+            ptfhost.shell("ip route add {} via {}{}".format(lo_ipv4_addr, v['ipv4'], source),
+                          module_ignore_errors=True)
             time.sleep(5)
-            ipv4_res = ptfhost.shell("ping {} -c 3 -I backplane".format(lo_ipv4_addr), module_ignore_errors=True)
+            ipv4_res = ptfhost.shell("ping {} -c 3 -I {}".format(
+                lo_ipv4_addr, ptf_bp_v4 if use_converged_backplane else "backplane"), module_ignore_errors=True)
             if ipv4_res['rc'] != 0:
                 ptfhost.shell("ip route del {} via {}".format(lo_ipv4_addr, v['ipv4']), module_ignore_errors=True)
             else:
                 ipv4_nh = v['ipv4']
 
         if ipv6_nh is None:
-            if is_ipv6_only:
+            if is_ipv6_only or use_converged_backplane:
                 gateway = v['ipv6']
+                source = " src {}".format(ptf_bp_v6) if use_converged_backplane else ""
                 ptfhost.shell(
-                    "ip -6 route add {}/128 via {}".format(lo_ipv6_addr, gateway),
+                    "ip -6 route add {}/128 via {}{}".format(lo_ipv6_addr, gateway, source),
                     module_ignore_errors=True,
                 )
                 time.sleep(5)
-                ipv6_res = ptfhost.shell("ping {} -c 3 -I backplane".format(lo_ipv6_addr), module_ignore_errors=True)
+                ipv6_res = ptfhost.shell("ping {} -c 3 -I {}".format(
+                    lo_ipv6_addr, ptf_bp_v6 if use_converged_backplane else "backplane"), module_ignore_errors=True)
                 if ipv6_res['rc'] != 0:
                     ptfhost.shell(
                         "ip -6 route del {}/128 via {}".format(lo_ipv6_addr, gateway),
@@ -201,18 +235,14 @@ def cleanup_leftovers_bgp_config(duthost, tbinfo, ptf_bp_v6):
 def dut_setup_teardown(rand_selected_dut, tbinfo, dut_lo_addr, request):
     duthost = rand_selected_dut
     lo_ipv4_addr, lo_ipv6_addr = dut_lo_addr
-    ipv4_subnet, ipv6_subnet, spine_bp_addr = get_dut_listen_range(tbinfo)
+    ipv4_subnet, ipv6_subnet, spine_bp_addr, ptf_bp_v4, ptf_bp_v6 = get_sentinel_backplane(tbinfo)
     is_ipv6_only = is_ipv6_only_topology(tbinfo)
-    ptf_bp_v6 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv6'].lower()
 
     cleanup_leftovers_bgp_config(duthost, tbinfo, ptf_bp_v6)
 
     if is_ipv6_only:
         ptf_bp_v4 = generate_ip_through_default_route(duthost)
         ptf_bp_v4 = str(IPNetwork(ptf_bp_v4).ip)
-    else:
-        ptf_bp_v4 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv4']
-
     # render template and write to DB, check running configuration for BGP_sentinel
     if is_ipv6_only:
         bgp_sentinel_tmpl = Template(BGP_SENTINEL_V6_ONLY_TMPL, autoescape=True)
@@ -256,6 +286,7 @@ def ptf_setup_teardown(dut_setup_teardown, rand_selected_dut, ptfhost, tbinfo):
     duthost = rand_selected_dut
     lo_ipv4_addr, lo_ipv6_addr, spine_bp_addr, ptf_bp_v4, ptf_bp_v6, case_type = dut_setup_teardown
     is_ipv6_only = is_ipv6_only_topology(tbinfo)
+    use_converged_backplane = tbinfo['topo']['properties'].get('topo_is_multi_vrf', False)
 
     if not is_ipv6_only:
         if not is_bgp_sentinel_supported(duthost):
@@ -296,7 +327,8 @@ def ptf_setup_teardown(dut_setup_teardown, rand_selected_dut, ptfhost, tbinfo):
         raise RuntimeError("Failed to start BGPSentinelV6 neighbor %s" % lo_ipv6_addr)
 
     ipv4_nh, ipv6_nh = add_route_to_dut_lo(
-        ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr, is_ipv6_only, ptf_bp_v6
+        ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr, is_ipv6_only, ptf_bp_v6,
+        ptf_bp_v4=ptf_bp_v4, use_converged_backplane=use_converged_backplane
     )
 
     yield lo_ipv4_addr, lo_ipv6_addr, ipv4_nh, ipv6_nh, ptf_bp_v4, ptf_bp_v6
@@ -305,7 +337,7 @@ def ptf_setup_teardown(dut_setup_teardown, rand_selected_dut, ptfhost, tbinfo):
     if ipv4_nh is not None:
         ptfhost.shell("ip route del {} via {}".format(lo_ipv4_addr, ipv4_nh), module_ignore_errors=True)
     if ipv6_nh is not None:
-        if is_ipv6_only:
+        if is_ipv6_only or use_converged_backplane:
             ptfhost.shell("ip -6 route del {}/128".format(lo_ipv6_addr), module_ignore_errors=True)
         else:
             ptfhost.shell("ip route del {} via {}".format(lo_ipv6_addr, ipv6_nh), module_ignore_errors=True)
