@@ -1,4 +1,15 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["local>sonic-net/sonic-pipelines//renovate/default"]
+  "extends": ["local>sonic-net/sonic-pipelines//renovate/default"],
+  "packageRules": [
+    {
+      "description": "Renovate merges the updates the preset labels automerge: security updates below a major version, except patched modules. It merges on a later run, once every check on the head commit has passed, not only the required ones, and the renovate-approve app has approved the pull request. Reviewers are still assigned, so one that fails reaches them.",
+      "matchJsonata": ["isVulnerabilityAlert = true and $not('patched-module' in addLabels)"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": false,
+      "assignAutomerge": true
+    }
+  ]
 }

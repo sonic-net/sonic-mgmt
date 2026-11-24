@@ -1,6 +1,7 @@
 import re
 import time
 import logging
+import shlex
 
 from datetime import datetime
 
@@ -30,6 +31,7 @@ from tests.common.fixtures.fib_utils import (  # noqa: F401
     )
 from tests.common.utilities import wait, wait_until
 from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.errors import RunAnsibleModuleFail
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +60,53 @@ PTF_TEST_PORT_MAP = '/root/ptf_test_port_map.json'
 
 
 # Helper Functions
+@pytest.fixture
+def hash_replay_params(request):
+    return {"hash_seed": request.config.getoption("--hash-seed"),
+            "hash_debug": request.config.getoption("--hash-debug")}
+
+
+def log_hash_state(duthosts, phase):
+    output_limit = 65536
+    for dut in duthosts:
+        for namespace in dut.get_asic_namespace_list():
+            cli = "sonic-db-cli {} ASIC_DB".format("-n {}".format(shlex.quote(namespace)) if namespace else "")
+            for object_type in ('SWITCH', 'HASH', 'NEXT_HOP_GROUP', 'NEXT_HOP_GROUP_MEMBER'):
+                pattern = "ASIC_STATE:SAI_OBJECT_TYPE_{}:*".format(object_type)
+                script = ('{} KEYS {} | while IFS= read -r key; do '
+                          '[ -n "$key" ] || continue; printf "%s\\n" "$key"; '
+                          '{} HGETALL "$key"; done').format(cli, shlex.quote(pattern), cli)
+                command = "timeout 10 bash -o pipefail -ec {}".format(shlex.quote(script))
+                try:
+                    result = dut.shell(command, module_ignore_errors=True, verbose=False)
+                except RunAnsibleModuleFail as error:
+                    result = dict(error.results or {}, failed=True)
+                    result.setdefault('msg', error.args[0] if error.args else type(error).__name__)
+                failed = bool(result.get('failed')) or result.get('rc') != 0
+                output = "msg:\n{}\nstderr:\n{}\nstdout:\n{}".format(
+                    result.get('msg', ''), result.get('stderr', ''), result.get('stdout', ''))
+                log_result = logger.warning if failed else logger.info
+                log_result("Hash debug ASIC_DB %s: dut=%s namespace=%s phase=%s type=%s rc=%s failed=%s\n%s",
+                           "query failed" if failed else "SAI objects", dut.hostname, namespace, phase, object_type,
+                           result.get('rc'), failed, output[:output_limit])
+                if len(output) > output_limit:
+                    logger.warning("Hash debug output truncated: dut=%s namespace=%s phase=%s type=%s total_chars=%s",
+                                   dut.hostname, namespace, phase, object_type, len(output))
+
+
+@pytest.fixture
+def hash_debug_snapshot(request, add_default_route_to_dut):  # noqa: F811
+    if not request.config.getoption("--hash-debug"):
+        yield
+        return
+    duthosts = request.getfixturevalue("duthosts")
+    log_hash_state(duthosts, "before")
+    try:
+        yield
+    finally:
+        log_hash_state(duthosts, "after")
+
+
 def get_default_route_nexthop_count(ptfhost, file_path, ipver):
     """Return the validated default-route nexthop count for one address family."""
     prefix = {"ipv4": "0.0.0.0/0", "ipv6": "::/0"}.get(ipver)
@@ -675,7 +724,7 @@ def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts,               
                      ignore_ttl, single_fib_for_duts, duts_running_config_facts,                    # noqa: F811
                      duts_minigraph_facts, toggle_all_simulator_ports_to_rand_selected_tor_m,       # noqa: F811
                      mux_status_from_nic_simulator, setup_standby_ports_on_rand_unselected_tor,     # noqa: F811
-                     request):                                                                      # noqa: F811
+                     request, hash_replay_params, hash_debug_snapshot):                             # noqa: F811
     # Only run this test on T1 or T0 (including dualtor) topologies
     pytest_require(tbinfo['topo']['type'] in ['t1', 't0'], "The test case runs on T1 or T0 topology")
     logging.info(f"Topology type: {tbinfo['topo']['type']}")
@@ -711,6 +760,7 @@ def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts,               
                        "ipver": ipver,
                        "topo_name": tbinfo['topo']['name'],
                        "is_v6_topo": is_ipv6_only_topology(tbinfo),
+                       **hash_replay_params,
                        },
                log_file=log_file,
                qlen=PTF_QLEN,
@@ -724,7 +774,7 @@ def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts,               
 def test_ipinip_hash_negative(add_default_route_to_dut, duthosts,           # noqa: F811
                               ptfhost, ipver, tbinfo, mux_server_url, ignore_ttl, single_fib_for_duts,  # noqa: F811
                               duts_running_config_facts, duts_minigraph_facts, mux_status_from_nic_simulator,
-                              request):                  # noqa: F811
+                              request, hash_replay_params, hash_debug_snapshot):                  # noqa: F811
     hash_keys = ['inner_length']
     fib_files = fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
                                             tbinfo, request)
@@ -761,6 +811,7 @@ def test_ipinip_hash_negative(add_default_route_to_dut, duthosts,           # no
                    "topo_name": tbinfo['topo']['name'],
                    "topo_type": tbinfo['topo']['type'],
                    "is_v6_topo": is_ipv6_only_topology(tbinfo),
+                   **hash_replay_params,
                },
                log_file=log_file,
                qlen=PTF_QLEN,
