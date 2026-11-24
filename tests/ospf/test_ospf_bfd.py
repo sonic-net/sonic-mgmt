@@ -46,8 +46,12 @@ def start_bfdd(duthosts, rand_one_dut_hostname, request, tbinfo):
 def test_ospf_with_bfd(ospf_Bfd_setup, duthosts, rand_one_dut_hostname,
                        start_ospfd, start_bfdd):
     setup_info_nbr_addr = ospf_Bfd_setup
-    neighbor_ip_addrs = setup_info_nbr_addr.keys()
     duthost = duthosts[rand_one_dut_hostname]
+    if vpp_helpers.is_vpp_ceos_setup(setup_info_nbr_addr):
+        vpp_helpers.verify_bfd_failure(setup_info_nbr_addr, duthost)
+        return
+
+    neighbor_ip_addrs = setup_info_nbr_addr.keys()
 
     # Configure OSPF on the DUT
     net_cmds = " ".join([f"-c 'network {str(ip_addr)}/31 area 0'" for ip_addr in neighbor_ip_addrs])
