@@ -21,7 +21,7 @@ METADATA_KEY = "DEVICE_METADATA|localhost"
 def _running_config(duthost):
     # Do not use miss-tolerant HGET helpers: failure must not look like absence,
     # and empty values must remain distinct from absent fields.
-    result = duthost.shell("sonic-cfggen -d --print-data", module_ignore_errors=True)
+    result = duthost.shell("sonic-cfggen -d --redis-unix-socket --print-data", module_ignore_errors=True)
     if result.get("rc", 1) != 0:
         raise RuntimeError("Cannot snapshot AAA configuration: {}".format(result))
     config = json.loads(result["stdout"])

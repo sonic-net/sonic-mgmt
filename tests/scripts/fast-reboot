@@ -344,10 +344,10 @@ esac
 # Stopping all SLB neighbors if they're presented
 if [[ "$REBOOT_TYPE" = "fast-reboot" ]]; then
     debug "Stopping all SLB neighbors if they are presented"
-    PASSIVE_BGP_NEIGHBORS=$(sonic-cfggen -d -v "BGP_PEER_RANGE | list")
+    PASSIVE_BGP_NEIGHBORS=$(sonic-cfggen -d --redis-unix-socket -v "BGP_PEER_RANGE | list")
     case "$PASSIVE_BGP_NEIGHBORS" in
         *BGPSLBPassive*)
-        ASN=$(sonic-cfggen -d -v "DEVICE_METADATA['localhost']['bgp_asn']")
+        ASN=$(sonic-cfggen -d --redis-unix-socket -v "DEVICE_METADATA['localhost']['bgp_asn']")
         vtysh -c "configure terminal" -c "router bgp ${ASN}" -c "neighbor BGPSLBPassive shutdown"
         sleep 30 # wait for 30 seconds - BGP RouteAdv default timer
         ;;

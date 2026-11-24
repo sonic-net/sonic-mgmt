@@ -48,7 +48,7 @@ COUNTERS_DB = 2
 
 def _fanout_cleanup_ready(fanouthost):
     fanouthost.shell(
-        (redis_cli_command(fanouthost, 'APPL_DB') + " PING | grep -qx PONG && "
+        (redis_cli_command(fanouthost, 'APPL_DB', use_tcp=True) + " PING | grep -qx PONG && "
          "docker exec swss supervisorctl status neighsyncd | grep -q '^neighsyncd.*RUNNING' && "
          "docker exec swss supervisorctl status orchagent | grep -q '^orchagent.*RUNNING' && "
          "docker exec syncd supervisorctl status syncd | grep -q '^syncd.*RUNNING'")
@@ -83,7 +83,7 @@ def require_notification_consumer_stats(duthosts, rand_one_dut_hostname):
 
     def stats_published():
         out = duthost.command(
-            redis_cli_command(duthost, 'COUNTERS_DB') + " keys '{}:*'".format(STATS_TABLE_PREFIX),
+            redis_cli_command(duthost, 'COUNTERS_DB', use_tcp=False) + " keys '{}:*'".format(STATS_TABLE_PREFIX),
             module_ignore_errors=True,
         )
         return out.get("rc") == 0 and FDBORCH_STATS_KEY in out.get("stdout", "")
@@ -199,7 +199,7 @@ STORM_MAC_COUNT = int(os.environ.get("FDB_CHURN_STORM_MAC_COUNT", "1000"))
 def _redis_hgetall(duthost, key):
     """Return the COUNTERS_DB hash at key as a dict, or {} if missing."""
     out = duthost.command(
-        redis_cli_command(duthost, 'COUNTERS_DB') + " hgetall '{}'".format(key),
+        redis_cli_command(duthost, 'COUNTERS_DB', use_tcp=False) + " hgetall '{}'".format(key),
         module_ignore_errors=True,
     )
     if out.get("rc") != 0:
@@ -305,7 +305,7 @@ def fdb_table_has_mac_on_port(duthost, vlan_id, mac, port):
     """
     key = "FDB_TABLE|Vlan{}:{}".format(vlan_id, mac.lower())
     out = duthost.command(
-        (redis_cli_command(duthost, 'STATE_DB') + " hgetall '{}'".format(key)),
+        (redis_cli_command(duthost, 'STATE_DB', use_tcp=False) + " hgetall '{}'".format(key)),
         module_ignore_errors=True,
     )
     if out.get("rc") != 0:

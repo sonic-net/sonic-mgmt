@@ -84,7 +84,7 @@ def check_secondary_subnet_exist(duthost, vlan_interface, ip_address):
     )
 
     # Step 5: Verify "secondary" property is set to "true" in Redis
-    redis_value = duthost.command(('sudo ' + redis_cli_command(duthost, 'CONFIG_DB') + f' HGETALL "{redis_key}"'))
+    redis_value = duthost.command(('sudo ' + redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + f' HGETALL "{redis_key}"'))
     pytest_assert(
         "secondary" in redis_value["stdout"],
         f"'secondary' field not found for {redis_key} in Redis",

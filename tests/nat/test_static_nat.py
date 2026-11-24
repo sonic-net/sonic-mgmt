@@ -372,7 +372,7 @@ class TestStaticNat(object):
                                   "local_ip": network_data.private_ip}}
         entries_table.update(crud_operations_basic(duthost, crud_create))
         # Read from running config and check
-        nat_rules_config = json.loads(duthost.command("sudo sonic-cfggen -d --var-json {}"
+        nat_rules_config = json.loads(duthost.command("sudo sonic-cfggen -d --redis-unix-socket --var-json {}"
                                       .format(STATIC_NAT_TABLE_NAME))["stdout"])
         pytest_assert(nat_rules_config[network_data.public_ip] == entries_table[network_data.public_ip],
                       "Unexpected NAT rule configuration for {}."
@@ -390,7 +390,7 @@ class TestStaticNat(object):
         entries_table.update(crud_operations_basic(duthost, crud_remove))
         # Read
         nat_rules_config = exec_command(duthost,
-                                        ["sudo sonic-cfggen -d --var-json {}".format(STATIC_NAT_TABLE_NAME)])
+                                        ["sudo sonic-cfggen -d --redis-unix-socket --var-json {}".format(STATIC_NAT_TABLE_NAME)])
         condition = (expected_error.format(STATIC_NAT_TABLE_NAME) in nat_rules_config['stderr_lines']
                      or nat_rules_config['stdout'] == '')
         pytest_assert(condition,
@@ -405,7 +405,7 @@ class TestStaticNat(object):
         entries_table.update(crud_operations_basic(duthost, crud_create))
         # Read from running config and check
         nat_rules_config = json.loads(duthost.command("sudo sonic-cfggen "
-                                                      "-d --var-json {}".format(STATIC_NAT_TABLE_NAME))["stdout"])
+                                                      "-d --redis-unix-socket --var-json {}".format(STATIC_NAT_TABLE_NAME))["stdout"])
         pytest_assert(nat_rules_config[network_data.public_ip] == entries_table[network_data.public_ip],
                       "Unexpected NAT rule configuration for {}."
                       " Actual: {}."
@@ -426,7 +426,7 @@ class TestStaticNat(object):
         entries_table.update(crud_operations_basic(duthost, crud_remove))
         # Read
         nat_rules_config = exec_command(duthost,
-                                        ["sudo sonic-cfggen -d --var-json {}".format(STATIC_NAT_TABLE_NAME)])
+                                        ["sudo sonic-cfggen -d --redis-unix-socket --var-json {}".format(STATIC_NAT_TABLE_NAME)])
         condition = (expected_error.format(STATIC_NAT_TABLE_NAME) in nat_rules_config['stderr_lines']
                      or nat_rules_config['stdout'] == '')
         pytest_assert(condition, "Unexpected error for deleted static basic NAT rule: {}"
@@ -459,7 +459,7 @@ class TestStaticNat(object):
         entries_table.update(crud_operations_napt(duthost, crud_create))
         # Read from running config and check
         nat_rules_config = json.loads(duthost.command("sudo sonic-cfggen "
-                                                      "-d --var-json {}".format(STATIC_NAPT_TABLE_NAME))["stdout"])
+                                                      "-d --redis-unix-socket --var-json {}".format(STATIC_NAPT_TABLE_NAME))["stdout"])
         key_entry = "{}|{}|{}".format(network_data.public_ip, protocol_type.upper(), dst_port)
         pytest_assert(nat_rules_config[key_entry] == entries_table[key_entry],
                       "Unexpected NAPT rule for {}".format(key_entry))
@@ -481,7 +481,7 @@ class TestStaticNat(object):
         entries_table.update(crud_operations_napt(duthost, crud_remove))
         # Read
         nat_rules_config = exec_command(duthost,
-                                        ["sudo sonic-cfggen -d --var-json {}".format(STATIC_NAPT_TABLE_NAME)])
+                                        ["sudo sonic-cfggen -d --redis-unix-socket --var-json {}".format(STATIC_NAPT_TABLE_NAME)])
         condition = (expected_error.format(STATIC_NAPT_TABLE_NAME) in nat_rules_config['stderr_lines']
                      or nat_rules_config['stdout'] == '')
         pytest_assert(condition,
@@ -500,7 +500,7 @@ class TestStaticNat(object):
         entries_table.update(crud_operations_napt(duthost, crud_create))
         # Read from running config and check
         nat_rules_config = json.loads(duthost.command("sudo sonic-cfggen "
-                                                      "-d --var-json {}".format(STATIC_NAPT_TABLE_NAME))["stdout"])
+                                                      "-d --redis-unix-socket --var-json {}".format(STATIC_NAPT_TABLE_NAME))["stdout"])
         key_entry = "{}|{}|{}".format(network_data.public_ip, protocol_type.upper(), dst_port)
         pytest_assert(nat_rules_config[key_entry] == entries_table[key_entry],
                       "Unexpected NAT rule for {}".format(key_entry))
@@ -522,7 +522,7 @@ class TestStaticNat(object):
         entries_table.update(crud_operations_napt(duthost, crud_remove))
         # Read
         nat_rules_config = exec_command(duthost,
-                                        ["sudo sonic-cfggen -d --var-json {}".format(STATIC_NAPT_TABLE_NAME)])
+                                        ["sudo sonic-cfggen -d --redis-unix-socket --var-json {}".format(STATIC_NAPT_TABLE_NAME)])
         condition = (expected_error.format(STATIC_NAPT_TABLE_NAME) in nat_rules_config['stderr_lines']
                      or nat_rules_config['stdout'] == '')
         pytest_assert(condition, "Unexpected error for deleted static NAPT rule")

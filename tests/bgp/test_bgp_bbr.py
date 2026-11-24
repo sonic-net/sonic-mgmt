@@ -406,7 +406,7 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
         results[node] = vm_route
 
     other_vms = setup['other_vms']
-    bgp_neighbors = json.loads(duthost.shell("sonic-cfggen -d --var-json 'BGP_NEIGHBOR'")['stdout'])
+    bgp_neighbors = json.loads(duthost.shell("sonic-cfggen -d --redis-unix-socket --var-json 'BGP_NEIGHBOR'")['stdout'])
 
     # check tor1
     pytest_assert(wait_until(60, 5, 0, check_tor1, nbrhosts, setup, route), 'tor1 check failed')

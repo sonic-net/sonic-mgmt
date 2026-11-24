@@ -195,7 +195,7 @@ class TestCOPP(object):
 
         if packet_type == "VlanSubnetIPinIP":
             ip_decap_status = duthost.shell(
-                "sonic-cfggen -d -v 'SYSTEM_DEFAULTS.ip_decap.status'",
+                "sonic-cfggen -d --redis-unix-socket -v 'SYSTEM_DEFAULTS.ip_decap.status'",
                 module_ignore_errors=True
             )["stdout"].strip()
             if ip_decap_status == "disabled":
@@ -395,7 +395,7 @@ def test_verify_copp_configuration_cli(duthosts, enum_rand_one_per_hwsku_fronten
 def dut_type(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     # return config db contents(running-config)
-    cfg_facts = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])
+    cfg_facts = json.loads(duthost.shell("sonic-cfggen -d --redis-unix-socket --print-data")['stdout'])
     dut_type = None
 
     if "DEVICE_METADATA" in cfg_facts:

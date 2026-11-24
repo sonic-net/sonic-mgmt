@@ -21,7 +21,7 @@ def test_radv_deployment_id(duthost):
     get_cmd = 'sonic-db-cli -s CONFIG_DB hget "DEVICE_METADATA|localhost" "deployment_id"'
     set_cmd = 'sonic-db-cli -s CONFIG_DB hset "DEVICE_METADATA|localhost" "deployment_id" "{}"'
     # Need to generate supervisord.conf
-    docker_cmd = 'docker exec radv sonic-cfggen -d -t \
+    docker_cmd = 'docker exec radv sonic-cfggen -d --redis-unix-socket -t \
 /usr/share/sonic/templates/docker-router-advertiser.supervisord.conf.j2,/etc/supervisor/conf.d/supervisord.conf'
     restart_cmd = 'systemctl reset-failed radv; systemctl restart radv'
     origin_id = duthost.shell(get_cmd)['stdout']

@@ -314,7 +314,7 @@ def fixture_setUp(request, rand_selected_dut, tbinfo, ptfadapter):
     # Wait for VNET route to be active in STATE_DB (confirms orchagent programmed it)
     if not wait_until(60, 5, 5, _check_vnet_route, rand_selected_dut):
         vnet_route_state = rand_selected_dut.shell(
-            (redis_cli_command(rand_selected_dut, 'STATE_DB') + " HGETALL '{}'".format(
+            (redis_cli_command(rand_selected_dut, 'STATE_DB', use_tcp=False) + " HGETALL '{}'".format(
                 _vnet_route_state_db_key(VNET_PRIMARY_NAME, VNET_PRIMARY_ROUTE_PREFIX)
             )),
             module_ignore_errors=True
@@ -663,7 +663,7 @@ def remove_bulk_acl_rules(duthost):
     logger.info(f"Removing all ACL rules from table {ACL_TABLE_NAME}")
 
     rule_pattern = f"ACL_RULE|{ACL_TABLE_NAME}|*"
-    count_cmd = (redis_cli_command(duthost, 'CONFIG_DB') + f" --scan --pattern '{rule_pattern}' | wc -l")
+    count_cmd = (redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + f" --scan --pattern '{rule_pattern}' | wc -l")
     rule_count = int(duthost.shell(count_cmd)["stdout"].strip() or 0)
     logger.info(f"Found {rule_count} rules to remove from CONFIG_DB")
 
@@ -673,7 +673,7 @@ def remove_bulk_acl_rules(duthost):
 
     def _check_acl_rules_absent(duthost, database, pattern):
         result = duthost.shell(
-            redis_cli_command(duthost, database) + f" --scan --pattern '{pattern}' | head -n 1"
+            redis_cli_command(duthost, database, use_tcp=False) + f" --scan --pattern '{pattern}' | head -n 1"
         )
         return not result["stdout"].strip()
 

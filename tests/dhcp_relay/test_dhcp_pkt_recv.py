@@ -49,7 +49,7 @@ class Dhcpv6PktRecvBase:
         data_acl_rules = None
 
         # Save both table and rules
-        output = duthost.shell("sonic-cfggen -d --var-json \"ACL_TABLE\"")['stdout']
+        output = duthost.shell("sonic-cfggen -d --redis-unix-socket --var-json \"ACL_TABLE\"")['stdout']
         try:
             acl_tables = json.loads(output)
             if TABLE_NAME in acl_tables:
@@ -57,7 +57,7 @@ class Dhcpv6PktRecvBase:
         except ValueError:
             pass
 
-        output = duthost.shell("sonic-cfggen -d --var-json \"ACL_RULE\"")['stdout']
+        output = duthost.shell("sonic-cfggen -d --redis-unix-socket --var-json \"ACL_RULE\"")['stdout']
         try:
             acl_rules = json.loads(output)
             data_acl_rules = {k: v for k, v in acl_rules.items() if k.startswith(TABLE_NAME + "|")}
@@ -90,7 +90,7 @@ class Dhcpv6PktRecvBase:
             duthost.shell(cmd)
             # Verify restoration worked by checking for a specific rule
             if data_acl_rules:
-                verify_cmd = "sonic-cfggen -d --var-json \"ACL_RULE\" | grep -q 'DATAACL'"
+                verify_cmd = "sonic-cfggen -d --redis-unix-socket --var-json \"ACL_RULE\" | grep -q 'DATAACL'"
                 result = duthost.shell(verify_cmd, module_ignore_errors=True)
                 if result['rc'] == 0:
                     logging.info("ACL rules successfully restored")

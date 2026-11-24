@@ -201,7 +201,7 @@ def capture_config_db(duthost, namespace, capture_dir, filename, description):
     logger.info(f"Capturing {description} via sonic-cfggen {ns_arg}")
     try:
         # Export CONFIG_DB from Redis to JSON file
-        duthost.shell(f"sonic-cfggen -d {ns_arg} --print-data > {remote_path}")
+        duthost.shell(f"sonic-cfggen -d --redis-unix-socket {ns_arg} --print-data > {remote_path}")
         duthost.fetch(src=remote_path, dest=local_path, flat=True)
         duthost.shell(f"rm -f {remote_path}")
         logger.info(f"Saved {description} to {local_path}")

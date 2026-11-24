@@ -546,7 +546,7 @@ def get_config_db_json_obj(dut):
     Args:
         dut (SonicHost): The target device
     """
-    config_db_json = dut.shell("sudo sonic-cfggen -d --print-data")["stdout"]
+    config_db_json = dut.shell("sudo sonic-cfggen -d --redis-unix-socket --print-data")["stdout"]
     return json.loads(config_db_json)
 
 

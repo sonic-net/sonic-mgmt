@@ -36,8 +36,7 @@ def test_neighbour_native_hash_output_keeps_configured_endpoint(filename, port):
     metadata = {'DATABASES': {'ASIC_DB': {'id': 71, 'instance': 'target'}},
                 'INSTANCES': {'target': instance}}
     command = render(template, neighbour_database_metadata={'stdout': json.dumps(metadata)})
-    endpoint = ['-s', instance['unix_socket_path']] if port == 0 else [
-        '-h', '127.0.0.2', '-p', str(6379 if port is None else port)]
+    endpoint = ['-s', instance['unix_socket_path']]
     assert shlex.split(command) == ['redis-cli'] + endpoint + ['-n', '71']
 
 
@@ -50,8 +49,7 @@ def test_ecn_native_lua_reader_keeps_endpoint_file_and_argument(port):
         instance['port'] = port
     command = render(template, ecn_asic_redis=instance, ecn_asic_db={'id': 71},
                      tmp_dir='/tmp/redis task', item='491520')
-    endpoint = ['-s', instance['unix_socket_path']] if port == 0 else [
-        '-h', '127.0.0.2', '-p', str(6379 if port is None else port)]
+    endpoint = ['-s', instance['unix_socket_path']]
     assert shlex.split(command) == ['docker', 'exec', 'database', 'redis-cli'] + endpoint + [
         '-n', '71', '--eval', '/tmp/redis task/get_red_min.lua', ',', '491520', '|', 'grep', '491520']
 

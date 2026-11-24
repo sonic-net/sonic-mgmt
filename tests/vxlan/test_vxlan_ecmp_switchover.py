@@ -187,7 +187,7 @@ def fixture_setUp(duthosts,
     outer_layer_version = ecmp_utils.get_outer_layer_version(encap_type)
     payload_version = ecmp_utils.get_payload_version(encap_type)
 
-    config_db_cli = redis_cli_command(data['duthost'], 'CONFIG_DB')
+    config_db_cli = redis_cli_command(data['duthost'], 'CONFIG_DB', use_tcp=False)
     for intf in data[encap_type]['selected_interfaces']:
         redis_string = "INTERFACE"
         if "PortChannel" in intf:

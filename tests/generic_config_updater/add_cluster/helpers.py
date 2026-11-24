@@ -502,7 +502,7 @@ def get_cfg_info_from_dut(duthost, path, enum_rand_one_asic_namespace):
     dict_info = None
     namespace_prefix = '' if enum_rand_one_asic_namespace is None else '-n ' + enum_rand_one_asic_namespace
     raw_output = duthost.command(
-        "sudo sonic-cfggen {} -d --var-json {}".format(
+        "sudo sonic-cfggen {} -d --redis-unix-socket --var-json {}".format(
             namespace_prefix, path)
     )["stdout"]
     try:

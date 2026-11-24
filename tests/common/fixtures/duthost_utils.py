@@ -588,9 +588,9 @@ def _dut_qos_map(dut):
     maps = {}
     try:
         if dut.is_multi_asic:
-            sonic_cfggen_cmd = "sonic-cfggen -n asic0 -d --var-json"
+            sonic_cfggen_cmd = "sonic-cfggen -n asic0 -d --redis-unix-socket --var-json"
         else:
-            sonic_cfggen_cmd = "sonic-cfggen -d --var-json"
+            sonic_cfggen_cmd = "sonic-cfggen -d --redis-unix-socket --var-json"
 
         # port_qos_map
         port_qos_map = dut.shell("{} 'PORT_QOS_MAP'".format(sonic_cfggen_cmd))['stdout']

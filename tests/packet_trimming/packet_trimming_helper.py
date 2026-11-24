@@ -360,7 +360,7 @@ def get_scheduler_oid_by_attributes(duthost, **kwargs):
     # Check each scheduler to find a match
     for oid_key in oid_keys:
         # Get all attributes of this scheduler
-        cmd_get_attrs = (redis_cli_command(duthost, 'ASIC_DB') + f' hgetall "{oid_key}"')
+        cmd_get_attrs = (redis_cli_command(duthost, 'ASIC_DB', use_tcp=False) + f' hgetall "{oid_key}"')
         result = duthost.shell(cmd_get_attrs)
 
         if not result["stdout"].strip():
@@ -681,7 +681,7 @@ def get_buffer_profile_trimming_status(duthost, buffer_profile_name):
     logger.info(f"Checking packet discard action for buffer profile: {buffer_profile_name}")
 
     # Check if buffer profile exists
-    cmd_check = (redis_cli_command(duthost, 'CONFIG_DB') + f" exists 'BUFFER_PROFILE|{buffer_profile_name}'")
+    cmd_check = (redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + f" exists 'BUFFER_PROFILE|{buffer_profile_name}'")
     result = duthost.shell(cmd_check)
 
     if result["stdout"].strip() == "0":
@@ -1168,7 +1168,7 @@ def get_buffer_profile_for_queue(duthost, interface, queue_id):
         logger.info(f"Queue {queue_id} on {interface} uses buffer profile: {profile_name}")
 
         # Get buffer profile details
-        cmd = (redis_cli_command(duthost, 'CONFIG_DB') + f" HGETALL 'BUFFER_PROFILE|{profile_name}'")
+        cmd = (redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + f" HGETALL 'BUFFER_PROFILE|{profile_name}'")
         result = duthost.shell(cmd)
 
         # Parse the profile details
@@ -2028,10 +2028,10 @@ def update_service_port_buffer_profile(duthost, service_port):
 
     # Verify buffer configuration
     logger.info("Verifying buffer configuration")
-    result = duthost.shell((redis_cli_command(duthost, 'CONFIG_DB') + f" HGETALL 'BUFFER_PG|{service_port}|0'"))
+    result = duthost.shell((redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + f" HGETALL 'BUFFER_PG|{service_port}|0'"))
     logger.info(f"BUFFER_PG|{service_port}|0 configuration:\n{result['stdout']}")  # noqa: E231
 
-    result = duthost.shell((redis_cli_command(duthost, 'CONFIG_DB') +
+    result = duthost.shell((redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) +
                            f" HGETALL 'BUFFER_PORT_INGRESS_PROFILE_LIST|{service_port}'"))
     logger.info(f"BUFFER_PORT_INGRESS_PROFILE_LIST|{service_port} configuration:\n{result['stdout']}")  # noqa: E231
 
@@ -2087,7 +2087,7 @@ def update_service_port_qos_map(duthost, service_port):
 
     # Verify QoS map configuration
     logger.info("Verifying QoS map configuration")
-    result = duthost.shell((redis_cli_command(duthost, 'CONFIG_DB') + f" HGETALL 'PORT_QOS_MAP|{service_port}'"))
+    result = duthost.shell((redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + f" HGETALL 'PORT_QOS_MAP|{service_port}'"))
     logger.info(f"PORT_QOS_MAP|{service_port} configuration:\n{result['stdout']}")  # noqa: E231
 
     if "AZURE" not in result["stdout"]:

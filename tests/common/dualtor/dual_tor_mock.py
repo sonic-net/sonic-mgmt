@@ -345,9 +345,9 @@ def apply_peer_switch_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mo
     Also adds the 'subtype' field in the device metadata table and sets it to 'DualToR'
     '''
     def check_config_applied():
-        out = dut.shell((redis_cli_command(dut, 'CONFIG_DB') + ' HGETALL "DEVICE_METADATA|localhost"'))['stdout_lines']
+        out = dut.shell((redis_cli_command(dut, 'CONFIG_DB', use_tcp=False) + ' HGETALL "DEVICE_METADATA|localhost"'))['stdout_lines']
         device_metadata_done = 'DualToR' in out
-        out = dut.shell((redis_cli_command(dut, 'CONFIG_DB') +
+        out = dut.shell((redis_cli_command(dut, 'CONFIG_DB', use_tcp=False) +
                         ' HGETALL "PEER_SWITCH|switch_hostname"'))['stdout_lines']
         peerswitch_done = out and 'address_ipv4' in out
         return device_metadata_done and peerswitch_done
@@ -406,7 +406,7 @@ def apply_tunnel_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock_pe
     Adds the TUNNEL table to config DB
     '''
     def check_config_applied(tunnel_params):
-        out = dut.shell((redis_cli_command(dut, 'CONFIG_DB') +
+        out = dut.shell((redis_cli_command(dut, 'CONFIG_DB', use_tcp=False) +
                         ' HGETALL "TUNNEL|MuxTunnel0" | wc -l'))['stdout_lines'][0]
 
         # *2 because each key value pair is represented with 2 rows in redis-cli

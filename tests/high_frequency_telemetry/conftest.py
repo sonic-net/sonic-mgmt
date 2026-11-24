@@ -125,7 +125,7 @@ def skip_unsupported_hft_platform(
         ).get("stdout", "")
 
     feature_result = duthost.shell(
-        (redis_cli_command(duthost, 'CONFIG_DB') + " --raw HGETALL 'FEATURE|otel'"),
+        (redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + " --raw HGETALL 'FEATURE|otel'"),
         module_ignore_errors=False,
     )
     feature_lines = feature_result.get("stdout_lines", [])

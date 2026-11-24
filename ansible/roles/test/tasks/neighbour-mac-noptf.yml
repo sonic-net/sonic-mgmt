@@ -10,11 +10,7 @@
       {% set database = config.DATABASES.ASIC_DB %}
       {% set instance = config.INSTANCES[database.instance] %}
       redis-cli
-      {% if instance.port | default(6379) | int == 0 %}
       -s {{ instance.unix_socket_path | quote }}
-      {% else %}
-      -h {{ instance.hostname | default('localhost') | quote }} -p {{ instance.port | default(6379) }}
-      {% endif %}
       -n {{ database.id }}
 
 ##################################################################################

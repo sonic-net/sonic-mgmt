@@ -57,7 +57,7 @@ def _get_systemd_property(duthost, service_name, property_name):
 
 
 def _get_ntp_config(duthost):
-    output = duthost.command("sonic-cfggen -d --var-json NTP_SERVER")["stdout"].strip()
+    output = duthost.command("sonic-cfggen -d --redis-unix-socket --var-json NTP_SERVER")["stdout"].strip()
     return json.loads(output or "{}")
 
 

@@ -91,7 +91,7 @@ def dscp_config(dscp_mode, rand_selected_dut, loganalyzer):
     """
     duthost = rand_selected_dut
     asic_type = duthost.facts['asic_type']
-    ip_decap_status = duthost.shell("sonic-cfggen -d -v 'SYSTEM_DEFAULTS.ip_decap.status'",
+    ip_decap_status = duthost.shell("sonic-cfggen -d --redis-unix-socket -v 'SYSTEM_DEFAULTS.ip_decap.status'",
                                     module_ignore_errors=True)["stdout"].strip()
     if ip_decap_status == 'disabled':
         pytest.skip("ip_decap is not enabled in SYSTEM_DEFAULTS")

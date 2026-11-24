@@ -35,7 +35,7 @@ pytestmark = [
 
 
 def get_cfg_facts(duthost):
-    return json.loads(duthost.shell("sonic-cfggen -d --print-data")["stdout"])
+    return json.loads(duthost.shell("sonic-cfggen -d --redis-unix-socket --print-data")["stdout"])
 
 
 # The key and its boolean value may each be quoted or unquoted across hwskus,

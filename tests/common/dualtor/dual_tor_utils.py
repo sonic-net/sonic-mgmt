@@ -277,7 +277,7 @@ def update_mux_configs_and_config_reload(dut, state):
     STATE_LIST = ['auto', 'active', 'standby']
     pt_assert(state in STATE_LIST, "state should be one of {}".format(STATE_LIST))
 
-    mux_cable_config = dut.shell("sonic-cfggen -d  --var-json 'MUX_CABLE'")['stdout']
+    mux_cable_config = dut.shell("sonic-cfggen -d --redis-unix-socket  --var-json 'MUX_CABLE'")['stdout']
     pt_assert(len(mux_cable_config.strip()) != 0, "No mux_cable configuration is found in config_db")
 
     # Update mux_cable state and dump to a temp file
@@ -881,7 +881,7 @@ def mux_cable_server_ip(dut):
     Returns:
         A dict: {"Ethernet12" : {"server_ipv4":"192.168.0.4/32", "server_ipv6":"fc02:1000::4/128"}, ....}
     """
-    mux_cable_config = dut.shell("sonic-cfggen -d  --var-json 'MUX_CABLE'")['stdout']
+    mux_cable_config = dut.shell("sonic-cfggen -d --redis-unix-socket  --var-json 'MUX_CABLE'")['stdout']
     return json.loads(mux_cable_config)
 
 
@@ -1640,7 +1640,7 @@ def is_tunnel_qos_remap_enabled(duthost):
     Check whether tunnel_qos_remap is enabled or not
     """
     try:
-        tunnel_qos_remap_status = duthost.shell('sonic-cfggen -d -v \'SYSTEM_DEFAULTS.tunnel_qos_remap.status\'',
+        tunnel_qos_remap_status = duthost.shell('sonic-cfggen -d --redis-unix-socket -v \'SYSTEM_DEFAULTS.tunnel_qos_remap.status\'',
                                                 module_ignore_errors=True)["stdout_lines"][0]
     except (IndexError, NameError):
         return False

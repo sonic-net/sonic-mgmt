@@ -1564,7 +1564,7 @@ def restore_config(duthost, config, config_backup):
 def get_running_config(duthost, asic=None, filter=None):
     ns = "-n " + asic if asic else ""
     fil = f"| jq {filter}" if filter else ""
-    return json.loads(duthost.shell(f"sonic-cfggen {ns} -d --print-data {fil}")['stdout'])
+    return json.loads(duthost.shell(f"sonic-cfggen {ns} -d --redis-unix-socket --print-data {fil}")['stdout'])
 
 
 def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True, wait_for_bgp=True):

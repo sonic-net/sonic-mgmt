@@ -17,7 +17,7 @@ def get_bbr_default_state(duthost):
 
     # Check BBR configuration from config_db first
     bbr_config_db_exist = int(duthost.shell(
-        (redis_cli_command(duthost, 'CONFIG_DB') + ' HEXISTS "BGP_BBR|all" "status"'))["stdout"])
+        (redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + ' HEXISTS "BGP_BBR|all" "status"'))["stdout"])
     if bbr_config_db_exist:
         # key exist, BBR is supported
         bbr_supported = True
@@ -49,10 +49,10 @@ def config_bbr_by_gcu(duthost, status):
 
     # Check both key existence and field existence to pick the right JSON patch op
     bbr_key_exists = int(duthost.shell(
-        (redis_cli_command(duthost, 'CONFIG_DB') + ' EXISTS "BGP_BBR|all"'), module_ignore_errors=True
+        (redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + ' EXISTS "BGP_BBR|all"'), module_ignore_errors=True
     )["stdout"])
     bbr_field_exists = int(duthost.shell(
-        (redis_cli_command(duthost, 'CONFIG_DB') + ' HEXISTS "BGP_BBR|all" "status"'), module_ignore_errors=True
+        (redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + ' HEXISTS "BGP_BBR|all" "status"'), module_ignore_errors=True
     )["stdout"])
 
     logger.info("BGP_BBR|all key exists: %d, status field exists: %d", bbr_key_exists, bbr_field_exists)

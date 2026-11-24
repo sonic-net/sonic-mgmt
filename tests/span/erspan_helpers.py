@@ -187,7 +187,7 @@ def get_mirror_session_config_db_field(duthost, session_name, field):
 def mirror_session_config_db_exists(duthost, session_name):
     '''Return True if the CONFIG_DB MIRROR_SESSION key for session_name exists.'''
     output = duthost.shell(
-        (redis_cli_command(duthost, 'CONFIG_DB') + ' exists "MIRROR_SESSION|{}"'.format(session_name)))
+        (redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + ' exists "MIRROR_SESSION|{}"'.format(session_name)))
     return output['stdout'].strip() == '1'
 
 

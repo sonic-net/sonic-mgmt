@@ -92,7 +92,7 @@ def apply_mux_combo_to_dut(duthost, prober_type=None, neighbor_mode=None):
             "running_golden_config.json not found on %s — generating from live CONFIG_DB",
             duthost.hostname,
         )
-        duthost.shell("sonic-cfggen -d --print-data > {}".format(GOLDEN_CONFIG_PATH))
+        duthost.shell("sonic-cfggen -d --redis-unix-socket --print-data > {}".format(GOLDEN_CONFIG_PATH))
         main_cfg = _read_golden_config(duthost)
         if main_cfg is None:
             logger.error("Failed to generate running_golden_config.json on %s, skipping MUX combo", duthost.hostname)

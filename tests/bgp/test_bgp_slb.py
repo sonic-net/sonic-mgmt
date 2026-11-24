@@ -32,10 +32,10 @@ def slb_neighbor_asn(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     constants_stat = duthost.stat(path="/etc/sonic/constants.yml")
     if constants_stat["stat"]["exists"]:
-        res = duthost.shell("sonic-cfggen -m -d -y /etc/sonic/constants.yml -v \"constants\
+        res = duthost.shell("sonic-cfggen -m -d --redis-unix-socket -y /etc/sonic/constants.yml -v \"constants\
             .deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")
     else:
-        res = duthost.shell("sonic-cfggen -m -d -y /etc/sonic/deployment_id_asn_map\
+        res = duthost.shell("sonic-cfggen -m -d --redis-unix-socket -y /etc/sonic/deployment_id_asn_map\
             .yml -v \"deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")
     neighbor_asn = res['stdout'].strip()
     if not neighbor_asn:

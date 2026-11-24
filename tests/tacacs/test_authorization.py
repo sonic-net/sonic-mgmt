@@ -297,13 +297,18 @@ def test_authorization_tacacs_only(
                                 tacacs_creds,
                                 check_tacacs,  # noqa: F811
                                 remote_user_client,
-                                remote_rw_user_client):
+                                remote_rw_user_client,
+                                request):
 
     check_authorization_tacacs_only(
                                     duthosts,
                                     enum_rand_one_per_hwsku_hostname,
                                     tacacs_creds,
                                     remote_user_client)
+
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    use_tcp = request.config.getoption("--redis-protection-mode", default=None) != "enforce"
+    redis_cli = redis_reader_cli(use_tcp=use_tcp)
 
     # check commands used by scripts
     commands = [

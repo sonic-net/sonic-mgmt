@@ -57,7 +57,7 @@ def get_all_vlan(module, config):
     @return: None
     """
     rc, stdout, stderr = module.run_command(
-        'sonic-cfggen -d --var-json \"VLAN\"')
+        'sonic-cfggen -d --redis-unix-socket --var-json \"VLAN\"')
     if rc != 0:
         module.fail_json(msg='Failed to get DUT running config, rc=%s, stdout=%s, stderr=%s' % (
             rc, stdout, stderr))
@@ -71,7 +71,7 @@ def get_all_vlan(module, config):
             }
     except Exception as e:
         module.fail_json(
-            msg='Failed to parse config from output of "sonic-cfggen -d --var-json VLAN", err=' + str(e))
+            msg='Failed to parse config from output of "sonic-cfggen -d --redis-unix-socket --var-json VLAN", err=' + str(e))
 
 
 def get_vlan_interfaces(module, config):
@@ -82,7 +82,7 @@ def get_vlan_interfaces(module, config):
     @return: None
     """
     rc, stdout, stderr = module.run_command(
-        'sonic-cfggen -d --var-json \"VLAN_INTERFACE\"')
+        'sonic-cfggen -d --redis-unix-socket --var-json \"VLAN_INTERFACE\"')
     if rc != 0:
         module.fail_json(msg='Failed to get DUT running config, rc=%s, stdout=%s, stderr=%s' % (
             rc, stdout, stderr))
@@ -106,7 +106,7 @@ def get_vlan_interfaces(module, config):
 
     except Exception as e:
         module.fail_json(
-            msg='Failed to parse config from output of "sonic-cfggen -d --var-json VLAN_INTERFACE", err=' + str(e))
+            msg='Failed to parse config from output of "sonic-cfggen -d --redis-unix-socket --var-json VLAN_INTERFACE", err=' + str(e))
 
 
 def get_vlan_members(module, config):
@@ -117,7 +117,7 @@ def get_vlan_members(module, config):
     @return: None
     """
     rc, stdout, stderr = module.run_command(
-        'sonic-cfggen -d --var-json \"VLAN_MEMBER\"')
+        'sonic-cfggen -d --redis-unix-socket --var-json \"VLAN_MEMBER\"')
     if rc != 0:
         module.fail_json(msg='Failed to get DUT running config, rc=%s, stdout=%s, stderr=%s' % (
             rc, stdout, stderr))
@@ -136,7 +136,7 @@ def get_vlan_members(module, config):
 
     except Exception as e:
         module.fail_json(
-            msg='Failed to parse config from output of "sonic-cfggen -d --var-json VLAN_MEMBER", err=' + str(e))
+            msg='Failed to parse config from output of "sonic-cfggen -d --redis-unix-socket --var-json VLAN_MEMBER", err=' + str(e))
 
 
 def main():

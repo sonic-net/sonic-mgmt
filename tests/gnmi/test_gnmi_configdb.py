@@ -132,9 +132,9 @@ def get_sonic_cfggen_output(duthost, namespace=None):
     """
     Fetch and return the sonic-cfggen output
     """
-    cmd = "sonic-cfggen -d --print-data"
+    cmd = "sonic-cfggen -d --redis-unix-socket --print-data"
     if namespace:
-        cmd = f"sonic-cfggen -n {namespace} -d --print-data"
+        cmd = f"sonic-cfggen -n {namespace} -d --redis-unix-socket --print-data"
     output = duthost.shell(cmd)
     assert not output["rc"], "No output"
     return json.loads(output["stdout"])

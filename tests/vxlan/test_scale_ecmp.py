@@ -190,7 +190,7 @@ def one_vnet_setup_teardown(
     """
     duthost = duthosts[rand_one_dut_hostname]
     try:
-        cfg_facts = json.loads(duthost.shell("sonic-cfggen -d --print-data")["stdout"])
+        cfg_facts = json.loads(duthost.shell("sonic-cfggen -d --redis-unix-socket --print-data")["stdout"])
         config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
         duts_map = tbinfo["duts_map"]
         dut_indx = duts_map[duthost.hostname]

@@ -109,7 +109,7 @@ def get_intf_ips(interface_name, cfg_facts):
 
 def get_cfg_facts(duthost):
     # return config db contents(running-config)
-    tmp_facts = json.loads(duthost.shell("sonic-cfggen -d --print-data")["stdout"])
+    tmp_facts = json.loads(duthost.shell("sonic-cfggen -d --redis-unix-socket --print-data")["stdout"])
 
     port_name_list_sorted = natsorted(list(tmp_facts["PORT"].keys()))
     port_index_map = {}
@@ -747,7 +747,7 @@ class TestVrfCreateAndBind:
 
         for vrf, intfs in list(g_vars["vrf_intfs"].items()):
             for intf in intfs:
-                res = duthost.shell((redis_cli_command(duthost, 'APPL_DB') + ' hgetall "INTF_TABLE:%s"' % intf))
+                res = duthost.shell((redis_cli_command(duthost, 'APPL_DB', use_tcp=False) + ' hgetall "INTF_TABLE:%s"' % intf))
                 assert vrf in res["stdout"], "The vrf of interface %s should be %s !" % (intf, vrf)
 
     def test_vrf_in_asic_db(self, duthosts, rand_one_dut_hostname, cfg_facts):
@@ -1149,7 +1149,7 @@ class TestVrfLoopbackIntf:
             ptfhost.shell("ip netns exec {} ip address add {} dev e{}mv1".format(ns, ptf_speaker_ip, vlan_peer_port))
 
         res = duthost.shell(
-            'sonic-cfggen -m -d -y /etc/sonic/constants.yml -v "'
+            'sonic-cfggen -m -d --redis-unix-socket -y /etc/sonic/constants.yml -v "'
             "constants.deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\""
         )
         bgp_speaker_asn = res["stdout"]

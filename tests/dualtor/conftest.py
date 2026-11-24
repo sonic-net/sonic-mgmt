@@ -234,10 +234,10 @@ def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo, test_devic
         "- Lower ToR ASN: {}"
     ).format(upper_tor_asn, lower_tor_asn)
 
-    upper_tor_slb_asn = upper_tor_host.shell("sonic-cfggen -m -d -y /etc/sonic/constants.yml -v \
+    upper_tor_slb_asn = upper_tor_host.shell("sonic-cfggen -m -d --redis-unix-socket -y /etc/sonic/constants.yml -v \
                                              \"constants.deployment_id_asn_map[DEVICE_METADATA[\
                                              'localhost']['deployment_id']]\"")["stdout"]
-    lower_tor_slb_asn = lower_tor_host.shell("sonic-cfggen -m -d -y /etc/sonic/constants.yml -v \
+    lower_tor_slb_asn = lower_tor_host.shell("sonic-cfggen -m -d --redis-unix-socket -y /etc/sonic/constants.yml -v \
                                              \"constants.deployment_id_asn_map[DEVICE_METADATA[\
                                              'localhost']['deployment_id']]\"")["stdout"]
 

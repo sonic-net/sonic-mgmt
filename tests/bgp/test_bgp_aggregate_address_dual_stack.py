@@ -134,7 +134,7 @@ def setup_teardown(duthosts, rand_one_dut_hostname):
     # processing aggregate-address entries, even for bbr_required=false.
     # Ensure BGP_BBR exists so bgpcfgd does not crash with KeyError.
     bbr_exists = int(duthost.shell(
-        (redis_cli_command(duthost, 'CONFIG_DB') + ' HEXISTS "BGP_BBR|all" "status"'),
+        (redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + ' HEXISTS "BGP_BBR|all" "status"'),
         module_ignore_errors=True,
     )["stdout"])
     if not bbr_exists:

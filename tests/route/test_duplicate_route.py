@@ -24,11 +24,11 @@ LOG_EXPECT_ADD_ROUTE_FAILED = ".*Failed to create route.*"
 def get_cfg_facts(duthost, asic_index):
     if duthost.sonichost.is_multi_asic:
         asic_ns = "asic{}".format(asic_index)
-        cmd = "sonic-cfggen -d --print-data -n {}".format(asic_ns)
+        cmd = "sonic-cfggen -d --redis-unix-socket --print-data -n {}".format(asic_ns)
         tmp_facts = json.loads(duthost.shell(cmd)['stdout'])
     # return config db contents(running-config)
     else:
-        cmd = "sonic-cfggen -d --print-data"
+        cmd = "sonic-cfggen -d --redis-unix-socket --print-data"
         tmp_facts = json.loads(duthost.shell(cmd)['stdout'])
 
     return tmp_facts

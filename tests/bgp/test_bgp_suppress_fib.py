@@ -419,7 +419,7 @@ def get_cfg_facts(duthost):
     """
     Get config port indices
     """
-    cfg_facts = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])
+    cfg_facts = json.loads(duthost.shell("sonic-cfggen -d --redis-unix-socket --print-data")['stdout'])
 
     port_name_list_sorted = natsorted(cfg_facts['PORT'].keys())
     port_index_map = {}

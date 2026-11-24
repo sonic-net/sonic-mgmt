@@ -64,9 +64,9 @@ def get_redis_queue_count_with_types(duthost, interface, asic=None):
         asic = duthost.asic_instance()
 
     name_map_result = asic.run_redis_cmd(
-        argv=redis_cli_argv(asic, 'COUNTERS_DB') + ["HGETALL", "COUNTERS_QUEUE_NAME_MAP"])
+        argv=redis_cli_argv(asic, 'COUNTERS_DB', use_tcp=False) + ["HGETALL", "COUNTERS_QUEUE_NAME_MAP"])
     type_map_result = asic.run_redis_cmd(
-        argv=redis_cli_argv(asic, 'COUNTERS_DB') + ["HGETALL", "COUNTERS_QUEUE_TYPE_MAP"])
+        argv=redis_cli_argv(asic, 'COUNTERS_DB', use_tcp=False) + ["HGETALL", "COUNTERS_QUEUE_TYPE_MAP"])
 
     # Build type map dictionary (SAI OID -> type string)
     type_map = {}
@@ -246,10 +246,10 @@ def test_snmp_queue_counters(duthosts,
         ORIG_CFG_DB = "/etc/sonic/orig_config_db{}.json".format(
             asic.asic_index)
         CFG_DB_PATH = "/etc/sonic/config_db{}.json".format(asic.asic_index)
-        cmd = "sonic-cfggen -n {} -d --print-data > {}".format(
+        cmd = "sonic-cfggen -n {} -d --redis-unix-socket --print-data > {}".format(
             asic.namespace, ORIG_CFG_DB)
     else:
-        cmd = "sonic-cfggen -d --print-data > {}".format(ORIG_CFG_DB)
+        cmd = "sonic-cfggen -d --redis-unix-socket --print-data > {}".format(ORIG_CFG_DB)
 
     duthost.shell(cmd)
     data = json.loads(duthost.shell("cat {}".format(ORIG_CFG_DB),

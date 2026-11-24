@@ -85,30 +85,37 @@ def db_map_read(dut):
         db_port_map = db_default_port_map
 
 
+def db_uses_unix_socket():
+    transport = st.getenv("SPYTEST_REDIS_DB_TRANSPORT", "tcp")
+    if transport not in ("tcp", "unix"):
+        raise ValueError("SPYTEST_REDIS_DB_TRANSPORT must be tcp or unix")
+    return transport == "unix"
+
+
 def _prefix(dut, db, suffix="cli", force_raw=False):
     db_cli = "1" if force_raw else st.get_dut_var(dut, "redis_db_cli")
+    use_unix = db_uses_unix_socket()
 
     if db and db not in db_id_map:
         raise ValueError("Unknown DB name {} in ID Map".format(db))
-    if db and db not in db_port_map:
-        raise ValueError("Unknown DB name {} in Port Map".format(db))
 
     if db_cli == "2":
         if suffix == "dump":
-            return "sonic-db-dump -t unix_socket -n {}".format(db) if db else "sonic-db-dump"
-        return "sonic-db-cli -s {}".format(db or "")
+            transport = "unix_socket" if use_unix else "tcp"
+            return "sonic-db-dump -t {} -n {}".format(transport, db) if db else "sonic-db-dump"
+        option = " -s" if use_unix else ""
+        return "sonic-db-cli{} {}".format(option, db or "")
 
-    if db_cli == "1":
-        if db_port_map[db] == 0:
-            if not db_socket_map.get(db):
-                raise ValueError("Missing Unix socket for DB {} with TCP disabled".format(db))
-            if suffix == "dump":
-                return "sonic-db-dump -t unix_socket -n {}".format(db)
-            cmd = "redis-{} -s {}".format(suffix, shlex.quote(db_socket_map[db]))
-        else:
-            cmd = "redis-{} -p {}".format(suffix, db_port_map[db])
-    else:
-        cmd = "redis-{}".format(suffix)
+    cmd = "redis-{}".format(suffix)
+    if db and use_unix:
+        socket = db_socket_map.get(db)
+        if not socket:
+            raise ValueError("Missing Unix socket for DB {}".format(db))
+        if suffix == "dump":
+            return "sonic-db-dump -t unix_socket -n {}".format(db)
+        cmd += " -s {}".format(shlex.quote(socket))
+    elif db and db_cli == "1":
+        cmd += " -p {}".format(port(db))
 
     return "{} -n {}".format(cmd, db_id_map[db]) if db else cmd
 
@@ -128,11 +135,12 @@ def build(dut, db, cmd):
 
 
 def build_sonic_db_cli(db, cmd):
-    return 'sonic-db-cli -s {} {}'.format(db, cmd)
+    return 'sonic-db-cli -s --authenticate {} {}'.format(db, cmd)
 
 
 def redis_show(dut, db, cmd):
-    redis_cmd = "sonic-db-cli -s {} \"{}\"".format(db, cmd)
+    option = " -s" if db_uses_unix_socket() else ""
+    redis_cmd = 'sonic-db-cli{} {} "{}"'.format(option, db, cmd)
     dump = st.show(dut, redis_cmd, skip_tmpl=True)
     gen = (item for item in dump.split('\n'))
     result = {}
@@ -185,14 +193,14 @@ def multi(dut, db, cmd_list, skip_error_check=False):
     tmp_file.write("multi\n" + "\n".join(cmd_list) + "\nexec")
     tmp_file.flush()
     st.upload_file_to_dut(dut, tmp_file.name, tmp_file.name)
-    if db_port_map.get(db) == 0:
+    if db_uses_unix_socket():
         # Redis parses the existing inline commands on one authenticated connection.
         # The credential is read on the DUT and never passes through st.config.
         program = '''import pathlib, sys
 from swsscommon.redis import UnixConnection
 socket_path, database, commands = sys.argv[1:]
 payload = pathlib.Path(commands).read_bytes()
-connection = UnixConnection(path=socket_path, db=int(database))
+connection = UnixConnection(path=socket_path, db=int(database), authenticate=True)
 def emit(reply):
     if isinstance(reply, list) and reply:
         for item in reply:
@@ -210,7 +218,7 @@ finally:
     connection.disconnect()
 '''
         if not db_socket_map.get(db):
-            raise ValueError("Missing Unix socket for DB {} with TCP disabled".format(db))
+            raise ValueError("Missing Unix socket for DB {}".format(db))
         arguments = [db_socket_map[db], str(db_id_map[db]), tmp_file.name]
         cmd = "sudo python3 - {} <<'SPYTEST_REDIS_TRANSACTION'\n{}SPYTEST_REDIS_TRANSACTION".format(
             ' '.join(shlex.quote(argument) for argument in arguments), program)
@@ -238,6 +246,9 @@ def build_std_redis_cli(dut, skip_error_check=False):
     :param skip_error_check:
     :return:
     """
+    if st.getenv("SPYTEST_REDIS_PROTECTION_MODE", "legacy") == "enforce":
+        st.error("The copied redis-cli writer supports legacy Redis only; use config() or multi()", dut=dut)
+        return 1
     command = "sudo bash -c ' mkdir -p /tmp/std_redisclient; cd /tmp/std_redisclient/; " \
               "docker cp database:/usr/bin/redis-cli .; " \
               "docker cp database:/usr/lib/x86_64-linux-gnu/liblua5.1-cjson.so.0.0.0 .; " \
@@ -261,7 +272,7 @@ def config_redis_db(con_obj, cmd=""):
     """
     prompt = con_obj.find_prompt()
     result = con_obj.send_command(cmd, expect_string=prompt, max_loops=50, delay_factor=5)
-    if "permission denied" in result:
+    if any(error in result.lower() for error in ("permission denied", "noperm", "noauth", "wrongpass")):
         st.log("Configuration failed using redis-cli")
         return False
     else:

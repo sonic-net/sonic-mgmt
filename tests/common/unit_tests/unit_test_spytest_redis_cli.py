@@ -17,6 +17,8 @@ def client(monkeypatch):
     class SpyTest:
         mode = "1"
         metadata = ""
+        transport = "unix"
+        protection_mode = "legacy"
 
         def get_dut_var(self, dut, name):
             return self.mode
@@ -36,7 +38,8 @@ def client(monkeypatch):
             return False
 
         def getenv(self, name, default):
-            return default
+            return {"SPYTEST_REDIS_DB_TRANSPORT": self.transport,
+                    "SPYTEST_REDIS_PROTECTION_MODE": self.protection_mode}.get(name, default)
 
         def remove_prompt(self, dut, text):
             return text
@@ -69,12 +72,13 @@ def test_database_metadata_keeps_each_process_endpoint(client):
 def test_existing_cli_preferences(client, mode):
     client.st.mode = mode
     assert client._prefix("dut", "CONFIG_DB") == {
-        "0": "redis-cli -n 4",
+        "0": "redis-cli -s /run/redis/primary.sock -n 4",
         "1": "redis-cli -s /run/redis/primary.sock -n 4",
         "2": "sonic-db-cli -s CONFIG_DB"}[mode]
 
 
 def test_positive_port_stays_explicit_tcp(client):
+    client.st.transport = "tcp"
     assert client._prefix("dut", "STATE_DB") == "redis-cli -p 6400 -n 6"
 
 
@@ -97,21 +101,22 @@ def test_native_scan_and_named_dump_keep_filters(client):
 def test_writers_use_named_cli_without_quoting_the_entire_command(client, mode):
     client.st.mode = mode
     command = 'HSET "PORT|test" field "value with spaces"'
-    assert client.config('dut', 'CONFIG_DB', command) == 'sonic-db-cli -s CONFIG_DB ' + command
+    assert client.config('dut', 'CONFIG_DB', command) == 'sonic-db-cli -s --authenticate CONFIG_DB ' + command
 
 
 @pytest.mark.parametrize("mode", ["0", "1", "2"])
-@pytest.mark.parametrize("port", [0, 6400])
-def test_multi_keeps_native_stdin_for_all_cli_preferences(client, mode, port):
+@pytest.mark.parametrize("transport", ["unix", "tcp"])
+def test_multi_keeps_native_stdin_for_all_cli_preferences(client, mode, transport):
     client.st.mode = mode
-    client.db_port_map["CONFIG_DB"] = port
+    client.st.transport = transport
+    client.db_port_map["CONFIG_DB"] = 6400
     command = client.multi("dut", "CONFIG_DB", ['HSET "PORT|test" field value', 'HGET "PORT|test" field'])
-    if port == 0:
+    if transport == "unix":
         assert command.startswith("sudo python3 - /run/redis/primary.sock 4 ")
         assert client.st.options["sudo"] is False
         assert client.st.options["split_cmds"] is False
         assert 'from swsscommon.redis import UnixConnection' in command
-        assert 'UnixConnection(path=socket_path, db=int(database))' in command
+        assert 'UnixConnection(path=socket_path, db=int(database), authenticate=True)' in command
         assert 'connection.connect()' in command
         assert 'connection.send_packed_command([payload' in command
     else:
@@ -137,3 +142,21 @@ def test_named_dump_uses_database_option(client, mode):
     client.st.mode = mode
     assert client.dump("dut", "CONFIG_DB", "PORT|*") == \
         "sonic-db-dump -t unix_socket -n CONFIG_DB -k 'PORT|*' -y"
+
+
+@pytest.mark.parametrize('output,expected', [('OK', True), ('NOPERM denied', False),
+    ('NOAUTH Authentication required', False), ('WRONGPASS invalid', False), ('Permission denied', False)])
+def test_interactive_writer_reports_redis_errors(client, monkeypatch, output, expected):
+    from types import SimpleNamespace
+    monkeypatch.setattr(client.st, 'log', lambda message: None, raising=False)
+    connection = SimpleNamespace(find_prompt=lambda: '#', send_command=lambda *a, **kw: output)
+    assert client.config_redis_db(connection, 'SET key value') is expected
+
+
+def test_copied_legacy_writer_is_rejected_in_enforce(client, monkeypatch):
+    client.st.protection_mode = "enforce"
+    messages = []
+    monkeypatch.setattr(client.st, 'error', lambda message, **kw: messages.append(message), raising=False)
+    assert client.build_std_redis_cli('dut') == 1
+    assert 'legacy Redis only' in messages[0]
+    assert not hasattr(client.st, 'command')

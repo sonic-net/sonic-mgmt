@@ -34,7 +34,7 @@ def restore_mux_auto_mode(duthosts):
 
 @pytest.fixture(scope="module")
 def get_interval_v4(duthosts):
-    mux_linkmgr_output = duthosts.shell('sonic-cfggen -d --var-json MUX_LINKMGR')
+    mux_linkmgr_output = duthosts.shell('sonic-cfggen -d --redis-unix-socket --var-json MUX_LINKMGR')
     mux_linkmgr = list(mux_linkmgr_output.values())[0]['stdout']
     mux_linkmgr_json = json.loads(mux_linkmgr)
     if len(mux_linkmgr) != 0 and 'LINK_PROBER' in mux_linkmgr_json:

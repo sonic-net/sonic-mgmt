@@ -363,7 +363,7 @@ def vxlan_scale_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, tbinfo,
 
     duthost.shell("cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
     try:
-        cfg_facts = json.loads(duthost.shell("sonic-cfggen -d --print-data")["stdout"])
+        cfg_facts = json.loads(duthost.shell("sonic-cfggen -d --redis-unix-socket --print-data")["stdout"])
         config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
         num_vnets = scaled_vnet_params.get("num_vnet")
         routes_per_vnet = scaled_vnet_params.get("num_routes")

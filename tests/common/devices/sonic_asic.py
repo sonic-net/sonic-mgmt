@@ -74,7 +74,7 @@ class SonicAsic(object):
     @cached(name='is_frontend_asic', zone_getter=sonic_asic_zone_getter)
     def is_it_frontend(self):
         if self.sonichost.is_multi_asic:
-            sub_role_cmd = 'sudo sonic-cfggen -d  -v DEVICE_METADATA.localhost.sub_role -n {}'.format(self.namespace)
+            sub_role_cmd = 'sudo sonic-cfggen -d --redis-unix-socket  -v DEVICE_METADATA.localhost.sub_role -n {}'.format(self.namespace)
             sub_role = self.sonichost.shell(sub_role_cmd)["stdout_lines"][0]
             if sub_role is not None and sub_role.lower() == 'frontend':
                 return True
@@ -83,7 +83,7 @@ class SonicAsic(object):
     @cached(name='is_backend_asic', zone_getter=sonic_asic_zone_getter)
     def is_it_backend(self):
         if self.sonichost.is_multi_asic:
-            sub_role_cmd = 'sudo sonic-cfggen -d  -v DEVICE_METADATA.localhost.sub_role -n {}'.format(self.namespace)
+            sub_role_cmd = 'sudo sonic-cfggen -d --redis-unix-socket  -v DEVICE_METADATA.localhost.sub_role -n {}'.format(self.namespace)
             sub_role = self.sonichost.shell(sub_role_cmd)["stdout_lines"][0]
             if sub_role is not None and sub_role.lower() == 'backend':
                 return True
@@ -613,7 +613,7 @@ class SonicAsic(object):
         return self.sonichost.shell(*module_args, **complex_args)
 
     def port_on_asic(self, portname):
-        cmd = 'sudo sonic-cfggen {} -v "PORT.keys()" -d'.format(self.cli_ns_option)
+        cmd = 'sudo sonic-cfggen {} -v "PORT.keys()" -d --redis-unix-socket'.format(self.cli_ns_option)
         ports = self.shell(cmd)["stdout_lines"][0]
         # The variable 'ports' is a string in format below
         # u"dict_keys(['Ethernet144', 'Ethernet152', 'Ethernet160', 'Ethernet280'])"
@@ -625,7 +625,7 @@ class SonicAsic(object):
         return False
 
     def portchannel_on_asic(self, portchannel):
-        cmd = 'sudo sonic-cfggen {} -v "PORTCHANNEL.keys()" -d'.format(self.cli_ns_option)
+        cmd = 'sudo sonic-cfggen {} -v "PORTCHANNEL.keys()" -d --redis-unix-socket'.format(self.cli_ns_option)
         # Need to compare every portchannel in pcs split by single quote, with the target portchannel
         # And cannot do 'if portchannel in pcs', reason is that string/unicode comparison could be misleading
         # e.g. 'Portchanne101 in ['portchannel1011']' -> returns True
@@ -702,7 +702,7 @@ class SonicAsic(object):
         return val == value
 
     def get_router_mac(self):
-        return (self.sonichost.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac' {}"
+        return (self.sonichost.command("sonic-cfggen -d --redis-unix-socket -v 'DEVICE_METADATA.localhost.mac' {}"
                                        .format(self.cli_ns_option))["stdout_lines"][0]
                     .encode().decode("utf-8").lower())
 

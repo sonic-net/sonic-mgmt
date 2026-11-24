@@ -86,9 +86,9 @@ def remove_dataacl_table(rand_selected_dut, rand_unselected_dut, tbinfo):
     """
     TABLE_NAME = "DATAACL"
     data_acl_table = None
-    output = rand_selected_dut.shell("sonic-cfggen -d --var-json \"ACL_TABLE\"")['stdout']
+    output = rand_selected_dut.shell("sonic-cfggen -d --redis-unix-socket --var-json \"ACL_TABLE\"")['stdout']
     if "dualtor-aa" in tbinfo["topo"]["name"]:
-        output = rand_unselected_dut.shell("sonic-cfggen -d --var-json \"ACL_TABLE\"")['stdout']
+        output = rand_unselected_dut.shell("sonic-cfggen -d --redis-unix-socket --var-json \"ACL_TABLE\"")['stdout']
     try:
         acl_tables = json.loads(output)
         if TABLE_NAME in acl_tables:

@@ -281,7 +281,7 @@ class TestNeighborMac:
                 break
 
         pytest_assert(neighborKey, "Neighbor key NOT found in Redis DB, Redis db Output '{0}'".format(result["stdout"]))
-        result = duthost.shell(argv=redis_cli_argv(duthost, 'ASIC_DB') + ["HGETALL", neighborKey])
+        result = duthost.shell(argv=redis_cli_argv(duthost, 'ASIC_DB', use_tcp=False) + ["HGETALL", neighborKey])
 
         yield result["stdout_lines"][1]
 
