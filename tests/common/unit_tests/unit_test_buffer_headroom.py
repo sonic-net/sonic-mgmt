@@ -224,7 +224,7 @@ def test_restore_rejects_unconverged_pool(buffer_namespace, stale):
 def cable_namespace(tmp_path):
     path = MODULE_PATH.with_name("buffer_helpers.py")
     tree = ast.parse(path.read_text())
-    names = {"change_ports_cable_len", "gen_ports_cable_info", "update_cable_len_for_all_ports"}
+    names = {"change_ports_cable_len", "_restore_port_cables", "gen_ports_cable_info", "update_cable_len_for_all_ports"}
     nodes = []
     for node in tree.body:
         if isinstance(node, ast.FunctionDef) and node.name in names:
@@ -271,6 +271,8 @@ class CableDut:
         if args[:5] == ["redis-cli", "-n", "0", "hget", "BUFFER_POOL_TABLE:ingress_lossless_pool"]:
             if self.setup_failure == "snapshot":
                 raise RuntimeError("injected pool snapshot failure")
+            if self.setup_failure == "pool-read" and self.load_count == 1:
+                raise RuntimeError("injected pool read failure")
             return {"stdout": self.pool_size}
         if args[:5] == ["redis-cli", "-n", "4", "hgetall", "CABLE_LENGTH|AZURE"]:
             return {"stdout": "\n".join(item for pair in self.cables.items() for item in pair)}
@@ -288,7 +290,7 @@ class CableDut:
         return {"stdout": ""}
 
 
-@pytest.mark.parametrize("setup_failure", [None, "snapshot", "before-load", "after-load"])
+@pytest.mark.parametrize("setup_failure", [None, "snapshot", "before-load", "after-load", "pool-read"])
 def test_all_port_cables_restored_even_when_fixture_setup_fails(cable_namespace, setup_failure):
     dut = CableDut(setup_failure=setup_failure)
     generator = cable_namespace["update_cable_len_for_all_ports"](dut, None)

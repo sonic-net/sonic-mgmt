@@ -78,8 +78,7 @@ def get_ports_with_config_exceed_max_headroom(duthost):
     return ports_with_config_exceed_max_headroom_ports, map_port_to_cable_len
 
 
-def change_ports_cable_len(duthost, port_cable_info, expected_pool_size=None):
-    original_pool_size = duthost.shell(BUFFER_POOL_SIZE_COMMAND)['stdout']
+def change_ports_cable_len(duthost, port_cable_info):
     ports_cable_len_j2_file_name = "ports_cable_len.j2"
     with open(os.path.join(PORT_CABLE_LEN_JSON_TEMPLATE_PATH, ports_cable_len_j2_file_name)) as template_file:
         t = Template(template_file.read())
@@ -93,21 +92,17 @@ def change_ports_cable_len(duthost, port_cable_info, expected_pool_size=None):
     duthost.shell(cmd_gen_port_cable_len_config)
     duthost.shell("sudo config load {} -y".format(ports_cable_len_config_json_file_name))
 
-    def _check_cable_change_is_applied(duthost, original_pool_size):
-        logger.info(f"original_pool_size is {original_pool_size}")
-        new_pool_size = duthost.shell(BUFFER_POOL_SIZE_COMMAND)['stdout']
-        logger.info(f"new_pool_size is {new_pool_size}")
-        if expected_pool_size is not None:
-            if new_pool_size != expected_pool_size:
-                return False
-            cable_values = duthost.shell('redis-cli -n 4 hgetall "CABLE_LENGTH|AZURE"')['stdout'].splitlines()
-            return len(cable_values) % 2 == 0 and dict(zip(cable_values[::2], cable_values[1::2])) == port_cable_info
-        return new_pool_size != original_pool_size
 
-    pytest_assert(
-        wait_until(20, 2, 0, _check_cable_change_is_applied, duthost, original_pool_size),
-        "Failed to restore the cable configuration and buffer pool size" if expected_pool_size is not None
-        else "Failed to update the buffer pool size after changing the cable length")
+def _restore_port_cables(duthost, port_cable_info, pool_size):
+    change_ports_cable_len(duthost, port_cable_info)
+
+    def restored():
+        if duthost.shell(BUFFER_POOL_SIZE_COMMAND)['stdout'] != pool_size:
+            return False
+        values = duthost.shell('redis-cli -n 4 hgetall "CABLE_LENGTH|AZURE"')['stdout'].splitlines()
+        return len(values) % 2 == 0 and dict(zip(values[::2], values[1::2])) == port_cable_info
+
+    pytest_assert(wait_until(60, 2, 0, restored), "Failed to restore the cable configuration and buffer pool size")
 
 
 def gen_ports_cable_info(ports_with_config_exceed_max_headroom_ports, map_port_to_cable_len, updated_cable_len):
@@ -122,7 +117,7 @@ def gen_ports_cable_info(ports_with_config_exceed_max_headroom_ports, map_port_t
 
 @pytest.fixture(scope="function")
 def update_cable_len_for_all_ports(duthost, skip_traditional_model):
-    restore_cables = False
+    restore_snapshot = None
     try:
         if is_mellanox_device(duthost):
             ports_cable_len_map_with_config_exceed_max_headroom, original_ports_cable_len_map = \
@@ -134,10 +129,13 @@ def update_cable_len_for_all_ports(duthost, skip_traditional_model):
                 new_cable_len = "50m"
                 ports_cable_info = gen_ports_cable_info(
                     ports_cable_len_map_with_config_exceed_max_headroom, original_ports_cable_len_map, new_cable_len)
-                restore_cables = True
+                restore_snapshot = original_ports_cable_len_map, original_pool_size
                 change_ports_cable_len(duthost, ports_cable_info)
+                pytest_assert(wait_until(20, 2, 0, lambda: duthost.shell(BUFFER_POOL_SIZE_COMMAND)['stdout']
+                                        != original_pool_size), "Failed to update the buffer pool size after changing "
+                              "the cable length")
 
         yield
     finally:
-        if restore_cables:
-            change_ports_cable_len(duthost, original_ports_cable_len_map, expected_pool_size=original_pool_size)
+        if restore_snapshot is not None:
+            _restore_port_cables(duthost, *restore_snapshot)
