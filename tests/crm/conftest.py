@@ -40,8 +40,9 @@ while true; do
     [ "$total" -gt 0 ] || total=1
     run=$(awk '/^procs_running/ {print $2}' /proc/stat)
     psi=$(awk '/^some/ {sub("avg10=", "", $2); print $2}' /proc/pressure/cpu 2>/dev/null)
-    echo "$(date '+%F %T') us=$(( 100 * (u2 + n2 - u - n) / total )) sy=$(( 100 * (s2 + q2 + sq2 - s - q - sq) / total ))" \
-         "id=$(( 100 * (i2 - i) / total )) wa=$(( 100 * (w2 - w) / total )) st=$(( 100 * (st2 - st) / total ))" \
+    echo "$(date '+%F %T') us=$(( 100 * (u2 + n2 - u - n) / total ))" \
+         "sy=$(( 100 * (s2 + q2 + sq2 - s - q - sq) / total )) id=$(( 100 * (i2 - i) / total ))" \
+         "wa=$(( 100 * (w2 - w) / total )) st=$(( 100 * (st2 - st) / total ))" \
          "run=$run load1=$(cut -d ' ' -f1 /proc/loadavg) psi_some10=${psi:--} top: $top5" >> $out
     u=$u2; n=$n2; s=$s2; i=$i2; w=$w2; q=$q2; sq=$sq2; st=$st2
 done
