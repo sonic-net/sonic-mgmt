@@ -245,6 +245,6 @@ def run_ntp(duthost, ntp_daemon_in_use):
         # time will always be synchronized. Until then, have an opportunistic makestep
         # (after a fixed 10-second sleep to let Chrony start and get the current time).
         time.sleep(10)
-        duthost.command("sudo chronyc makestep", module_ignore_errors=False)
+        duthost.command("sudo chronyc makestep", module_ignore_errors=True)
     pytest_assert(wait_until(720, 10, 0, check_ntp_status, duthost, ntp_daemon_in_use),
                   "NTP not in sync")
