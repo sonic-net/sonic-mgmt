@@ -200,6 +200,34 @@ def test_case_failure_restores_original_shp_state(buffer_namespace, ratio, confi
         dut, shp_enabled=bool(int(ratio or "0") or int(configured_size or "0")))
 
 
+@pytest.mark.parametrize("shp_enabled", [False, True])
+def test_common_shp_sequence_runs_only_in_enabled_variant(buffer_namespace, shp_enabled):
+    dut = ConfigurableDut("2", "0")
+    before = copy.deepcopy(dut.hashes)
+    profile_check = Mock(return_value=(PROFILE_OID, POOL_OID))
+    pool_check = Mock(side_effect=RuntimeError("entered common sequence"))
+    buffer_namespace.update({
+        "TESTPARAM_SHARED_HEADROOM_POOL": {"size": 1000000},
+        "check_buffer_profiles_for_shp": Mock(),
+        "fetch_initial_asic_db": lambda host: set(),
+        "make_expected_profile_name": lambda *args: PROFILE_NAME,
+        "check_buffer_profile_details": profile_check,
+        "get_pool_size_from_asic_db": lambda *args: ("123456", "1000000"),
+        "check_pool_size": pool_check,
+    })
+    run = buffer_namespace["test_shared_headroom_pool_configure"]
+    args = ({"dut": dut}, "dut", {}, "Ethernet0", None, None, None, shp_enabled)
+    if shp_enabled:
+        with pytest.raises(RuntimeError, match="entered common sequence"):
+            run(*args)
+        pool_check.assert_called_once()
+    else:
+        run(*args)
+        pool_check.assert_not_called()
+    profile_check.assert_called_once()
+    assert dut.hashes == before
+
+
 def test_missing_cable_length_skips_before_shp_changes(buffer_namespace):
     dut = ConfigurableDut("2", "0")
     del dut.hashes["CABLE_LENGTH|AZURE"]["Ethernet0"]

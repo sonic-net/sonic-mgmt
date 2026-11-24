@@ -1612,7 +1612,8 @@ def test_shared_headroom_pool_configure(duthosts,
     how they affect the other buffer configurations
 
     The flow of the test case:
-        0. Verify calculated profile values with SHP disabled and enabled (parameterized)
+        0. Verify calculated profile values independently with SHP disabled and enabled.
+           Only the enabled variant continues through the common configuration sequence.
         1. If the over subscribe ratio isn't 2, configure it to 2
            If the size of shared headroom pool is configured: remove it
         2. Get shared headroom pool size, check it against the ASIC DB
@@ -1683,6 +1684,9 @@ def test_shared_headroom_pool_configure(duthosts,
         pytest_assert(wait_until(30, 2, 0, lambda: duthost.shell(
             'redis-cli hgetall "BUFFER_PROFILE_TABLE:{}"'.format(restored_profile))['stdout'] != ''),
             "Buffer profile {} not restored in time".format(restored_profile))
+
+        if not shp_enabled:
+            return
 
         duthost.shell(
             'config buffer shared-headroom-pool over-subscribe-ratio 2')
