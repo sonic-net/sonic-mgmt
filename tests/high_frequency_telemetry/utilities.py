@@ -120,7 +120,7 @@ def _format_counter_db_name_map_keys(name_map_keys):
 
 def _get_counter_db_name_map_keys(duthost, name_map):
     result = duthost.shell(
-        f'{redis_cli_command(duthost, "COUNTERS_DB")} --raw hgetall "{name_map}"',
+        f'{redis_cli_command(duthost, "COUNTERS_DB", use_tcp=False)} --raw hgetall "{name_map}"',
         module_ignore_errors=True,
     )
     if result.get("rc", 1) != 0:
@@ -185,7 +185,7 @@ def _normalize_hft_group_type(group_name):
 def _get_hft_config_keys(duthost):
     def query_keys(pattern):
         result = duthost.shell(
-            f"{redis_cli_command(duthost, 'CONFIG_DB')} --raw KEYS {shlex.quote(pattern)}",
+            f"{redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False)} --raw KEYS {shlex.quote(pattern)}",
             module_ignore_errors=True,
         )
         lines = [
@@ -365,7 +365,7 @@ def cleanup_hft_config(duthost, profile_name, group_names=None):
             condition = '[ "$state" = missing ]'
         command = (
             "for i in $(seq 1 30); do "
-            f"state=$({redis_cli_command(duthost, 'STATE_DB')} --raw EVAL "
+            f"state=$({redis_cli_command(duthost, 'STATE_DB', use_tcp=False)} --raw EVAL "
             "'if redis.call(\"EXISTS\", KEYS[1]) == 0 then "
             "return \"missing\" end; return redis.call(\"HGET\", KEYS[1], "
             "ARGV[1]) or \"invalid\"' "

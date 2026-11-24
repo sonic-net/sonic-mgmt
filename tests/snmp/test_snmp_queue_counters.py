@@ -64,9 +64,9 @@ def get_redis_queue_count_with_types(duthost, interface, asic=None):
         asic = duthost.asic_instance()
 
     name_map_result = asic.run_redis_cmd(
-        argv=redis_cli_argv(asic, 'COUNTERS_DB') + ["HGETALL", "COUNTERS_QUEUE_NAME_MAP"])
+        argv=redis_cli_argv(asic, 'COUNTERS_DB', use_tcp=False) + ["HGETALL", "COUNTERS_QUEUE_NAME_MAP"])
     type_map_result = asic.run_redis_cmd(
-        argv=redis_cli_argv(asic, 'COUNTERS_DB') + ["HGETALL", "COUNTERS_QUEUE_TYPE_MAP"])
+        argv=redis_cli_argv(asic, 'COUNTERS_DB', use_tcp=False) + ["HGETALL", "COUNTERS_QUEUE_TYPE_MAP"])
 
     # Build type map dictionary (SAI OID -> type string)
     type_map = {}
