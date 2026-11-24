@@ -9,8 +9,8 @@ from tests.common.devices.sonic_asic import SonicAsic
 logger = logging.getLogger(__name__)
 
 
-def redis_cli_argv(host, database):
-    """Select a native CLI endpoint without changing its arguments or output."""
+def redis_cli_argv(host, database, *, use_tcp):
+    """Resolve the selected TCP or Unix endpoint for native redis-cli."""
     metadata = ["cat", "/var/run/redis/sonic-db/database_config.json"]
     if isinstance(host, SonicAsic):
         configuration = json.loads("\n".join(host.run_redis_cmd(argv=metadata)))
@@ -25,17 +25,16 @@ def redis_cli_argv(host, database):
             raise ValueError("Database ID is not configured in the local primary Redis instance")
     db = databases[database]
     instance = configuration["INSTANCES"][db["instance"]]
-    port = int(instance.get("port", 6379))
-    if port == 0:
-        endpoint = ["-s", instance["unix_socket_path"]]
+    if use_tcp:
+        endpoint = ["-h", instance.get("hostname", "localhost"), "-p", str(instance.get("port", 6379))]
     else:
-        endpoint = ["-h", instance.get("hostname", "localhost"), "-p", str(port)]
+        endpoint = ["-s", instance["unix_socket_path"]]
     return ["redis-cli"] + endpoint + ["-n", str(db["id"])]
 
 
-def redis_cli_command(host, database):
+def redis_cli_command(host, database, *, use_tcp):
     """Quote the configured native CLI prefix for a shell command."""
-    return " ".join(shlex.quote(argument) for argument in redis_cli_argv(host, database))
+    return " ".join(shlex.quote(argument) for argument in redis_cli_argv(host, database, use_tcp=use_tcp))
 
 
 def get_chassis_db_address_from_dut(host):

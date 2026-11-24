@@ -27,19 +27,19 @@ def helper():
 
 
 @pytest.mark.parametrize('is_asic', [False, True])
-@pytest.mark.parametrize('port', [0, 6380])
-def test_reader_uses_database_instance_metadata(helper, is_asic, port):
+@pytest.mark.parametrize('use_tcp', [False, True])
+def test_reader_uses_database_instance_metadata(helper, is_asic, use_tcp):
     metadata = {'INSTANCES': {
         'primary': {'port': 6379, 'unix_socket_path': '/primary.sock'},
-        'target': {'hostname': '127.0.0.2', 'port': port, 'unix_socket_path': '/target socket.sock'}},
+        'target': {'hostname': '127.0.0.2', 'port': 6380, 'unix_socket_path': '/target socket.sock'}},
         'DATABASES': {'CONFIG_DB': {'id': 71, 'instance': 'target'}}}
     host = Asic() if is_asic else Mock()
     host.run_redis_cmd = Mock(return_value=json.dumps(metadata, indent=2).splitlines())
     host.command = Mock(return_value={'stdout': json.dumps(metadata)})
-    arguments = helper['redis_cli_argv'](host, 'CONFIG_DB')
-    endpoint = ['-s', '/target socket.sock'] if port == 0 else ['-h', '127.0.0.2', '-p', '6380']
+    arguments = helper['redis_cli_argv'](host, 'CONFIG_DB', use_tcp=use_tcp)
+    endpoint = ['-s', '/target socket.sock'] if not use_tcp else ['-h', '127.0.0.2', '-p', '6380']
     assert arguments == ['redis-cli'] + endpoint + ['-n', '71']
-    command = helper['redis_cli_command'](host, 'CONFIG_DB')
+    command = helper['redis_cli_command'](host, 'CONFIG_DB', use_tcp=use_tcp)
     assert shlex.split(command) == arguments
     if is_asic:
         assert host.run_redis_cmd.call_count == 2
@@ -50,13 +50,13 @@ def test_reader_uses_database_instance_metadata(helper, is_asic, port):
     assert '--user' not in arguments and '-a' not in arguments
 
 
-def test_zero_port_without_socket_does_not_fall_back_to_tcp(helper):
+def test_explicit_unix_without_socket_does_not_fall_back_to_tcp(helper):
     host = Mock()
     host.command.return_value = {'stdout': json.dumps({
         'INSTANCES': {'redis': {'port': 0}},
         'DATABASES': {'CONFIG_DB': {'id': 4, 'instance': 'redis'}}})}
     with pytest.raises(KeyError, match='unix_socket_path'):
-        helper['redis_cli_argv'](host, 'CONFIG_DB')
+        helper['redis_cli_argv'](host, 'CONFIG_DB', use_tcp=False)
 
 
 @pytest.mark.parametrize('database', [4, '4'])
@@ -67,4 +67,4 @@ def test_numeric_reader_ids_stay_in_the_primary_instance(helper, database):
                       'bmp': {'port': 6400}},
         'DATABASES': {'CONFIG_DB': {'id': 4, 'instance': 'redis'},
                       'OTHER_DB': {'id': 4, 'instance': 'bmp'}}})}
-    assert helper['redis_cli_argv'](host, database) == ['redis-cli', '-s', '/primary.sock', '-n', '4']
+    assert helper['redis_cli_argv'](host, database, use_tcp=False) == ['redis-cli', '-s', '/primary.sock', '-n', '4']
