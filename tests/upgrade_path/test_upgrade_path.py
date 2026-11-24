@@ -1,8 +1,9 @@
 import pytest
 import random
 import logging
-from tests.common.helpers.upgrade_helpers import install_sonic, upgrade_test_helper
-from tests.common.helpers.upgrade_helpers import restore_image            # noqa: F401
+from tests.common.helpers.upgrade_helpers import install_sonic, upgrade_test_helper, \
+    regenerate_and_apply_golden_config_db
+from tests.common.helpers.upgrade_helpers import restore_image, restore_image_ut2  # noqa: F401
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.upgrade_path.utilities import cleanup_prev_images, boot_into_base_image, boot_into_base_image_t2
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot   # noqa: F401
@@ -109,43 +110,47 @@ def test_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
 
 @pytest.mark.device_type('t2')
 def test_upgrade_path_t2(localhost, duthosts, ptfhost, upgrade_path_lists,
-                         tbinfo, request, verify_testbed_health):                     # noqa: F811
+                         tbinfo, request, verify_testbed_health, conn_graph_facts, restore_image_ut2):  # noqa: F811
+    """Cold-upgrade a modular chassis or a single standalone T2 DUT."""
 
     _, from_image, to_image, _, _ = upgrade_path_lists
     upgrade_type = REBOOT_TYPE_COLD
     logger.info("Test upgrade path from {} to {}".format(from_image, to_image))
 
+    standalone = not duthosts.supervisor_nodes
+    if standalone and len(duthosts) != 1:
+        pytest.fail("T2 upgrade requires a supervisor node or exactly one standalone UT2 DUT")
+
     for duthost in duthosts:
         cleanup_prev_images(duthost)
-    boot_into_base_image_t2(duthosts, localhost, from_image, tbinfo)
+    if standalone:
+        boot_into_base_image(duthosts[0], localhost, from_image, tbinfo)
+    else:
+        boot_into_base_image_t2(duthosts, localhost, from_image, tbinfo)
 
     def upgrade_path_preboot_setup(dut):
         setup_upgrade_test(dut, localhost, from_image, to_image, tbinfo, upgrade_type)
 
     def upgrade_path_postboot_setup(dut):
+        regenerate_and_apply_golden_config_db(dut, tbinfo, conn_graph_facts, restore_image_ut2)
         dut.shell("config bgp startup all")
 
-    # get_advanced_reboot=None and advanceboot_loganalyzer=None as only cold reboot needed for T2
-    suphost = duthosts.supervisor_nodes[0]
-    upgrade_test_helper(suphost, localhost, ptfhost, from_image,
-                        to_image, tbinfo, upgrade_type,
-                        get_advanced_reboot=None,               # Not needed as only cold reboot supported to T2
-                        advanceboot_loganalyzer=None,           # Not needed as only cold reboot supported to T2
-                        preboot_setup=lambda: upgrade_path_preboot_setup(suphost),
-                        postboot_setup=lambda: upgrade_path_postboot_setup(suphost),
-                        consistency_checker_provider=None,      # Not needed as only cold reboot supported to T2
-                        enable_cpa=False)
-
+    def upgrade_dut(dut):
+        upgrade_test_helper(dut, localhost, ptfhost, from_image,
+                            to_image, tbinfo, upgrade_type,
+                            get_advanced_reboot=None,
+                            advanceboot_loganalyzer=None,
+                            preboot_setup=lambda: upgrade_path_preboot_setup(dut),
+                            postboot_setup=lambda: upgrade_path_postboot_setup(dut),
+                            consistency_checker_provider=None,
+                            enable_cpa=False)
+    if standalone:
+        upgrade_dut(duthosts[0])
+        return
+    upgrade_dut(duthosts.supervisor_nodes[0])
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         for dut in duthosts.frontend_nodes:
-            executor.submit(upgrade_test_helper, dut, localhost, ptfhost, from_image,
-                            to_image, tbinfo, upgrade_type,
-                            get_advanced_reboot=None,           # Not needed as only cold reboot supported to T2
-                            advanceboot_loganalyzer=None,       # Not needed as only cold reboot supported to T2
-                            preboot_setup=lambda dut=dut: upgrade_path_preboot_setup(dut),
-                            postboot_setup=lambda dut=dut: upgrade_path_postboot_setup(dut),
-                            consistency_checker_provider=None,  # Not needed as only cold reboot supported to T2
-                            enable_cpa=False)
+            executor.submit(upgrade_dut, dut)
 
 
 @pytest.mark.device_type('t2')
