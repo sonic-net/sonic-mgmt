@@ -29,11 +29,12 @@ class SonicHosts(AnsibleHosts):
             return {}
 
 
-def upgrade_by_sonic(sonichosts, localhost, image_url, disk_used_percent):
+def upgrade_by_sonic(sonichosts, localhost, image_url, disk_used_percent, preserve_config_db=False):
     try:
         sonichosts.reduce_and_add_sonic_images(
             disk_used_pcent=disk_used_percent,
             new_image_url=image_url,
+            preserve_config_db=preserve_config_db,
             module_attrs={"become": True}
         )
         if is_chassis(sonichosts):
@@ -226,7 +227,8 @@ def post_upgrade_actions(sonichosts, localhost, disk_used_percent):
         return False
 
 
-def upgrade_image(sonichosts, localhost, image_url, upgrade_type="sonic", disk_used_percent=50, onie_pause_time=0):
+def upgrade_image(sonichosts, localhost, image_url, upgrade_type="sonic", disk_used_percent=50, onie_pause_time=0,
+                  preserve_config_db=False):
     if upgrade_type not in sonichosts.SUPPORTED_UPGRADE_TYPES:
         logger.error(
             "Upgrade type '{}' is not in SUPPORTED_UPGRADE_TYPES={}".format(
@@ -236,7 +238,8 @@ def upgrade_image(sonichosts, localhost, image_url, upgrade_type="sonic", disk_u
         return False
 
     if upgrade_type == "sonic":
-        upgrade_result = upgrade_by_sonic(sonichosts, localhost, image_url, disk_used_percent)
+        upgrade_result = upgrade_by_sonic(
+            sonichosts, localhost, image_url, disk_used_percent, preserve_config_db=preserve_config_db)
     elif upgrade_type == "onie":
         upgrade_result = upgrade_by_onie(sonichosts, localhost, image_url, onie_pause_time)
     if not upgrade_result:

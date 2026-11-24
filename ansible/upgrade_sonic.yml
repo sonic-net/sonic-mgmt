@@ -124,6 +124,7 @@
           args:
             disk_used_pcent: '{{disk_used_pcent}}'
             new_image_url: '{{ image_url | default(omit) }}'
+            preserve_config_db: '{{ preserve_config_db | default(false) | bool }}'
             save_as: '{{ "/host/downloaded-sonic-image" if image_path is defined else omit }}'
             required_space: '{{ 1500 if "slim" in (image_url | default(image_path)) or "2018" in (image_url | default(image_path)) or "2019" in (image_url | default(image_path)) else 1600 }}'
 

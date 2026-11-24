@@ -40,7 +40,8 @@ def main(args):
         args.image_url,
         upgrade_type=args.upgrade_type,
         disk_used_percent=args.disk_used_percent,
-        onie_pause_time=args.pause_time
+        onie_pause_time=args.pause_time,
+        preserve_config_db=args.preserve_config_db
     )
     if not result:
         sys.exit(RC_UPGRADE_FAILED)
@@ -117,6 +118,12 @@ if __name__ == "__main__":
         dest="disk_used_percent",
         default=50,
         help="Disk used percent."
+    )
+
+    parser.add_argument(
+        "--preserve-config-db",
+        action="store_true",
+        help="Preserve old_config JSON backups during SONiC image installation."
     )
 
     parser.add_argument(
