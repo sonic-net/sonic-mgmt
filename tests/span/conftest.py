@@ -238,12 +238,23 @@ def _get_routed_candidates(ip_interfaces, minigraph, status, config):
     return disjoint
 
 
+def _kernel_routes(duthost, prefix):
+    '''Return the kernel routes for `prefix`, with the gateway and device of a nexthop object filled in.'''
+    routes = json.loads(duthost.shell('ip -j -4 route show exact {}'.format(prefix))['stdout'])
+    for route in routes:
+        if 'nhid' in route and 'dev' not in route:
+            nexthops = json.loads(duthost.shell('ip -j nexthop show id {}'.format(route['nhid']))['stdout'])
+            if len(nexthops) == 1 and 'group' not in nexthops[0]:
+                route.update({key: nexthops[0][key] for key in ('gateway', 'dev') if key in nexthops[0]})
+    return routes
+
+
 def _add_route(duthost, cleanup, prefix, nexthop, interface):
     '''Reuse matching FRR/kernel routes; clean up only new routes.
 
     FRR may retain routes absent from the kernel while next hops are unresolved.
     '''
-    existing = json.loads(duthost.shell('ip -j -4 route show exact {}'.format(prefix))['stdout'])
+    existing = _kernel_routes(duthost, prefix)
     command = 'ip route {} {} {}'.format(prefix, nexthop, interface)
     running = duthost.shell('vtysh -c "show running-config"')['stdout']
     configured = [line.strip() for line in running.splitlines()
@@ -264,7 +275,7 @@ def _add_route(duthost, cleanup, prefix, nexthop, interface):
         duthost.command('vtysh -c "configure terminal" -c "{}"'.format(command))
 
     def installed():
-        routes = json.loads(duthost.shell('ip -j -4 route show exact {}'.format(prefix))['stdout'])
+        routes = _kernel_routes(duthost, prefix)
         return _route_matches(routes, prefix, nexthop, interface)
 
     _pytest_assert(wait_until(30, 1, 0, installed),
@@ -499,6 +510,29 @@ def erspan_ports(duthosts, rand_one_dut_hostname, tbinfo):
         port['router_mac'] = port['router_mac'].strip()
     logger.info('ERSPAN routed paths: %s', ports)
     return ports
+
+
+@pytest.fixture(scope="module")
+def erspan_lag_source(duthosts, rand_one_dut_hostname, tbinfo, erspan_ports):
+    '''Select a routed PortChannel source that shares no port with the collector path.
+
+    Prefers the PortChannel with the most members. RX probes to it are discarded on the
+    DUT, so its peer does not need to be reachable.
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    asic = duthost.asic_instance()
+    ip_interfaces = asic.show_ip_interface()['ansible_facts']['ip_interfaces']
+    minigraph = duthost.get_extended_minigraph_facts(tbinfo)
+    status = duthost.show_interface(command='status')['ansible_facts']['int_status']
+    config = duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
+    collector = set(erspan_ports['gre_egress']['members'])
+    lags = [p for p in _get_routed_candidates(ip_interfaces, minigraph, status, config)
+            if p['l3_interface'].startswith('PortChannel') and not collector.intersection(p['members'])]
+    if not lags:
+        pytest.skip('Test requires a routed PortChannel source')
+    lag = max(lags, key=lambda p: len(p['members']))
+    lag['router_mac'] = duthost.get_dut_iface_mac(lag['l3_interface']).strip()
+    return lag
 
 
 @pytest.fixture(scope="module")

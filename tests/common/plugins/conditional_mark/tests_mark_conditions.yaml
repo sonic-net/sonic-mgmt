@@ -5625,6 +5625,10 @@ span/test_erspan_sampling_truncation.py:
     conditions:
       - "asic_gen != 'spc5' or topo_type not in ['t0', 't1']"
 
+# Gated on MIRROR_SESSION_HWSFLOW_CAPABLE instead of the span asic_type skip
+span/test_hwsflow_sampling_truncation.py:
+  use_longest: True
+
 span/test_port_mirroring.py:
   xfail:
     reason: "Testcase ignored on dualtor topology and mellanox setups due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/9647"
