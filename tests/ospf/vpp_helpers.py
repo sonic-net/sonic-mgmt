@@ -301,12 +301,14 @@ def _configure_vpp_ospf_mroutes(duthost, peer_ips):
                     (local_ip, group, vpp_interface, "Forward"),
                 )
                 for path in route_paths:
+                    # Own cleanup before the remote write because VPP can apply
+                    # the path even when the command reports a failure.
+                    paths.append(path)
                     result = duthost.shell(
                         "docker exec syncd vppctl ip mroute add {} {} via {} {}".format(*path),
                         module_ignore_errors=True,
                     )
                     assert result.get("rc") == 0, result.get("stderr", result)
-                    paths.append(path)
     except Exception as original_error:
         try:
             _remove_vpp_ospf_mroutes(duthost, paths)
@@ -525,12 +527,14 @@ def _allow_bfd_in_host_firewall(duthost):
             )
             if check.get("rc") == 0:
                 continue
+            # Own cleanup before the remote write because the rule can be
+            # inserted even when the command reports a failure.
+            inserted.append(command)
             result = duthost.shell(
                 "sudo {} -I INPUT 2 {}".format(command, _BFD_FIREWALL_RULE),
                 module_ignore_errors=True,
             )
             assert result.get("rc") == 0, result.get("stderr", result)
-            inserted.append(command)
     except Exception as original_error:
         try:
             _restore_bfd_host_firewall(duthost, inserted)
