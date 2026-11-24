@@ -9,7 +9,12 @@ import pytest
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.processes_utils import wait_critical_processes
-from tests.common.reboot import wait_for_shutdown, wait_for_startup
+from tests.common.reboot import (
+    REBOOT_TYPE_WARM,
+    reboot_ctrl_dict,
+    wait_for_shutdown,
+    wait_for_startup,
+)
 from tests.common.utilities import wait_until
 
 pytestmark = [
@@ -69,6 +74,8 @@ def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost, gnm
     and the system recovers with all critical processes running.
     """
     duthost = duthosts[rand_one_dut_hostname]
+    is_smartswitch = duthost.dut_basic_facts()["ansible_facts"]["dut_basic_facts"].get("is_smartswitch")
+    shutdown_timeout = 360 if is_smartswitch else 180
 
     # Record uptime before reboot
     uptime_before = duthost.get_up_time(utc_timezone=True)
@@ -79,8 +86,8 @@ def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost, gnm
 
     check_reboot_status(gnmi_tls, expected_active=True, expected_reason=REBOOT_MESSAGE, expected_method="COLD")
 
-    # Wait until the system is down
-    wait_for_shutdown(duthost, localhost, delay=10, timeout=180, reboot_res=None)
+    # SmartSwitch DPU shutdown requires a longer timeout. This returns as soon as SSH drops.
+    wait_for_shutdown(duthost, localhost, delay=10, timeout=shutdown_timeout, reboot_res=None)
     logging.info("System is down after reboot")
 
     # Wait until the system is back up
@@ -120,7 +127,13 @@ def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost, gnm
     check_reboot_status(gnmi_tls, expected_active=True, expected_reason=REBOOT_MESSAGE, expected_method="WARM")
 
     # Wait until the system is down
-    wait_for_shutdown(duthost, localhost, delay=10, timeout=180, reboot_res=None)
+    wait_for_shutdown(
+        duthost,
+        localhost,
+        delay=10,
+        timeout=reboot_ctrl_dict[REBOOT_TYPE_WARM]["timeout"],
+        reboot_res=None,
+    )
     logging.info("System is down after reboot")
 
     # Wait until the system is back up

@@ -1287,10 +1287,7 @@ class GenerateGoldenConfigDBModule(object):
 
         # Add BGP confederation config
         if self.bgp_confd_asn and self.bgp_confd_peers:
-            golden_config["BGP_DEVICE_GLOBAL"] = ori_config.get("BGP_DEVICE_GLOBAL", {})
-            # Replace space in confg_peers with ; to align with NDM
-            golden_config["BGP_DEVICE_GLOBAL"]["CONFED"] = \
-                {"asn": str(self.bgp_confd_asn), "peers": str(self.bgp_confd_peers).replace(' ', ';')}
+            self._set_bgp_confed_config(golden_config)
 
         return json.dumps(golden_config, indent=4)
 
@@ -1580,7 +1577,7 @@ class GenerateGoldenConfigDBModule(object):
         if self.is_bmc_device() or "bmc" in self.topo_name.lower():
             bmc_enabled_features = [
                 "database", "gnmi", "lldp", "pmon", "redfish", "sysmgr",
-                "telemetry", "acms"
+                "acms"
             ]
             config = self.apply_bmc_feature_allowlist(config, bmc_enabled_features)
 
