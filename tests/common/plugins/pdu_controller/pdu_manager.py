@@ -143,6 +143,24 @@ class PduManager():
             return
         self.PSUs[psu_name] = psu
 
+    def require_complete_power_coverage(self):
+        """Read-only admission check against every configured PSU/feed/outlet.
+
+        A partly built PSU is not complete power coverage. No trial power
+        operation is performed; resolution only proves configured coverage.
+        """
+        missing = []
+        for psu_name, peers in self.configured_psu_peers.items():
+            psu = self.PSUs.get(psu_name)
+            if not peers:
+                missing.append((psu_name, "no configured feeds"))
+            for feed_name in peers:
+                feed = psu.feeds.get(feed_name) if psu else None
+                if not feed or not feed.outlets or any(not outlet.get("outlet_id") for outlet in feed.outlets):
+                    missing.append((psu_name, feed_name))
+        if missing or not self.configured_psu_peers:
+            raise ValueError("Incomplete configured PDU power coverage: {}".format(missing))
+
     def get_unreachable_psus(self):
         """
             @summary: Return PSUs that were configured (in inventory or
@@ -251,7 +269,7 @@ def _build_pdu_manager(pduman, pdu_links, pdu_info, pdu_vars):
     return len(pduman.PSUs) > 0
 
 
-def pdu_manager_factory(dut_hostname, pdu_links, pdu_info, pdu_vars):
+def pdu_manager_factory(dut_hostname, pdu_links, pdu_info, pdu_vars, require_complete=False):
     """
     factory method had 3 major inputs, pdu_hosts and pdu_vars are used for
     building from inventory, and conn_graph_facts and pdu_vars are used for building
@@ -270,7 +288,11 @@ def pdu_manager_factory(dut_hostname, pdu_links, pdu_info, pdu_vars):
     """
     logger.info('Creating pdu manager object')
     pduman = PduManager(dut_hostname)
-    if _build_pdu_manager(pduman, pdu_links, pdu_info, pdu_vars):
-        return pduman
-
-    return None
+    built = _build_pdu_manager(pduman, pdu_links, pdu_info, pdu_vars)
+    if require_complete:
+        if not pdu_links:
+            if pdu_info or pdu_vars:
+                raise ValueError("PDU metadata exists without explicit configured power links")
+            return None  # Explicitly empty wiring, not a failed resolution.
+        pduman.require_complete_power_coverage()
+    return pduman if built else None

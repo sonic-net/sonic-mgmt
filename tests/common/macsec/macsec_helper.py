@@ -4,7 +4,6 @@ import json
 import logging
 import time
 from collections import defaultdict, deque
-from multiprocessing import Process
 
 import cryptography.exceptions
 import ptf
@@ -36,26 +35,6 @@ __all__ = [
 ]
 
 logger = logging.getLogger(__name__)
-process_queue = []
-
-
-def submit_async_task(target, args):
-    global process_queue
-    proc = Process(target=target, args=args)
-    process_queue.append(proc)
-    proc.start()
-    return proc
-
-
-def wait_all_complete(timeout=300):
-    global process_queue
-    for proc in process_queue:
-        proc.join(timeout)
-        # If process timeout, terminate all processes, otherwise the pytest process will never finish.
-        if proc.is_alive():
-            [p.terminate() for p in process_queue]
-            raise RuntimeError("Process {} timeout {}".format(proc, timeout))
-    process_queue = []
 
 
 def check_wpa_supplicant_process(host, ctrl_port_name):
@@ -202,21 +181,24 @@ def __check_appl_db(duthost, dut_ctrl_port_name, nbrhost, nbr_ctrl_port_name, po
 
 def check_appl_db(duthost, ctrl_links, policy, cipher_suite, send_sci):
     logger.info("Check appl_db start")
-    procs = []
+    failed = 0
     for port_name, nbr in list(ctrl_links.items()):
         if isinstance(nbr["host"], EosHost):
             assert wait_until(300, 3, 0,
                               lambda: duthost.iface_macsec_ok(port_name) and
                               nbr["host"].iface_macsec_ok(nbr["port"]))
             continue
-        proc = submit_async_task(
-            __check_appl_db,
-            (duthost, port_name, nbr["host"], nbr["port"], policy, cipher_suite, send_sci))
-        procs.append(proc)
-    wait_all_complete(timeout=180)
-    failed = [p.exitcode for p in procs if p.exitcode != 0]
+        try:
+            __check_appl_db(
+                duthost, port_name, nbr["host"], nbr["port"],
+                policy, cipher_suite, send_sci)
+        except (AssertionError, KeyError, TypeError, ValueError):
+            failed += 1
     if failed:
-        logger.info("Check appl_db: %d/%d port pair(s) not yet ready", len(failed), len(procs))
+        logger.info(
+            "Check appl_db: %d/%d port pair(s) not yet ready",
+            failed,
+            len(ctrl_links))
         return False
     logger.info("Check appl_db finished")
     return True
