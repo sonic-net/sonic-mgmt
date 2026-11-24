@@ -131,6 +131,8 @@ def test_profile_check_continues_without_calculated_headroom(buffer_namespace):
 
 
 class ConfigurableDut(Dut):
+    is_multi_asic = False
+
     def __init__(self, ratio, shp_size):
         super().__init__(ratio, shp_size, {"xon": "38912", "xoff": "47104", "size": "38912", "dynamic_th": "3"})
         self.hashes["CABLE_LENGTH|AZURE"]["Ethernet0"] = "5m"
@@ -236,6 +238,23 @@ def test_missing_cable_length_skips_before_shp_changes(buffer_namespace):
         buffer_namespace["test_shared_headroom_pool_configure"](
             {"dut": dut}, "dut", {}, "Ethernet0", None, None, None, False)
     assert all(call.args[0].startswith("redis-cli") for call in dut.shell.call_args_list)
+
+
+def test_multi_asic_restore_does_not_patch_default_db(buffer_namespace):
+    dut = ConfigurableDut("0", "")
+    dut.is_multi_asic = True
+    dut.shell = Mock(wraps=dut.shell)
+    buffer_namespace["logging"] = Mock()
+    pool_wait = Mock()
+    buffer_namespace["ensure_pool_size"] = pool_wait
+    buffer_namespace["_restore_shared_headroom_pool_config"](
+        dut, "Ethernet0", "0", "", "5m", "123456", "0", POOL_OID)
+    assert [call.args[0] for call in dut.shell.call_args_list] == [
+        "config buffer shared-headroom-pool over-subscribe-ratio 0",
+        "config buffer shared-headroom-pool size 0",
+        "config interface cable-length Ethernet0 5m",
+    ]
+    pool_wait.assert_called_once_with(dut, 60, "123456", "0", None)
 
 
 def test_restore_attempts_remaining_commands_after_failure(buffer_namespace):

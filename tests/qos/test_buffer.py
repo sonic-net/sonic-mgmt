@@ -1567,17 +1567,24 @@ def _restore_shared_headroom_pool_config(
         ('BUFFER_POOL|ingress_lossless_pool', 'xoff', configured_size),
         ('CABLE_LENGTH|AZURE', port, cable_length),
     ]
-    for key, field, value in fields[:2]:
-        if value == '':
-            commands.append('redis-cli -n 4 hdel "{}" {}'.format(key, field))
-        elif value == '0':
-            # The CLI deletes zero-valued fields; preserve explicitly configured zeros.
-            commands.append('redis-cli -n 4 hset "{}" {} 0'.format(key, field))
+    if not duthost.is_multi_asic:
+        for key, field, value in fields[:2]:
+            if value == '':
+                commands.append('redis-cli -n 4 hdel "{}" {}'.format(key, field))
+            elif value == '0':
+                # The CLI deletes zero-valued fields; preserve explicitly configured zeros.
+                commands.append('redis-cli -n 4 hset "{}" {} 0'.format(key, field))
 
     result = duthost.shell_cmds(cmds=commands, continue_on_fail=True, module_ignore_errors=True)
     results = result['results']
     pytest_assert(len(results) == len(commands) and all(item['rc'] == 0 for item in results),
                   "SHP configuration restoration commands failed: {}".format(results))
+
+    if duthost.is_multi_asic:
+        # Without a per-ASIC snapshot, retain the original pool wait rather than verifying the wrong instance.
+        ensure_pool_size(duthost, 60, pool_size, shp_size, None)
+        logging.warning("SHP restore commands completed; per-ASIC restoration not verified for port %s", port)
+        return
 
     def _restored():
         for key, field, value in fields:
