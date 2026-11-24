@@ -387,7 +387,7 @@ def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
     asic = duthost.asic_instance()
 
     # find out MAX NHOP group count supported on the platform
-    result = asic.run_redis_cmd(argv=redis_cli_argv(asic, 'STATE_DB') + ["HGETALL", "SWITCH_CAPABILITY|switch"])
+    result = asic.run_redis_cmd(argv=redis_cli_argv(asic, 'STATE_DB', use_tcp=False) + ["HGETALL", "SWITCH_CAPABILITY|switch"])
     it = iter(result)
     switch_capability = dict(list(zip(it, it)))
     max_nhop = switch_capability.get("MAX_NEXTHOP_GROUP_COUNT")
@@ -486,11 +486,11 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
 
     asic = duthost.asic_instance(enum_rand_one_frontend_asic_index)
 
-    result = asic.run_redis_cmd(argv=redis_cli_argv(asic, 'STATE_DB') + ["HGETALL", "SWITCH_CAPABILITY|switch"])
+    result = asic.run_redis_cmd(argv=redis_cli_argv(asic, 'STATE_DB', use_tcp=False) + ["HGETALL", "SWITCH_CAPABILITY|switch"])
     it = iter(result)
     switch_capability = dict(list(zip(it, it)))
 
-    result = asic.run_redis_cmd(argv=redis_cli_argv(asic, 'APPL_DB') + ["HGETALL", "SWITCH_TABLE:switch"])
+    result = asic.run_redis_cmd(argv=redis_cli_argv(asic, 'APPL_DB', use_tcp=False) + ["HGETALL", "SWITCH_TABLE:switch"])
 
     it = iter(result)
     switch_table = dict(list(zip(it, it)))

@@ -25,7 +25,7 @@ ecmp_utils = Ecmp_Utils()
 
 def _check_redis_key_gone(duthost, db_num, key):
     """Check that a redis key no longer exists."""
-    command = redis_cli_command(duthost, db_num) + f' EXISTS "{key}"'
+    command = redis_cli_command(duthost, db_num, use_tcp=False) + f' EXISTS "{key}"'
     result = duthost.shell(command, module_ignore_errors=True)
     return result['stdout'].strip() == '0'
 

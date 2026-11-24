@@ -24,7 +24,7 @@ def load_definitions(path, names, namespace):
 def test_bbr_presence_checks_keep_integer_output_during_fallback():
     namespace = load_definitions('tests/bgp/bgp_bbr_helpers.py', {'config_bbr_by_gcu'},
                                  {'logger': Mock(), 'time': Mock(),
-                                  'redis_cli_command': lambda *_: 'redis-cli -s /configured.sock -n 4',
+                                  'redis_cli_command': lambda *_, **kwargs: 'redis-cli -s /configured.sock -n 4',
                                   'apply_gcu_patch': Mock(side_effect=RuntimeError('invalid patch'))})
     commands = []
 

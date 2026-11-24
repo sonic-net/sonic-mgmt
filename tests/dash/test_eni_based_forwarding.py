@@ -190,7 +190,7 @@ def check_acl_table_and_type_tables(duthost):
     logger.info(f"Expected ACL tables for ENI based forwarding: \n{expected_tables}")
     for table, table_fields in expected_tables.items():
         actual_table = json.loads(duthost.shell(
-            (redis_cli_command(duthost, "APPL_DB") + f" --json HGETALL {table}"))['stdout'])
+            (redis_cli_command(duthost, "APPL_DB", use_tcp=False) + f" --json HGETALL {table}"))['stdout'])
         logger.info(f"Actual table for key {table}: {actual_table}")
         if not actual_table == table_fields:
             logger.error(
@@ -245,7 +245,7 @@ def check_acl_rules(duthost, mock_pa_ipv4, peer_loopback0_ip,
         return False
     for rule_name, rule_fields in expected_rules.items():
         actual_rule = json.loads(duthost.shell(
-            (redis_cli_command(duthost, "APPL_DB") + f" --json HGETALL {rule_name}"))['stdout'])
+            (redis_cli_command(duthost, "APPL_DB", use_tcp=False) + f" --json HGETALL {rule_name}"))['stdout'])
         logger.info(f"Actual rule for key {rule_name}: {actual_rule}")
         if not actual_rule == rule_fields:
             logger.error(

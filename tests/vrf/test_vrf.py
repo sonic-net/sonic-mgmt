@@ -747,7 +747,7 @@ class TestVrfCreateAndBind:
 
         for vrf, intfs in list(g_vars["vrf_intfs"].items()):
             for intf in intfs:
-                res = duthost.shell((redis_cli_command(duthost, 'APPL_DB') + ' hgetall "INTF_TABLE:%s"' % intf))
+                res = duthost.shell((redis_cli_command(duthost, 'APPL_DB', use_tcp=False) + ' hgetall "INTF_TABLE:%s"' % intf))
                 assert vrf in res["stdout"], "The vrf of interface %s should be %s !" % (intf, vrf)
 
     def test_vrf_in_asic_db(self, duthosts, rand_one_dut_hostname, cfg_facts):

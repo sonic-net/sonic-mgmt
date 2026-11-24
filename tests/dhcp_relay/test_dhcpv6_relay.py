@@ -118,7 +118,7 @@ def testing_config(duthosts, rand_one_dut_hostname, tbinfo):
 
 def get_subtype_from_configdb(duthost):
     # HEXISTS returns 1 if the key exists, otherwise 0
-    subtype_exist = int(duthost.shell((redis_cli_command(duthost, 'CONFIG_DB') +
+    subtype_exist = int(duthost.shell((redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) +
                         ' HEXISTS "DEVICE_METADATA|localhost" "subtype"'))["stdout"])
     subtype_value = ""
     if subtype_exist:

@@ -269,7 +269,7 @@ def select_interface_for_mellnaox_device(setup, duthost):
     """
     selected_interface = ''
     interface_cable_length_list = duthost.shell(
-        (redis_cli_command(duthost, 'CONFIG_DB') + ' hgetall "CABLE_LENGTH|AZURE" '))['stdout_lines']
+        (redis_cli_command(duthost, 'CONFIG_DB', use_tcp=False) + ' hgetall "CABLE_LENGTH|AZURE" '))['stdout_lines']
     support_cable_length_list = ["40m", "5m"]
     for intf in setup['physical_interfaces']:
         if intf in interface_cable_length_list:

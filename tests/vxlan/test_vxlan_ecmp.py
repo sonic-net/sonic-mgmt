@@ -372,7 +372,7 @@ def fixture_setUp(duthosts,
         payload_version,
         "DEL")
 
-    config_db_cli = redis_cli_command(data['duthost'], 'CONFIG_DB')
+    config_db_cli = redis_cli_command(data['duthost'], 'CONFIG_DB', use_tcp=False)
     for intf in data[encap_type]['selected_interfaces']:
         redis_string = "INTERFACE"
         if "PortChannel" in intf:

@@ -476,7 +476,7 @@ def check_default_route_asic_db(duthost):
         module_ignore_errors=True)["stdout"]
     if not route_entry:
         return False
-    route_entry_content = duthost.shell((redis_cli_command(duthost, 'ASIC_DB') + f" hgetall '{route_entry}'"))["stdout"]
+    route_entry_content = duthost.shell((redis_cli_command(duthost, 'ASIC_DB', use_tcp=False) + f" hgetall '{route_entry}'"))["stdout"]
     if "SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID" in route_entry_content:
         return True
     else:
