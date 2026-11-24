@@ -123,6 +123,13 @@ def test_incorrect_size_is_rejected(buffer_namespace, default_shp_enabled, ratio
         buffer_namespace["check_buffer_profile_details"](dut, set(), PROFILE_NAME, None, None, "Ethernet0")
 
 
+def test_profile_check_continues_without_calculated_headroom(buffer_namespace):
+    dut = Dut("2", "0", {"xon": "38912", "xoff": "47104", "size": "38912", "dynamic_th": "3"})
+    buffer_namespace["calculate_headroom_data"] = lambda *args: (False, {})
+    assert buffer_namespace["check_buffer_profile_details"](
+        dut, set(), PROFILE_NAME, None, None, "Ethernet0") == (PROFILE_OID, POOL_OID)
+
+
 class ConfigurableDut(Dut):
     def __init__(self, ratio, shp_size):
         super().__init__(ratio, shp_size, {"xon": "38912", "xoff": "47104", "size": "38912", "dynamic_th": "3"})

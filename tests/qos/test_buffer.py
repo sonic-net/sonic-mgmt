@@ -849,7 +849,7 @@ def check_buffer_profile_details(duthost, initial_profiles, profile_name, profil
             else:
                 logging.info(
                     "Skip headroom checking because headroom information is not able to be calculated for speed {}"
-                    .format(speed))
+                    .format(m.group(1)))
 
     profiles_in_asicdb = set(duthost.shell(
         'redis-cli -n 1 keys "ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_PROFILE*"')['stdout'].split('\n'))
