@@ -110,13 +110,14 @@ def parse_acl_packet_count(counters, rule_name):
         except ValueError:
             pytest.fail("aclshow reported a non-numeric packet count {!r} for rule {}".format(packets, rule_name))
 
-    return 0
+    pytest.fail("aclshow -a has no row for rule {}, so it is not in CONFIG_DB ACL_RULE".format(rule_name))
 
 
 def read_acl_counter(duts, rule_name, expected, timeout=120, interval=2):
     """
     Poll until every DUT publishes the rule and the packet count summed over duts reaches
-    expected, and return that total. Only the total is meaningful on dualtor-aa, where a
+    expected, and return that total. Counts only increase, so a total past expected fails
+    without waiting out the timeout. Only the total is meaningful on dualtor-aa, where a
     single packet is counted by whichever DUT receives it. A registered rule counter is
     published on every poll, including at 0, so N/A on any DUT means its count is unknown.
     (setup_counterpoll_interval sets a 1s poll)
@@ -126,7 +127,7 @@ def read_acl_counter(duts, rule_name, expected, timeout=120, interval=2):
     while True:
         counts = [parse_acl_packet_count(dut.show_and_parse(cmd), rule_name) for dut in duts]
         total = None if None in counts else sum(counts)
-        if total == expected or time.time() >= deadline:
+        if (total is not None and total >= expected) or time.time() >= deadline:
             break
         time.sleep(interval)
 
