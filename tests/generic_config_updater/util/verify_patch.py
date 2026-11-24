@@ -452,26 +452,35 @@ def validate_lossless_pg_baseline(config, ports):
     return expected
 
 
-def get_lossless_pg_entries(duthost, port, profile_prefix):
+def get_lossless_pg_entries(duthost, port, profile_prefix, strict=False):
     """Return {buffer_pg_key: profile_name} for the port's lossless BUFFER_PG entries.
 
     These are created by buffermgrd once PORT speed and CABLE_LENGTH are set and the
     port comes up; they are never pushed by the config patch. Lossless PGs are
     identified by profile-name prefix rather than by priority number, so a platform
     that numbers its lossless PGs differently is still handled.
+
+    With strict=True, failed reads or missing profiles raise ValueError rather
+    than being mistaken for verified absence.
     """
     entries = {}
 
     keys_result = duthost.shell('sonic-db-cli CONFIG_DB keys "BUFFER_PG|{}|*"'.format(port),
                                 module_ignore_errors=True)
     if keys_result['rc'] != 0:
+        if strict:
+            raise ValueError("Unable to read BUFFER_PG keys for {}".format(port))
         return entries
 
     for key in keys_result['stdout'].splitlines():
         key = key.strip()
         if not key:
             continue
-        profile = normalize_profile_reference(get_config_db_field(duthost, key, 'profile'))
+        result = duthost.shell('sonic-db-cli CONFIG_DB hget "{}" profile'.format(key),
+                               module_ignore_errors=True)
+        profile = normalize_profile_reference(result['stdout'] if result['rc'] == 0 else '')
+        if strict and (result['rc'] != 0 or not profile):
+            raise ValueError("Unable to read BUFFER_PG profile for {}".format(key))
         if profile.startswith(profile_prefix):
             entries[key] = profile
 
