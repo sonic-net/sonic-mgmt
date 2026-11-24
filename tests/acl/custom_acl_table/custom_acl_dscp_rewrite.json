@@ -1,0 +1,34 @@
+{
+    "ACL_TABLE_TYPE": {
+        "DSCP_REWRITE_TEST": {
+            "MATCHES": ["SRC_IP", "DST_IP", "DSCP"],
+            "ACTIONS": ["DSCP_ACTION", "PACKET_ACTION", "COUNTER"],
+            "BIND_POINTS": ["PORT"]
+        }
+    },
+    "ACL_TABLE": {
+        "DSCP_REWRITE_TEST": {
+            "type": "DSCP_REWRITE_TEST",
+            "stage": "ingress",
+            "ports": []
+        }
+    },
+    "ACL_RULE": {
+        "DSCP_REWRITE_TEST|RULE_0": {
+            "PRIORITY": "1000",
+            "DSCP": "8",
+            "DSCP_ACTION": "0"
+        },
+        "DSCP_REWRITE_TEST|RULE_46": {
+            "PRIORITY": "1001",
+            "DSCP": "8",
+            "DSCP_ACTION": "46",
+            "PACKET_ACTION": "FORWARD"
+        },
+        "DSCP_REWRITE_TEST|RULE_63": {
+            "PRIORITY": "1002",
+            "DSCP": "8",
+            "DSCP_ACTION": "63"
+        }
+    }
+}

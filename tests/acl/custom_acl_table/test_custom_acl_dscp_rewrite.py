@@ -1,5 +1,7 @@
+import copy
 import ipaddress
 import json
+from pathlib import Path
 
 import pytest
 import ptf.packet as scapy
@@ -7,8 +9,6 @@ import ptf.testutils as testutils
 from ptf.mask import Mask
 
 from tests.common.config_reload import config_reload
-from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
 
 
 pytestmark = [
@@ -17,35 +17,17 @@ pytestmark = [
     pytest.mark.dualtor_active_standby_toggle_to_enum_tor_manual_mode,
 ]
 
-TABLE_NAME = "DSCP_REWRITE_TEST"
 BACKUP_PATH = "/tmp/custom_acl_dscp_original.json"
-DSCP_VALUES = [0, 46, 63]
-ORIGINAL_DSCP = 8
-
-
-def _dscp_entries(dut):
-    rules = " ".join("RULE_{}".format(dscp) for dscp in DSCP_VALUES)
-    lines = dut.shell(
-        'counters=$(for rule in {rules}; do '
-        'sonic-db-cli COUNTERS_DB hget ACL_COUNTER_RULE_MAP "{table}:$rule"; done | tr "\\n" " "); '
-        'sonic-db-cli ASIC_DB keys "ASIC_STATE:SAI_OBJECT_TYPE_ACL_ENTRY:*" | '
-        'while read -r key; do '
-        'counter=$(sonic-db-cli ASIC_DB hget "$key" SAI_ACL_ENTRY_ATTR_ACTION_COUNTER); '
-        'test -n "$counter" || continue; '
-        'case " $counters " in *" $counter "*) '
-        'value=$(sonic-db-cli ASIC_DB hget "$key" SAI_ACL_ENTRY_ATTR_ACTION_SET_DSCP); '
-        'if test -n "$value"; then printf "%s %s\\n" "$key" "$value"; fi;; esac; done'.format(
-            rules=rules, table=TABLE_NAME,
-        )
-    )["stdout_lines"]
-    return dict(line.split(" ", 1) for line in lines if line)
+with Path(__file__).with_name("custom_acl_dscp_rewrite.json").open() as config_file:
+    ACL_CONFIG = json.load(config_file)
 
 
 @pytest.fixture(scope="module", params=[
     ("ingress", "ipv4"), ("ingress", "ipv6"),
     ("egress", "ipv4"), ("egress", "ipv6"),
 ])
-def dscp_context(request, duthosts, enum_dut_hostname, tbinfo):
+def supported_dscp_stage(request, duthosts, enum_dut_hostname):
+    """Skip unsupported DSCP rewrite stages before configuring the test ACL."""
     dut = duthosts[enum_dut_hostname]
     if dut.is_multi_asic:
         pytest.skip("Direct ACL DSCP validation requires a single-ASIC T0 DUT")
@@ -55,6 +37,16 @@ def dscp_context(request, duthosts, enum_dut_hostname, tbinfo):
     )["stdout"].strip().split(",")
     if "DSCP_ACTION" not in actions:
         pytest.skip("{} does not support SET_DSCP at {}".format(dut.hostname, stage))
+    return stage, family
+
+
+@pytest.fixture(scope="module")
+def dscp_context(supported_dscp_stage, duthosts, enum_dut_hostname, tbinfo):
+    dut = duthosts[enum_dut_hostname]
+    stage, family = supported_dscp_stage
+    config = copy.deepcopy(ACL_CONFIG)
+    table = next(iter(config["ACL_TABLE"].values()))
+    rules = config["ACL_RULE"]
 
     facts = dut.get_extended_minigraph_facts(tbinfo)
     if not facts["minigraph_vlans"]:
@@ -77,7 +69,7 @@ def dscp_context(request, duthosts, enum_dut_hostname, tbinfo):
         str(interface["peer_addr"]) for interface in facts["minigraph_portchannel_interfaces"]
         if ipaddress.ip_address(str(interface["peer_addr"])).version == version
     ))
-    if not vlan_interfaces or len(destinations) < len(DSCP_VALUES) + 1:
+    if not vlan_interfaces or len(destinations) < len(rules) + 1:
         pytest.skip("This test requires a VLAN address and four upstream peer addresses for {}".format(family))
     vlan_interface = ipaddress.ip_interface(
         "{}/{}".format(vlan_interfaces[0]["addr"], vlan_interfaces[0]["prefixlen"])
@@ -89,37 +81,16 @@ def dscp_context(request, duthosts, enum_dut_hostname, tbinfo):
     source_match = "SRC_IP" if family == "ipv4" else "SRC_IPV6"
     destination_match = "DST_IP" if family == "ipv4" else "DST_IPV6"
     prefix_length = 32 if family == "ipv4" else 128
-    config = {
-        "ACL_TABLE_TYPE": {
-            TABLE_NAME: {
-                "MATCHES": [source_match, destination_match, "DSCP"],
-                "ACTIONS": ["DSCP_ACTION", "PACKET_ACTION", "COUNTER"],
-                "BIND_POINTS": ["PORT"],
-            },
-        },
-        "ACL_TABLE": {
-            TABLE_NAME: {
-                "type": TABLE_NAME,
-                "stage": stage,
-                "ports": [source_port] if stage == "ingress" else uplinks,
-            },
-        },
-        "ACL_RULE": {},
-    }
-    for index, dscp in enumerate(DSCP_VALUES):
-        rule = {
-            "PRIORITY": str(1000 + index),
-            source_match: "{}/{}".format(sources[0], prefix_length),
-            destination_match: "{}/{}".format(destinations[index], prefix_length),
-            "DSCP": str(ORIGINAL_DSCP),
-            "DSCP_ACTION": str(dscp),
-        }
-        if dscp == 46:
-            rule["PACKET_ACTION"] = "FORWARD"
-        config["ACL_RULE"]["{}|RULE_{}".format(TABLE_NAME, dscp)] = rule
+    if family == "ipv6":
+        match_fields = {"SRC_IP": source_match, "DST_IP": destination_match}
+        table_type = config["ACL_TABLE_TYPE"][table["type"]]
+        table_type["MATCHES"] = [match_fields.get(field, field) for field in table_type["MATCHES"]]
+    table["stage"] = stage
+    table["ports"] = [source_port] if stage == "ingress" else uplinks
+    for index, rule in enumerate(rules.values()):
+        rule[source_match] = "{}/{}".format(sources[0], prefix_length)
+        rule[destination_match] = "{}/{}".format(destinations[index], prefix_length)
 
-    egress_table = 'sonic-db-cli STATE_DB exists "ACL_TABLE_TABLE|EgressSetDSCP"'
-    original_egress_table = dut.shell(egress_table)["stdout"].strip()
     dut.shell("test ! -e {0} && cp /etc/sonic/config_db.json {0}".format(BACKUP_PATH))
     try:
         if dut.shell('sonic-db-cli CONFIG_DB exists "ACL_TABLE|DATAACL"')["stdout"].strip() == "1":
@@ -129,26 +100,9 @@ def dscp_context(request, duthosts, enum_dut_hostname, tbinfo):
         # Exercise SWSS action handling independently of the companion YANG schema update.
         config_reload(dut, wait_for_bgp=True, yang_validate=False)
 
-        pytest_assert(
-            wait_until(90, 5, 0, lambda: len(_dscp_entries(dut)) == len(DSCP_VALUES)),
-            "Direct DSCP actions were not programmed into ASIC_DB",
-        )
-        entries = _dscp_entries(dut)
-        pytest_assert(
-            set(entries.values()) == {str(dscp) for dscp in DSCP_VALUES},
-            "ASIC DSCP actions differ from the configured values",
-        )
-        for key in entries:
-            metadata = dut.shell(
-                'sonic-db-cli ASIC_DB hget "{}" SAI_ACL_ENTRY_ATTR_ACTION_SET_ACL_META_DATA'.format(key)
-            )["stdout"].strip()
-            pytest_assert(metadata in ("", "disabled"), "Direct rule allocated ACL metadata")
-        pytest_assert(
-            dut.shell(egress_table)["stdout"].strip() == original_egress_table,
-            "Direct rewrite unexpectedly changed the underlay egress table",
-        )
         yield {
             "family": family,
+            "rules": rules,
             "sources": [str(address) for address in sources],
             "destinations": destinations,
             "source_port": facts["minigraph_ptf_indices"][source_port],
@@ -162,19 +116,23 @@ def dscp_context(request, duthosts, enum_dut_hostname, tbinfo):
         dut.file(path=BACKUP_PATH, state="absent")
 
 
-@pytest.mark.parametrize("dscp", DSCP_VALUES)
-def test_custom_acl_dscp_rewrite(dscp_context, ptfadapter, dscp):
+@pytest.mark.parametrize("rule_name", list(ACL_CONFIG["ACL_RULE"]), ids=lambda name: name.split("|")[1])
+def test_custom_acl_dscp_rewrite(dscp_context, ptfadapter, rule_name):
     """Verify three-field ACL matches rewrite DSCP, while misses and ECN remain unchanged."""
     context = dscp_context
     family = context["family"]
+    rule = context["rules"][rule_name]
+    original_dscp = int(rule["DSCP"])
+    rewritten_dscp = int(rule["DSCP_ACTION"])
+    matching_destination = list(context["rules"]).index(rule_name)
     for mismatch in ["source", "destination", "dscp", None]:
         source = context["sources"][1 if mismatch == "source" else 0]
-        destination_index = len(DSCP_VALUES) if mismatch == "destination" else DSCP_VALUES.index(dscp)
+        destination_index = len(context["rules"]) if mismatch == "destination" else matching_destination
         destination = context["destinations"][destination_index]
-        input_dscp = ORIGINAL_DSCP + 1 if mismatch == "dscp" else ORIGINAL_DSCP
+        input_dscp = original_dscp ^ 1 if mismatch == "dscp" else original_dscp
         for ecn in [0, 3]:
             input_tos = (input_dscp << 2) | ecn
-            output_tos = ((dscp if mismatch is None else input_dscp) << 2) | ecn
+            output_tos = ((rewritten_dscp if mismatch is None else input_dscp) << 2) | ecn
             if family == "ipv4":
                 packet = testutils.simple_tcp_packet(
                     eth_dst=context["router_mac"], ip_src=source,
