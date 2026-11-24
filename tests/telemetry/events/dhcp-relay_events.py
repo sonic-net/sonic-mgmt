@@ -17,7 +17,7 @@ tag = "sonic-events-dhcp-relay"
 
 def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
     if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch") and \
-            duthost.facts.get("router_type") == 'leafrouter':
+            duthost.facts.get("router_type", "").lower() == 'leafrouter':
         pytest.skip("Skipping dhcp_relay events for smartswitch t1 topologies")
     features_states, succeeded = duthost.get_feature_status()
     if not succeeded or features_states["dhcp_relay"] != "enabled":
