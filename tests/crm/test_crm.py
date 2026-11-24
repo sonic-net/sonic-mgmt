@@ -285,11 +285,11 @@ def get_acl_tbl_key(asichost):
     return "CRM:ACL_TABLE_STATS:{0}".format(oid.replace("oid:", ""))
 
 
-def _threshold_margin(counter, exceeded):
+def _threshold_margin(counter, below):
     """
     How far to place a used/free threshold from the counter value just read: 10% of it, at
-    least 5. 'exceeded' thresholds go below the counter, so there it is capped to keep the
-    low threshold non-negative.
+    least 5. Thresholds placed below the counter ('exceeded' used, 'clear' free) are capped to
+    keep the low threshold non-negative.
 
     The counter can move before crmd's next poll (route/ECMP/neighbour churn; on Broadcom the
     IPv4 neighbour 'available' also drops as other entries, e.g. IPv6 neighbours, fill the
@@ -297,7 +297,7 @@ def _threshold_margin(counter, exceeded):
     is then missed and nothing gets logged.
     """
     margin = max(5, counter // 10)
-    return min(margin, max(0, counter - 1)) if exceeded else margin
+    return min(margin, max(0, counter - 1)) if below else margin
 
 
 @contextmanager
@@ -488,7 +488,7 @@ def verify_thresholds(duthost, asichost, **kwargs):
         kwargs['crm_used'], kwargs['crm_avail'] = get_crm_stats(kwargs['crm_cmd'], duthost)
         # The percentage templates ignore th_margin.
         counter = kwargs['crm_used'] if key.endswith("_used") else kwargs['crm_avail']
-        kwargs['th_margin'] = _threshold_margin(counter, key.startswith("exceeded"))
+        kwargs['th_margin'] = _threshold_margin(counter, key in ("exceeded_used", "clear_free"))
         cmd = template.render(**kwargs)
 
         wait_for_threshold_log(loganalyzer, duthost, asichost, cmd)
