@@ -1,10 +1,9 @@
 import pytest
 import random
 import logging
-import json
-from tests.common import config_reload
-from tests.common.helpers.upgrade_helpers import install_sonic, upgrade_test_helper
-from tests.common.helpers.upgrade_helpers import restore_image            # noqa: F401
+from tests.common.helpers.upgrade_helpers import install_sonic, upgrade_test_helper, \
+    regenerate_and_apply_golden_config_db
+from tests.common.helpers.upgrade_helpers import restore_image, restore_image_ut2  # noqa: F401
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.upgrade_path.utilities import cleanup_prev_images, boot_into_base_image, boot_into_base_image_t2
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot   # noqa: F401
@@ -66,32 +65,6 @@ def setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
         modify_reboot_script(upgrade_type)
 
 
-def regenerate_and_apply_golden_config_db(dut, tbinfo, conn_graph_facts):
-    """Regenerate UT2 golden config before reloading minigraph."""
-    if 't2_single_node' in tbinfo['topo']['name']:
-        hostvars = dut.host.options['variable_manager'].get_vars(
-            host=dut.host.options['inventory_manager'].get_host(dut.hostname))
-        common = tbinfo['topo']['properties'].get('configuration_properties', {}).get('common', {})
-        config = json.loads(dut.shell("sonic-cfggen -d --print-data")['stdout'])
-        # The generator reads this temporary file, which does not survive reboot.
-        dut.copy(content=json.dumps({"DNS_NAMESERVER": config.get("DNS_NAMESERVER", {})}),
-                 dest="/tmp/dns_config.json")
-        macsec_profile = hostvars.get('macsec_profile') if hostvars.get('enable_macsec') else None
-        if macsec_profile:
-            dut.copy(src="common/macsec/profile.json", dest="/tmp/profile.json")
-            dut.copy(src="../ansible/templates/golden_config_db_t2.j2",
-                     dest="/tmp/golden_config_db_t2.j2")
-        dut.generate_golden_config_db(
-            topo_name=tbinfo['topo']['name'],
-            num_asics=dut.facts['num_asic'],
-            macsec_profile=macsec_profile,
-            bgp_confd_asn=common.get('dut_confed_asn'),
-            bgp_confd_peers=common.get('dut_confed_peers'),
-            device_conn=conn_graph_facts.get('device_conn', {}).get(dut.hostname, {}))
-        config_reload(dut, config_source="minigraph", override_config=True,
-                      safe_reload=True, wait_for_bgp=True)
-
-
 @pytest.mark.device_type('vs')
 def test_double_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
                              nbrhosts, fanouthosts, tbinfo, request, restore_image,            # noqa: F811
@@ -137,7 +110,7 @@ def test_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
 
 @pytest.mark.device_type('t2')
 def test_upgrade_path_t2(localhost, duthosts, ptfhost, upgrade_path_lists,
-                         tbinfo, request, verify_testbed_health, conn_graph_facts):   # noqa: F811
+                         tbinfo, request, verify_testbed_health, conn_graph_facts, restore_image_ut2):  # noqa: F811
     """Cold-upgrade a modular chassis or a single standalone T2 DUT."""
 
     _, from_image, to_image, _, _ = upgrade_path_lists
@@ -159,7 +132,7 @@ def test_upgrade_path_t2(localhost, duthosts, ptfhost, upgrade_path_lists,
         setup_upgrade_test(dut, localhost, from_image, to_image, tbinfo, upgrade_type)
 
     def upgrade_path_postboot_setup(dut):
-        regenerate_and_apply_golden_config_db(dut, tbinfo, conn_graph_facts)
+        regenerate_and_apply_golden_config_db(dut, tbinfo, conn_graph_facts, restore_image_ut2)
         dut.shell("config bgp startup all")
 
     def upgrade_dut(dut):
