@@ -252,6 +252,15 @@ hw_port_cfg = {
                          "peer_ports": [],
                          "skip_ports": [],
                          "panel_port_step": 1},
+    # SN4700-O10C88/O10X88: 32 cages, with etp11 and etp21 as 400G peers
+    # and etp13..etp20 as 400G uplinks (panel port IDs below are zero-based).
+    # Keep only breakout a of each remaining cage, preserving all 98 port indices.
+    'd22u8s2':          {"ds_breakout": 4, "us_breakout": 1, "ds_link_step": 4, "us_link_step": 1,
+                         "uplink_ports": list(range(12, 20)),
+                         "peer_ports": [10, 20],
+                         "skip_ports": [],
+                         "continuous_vms": True,
+                         "panel_port_step": 1},
     # t1 with 96 backend downlinks + 4 T2 uplinks on a 28-port device.
     # The middle 4 panel ports (12..15) have no breakout and connect to T2
     # (SpineRouter), while the other 24 panel ports use 4-port breakout for the
@@ -465,7 +474,10 @@ def generate_topo_link_based(role: str,
     tornum = 1
     link_id_start = 0
 
-    for panel_port_id in list(range(0, panel_port_count, port_cfg['panel_port_step'])) + peer_ports:
+    panel_ports = list(range(0, panel_port_count, port_cfg['panel_port_step']))
+    # Peers may be in-panel (SN4700) or additional ports after the main range.
+    panel_ports += [port for port in peer_ports if port not in panel_ports]
+    for panel_port_id in panel_ports:
         vm_role_cfg = None
         link_step = 1
         link_type = None
@@ -592,7 +604,10 @@ def generate_topo(role: str,
     tornum = 1
     link_id_start = 0
 
-    for panel_port_id in list(range(0, panel_port_count, port_cfg['panel_port_step'])) + peer_ports:
+    panel_ports = list(range(0, panel_port_count, port_cfg['panel_port_step']))
+    # Peers may be in-panel (SN4700) or additional ports after the main range.
+    panel_ports += [port for port in peer_ports if port not in panel_ports]
+    for panel_port_id in panel_ports:
         vm_role_cfg = None
         link_step = 1
         link_type = None
@@ -815,6 +830,7 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 128 -l 'd32'  # 32 DL only
     - ./generate_topo.py -r t0 -k isolated-mix -t t0-isolated -c 192 -l 'd32u32s2-mix'  # mix layout
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 32 -l 'd28u4'  # 28 DL + 4 UL
+    - ./generate_topo.py -r t1 -t t1 -c 32 -l 'd22u8s2'  # SN4700-O10C88/O10X88: 22 DL + 8 UL + 2 peers
     - ./generate_topo.py -r t1 -t t1-hub -c 28 -l 'd96u4'  # 96 backend DLs (60 BT0 + 32 BT1 + 4 BT2) + 4 T2 ULs
     - ./generate_topo.py -r lt2 -k o128 -t lt2_128 -c 64 -l 'o128lt2'
     - ./generate_topo.py -r lt2 -k p32o64 -t lt2_p32o64 -c 64 -l 'p32o64lt2'

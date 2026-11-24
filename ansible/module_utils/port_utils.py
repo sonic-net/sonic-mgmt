@@ -596,6 +596,16 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
         elif hwsku in ["Arista-720DT-48S", "Arista-720DT-G48S4", "Arista-720DT-48S-MGX", "Arista-720DT-MGX-G48S4"]:
             for i in range(1, 53):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % (i - 1)
+        elif hwsku in ["Mellanox-SN4700-O10C88", "Mellanox-SN4700-O10X88"]:
+            # C88 uses two lanes per 100G port; X88 uses one lane per 25G port.
+            lane_step = 2 if hwsku == "Mellanox-SN4700-O10C88" else 1
+            for i in range(1, 33):
+                if i == 11 or 13 <= i <= 21:
+                    port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1) * 8)
+                else:
+                    for idx, suffix in enumerate("abcd"):
+                        port_alias_to_name_map["etp%d%s" % (i, suffix)] = \
+                            "Ethernet%d" % ((i - 1) * 8 + idx * lane_step)
         elif hwsku in ["Mellanox-SN4700-O8C48", "Mellanox-SN4700-O8V48"]:
             idx = 0
             for i in range(1, 13):

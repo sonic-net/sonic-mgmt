@@ -254,7 +254,7 @@ router bgp {{ host['bgp']['asn'] }}
  network {{ iface['ipv6'] }}
         {% endif %}
     {% endfor %}
-+{% endif %}
+{% endif %}
 !
 management api http-commands
  no protocol https
