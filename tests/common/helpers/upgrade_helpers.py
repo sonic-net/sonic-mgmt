@@ -102,7 +102,7 @@ def restore_image_ut2(localhost, duthosts, upgrade_path_lists, tbinfo, conn_grap
     dns_config = None
     if 't2_single_node' in tbinfo['topo']['name']:
         dut = duthosts[0]
-        config = json.loads(dut.shell("sonic-cfggen -d --print-data")['stdout'])
+        config = json.loads(dut.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
         dns_config = {"DNS_NAMESERVER": config.get("DNS_NAMESERVER", {})}
 
     yield dns_config
