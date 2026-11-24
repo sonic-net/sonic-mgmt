@@ -6,7 +6,7 @@ This module provides a user-friendly wrapper around PtfGrpc for gNOI
 gRPC complexity behind clean, Pythonic method interfaces.
 """
 import logging
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
@@ -66,6 +66,83 @@ class PtfGnoi:
                 logger.warning(f"Failed to convert time to int: {e}")
 
         return response
+
+    def system_ping(
+        self,
+        destination: str,
+        count: Optional[int] = None,
+        interval: Optional[int] = None,
+        wait: Optional[int] = None,
+        size: Optional[int] = None,
+        source: Optional[str] = None,
+        do_not_fragment: bool = False,
+        do_not_resolve: bool = False,
+        l3protocol: Optional[str] = None,
+        network_instance: Optional[str] = None,
+        metadata=None,
+    ) -> List[Dict]:
+        """
+        Ping a destination from the device using gNOI System.Ping (server-streaming RPC).
+
+        The request is sent as given, without client-side validation, so that
+        the server's handling of invalid requests can be tested.
+
+        Args:
+            destination: Address or host name to ping
+            count: Number of packets to send (-1 for continuous)
+            interval: Time between packets, in nanoseconds (-1 for flood)
+            wait: Time to wait for a reply, in nanoseconds
+            size: Payload size in bytes
+            source: Source address to ping from
+            do_not_fragment: Set the do-not-fragment bit (IPv4 only)
+            do_not_resolve: Do not resolve the reply addresses to names
+            l3protocol: L3Protocol enum name ("IPV4" or "IPV6")
+            network_instance: Network instance (VRF) to ping in
+
+        Returns:
+            List of response dicts: one per reply, then a summary with the
+            sent/received counts and round-trip times. Fields that are zero are
+            omitted; the int64 time fields are converted to int.
+
+        Raises:
+            GrpcConnectionError: If connection fails
+            GrpcCallError: If the gRPC call fails
+            GrpcTimeoutError: If the call times out
+        """
+        request: Dict = {}
+        if destination:
+            request["destination"] = destination
+        if count is not None:
+            request["count"] = count
+        if interval is not None:
+            request["interval"] = interval
+        if wait is not None:
+            request["wait"] = wait
+        if size is not None:
+            request["size"] = size
+        if source:
+            request["source"] = source
+        if do_not_fragment:
+            request["do_not_fragment"] = True
+        if do_not_resolve:
+            request["do_not_resolve"] = True
+        if l3protocol:
+            request["l3protocol"] = l3protocol
+        if network_instance:
+            request["network_instance"] = network_instance
+
+        logger.debug("Ping via gNOI System.Ping: %s", request)
+
+        responses = self.grpc_client.call_server_streaming("gnoi.system.System", "Ping", request, metadata=metadata)
+
+        # int64 fields are encoded as JSON strings
+        for response in responses:
+            for field in ("time", "minTime", "avgTime", "maxTime", "stdDev"):
+                if field in response:
+                    response[field] = int(response[field])
+
+        logger.info("Ping %s: received %d responses", destination, len(responses))
+        return responses
 
     # File service operations
     # TODO: Add file_get(), file_put(), file_remove() methods
