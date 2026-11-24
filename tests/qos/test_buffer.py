@@ -1647,6 +1647,8 @@ def test_shared_headroom_pool_configure(duthosts,
     original_cable_len = duthost.shell(
         'redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
 
+    if not original_cable_len:
+        pytest.skip("SHP test requires a configured cable length on {}".format(port_to_test))
     if not TESTPARAM_SHARED_HEADROOM_POOL:
         pytest.skip(
             'Shared headroom pool test skipped due to no parameters defined')

@@ -193,6 +193,16 @@ def test_case_failure_restores_original_shp_state(buffer_namespace, ratio, confi
         dut, shp_enabled=bool(int(ratio or "0") or int(configured_size or "0")))
 
 
+def test_missing_cable_length_skips_before_shp_changes(buffer_namespace):
+    dut = ConfigurableDut("2", "0")
+    del dut.hashes["CABLE_LENGTH|AZURE"]["Ethernet0"]
+    dut.shell = Mock(wraps=dut.shell)
+    with pytest.raises(pytest.skip.Exception, match="configured cable length"):
+        buffer_namespace["test_shared_headroom_pool_configure"](
+            {"dut": dut}, "dut", {}, "Ethernet0", None, None, None, False)
+    assert all(call.args[0].startswith("redis-cli") for call in dut.shell.call_args_list)
+
+
 def test_restore_attempts_remaining_commands_after_failure(buffer_namespace):
     dut = ConfigurableDut("2", "0")
     dut.hashes["CABLE_LENGTH|AZURE"]["Ethernet0"] = "10m"
