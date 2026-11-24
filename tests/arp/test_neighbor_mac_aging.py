@@ -73,6 +73,5 @@ class TestNeighborMacAging:
             return len(arp_lines) == 0 and len(redis_lines) == 0
 
         # Verify that the MAC address is aged out from the ARP table and ASIC_DB
-        aged_out = wait_until(120, 10, 0, check_neighbor_aged_out) or check_neighbor_aged_out()
-        pytest_assert(aged_out,
+        pytest_assert(wait_until(120, 10, 0, check_neighbor_aged_out),
                       "ARP/Redis entry not aged out after interface down")
