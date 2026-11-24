@@ -1021,6 +1021,16 @@ class GenerateGoldenConfigDBModule(object):
             if self.bgp_confd_asn and self.bgp_confd_peers:
                 self._set_bgp_confed_config(full_config)
 
+        if "fw4" in self.topo_name:
+            # FW4 (FairWater) DUTs select their BGP peer policies by DEVICE_METADATA mgmt_type.
+            if self.num_asics > 1:
+                scope_configs = [full_config["localhost"]] + \
+                    [full_config["asic{}".format(asic)] for asic in range(self.num_asics)]
+            else:
+                scope_configs = [full_config]
+            for scope_config in scope_configs:
+                scope_config.setdefault("DEVICE_METADATA", {}).setdefault("localhost", {})["mgmt_type"] = "FairWater"
+
         return json.dumps(full_config, indent=4)
 
     def generate_t2_golden_config_db(self):
@@ -1482,6 +1492,35 @@ class GenerateGoldenConfigDBModule(object):
 
         return json.dumps(config, indent=4)
 
+    def complete_fw4_feature_defaults(self, config):
+        """Keep FW4 FEATURE overrides complete when minigraph replaces entries.
+
+        Read defaults from the installed image, not the previous running config:
+        the latter can contain partial entries or state left by another test.
+        Explicit topology overrides retain precedence, including autorestart.
+        """
+        if "fw4" not in self.topo_name:
+            return config
+
+        rc, out, err = self.module.run_command(
+            "sonic-cfggen -j /etc/sonic/init_cfg.json --print-data")
+        if rc != 0:
+            self.module.fail_json(msg="Failed to get FW4 image feature defaults: {}".format(err))
+        defaults = json.loads(out).get("FEATURE")
+        if not isinstance(defaults, dict) or not defaults:
+            self.module.fail_json(msg="FW4 image configuration has no FEATURE defaults")
+
+        full_config = json.loads(config)
+        scopes = ["localhost"] + ["asic{}".format(i) for i in range(self.num_asics)] \
+            if self.num_asics > 1 else [None]
+        for scope in scopes:
+            scope_config = full_config.setdefault(scope, {}) if scope is not None else full_config
+            features = copy.deepcopy(defaults)
+            for name, entry in scope_config.get("FEATURE", {}).items():
+                features.setdefault(name, {}).update(entry)
+            scope_config["FEATURE"] = features
+        return json.dumps(full_config, indent=4)
+
     def generate(self):
         module_msg = "Success to generate golden_config_db.json"
         # topo check
@@ -1570,6 +1609,8 @@ class GenerateGoldenConfigDBModule(object):
                     "has_per_asic_scope": "True",
                 }
             })
+
+        config = self.complete_fw4_feature_defaults(config)
 
         # BMC runs only these services. Disable any other feature present in the image.
         # DEVICE_METADATA may still be "not-provisioned" before the first

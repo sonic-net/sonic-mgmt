@@ -7,6 +7,7 @@ from types import ModuleType
 from unittest.mock import patch
 
 import pytest
+import yaml
 
 
 pytestmark = [
@@ -112,3 +113,25 @@ def test_multi_vrf_t0_isolates_csonic_next_hop_change(
         "::/0", v6_next_hops[0])
     assert generated["ARISTA02T1"]["ipv6"][0][0:2] == (
         "::/0", v6_next_hops[1])
+
+
+def test_fw4_core_vms_announce_upstream_routes():
+    """FW4 names its upstream core VMs AristaT2xx/AristaFwaXX instead of ARISTAxxT3."""
+    announce_routes = _load_announce_routes()
+    with open(REPO_ROOT / "ansible" / "vars" / "topo_t2_single_node_fw4.yml") as topo_file:
+        topo = yaml.safe_load(topo_file)
+    generated = {}
+
+    announce_routes.fib_t2_lag(
+        topo,
+        "10.250.0.102",
+        action=announce_routes.GENERATE_WITHOUT_APPLY,
+        topo_routes=generated,
+    )
+
+    core_vms = [vm for vm, vm_config in topo["configuration"].items()
+                if "core" in vm_config["properties"]]
+    assert len(core_vms) == 10
+    for vm in core_vms:
+        assert "0.0.0.0/0" in [route[0] for route in generated[vm]["ipv4"]]
+        assert "::/0" in [route[0] for route in generated[vm]["ipv6"]]

@@ -232,6 +232,8 @@
 {% if vm_topo_config['vm'][dev]['intfs'][dut_index|int]|length %}
 {% if 'properties' in vm_topo_config['vm'][dev] and 'device_type' in vm_topo_config['vm'][dev]['properties'] %}
 {% set dev_type = vm_topo_config['vm'][dev]['properties']['device_type'] %}
+{% elif 'Fwa' in dev %}
+{% set dev_type = 'FrontEndWanAggregator' %}
 {% elif ('T1' in dev) and (enable_compute_ai_deployment|default('false')|bool) %}
 {% set dev_type = 'BackEndLeafRouter' %}
 {% elif 'T1' in dev %}
