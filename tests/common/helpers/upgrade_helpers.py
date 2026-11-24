@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from six.moves.urllib.parse import urlparse
 import tests.common.fixtures.grpc_fixtures  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
-from tests.common import reboot
+from tests.common import config_reload, reboot
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
 from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_COLD
@@ -71,6 +71,49 @@ def restore_image(localhost, duthosts, rand_one_dut_hostname, upgrade_path_lists
         install_sonic(duthost, restore_to_image, tbinfo)
         # Perform a cold reboot
         reboot(duthost, localhost)
+
+
+def regenerate_and_apply_golden_config_db(dut, tbinfo, conn_graph_facts, dns_config):
+    """Regenerate UT2 golden config before reloading minigraph."""
+    if 't2_single_node' in tbinfo['topo']['name']:
+        hostvars = dut.host.options['variable_manager'].get_vars(
+            host=dut.host.options['inventory_manager'].get_host(dut.hostname))
+        common = tbinfo['topo']['properties'].get('configuration_properties', {}).get('common', {})
+        dut.copy(content=json.dumps(dns_config), dest="/tmp/dns_config.json")
+        macsec_profile = hostvars.get('macsec_profile') if hostvars.get('enable_macsec') else None
+        if macsec_profile:
+            dut.copy(src="common/macsec/profile.json", dest="/tmp/profile.json")
+            dut.copy(src="../ansible/templates/golden_config_db_t2.j2",
+                     dest="/tmp/golden_config_db_t2.j2")
+        dut.generate_golden_config_db(
+            topo_name=tbinfo['topo']['name'],
+            num_asics=dut.facts['num_asic'],
+            macsec_profile=macsec_profile,
+            bgp_confd_asn=common.get('dut_confed_asn'),
+            bgp_confd_peers=common.get('dut_confed_peers'),
+            device_conn=conn_graph_facts.get('device_conn', {}).get(dut.hostname, {}))
+        config_reload(dut, config_source="minigraph", override_config=True,
+                      safe_reload=True, wait_for_bgp=True)
+
+
+@pytest.fixture
+def restore_image_ut2(localhost, duthosts, upgrade_path_lists, tbinfo, conn_graph_facts):
+    """Restore a standalone UT2 image and its golden configuration after the test."""
+    dns_config = None
+    dut = None
+    if 't2_single_node' in tbinfo['topo']['name']:
+        dut = duthosts[0]
+        config = json.loads(dut.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
+        dns_config = {"DNS_NAMESERVER": config.get("DNS_NAMESERVER", {})}
+
+    yield dns_config
+
+    restore_to_image = upgrade_path_lists[3]
+    if dut and dns_config and restore_to_image:
+        logger.info("Preparing to cleanup and restore to {}".format(restore_to_image))
+        install_sonic(dut, restore_to_image, tbinfo)
+        reboot(dut, localhost)
+        regenerate_and_apply_golden_config_db(dut, tbinfo, conn_graph_facts, dns_config)
 
 
 def get_reboot_command(duthost, upgrade_type):
