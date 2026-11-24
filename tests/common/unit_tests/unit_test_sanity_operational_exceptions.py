@@ -932,6 +932,55 @@ class SanityControls(unittest.TestCase):
         self.assertEqual(caught.exception.failures[0]['exception_type'], 'RunAnsibleModuleFail')
         self.assertEqual(set(caught.exception.results), {'dut2'})
 
+    def test_cleanup_late_payload_overrides_timeout_without_losing_programming_kind(self):
+        load(PARALLEL, ['parallel_run'], self.ns)
+        for payload in [KeyError('late programming error'), RunAnsibleModuleFail('late command error'), None]:
+            results, reads = {}, []
+            state = {'alive': True, 'cleaning': False}
+            worker = SimpleNamespace(name='cleanup-worker', pid=123, exitcode=None, start=Mock(), exception=None)
+            worker.is_alive = lambda: state['alive']
+            worker.is_running = worker.is_alive
+
+            def read(final=False):
+                reads.append(final)
+                return ((payload, 'private traceback') if state['cleaning'] and payload is not None else None)
+
+            worker.read_exception = read
+
+            def process(**kwargs):
+                worker.name = kwargs['name']
+                return worker
+
+            def kill(pid, signal):
+                self.assertEqual(pid, 123)
+                state['cleaning'] = True  # Payload arrives after initial live empty read.
+                state['alive'] = False
+                worker.exitcode = -9
+
+            self.ns.update({'Manager': lambda: SimpleNamespace(dict=self.manager_maps(results)),
+                            'datetime': datetime, 'math': math, 'SonicProcess': process,
+                            'wait_procs': lambda active, **kwargs: ([], list(active)),
+                            'fix_logging_handler_fork_lock': Mock(), 'os': SimpleNamespace(kill=kill),
+                            'signal': SimpleNamespace(SIGKILL=9)})
+            with self.ns['sanity_worker_context']('check_dbmemory'):
+                with self.assertRaises(self.ns['SanityWorkerError']) as caught:
+                    self.ns['parallel_run'](self.worker_failure, (), {}, [self.host], timeout=1,
+                                            init_result={'failed': False, 'check_item': 'dbmemory'})
+            self.assertEqual(reads, [False, False, True])
+            failure = caught.exception.failures[0]
+            self.assertEqual(failure['host'], 'dut1')
+            self.assertEqual(failure['exception_type'], type(payload).__name__ if payload else 'WorkerTimeout')
+            self.assertEqual(failure['operational'], not isinstance(payload, KeyError))
+            self.assertEqual(caught.exception.results, {})
+            self.fixtures['check_dbmemory'].side_effect = caught.exception
+            if isinstance(payload, KeyError):
+                with self.assertRaises(self.ns['SanityWorkerError']) as rejected:
+                    self.checks('post')
+                self.assertEqual(rejected.exception.sanity_check_results, [self.process_failure])
+                self.ns['recover'].assert_not_called()
+            else:
+                self.assertTrue(self.checks('post')[-1]['failed'])
+
     def test_operational_worker_and_timed_out_peer_are_attributed_without_placeholder_pass(self):
         load(PARALLEL, ['parallel_run'], self.ns)
         for order in [('dut1', 'dut2', 'dut3'), ('dut2', 'dut1', 'dut3')]:

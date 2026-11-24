@@ -261,6 +261,12 @@ def parallel_run(
     completed_results = {}
     completed_workers = set()
     timed_out_workers = set()
+    retained_workers = {}
+
+    def collect_cleanup_exception(worker, final=False):
+        payload = worker.read_exception(final=final)
+        if payload is not None:
+            failed_processes[worker.name] = {'exit_code': worker.exitcode, 'exception': payload}
 
     # Callback API for wait_procs
     def on_terminate(worker):
@@ -276,6 +282,8 @@ def parallel_run(
                 'Found processes still running: {}. Try to kill them.'.format(str(running_processes))
             )
             for p in running_processes:
+                if sanity_check is not None:
+                    collect_cleanup_exception(p)
                 # If sanity check process is killed, it still has init results.
                 # set its failed to True.
                 if sanity_check is not None:
@@ -342,6 +350,7 @@ def parallel_run(
                     )
             if sanity_check is not None:
                 worker_hosts[process_name] = getattr(node, "hostname", None)
+                retained_workers[process_name] = worker
             worker.start()
             tasks_running += 1
             logger.debug('Started process {} running target "{}"'.format(
@@ -404,6 +413,8 @@ def parallel_run(
             logger.error('Process {} is alive, force terminate it.'.format(
                 worker.name
             ))
+            if sanity_check is not None:
+                collect_cleanup_exception(worker)
             worker.terminate()
             # If sanity check process is killed, it still has init results.
             # set its failed to True.
@@ -420,6 +431,14 @@ def parallel_run(
 
     # force terminate any workers still running
     force_terminate(workers, init_result)
+
+    if sanity_check is not None:
+        # A live empty read can precede publication during timeout cleanup.
+        # Keep references even after the active list was cleared and prefer any
+        # actual exception payload over a synthesized operational timeout.
+        for name, worker in retained_workers.items():
+            if name not in completed_workers and not failed_processes.get(name, {}).get('exception'):
+                collect_cleanup_exception(worker, final=not worker.is_alive())
 
     # if we have failed processes, we should log the exception and exit code
     # of each Process and fail
