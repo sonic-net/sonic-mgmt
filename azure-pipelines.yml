@@ -264,7 +264,7 @@ stages:
         fetchDepth: 0
       - bash: |
           set -e
-          git checkout 2c0cdb2390353368caf5aaf93f86dded437a9024
+          git checkout febd4f0bf68bc0beeaf67c9addbe7437408eb075
           git submodule update --init --recursive
           git -C src/sonic-utilities fetch origin refs/pull/4738/head
         displayName: "Fetch matching backend and CLI commits"
