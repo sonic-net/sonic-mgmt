@@ -82,9 +82,9 @@ LOG_LEVEL_TIMEOUT = 30
 
 # A subscription whose destination and context must stay out of the record.
 # 192.0.2.0/24 is reserved for documentation, so nothing is ever delivered.
-SECRET_DESTINATION_HOST = "192.0.2.77"
-SECRET_DESTINATION_PATH = "rmc-audit-secret-path"
-SECRET_CONTEXT = "rmc-audit-secret-context"
+UNRECORDED_DESTINATION_HOST = "192.0.2.77"
+UNRECORDED_DESTINATION_PATH = "rmc-audit-secret-path"
+UNRECORDED_CONTEXT = "rmc-audit-secret-context"
 UNROUTED_MARKER = "rmc-audit-xyzzy"
 UNROUTED_PATH = "/redfish/v1/No/Such/Route-{}".format(UNROUTED_MARKER)
 
@@ -186,8 +186,8 @@ def _assert_record_envelope(record):
     )
 
 
-def _assert_absent(line, secrets):
-    leaked = [secret for secret in secrets if secret in line]
+def _assert_absent(line, values):
+    leaked = [value for value in values if value in line]
     pytest_assert(not leaked, "The audit record must not carry {}, got: {}".format(leaked, line))
 
 
@@ -444,12 +444,12 @@ class TestRedfishAuditLog:
         the route pattern of a subscription, and neither line carries the
         Destination host, its path or the Context.
         """
-        secrets = [SECRET_DESTINATION_HOST, SECRET_DESTINATION_PATH, SECRET_CONTEXT]
+        unrecorded = [UNRECORDED_DESTINATION_HOST, UNRECORDED_DESTINATION_PATH, UNRECORDED_CONTEXT]
         since = audit_log.mark()
         response = redfish_client.post(SUBSCRIPTIONS_PATH, json={
-            "Destination": "http://{}:8080/{}".format(SECRET_DESTINATION_HOST, SECRET_DESTINATION_PATH),
+            "Destination": "http://{}:8080/{}".format(UNRECORDED_DESTINATION_HOST, UNRECORDED_DESTINATION_PATH),
             "Protocol": "Redfish",
-            "Context": SECRET_CONTEXT,
+            "Context": UNRECORDED_CONTEXT,
         })
         pytest_assert(response.status_code == 201,
                       "Expected HTTP 201 from {}, got: {} body={!r}".format(
@@ -461,7 +461,7 @@ class TestRedfishAuditLog:
             pytest_assert(created.get("status") == 201 and created.get("user") == CLIENT_CN,
                           "The subscription record must carry status 201 and user {}, got: {}".format(
                               CLIENT_CN, created))
-            _assert_absent(line, secrets)
+            _assert_absent(line, unrecorded)
         finally:
             since = audit_log.mark()
             deleted_response = redfish_client.delete(location)
@@ -475,8 +475,8 @@ class TestRedfishAuditLog:
                           deleted_response.status_code, deleted))
         pytest_assert(deleted["seq"] > created["seq"],
                       "Sequence numbers must increase, got {} then {}".format(created["seq"], deleted["seq"]))
-        _assert_absent(line, secrets)
-        logger.info("Verified the subscription was recorded without %s: %s then %s", secrets, created, deleted)
+        _assert_absent(line, unrecorded)
+        logger.info("Verified the subscription was recorded without %s: %s then %s", unrecorded, created, deleted)
 
     def test_unrouted_path_not_recorded(self, redfish_client, audit_log):
         """

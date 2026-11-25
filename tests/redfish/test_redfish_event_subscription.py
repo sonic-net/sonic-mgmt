@@ -666,6 +666,9 @@ def bmcctld_stopped(bmc_duthost):
         return (wait_until(BMCCTLD_TIMEOUT, HOST_STATE_POLL, 0, is_bmcctld_running, bmc_duthost)
                 and wait_until(BMCCTLD_TIMEOUT, HOST_STATE_POLL, 0, _host_state_published, bmc_duthost))
 
+    def _new_commands_done():
+        return all(command_done(bmc_duthost, key) for key in command_keys(bmc_duthost) - keys_before)
+
     try:
         logger.info("Stopping %s in the pmon container", BMCCTLD)
         bmc_duthost.stop_pmon_daemon_service(BMCCTLD)
@@ -674,8 +677,7 @@ def bmcctld_stopped(bmc_duthost):
         running = is_bmcctld_running(bmc_duthost)
         if running:
             # bmcctld writes a status to a command it took, which would bring a deleted row back.
-            wait_until(COMMAND_DONE_TIMEOUT, DELIVERY_POLL, 0, lambda: all(
-                command_done(bmc_duthost, key) for key in command_keys(bmc_duthost) - keys_before))
+            wait_until(COMMAND_DONE_TIMEOUT, DELIVERY_POLL, 0, _new_commands_done)
         remove_new_commands(bmc_duthost, keys_before)
         if not running:
             pytest_assert(_start(), "{} did not start and republish {} within {}s".format(
