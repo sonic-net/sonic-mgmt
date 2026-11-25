@@ -70,15 +70,51 @@ def _read_pddf_device_json(duthost):
         raise AssertionError("Failed to parse {}: {}".format(PDDF_DEVICE_JSON_PATH, e)) from e
 
 
-def _pddfparse_subtree(duthost, action, node, ignore_errors=False):
-    """Create or delete a pddf-device.json node and its descendants in the I2C topology."""
+def _pddfparse_subtree(duthost, action, node):
+    """Create or delete a pddf-device.json node and its descendants in the I2C topology.
+    Returns a one-line summary of the outcome; callers verify the result in sysfs."""
     cmd = "timeout {}s sudo pddfparse.py --{}-subtree {}".format(PDDFPARSE_TIMEOUT_SEC, action, node)
     res = duthost.shell(cmd, module_ignore_errors=True)
+    summary = " ".join(part for part in ("'{}' rc={}".format(cmd, res['rc']), res['stdout'].strip(),
+                                         res['stderr'].strip()) if part)
     if res['rc'] != 0:
-        msg = "'{}' failed (rc={}): {}\n{}".format(cmd, res['rc'], res['stdout'], res['stderr'])
-        if not ignore_errors:
-            pytest.fail(msg)
-        logger.warning("Ignoring: %s", msg)
+        logger.warning(summary)
+    return summary
+
+
+def _psu_client_state(duthost, clients):
+    """{client name: (sysfs name, driver)} for the PSU's declared I2C clients; driver is
+    None for a client with no driver bound, the whole entry is None for an absent client."""
+    state = {}
+    for client in clients:
+        path = "/sys/bus/i2c/devices/{}-{:04x}".format(client['bus'], client['addr'])
+        res = duthost.shell("if [ -e {0}/name ]; then cat {0}/name; readlink {0}/driver; fi".format(path),
+                            module_ignore_errors=True)
+        lines = res['stdout'].splitlines()
+        if not lines:
+            state[client['name']] = None
+        else:
+            state[client['name']] = (lines[0].strip(), lines[1].strip().rsplit('/', 1)[-1] if len(lines) > 1 else None)
+    return state
+
+
+def _detach_psu_subtree(duthost, name, clients):
+    """Delete the PSU's PDDF subtree and fail unless every declared I2C client is gone."""
+    outcome = _pddfparse_subtree(duthost, "delete", name)
+    left = {client: state for client, state in _psu_client_state(duthost, clients).items() if state is not None}
+    pytest_assert(not left, "{}: I2C clients still present after {}: {}".format(name, outcome, left))
+
+
+def _reattach_psu_subtree(duthost, name, clients, state_before):
+    """Recreate the PSU's PDDF subtree and fail unless its I2C clients are back in sysfs
+    exactly as before the test and `show platform psu` reports the PSU OK."""
+    outcome = _pddfparse_subtree(duthost, "create", name)
+    state = _psu_client_state(duthost, clients)
+    pytest_assert(state == state_before, "{}: I2C clients after {}: {}, before the test: {}".format(
+        name, outcome, state, state_before))
+    if not wait_until(PSUD_REFRESH_TIMEOUT_SEC, 5, 0, _psu_reports_ok, duthost, name):
+        pytest.fail("{} did not return to OK in 'show platform psu' within {}s: {}".format(
+            name, PSUD_REFRESH_TIMEOUT_SEC, _get_psu_status(duthost).get(name)))
 
 
 def _get_psu_status(duthost):
@@ -102,20 +138,29 @@ def _skip_unless_tooling_present(duthost):
             pytest.skip("{} is not available on the DUT".format(what))
 
 
-def _get_pddf_psu_pmbus_topology(pddf_device_data):
-    """{psu name: (bus, addr)} for every PSU in pddf-device.json with a PMBus interface."""
-    topology = {}
+def _get_pddf_psu_i2c_clients(pddf_device_data):
+    """{psu name: [client, ...]} for every PSU in pddf-device.json with a PMBus interface.
+    A client is {'itf', 'name', 'bus', 'addr', 'dev_type'} for each interface device
+    with I2C topology info, in the order pddfparse creates them."""
+    psus = {}
     for name, dev in pddf_device_data.items():
         if not re.fullmatch(r'PSU\d+', name):
             continue
+        clients = []
         for interface in dev.get('i2c', {}).get('interface', []):
-            pmbus_dev = interface.get('dev')
-            if interface.get('itf') != 'pmbus' or not pmbus_dev:
+            dev_name = interface.get('dev')
+            topo_info = pddf_device_data.get(dev_name, {}).get('i2c', {}).get('topo_info', {})
+            if not all(key in topo_info for key in ('parent_bus', 'dev_addr', 'dev_type')):
                 continue
-            topo_info = pddf_device_data.get(pmbus_dev, {}).get('i2c', {}).get('topo_info', {})
-            if 'parent_bus' in topo_info and 'dev_addr' in topo_info:
-                topology[name] = (int(topo_info['parent_bus'], 0), int(topo_info['dev_addr'], 0))
-    return topology
+            clients.append({'itf': interface.get('itf'), 'name': dev_name, 'bus': int(topo_info['parent_bus'], 0),
+                            'addr': int(topo_info['dev_addr'], 0), 'dev_type': topo_info['dev_type']})
+        if any(client['itf'] == 'pmbus' for client in clients):
+            psus[name] = clients
+    return psus
+
+
+def _pmbus_client(clients):
+    return next(client for client in clients if client['itf'] == 'pmbus')
 
 
 def _parse_psu_fw_version(text):
@@ -145,10 +190,10 @@ def _get_psu_fw_version(duthost, bus, addr):
     return _parse_psu_fw_version(res['stdout'])
 
 
-def _select_psus(duthost, psu_status, topology):
+def _select_psus(duthost, psu_status, psu_clients):
     skip_list = get_skip_mod_list(duthost, ['psus'])
     selected = []
-    for name, (bus, addr) in sorted(topology.items()):
+    for name, clients in sorted(psu_clients.items()):
         if name in skip_list:
             logger.info("Skipping %s: listed in the inventory's skip_modules", name)
             continue
@@ -164,7 +209,8 @@ def _select_psus(duthost, psu_status, topology):
             logger.info("Skipping %s: model '%s' is not known to support OCP recovery over PMBus", name, model)
             continue
         if support['min_fw'] is not None:
-            fw_version = _get_psu_fw_version(duthost, bus, addr)
+            pmbus_client = _pmbus_client(clients)
+            fw_version = _get_psu_fw_version(duthost, pmbus_client['bus'], pmbus_client['addr'])
             if fw_version is None or fw_version < support['min_fw']:
                 logger.info("Skipping %s: firmware %s is below %s", name, fw_version, support['min_fw'])
                 continue
@@ -327,27 +373,29 @@ def test_psu_ocp_recovery_over_pmbus(duthosts, enum_rand_one_per_hwsku_hostname)
        current and verify the PSU reports IOUT_OC_FAULT and shuts its output off.
     3. Restore the original limits.
     4. Cycle OPERATION off/on and verify the output comes back with power good.
-    5. Reattach the PDDF subtree and verify `show platform psu` reports OK again.
+    5. Reattach the PDDF subtree and verify its I2C clients are bound again and
+       `show platform psu` reports OK. This runs however steps 2 to 4 ended.
 
     A PSU that cannot be faulted safely (too little headroom on the others) or at
     all (too little output current) is logged and left alone; the test only skips
     when that is true of every candidate.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    topology = _get_pddf_psu_pmbus_topology(_read_pddf_device_json(duthost))
-    if not topology:
+    psu_clients = _get_pddf_psu_i2c_clients(_read_pddf_device_json(duthost))
+    if not psu_clients:
         pytest.skip("No PSU with a PMBus interface declared in pddf-device.json")
     _skip_unless_tooling_present(duthost)
 
     psu_status = _get_psu_status(duthost)
-    selected = _select_psus(duthost, psu_status, topology)
+    selected = _select_psus(duthost, psu_status, psu_clients)
     if not selected:
         pytest.skip("No healthy PSU with a model/firmware known to support OCP recovery over PMBus")
 
     tested = []
     not_testable = {}
     for name in selected:
-        bus, addr = topology[name]
+        clients = psu_clients[name]
+        pmbus_client = _pmbus_client(clients)
         # Re-read: tripping the previous PSU shifted load onto the others.
         live_status = _get_psu_status(duthost)
         logger.info("PSU status/power(W)/current(A) before %s: %s", name, _summarize_psu_status(live_status))
@@ -361,24 +409,22 @@ def test_psu_ocp_recovery_over_pmbus(duthosts, enum_rand_one_per_hwsku_hostname)
             not_testable[name] = str(e)
             continue
 
-        detached = False
+        state_before = _psu_client_state(duthost, clients)
+        missing = {client['name']: state_before[client['name']] for client in clients
+                   if state_before[client['name']] is None or state_before[client['name']][0] != client['dev_type']}
+        pytest_assert(not missing, "{}: I2C clients not as declared in pddf-device.json before the test: {}".format(
+            name, missing))
         try:
             logger.info("Testing OCP recovery on %s (model %s, i2c bus %d addr 0x%02x)",
-                        name, live_status[name]['model'], bus, addr)
-            _pddfparse_subtree(duthost, "delete", name)
-            detached = True
-            _trip_and_recover(pmbus.PmbusPsu(duthost, name, bus, addr))
+                        name, live_status[name]['model'], pmbus_client['bus'], pmbus_client['addr'])
+            _detach_psu_subtree(duthost, name, clients)
+            _trip_and_recover(pmbus.PmbusPsu(duthost, name, pmbus_client['bus'], pmbus_client['addr']))
         except PsuNotTestable as e:
             logger.warning("Not testing %s: %s", name, e)
             not_testable[name] = str(e)
             continue
         finally:
-            # A failed delete may have removed part of the subtree; put it back best effort.
-            _pddfparse_subtree(duthost, "create", name, ignore_errors=not detached)
-
-        pytest_assert(wait_until(PSUD_REFRESH_TIMEOUT_SEC, 5, 0, _psu_reports_ok, duthost, name),
-                      "{} did not return to OK in 'show platform psu' within {}s: {}".format(
-                          name, PSUD_REFRESH_TIMEOUT_SEC, _get_psu_status(duthost).get(name)))
+            _reattach_psu_subtree(duthost, name, clients, state_before)
         tested.append(name)
 
     if not tested:
