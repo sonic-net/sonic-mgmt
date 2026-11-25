@@ -8,6 +8,7 @@ from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.common.plugins.memory_utilization.memory_utilization import MemoryMonitor
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -58,7 +59,7 @@ def get_current_syslog_servers(duthost):
     output = duthost.shell(cmds)
 
     if not output['rc']:
-        logger.warning("'{}' exited with return code {}".format(cmds, output['rc]))
+        logger.warning("'{}' exited with return code {}".format(cmds, output['rc']))
         return None
 
     # If len less than 3 means not syslog output
