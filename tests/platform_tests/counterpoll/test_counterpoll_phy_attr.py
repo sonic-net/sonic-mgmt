@@ -53,16 +53,22 @@ LATCH_STATUS_POLL_INTERVAL_SEC = 1
 
 @pytest.fixture(scope="module", autouse=True)
 def restore_config_after_phy_attr_tests(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-    """Back up host/per-ASIC config files and restore them after this module."""
+    """Restore the original running and saved config independently after this module."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     file_postfix = 'before_counterpoll_phy_attr_tests'
+    running_postfix = file_postfix + '_running'
 
     save_backup_test_config(duthost, file_postfix=file_postfix)
     try:
-        yield
+        duthost.command('config save -y')
+        save_backup_test_config(duthost, file_postfix=running_postfix)
+        try:
+            yield
+        finally:
+            restore_backup_test_config(duthost, file_postfix=running_postfix, config_reload=False)
+            config_reload(duthost, config_source='config_db', safe_reload=True)
     finally:
         restore_backup_test_config(duthost, file_postfix=file_postfix, config_reload=False)
-        config_reload(duthost, config_source='config_db', safe_reload=True)
 
 
 def get_port_config_from_config_db(asic):
@@ -119,13 +125,14 @@ def build_port_oid_map(asic):
     return port_oid_map
 
 
-def verify_phy_attr_in_cli(duthost, expected_status):
+def verify_phy_attr_in_cli(duthost, expected_status, expected_interval=None):
     """
     Verify counterpoll show output for PHY counters on every ASIC.
 
     Args:
         duthost: DUT host object
         expected_status: Expected status ('enable' or 'disable')
+        expected_interval: Expected poll interval in ms (optional)
     """
     with allure.step("Verifying 'counterpoll show' output for PHY counters"):
         for asic in duthost.asics:
@@ -139,6 +146,11 @@ def verify_phy_attr_in_cli(duthost, expected_status):
                     pytest_assert(expected_status == actual_status,
                                   "PHY counter status on asic{} is '{}', expected '{}'".format(
                                       asic.asic_index, actual_status, expected_status))
+                    if expected_interval is not None:
+                        actual_interval = entry.get(CounterpollConstants.INTERVAL)
+                        pytest_assert(str(expected_interval) == str(actual_interval),
+                                      "PHY interval on asic{} is '{}', expected '{}'".format(
+                                          asic.asic_index, actual_interval, expected_interval))
                     logging.info("PHY counter status verified on asic%s: %s", asic.asic_index, actual_status)
                     break
             else:
@@ -181,15 +193,16 @@ def verify_phy_attr_in_config_db(duthost, expected_status, expected_interval=Non
                 pytest.fail("FLEX_COUNTER_TABLE|PORT_PHY_ATTR not found in CONFIG_DB")
 
 
-def verify_phy_attr_in_flex_counter_db(duthost, expected_interval=None):
+def verify_phy_attr_in_flex_counter_db(duthost, expected_interval=None, expected_status=ENABLE):
     """
-    Wait for the enabled PHY group and requested interval in FLEX_COUNTER_DB.
+    Wait for the expected PHY group status and interval in FLEX_COUNTER_DB.
 
     Args:
         duthost: DUT host object
         expected_interval: Expected poll interval in ms (optional)
+        expected_status: Expected status ('enable' or 'disable')
     """
-    expected_fields = {'FLEX_COUNTER_STATUS': ENABLE}
+    expected_fields = {'FLEX_COUNTER_STATUS': expected_status}
     if expected_interval is not None:
         expected_fields['POLL_INTERVAL'] = str(expected_interval)
 
@@ -198,7 +211,7 @@ def verify_phy_attr_in_flex_counter_db(duthost, expected_interval=None):
             group_data = SonicDbCli(asic, 'FLEX_COUNTER_DB').hget_all(FLEX_COUNTER_GROUP_TABLE)
         except SonicDbKeyNotFound:
             logging.debug("PHY group not available yet on asic%s", asic.asic_index)
-            return False
+            return expected_status == DISABLE
         logging.debug("PHY group on asic%s: actual=%s expected=%s",
                       asic.asic_index, group_data, expected_fields)
         return all(group_data.get(field) == value for field, value in expected_fields.items())
@@ -217,6 +230,7 @@ def check_phy_counters_populated(sample_ports):
     if not sample_ports:
         return False
     interface_status = {}
+    validated_up_ports = 0
     for port_info in sample_ports:
         asic = port_info['asic']
         try:
@@ -256,12 +270,15 @@ def check_phy_counters_populated(sample_ports):
                 logging.debug("Waiting for %s lanes to reach T/T* on oper-up asic%s port %s: %s",
                               attribute, asic.asic_index, port_info['interface'], lane_data)
                 return False
-    return True
+        validated_up_ports += 1
+    if not validated_up_ports:
+        logging.debug("Waiting for at least one oper-up sampled port to validate PHY values")
+    return validated_up_ports > 0
 
 
 def get_sample_ports_with_lane_counts(duthost, sample_size=3):
     """
-    Sample ports registered for all required PHY attributes across frontend ASICs.
+    Sample registered PHY ports across frontend ASICs, preferring oper-up ports.
 
     Args:
         duthost: DUT host object
@@ -271,13 +288,15 @@ def get_sample_ports_with_lane_counts(duthost, sample_size=3):
         list: Port records containing OID, interface, lane count and owning ASIC
     """
     port_candidates = []
+    interface_status = {}
     frontend_asics = duthost.frontend_asics if duthost.is_multi_asic else duthost.asics
     pytest_assert(frontend_asics, "No frontend ASICs available for PHY validation")
     for asic in frontend_asics:
+        interface_status[asic] = asic.show_interface(command='status')['ansible_facts']['int_status']
         port_configs = get_port_config_from_config_db(asic)
         port_oid_map = build_port_oid_map(asic)
         for intf_name, port_config in port_configs.items():
-            if port_config.get('role', '').lower() in ['rec', 'inb']:
+            if port_config.get('role', '').lower() in ('rec', 'inb', 'int', 'dpc'):
                 continue
             port_oid = port_oid_map.get(intf_name)
             if port_oid is None:
@@ -289,6 +308,8 @@ def get_sample_ports_with_lane_counts(duthost, sample_size=3):
                 'asic': asic
             })
     random.shuffle(port_candidates)
+    port_candidates.sort(key=lambda port: interface_status[port['asic']].get(
+        port['interface'], {}).get('oper_state') != 'up')
     sample_ports = []
     for port_info in port_candidates:
         asic = port_info['asic']
@@ -477,7 +498,12 @@ def poll_for_latch_statuses(asic, port_oid, expected_status, max_attempts,
                               "RX signal lane set changed for {}".format(port_oid))
             for lane, value in data.items():
                 status, _, _ = validate_latch_status_value(value, lane, port_oid, attribute)
-                if lane not in matches and status == expected_status:
+                expected_lane_statuses = (expected_status,)
+                if (attribute == 'FEC' and expected_status == 'T*'
+                        and previous_data is not None and lane not in previous_data):
+                    # New FEC lanes have no previous state to establish a transition.
+                    expected_lane_statuses = ('T', 'T*')
+                if lane not in matches and status in expected_lane_statuses:
                     if previous_data:
                         validate_latch_metadata({lane: value}, previous_data, attribute)
                     matches[lane] = value
@@ -516,7 +542,8 @@ def get_test_port_info(duthost, fanouthosts):
         dict: Port information including interface, oid, lanes, asic, fanout, fanout_port
     """
     candidates = build_test_candidates(duthost, fanouthosts, 'all_ports')
-    pytest_assert(len(candidates) > 0, "No ports with fanout connectivity found")
+    if not candidates:
+        pytest.skip("No ports with fanout connectivity found")
 
     frontend_asics = duthost.frontend_asics if duthost.is_multi_asic else duthost.asics
     for test_asic in frontend_asics:
@@ -748,37 +775,36 @@ def test_phy_interval_change(duthosts, enum_rand_one_per_hwsku_frontend_hostname
 
 
 def test_phy_config_reload_persistence(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-    """
-    Test 3: Verify PHY counters persist after config save + disable + reload
-
-    Steps:
-    1. Enable PHY counters and save config
-    2. Disable PHY counters
-    3. Config reload
-    4. Verify PHY counters restored to enabled
-    5. Verify COUNTERS_DB has fresh data
-    """
+    """Verify reload restores the saved enabled state and nondefault interval."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-    with allure.step("Enabling PHY counters"):
+    with allure.step("Enabling PHY counters with a 5000ms interval"):
         for asic in duthost.asics:
             ConterpollHelper.enable_counterpoll(asic, [PORT_PHY_ATTR])
+            ConterpollHelper.set_counterpoll_interval(asic, PORT_PHY_ATTR, 5000)
+
+    verify_phy_attr_in_cli(duthost, ENABLE, expected_interval=5000)
+    verify_phy_attr_in_config_db(duthost, ENABLE, expected_interval=5000)
+    verify_phy_attr_in_flex_counter_db(duthost, expected_interval=5000)
 
     with allure.step("Saving config"):
         duthost.command('config save -y')
 
-    with allure.step("Disabling PHY counters"):
+    with allure.step("Disabling PHY counters and changing interval without saving"):
         for asic in duthost.asics:
+            ConterpollHelper.set_counterpoll_interval(asic, PORT_PHY_ATTR, 10000)
             ConterpollHelper.disable_counterpoll(asic, [PORT_PHY_ATTR])
 
-    verify_phy_attr_in_cli(duthost, DISABLE)
+    verify_phy_attr_in_cli(duthost, DISABLE, expected_interval=10000)
+    verify_phy_attr_in_config_db(duthost, DISABLE, expected_interval=10000)
+    verify_phy_attr_in_flex_counter_db(duthost, expected_interval=10000, expected_status=DISABLE)
 
     with allure.step("Performing config reload"):
-        config_reload(duthost, config_source='config_db', safe_reload=True)
+        config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True)
 
-    verify_phy_attr_in_cli(duthost, ENABLE)
-
-    verify_phy_attr_in_flex_counter_db(duthost)
+    verify_phy_attr_in_cli(duthost, ENABLE, expected_interval=5000)
+    verify_phy_attr_in_config_db(duthost, ENABLE, expected_interval=5000)
+    verify_phy_attr_in_flex_counter_db(duthost, expected_interval=5000)
 
     sample_ports = get_sample_ports_with_lane_counts(duthost, sample_size=3)
 
@@ -793,46 +819,34 @@ def test_phy_config_reload_persistence(duthosts, enum_rand_one_per_hwsku_fronten
 
 
 def test_phy_reboot_persistence(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost):
-    """
-    Test 4: Verify PHY counters persist after disable + reboot
-
-    Steps:
-    1. Enable PHY counters and save config
-    2. Disable PHY counters
-    3. Reboot
-    4. Verify PHY counters restored to enabled
-    5. Verify COUNTERS_DB has fresh data
-    """
+    """Verify the saved disabled state survives reboot and overrides the enabled default."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-
-    with allure.step("Enabling PHY counters and saving config"):
-        for asic in duthost.asics:
-            ConterpollHelper.enable_counterpoll(asic, [PORT_PHY_ATTR])
-        duthost.command('config save -y')
 
     with allure.step("Disabling PHY counters"):
         for asic in duthost.asics:
             ConterpollHelper.disable_counterpoll(asic, [PORT_PHY_ATTR])
 
     verify_phy_attr_in_cli(duthost, DISABLE)
+    verify_phy_attr_in_config_db(duthost, DISABLE)
+    verify_phy_attr_in_flex_counter_db(duthost, expected_status=DISABLE)
 
-    with allure.step("Performing reboot"):
-        reboot(duthost, localhost)
+    with allure.step("Saving config"):
+        duthost.command('config save -y')
+
+    with allure.step("Enabling PHY counters without saving"):
+        for asic in duthost.asics:
+            ConterpollHelper.enable_counterpoll(asic, [PORT_PHY_ATTR])
 
     verify_phy_attr_in_cli(duthost, ENABLE)
-
+    verify_phy_attr_in_config_db(duthost, ENABLE)
     verify_phy_attr_in_flex_counter_db(duthost)
 
-    sample_ports = get_sample_ports_with_lane_counts(duthost, sample_size=3)
+    with allure.step("Performing reboot"):
+        reboot(duthost, localhost, safe_reboot=True, check_intf_up_ports=True)
 
-    with allure.step("Waiting for data collection after reboot"):
-        timeout = 180 if duthost.is_multi_asic else 120
-        pytest_assert(
-            wait_until(timeout, 5, 0, check_phy_counters_populated, sample_ports),
-            "PHY data did not populate or reach T/T* on oper-up sampled ports after reboot within {} seconds".format(
-                timeout))
-
-    verify_counters_db_data(sample_ports)
+    verify_phy_attr_in_cli(duthost, DISABLE)
+    verify_phy_attr_in_config_db(duthost, DISABLE)
+    verify_phy_attr_in_flex_counter_db(duthost, expected_status=DISABLE)
 
 
 # RX signal-detect can intermittently miss the F* latch indication.
