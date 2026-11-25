@@ -283,35 +283,37 @@ def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
                 str(ipv4_base.ip + ip_offset), str(ipv6_base.ip + ip_offset)
             ]
 
-    CFG_FILE = '/tmp/arp_responder_vlan.json'
-    with open(CFG_FILE, 'w') as file:
-        json.dump(arp_responder_cfg, file)
-    ptfhost.copy(src=CFG_FILE, dest=CFG_FILE)
+    cfg_file = '/tmp/arp_responder_vlan.json'
+    ready_file = '/tmp/arp_responder_vlan.ready'
+    try:
+        ptfhost.copy(content=json.dumps(arp_responder_cfg), dest=cfg_file)
 
-    extra_vars = {
-            'arp_responder_args': '--conf {}'.format(CFG_FILE)
-    }
+        extra_vars = {
+            'arp_responder_args': '--conf {} --ready-file {}'.format(cfg_file, ready_file)
+        }
 
-    ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
-    ptfhost.template(src='templates/arp_responder.conf.j2',
-                     dest='/etc/supervisor/conf.d/arp_responder.conf')
-    ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ARP_RESPONDER_PY),
-                 dest=OPT_DIR)
+        ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
+        ptfhost.template(src='templates/arp_responder.conf.j2',
+                         dest='/etc/supervisor/conf.d/arp_responder.conf')
+        ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ARP_RESPONDER_PY),
+                     dest=OPT_DIR)
 
-    ptfhost.command('supervisorctl reread')
-    ptfhost.command('supervisorctl update')
+        ptfhost.command('supervisorctl reread')
+        ptfhost.command('supervisorctl update')
 
-    logger.info("Start arp_responder")
-    ptfhost.command('supervisorctl start arp_responder')
+        # Stop any previous instance before removing its readiness marker.
+        ptfhost.command('supervisorctl stop arp_responder', module_ignore_errors=True)
+        ptfhost.file(path=ready_file, state='absent')
+        logger.info("Start arp_responder")
+        ptfhost.command('supervisorctl start arp_responder')
+        ptfhost.wait_for(path=ready_file, state='present', timeout=60)
 
-    yield vlan, ipv4_base, ipv6_base, ip_offset
-
-    ptfhost.command('supervisorctl stop arp_responder')
-    # Remove the rendered config so it can't mislead diagnostics or be picked up
-    # by a later, stale invocation of arp_responder. The supervisor unit file
-    # itself is intentionally left in place because the autouse fixture re-renders
-    # it on every module setup; deleting only the data file is enough.
-    ptfhost.file(path=CFG_FILE, state="absent")
+        yield vlan, ipv4_base, ipv6_base, ip_offset
+    finally:
+        ptfhost.command('supervisorctl stop arp_responder', module_ignore_errors=True)
+        # Remove both config and readiness marker, including on setup failure.
+        for path in (ready_file, cfg_file):
+            ptfhost.file(path=path, state='absent')
 
 
 def _ptf_portmap_file(duthost, ptfhost, tbinfo):
