@@ -368,6 +368,8 @@ def test_match_portchannel_circuit_id(duthost, ptfadapter, match_env, relay_agen
     if relay_agent == "sonic-relay-agent":
         pytest.skip("sonic-relay-agent does not relay DHCP received on PortChannel members")
     env = match_env
+    pytest_require(duthost.shell("sonic-db-cli CONFIG_DB EXISTS 'PORTCHANNEL|{}'".format(
+        TEST_PORTCHANNEL))["stdout"].strip() == "0", "{} already exists".format(TEST_PORTCHANNEL))
     member = env.p3
     vlan_member_key = "VLAN_MEMBER|{}|{}".format(env.vlan, member.name)
     tagging = duthost.shell("sonic-db-cli CONFIG_DB HGET '{}' tagging_mode".format(vlan_member_key))["stdout"]

@@ -47,8 +47,7 @@ def main(config_path):
         if BOOTP not in pkt or pkt[BOOTP].op != 2 or DHCP not in pkt:
             return
         key = (pkt[BOOTP].xid, bytes(pkt[BOOTP].chaddr)[:6])
-        if key not in replies:
-            replies[key] = (time.time(), pkt[BOOTP].yiaddr, message_type(pkt))
+        replies.setdefault(key, []).append((time.time(), pkt[BOOTP].yiaddr, message_type(pkt)))
 
     sniffer = AsyncSniffer(iface=ifaces, filter="udp and (port 67 or port 68)", prn=on_packet, store=False)
     sniffer.start()
@@ -78,24 +77,25 @@ def main(config_path):
     result = {"sent": len(sent), "send_seconds": round(send_elapsed, 2), "offers": 0, "missing": 0, "late": 0,
               "wrong_pool": 0, "unexpected": 0, "latencies": [], "errors": []}
     for xid, client, sent_at in sent:
-        reply = replies.get((xid, bytes(mac2str(client["mac"]))))
+        client_replies = replies.get((xid, bytes(mac2str(client["mac"]))), [])
         expected = client.get("expect")
         if not expected:
-            if reply is not None:
+            if client_replies:
                 result["unexpected"] += 1
-                result["errors"].append("unmatched {} got {}".format(client["mac"], reply[1]))
+                result["errors"].append("unmatched {} got {}".format(client["mac"], client_replies[0][1]))
             continue
-        if reply is None:
+        if not client_replies:
             result["missing"] += 1
             continue
-        reply_at, yiaddr, msg_type = reply
+        # Latency is measured to the first reply; any invalid reply, even after a valid one, is an error.
         result["offers"] += 1
-        latency = reply_at - sent_at
+        latency = client_replies[0][0] - sent_at
         result["latencies"].append(round(latency, 4))
-        if msg_type != 2 or yiaddr not in expected:
+        invalid = [reply for reply in client_replies if reply[2] != 2 or reply[1] not in expected]
+        if invalid:
             result["wrong_pool"] += 1
             result["errors"].append("{} with {} got type {} address {}".format(
-                client["mac"], client.get("opt60"), msg_type, yiaddr))
+                client["mac"], client.get("opt60"), invalid[0][2], invalid[0][1]))
         elif latency > deadline:
             result["late"] += 1
     result["errors"] = result["errors"][:20]

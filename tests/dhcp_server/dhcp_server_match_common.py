@@ -93,7 +93,8 @@ class MatchEnv(object):
 
 
 def get_running_config(duthost):
-    return json.loads(duthost.shell("sonic-cfggen -d --print-data")["stdout"])
+    # verbose=False keeps Config DB contents, which can include TACACS/RADIUS keys, out of the debug log.
+    return json.loads(duthost.shell("sonic-cfggen -d --print-data", verbose=False)["stdout"])
 
 
 def discover_match_env(duthost, tbinfo, vlan_name=None):
@@ -127,7 +128,9 @@ def discover_match_env(duthost, tbinfo, vlan_name=None):
     now = int(duthost.shell("date +%s")["stdout"])
     leased = set(lease["ip-address"] for lease in get_kea_leases(duthost)
                  if _is_active_lease(lease, now) and not lease.get("hw-address", "").startswith(TEST_MAC_PREFIX))
-    hosts = [str(host) for host in vlan_intf.network.hosts() if host != vlan_intf.ip]
+    # The SVI addresses stay in the list as unavailable, so a free window never spans them.
+    leased.update(str(ipaddress.ip_interface(address).ip) for address in vlan_info["interface_ipv4"])
+    hosts = [str(host) for host in vlan_intf.network.hosts()]
     env = MatchEnv(
         vlan=vlan_name,
         vlan_id=vlan_name.replace("Vlan", ""),
@@ -194,7 +197,7 @@ def _restore_saved_config(duthost, local_path):
         return
     with open(local_path) as saved:
         content = saved.read()
-    current = duthost.shell("cat {}".format(SAVED_CONFIG_DB), module_ignore_errors=True)
+    current = duthost.shell("cat {}".format(SAVED_CONFIG_DB), module_ignore_errors=True, verbose=False)
     if current["rc"] != 0 or current["stdout"] != content.rstrip("\n"):
         logger.info("Restoring saved %s", SAVED_CONFIG_DB)
         duthost.copy(src=local_path, dest=SAVED_CONFIG_DB)
@@ -443,6 +446,8 @@ def second_vlan(duthost, tbinfo, env, vlan="Vlan4001", interface="192.168.200.1/
     The DHCP server tables are cleared on exit, because they may reference the new VLAN or its members.
     """
     new_net = ipaddress.ip_interface(interface).network
+    pytest_require(duthost.shell("sonic-db-cli CONFIG_DB EXISTS 'VLAN|{}'".format(vlan))["stdout"].strip() == "0",
+                   "{} already exists".format(vlan))
     for name in duthost.shell("sonic-db-cli CONFIG_DB KEYS '*INTERFACE|*|*'")["stdout_lines"]:
         address = name.split("|")[-1]
         if "." in address:
@@ -772,7 +777,8 @@ def add_syslog_marker(duthost):
 
 def wait_for_syslog(duthost, marker, text, timeout=30):
     """Wait for ``text`` to appear in syslog after ``marker`` and return the matching lines."""
-    cmd = "sudo awk -v m={} 'f; index($0, m) {{f=1}}' /var/log/syslog | grep -F -- {}".format(
+    # Ansible logs each module invocation to syslog, so the search command itself would otherwise match.
+    cmd = "sudo awk -v m={} 'f; index($0, m) {{f=1}}' /var/log/syslog | grep -F -- {} | grep -vF 'Invoked with'".format(
         shlex.quote(marker), shlex.quote(text))
     pytest_assert(wait_until(timeout, 2, 0, lambda: duthost.shell(cmd, module_ignore_errors=True)["rc"] == 0),
                   "Did not find '{}' in syslog".format(text))
@@ -889,6 +895,9 @@ class DhcpClient(object):
         result = self.ptfadapter.dataplane.poll(device_number=0, timeout=timeout, filters=[self._reply_filter(xid)])
         if result.packet is None:
             return None
+        vlan_ports = set(port.ptf_index for port in self.env.members) | {self.port.ptf_index}
+        pytest_assert(result.port in vlan_ports, "Reply for {} on {} arrived on PTF port {}, outside {}".format(
+            self.mac, self.port.name, result.port, self.env.vlan))
         reply = scapy.Ether(result.packet)
         logger.info("Client %s on %s got %s", self.mac, self.port.name, reply.summary())
         return reply
