@@ -73,22 +73,15 @@ def restore_image(localhost, duthosts, rand_one_dut_hostname, upgrade_path_lists
         reboot(duthost, localhost)
 
 
-def regenerate_and_apply_golden_config_db(dut, tbinfo, conn_graph_facts, dns_config):
-    """Regenerate UT2 golden config before reloading minigraph."""
+def regenerate_and_apply_golden_config_db(dut, tbinfo, conn_graph_facts, preserved_config):
     if 't2_single_node' in tbinfo['topo']['name']:
-        hostvars = dut.host.options['variable_manager'].get_vars(
-            host=dut.host.options['inventory_manager'].get_host(dut.hostname))
         common = tbinfo['topo']['properties'].get('configuration_properties', {}).get('common', {})
-        dut.copy(content=json.dumps(dns_config), dest="/tmp/dns_config.json")
-        macsec_profile = hostvars.get('macsec_profile') if hostvars.get('enable_macsec') else None
-        if macsec_profile:
-            dut.copy(src="common/macsec/profile.json", dest="/tmp/profile.json")
-            dut.copy(src="../ansible/templates/golden_config_db_t2.j2",
-                     dest="/tmp/golden_config_db_t2.j2")
+        # The generator’s update_preserved_config merges all keys of /tmp/dns_config.json, not just DNS.
+        dut.copy(content=json.dumps(preserved_config), dest="/tmp/dns_config.json", mode="0600")
+        
         dut.generate_golden_config_db(
             topo_name=tbinfo['topo']['name'],
             num_asics=dut.facts['num_asic'],
-            macsec_profile=macsec_profile,
             bgp_confd_asn=common.get('dut_confed_asn'),
             bgp_confd_peers=common.get('dut_confed_peers'),
             device_conn=conn_graph_facts.get('device_conn', {}).get(dut.hostname, {}))
@@ -99,21 +92,23 @@ def regenerate_and_apply_golden_config_db(dut, tbinfo, conn_graph_facts, dns_con
 @pytest.fixture
 def restore_image_ut2(localhost, duthosts, upgrade_path_lists, tbinfo, conn_graph_facts):
     """Restore a standalone UT2 image and its golden configuration after the test."""
-    dns_config = None
+    preserved_config = None
     dut = None
     if 't2_single_node' in tbinfo['topo']['name']:
         dut = duthosts[0]
         config = json.loads(dut.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
-        dns_config = {"DNS_NAMESERVER": config.get("DNS_NAMESERVER", {})}
+        preserved_config = {"DNS_NAMESERVER": config.get("DNS_NAMESERVER", {})}
+        if config.get("MACSEC_PROFILE"):
+            preserved_config["MACSEC_PROFILE"] = config["MACSEC_PROFILE"]
 
-    yield dns_config
+    yield preserved_config
 
     restore_to_image = upgrade_path_lists[3]
-    if dut and dns_config and restore_to_image:
+    if dut and preserved_config and restore_to_image:
         logger.info("Preparing to cleanup and restore to {}".format(restore_to_image))
         install_sonic(dut, restore_to_image, tbinfo)
         reboot(dut, localhost)
-        regenerate_and_apply_golden_config_db(dut, tbinfo, conn_graph_facts, dns_config)
+        regenerate_and_apply_golden_config_db(dut, tbinfo, conn_graph_facts, preserved_config)
 
 
 def get_reboot_command(duthost, upgrade_type):
