@@ -558,6 +558,30 @@ def append_midplane_traffic_rules(duthost, iptables_rules):
         iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT".format(midplane_ip, midplane_ip))
 
 
+def append_allow_bmc_link_traffic_rule(duthost, iptables_rules):
+    """
+    caclmgrd accepts traffic from the peer on the link between the switch host and the BMC
+    (https://github.com/sonic-net/sonic-host-services/pull/467). /etc/sonic/bmc.json only exists
+    on a switch host or a BMC, the same file is used on both ends of the link.
+    """
+    # Check if the DUT has a BMC link, only a switch with a BMC and the BMC itself have /etc/sonic/bmc.json
+    result = duthost.shell("cat /etc/sonic/bmc.json", module_ignore_errors=True)
+    if result["rc"] != 0:
+        return
+    # Check if caclmgrd on the DUT adds the BMC link rule
+    cmd = "grep -q generate_allow_bmc_link_traffic /usr/local/bin/caclmgrd"
+    if duthost.shell(cmd, module_ignore_errors=True)["rc"] != 0:
+        return
+
+    bmc_data = json.loads(result["stdout"])
+    intf, host_ip, bmc_ip = bmc_data["bmc_if_name"], bmc_data["bmc_if_addr"], bmc_data["bmc_addr"]
+    # bmc_if_addr is the switch host end of the link and bmc_addr is the BMC end
+    src_ip, dst_ip = (host_ip, bmc_ip) if duthost.is_bmc() else (bmc_ip, host_ip)
+    rule = f"-A INPUT -s {src_ip}/32 -d {dst_ip}/32 -i {intf} -j ACCEPT"
+    logger.info(f"Expect BMC link iptables rule: {rule}")
+    iptables_rules.append(rule)
+
+
 def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expected_dhcp_rules_for_standby):
     iptables_rules = []
     ip6tables_rules = []
@@ -579,10 +603,13 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
         iptables_rules.append("-A INPUT -d 169.254.200.254/32 -j ACCEPT")
 
     if asic_index is None:
+        # Allow the switch host <-> BMC link peer (host namespace only)
+        append_allow_bmc_link_traffic_rule(duthost, iptables_rules)
+
         # Allow Communication among docker containers
         for k, v in list(docker_network['container'].items()):
-            # network mode for dhcp_server and redfish containers is bridge, but this rule is not expected to be seen
-            if k in ("dhcp_server", "redfish"):
+            # network mode for dhcp_server container is bridge, but this rule is not expected to be seen
+            if k == "dhcp_server":
                 continue
             iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT"
                                   .format(docker_network['bridge']['IPv4Address'],
@@ -597,15 +624,12 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
                                    .format(v['IPv6Address'],
                                            docker_network['bridge']['IPv6Address']))
 
-        # Bridged containers forward rsyslog to the host over docker0 (tcp/2514);
-        # caclmgrd installs a per-feature INPUT ACCEPT while the feature is enabled,
-        # so generate the expectation from the same condition caclmgrd keys on.
+        # dhcp_server forwards rsyslog to the host over docker0 (tcp/2514); caclmgrd adds this ACCEPT when enabled
         feature_status, _ = duthost.get_feature_status()
-        for feature in ("dhcp_server", "redfish"):
-            if feature_status.get(feature) == "enabled":
-                iptables_rules.append(
-                    "-A INPUT -i docker0 -p tcp -m tcp --dport 2514"
-                    " -m comment --comment {}_syslog -j ACCEPT".format(feature))
+        if feature_status.get("dhcp_server") == "enabled":
+            iptables_rules.append(
+                "-A INPUT -i docker0 -p tcp -m tcp --dport 2514"
+                " -m comment --comment dhcp_server_syslog -j ACCEPT")
 
     else:
         iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT".format(docker_network['container']['database'

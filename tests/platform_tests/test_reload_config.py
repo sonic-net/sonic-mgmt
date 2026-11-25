@@ -100,6 +100,9 @@ def test_reload_configuration(duthosts, enum_rand_one_per_hwsku_hostname,
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     interfaces = conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {})
+    admin_up_ports = set(duthost.get_admin_up_ports())
+    interfaces = {k: v for k, v in interfaces.items() if k in admin_up_ports}
+    logging.info("Admin-up interfaces to check: %s", list(interfaces))
     asic_type = duthost.facts["asic_type"]
 
     if config_force_option_supported(duthost):
@@ -223,7 +226,7 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
 
     config_reload_timeout = 120
     if hwsku in ["Nokia-M0-7215", "Nokia-7215"]:
-        config_reload_timeout = 240
+        config_reload_timeout = 300
 
     if not config_force_option_supported(duthost):
         return

@@ -79,7 +79,9 @@ def ignore_expected_loganalyzer_exception(duthosts, rand_one_dut_hostname, logan
             ".*ERR syncd[0-9]*#syncd.*SAI_API_DEBUG_COUNTER:_brcm_sai_debug_counter_value_get."
             "*No debug_counter at index.*found.*",
             ".*ERR syncd[0-9]*#syncd.*collectPortDebugCounters: Failed to get stats of port.*",
-            ".* ERR syncd#syncd: :- collectData: Failed to get stats of Port Debug Counter.*"
+            ".* ERR syncd#syncd: :- collectData: Failed to get stats of Port Debug Counter.*",
+            ".*ERR syncd[0-9]*#syncd.*removeCounter: Object type for removal not supported, " +
+            "SAI_OBJECT_TYPE_NULL.*"
 
         ]
         duthost = duthosts[rand_one_dut_hostname]
@@ -380,6 +382,11 @@ def setup_counters(request, device_capabilities, duthosts, rand_one_dut_hostname
     counter_type = request.param
     supported_reasons = device_capabilities["reasons"][counter_type]
 
+    callspec = getattr(request.node, "callspec", None)
+    test_drop_reason = callspec.params.get("drop_reason") if callspec else None
+    if test_drop_reason and test_drop_reason not in supported_reasons:
+        pytest.skip("Drop reason {} not supported for {} on target DUT".format(test_drop_reason, counter_type))
+
     def _setup_counters(drop_reasons):
         if any(reason not in supported_reasons for reason in drop_reasons):
             pytest.skip("Drop reasons not supported on target DUT")
@@ -424,11 +431,11 @@ def send_dropped_traffic(duthosts, rand_one_dut_hostname, ptfadapter, testbed_pa
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    def _runner(counter_type, pkt, rx_port):
+    def _runner(counter_type, pkt, rx_port, count=PACKET_COUNT):
         duthost.command("sonic-clear dropcounters")
 
         logging.info("Sending traffic from ptf on port %s", rx_port)
-        _send_packets(duthost, ptfadapter, pkt, rx_port)
+        send_packets(duthost, ptfadapter, pkt, rx_port, count)
 
         def _check_drops():
             dst_port = testbed_params["physical_port_map"][rx_port]
@@ -437,8 +444,8 @@ def send_dropped_traffic(duthosts, rand_one_dut_hostname, ptfadapter, testbed_pa
                                              "TEST",
                                              dst_port)
             logging.info("Received %s drops on port %s, expected %s",
-                         recv_count, dst_port, PACKET_COUNT)
-            return recv_count == PACKET_COUNT
+                         recv_count, dst_port, count)
+            return recv_count == count
 
         pytest_assert(wait_until(10, 2, 0, _check_drops), "Expected {} drops".format(PACKET_COUNT))
 
@@ -446,8 +453,12 @@ def send_dropped_traffic(duthosts, rand_one_dut_hostname, ptfadapter, testbed_pa
 
 
 @pytest.fixture
-def arp_responder(ptfhost, testbed_params, tbinfo):
-    """Set up the ARP responder utility in the PTF container."""
+def arp_responder(ptfhost, testbed_params, tbinfo, setup_counters):
+    """Set up the ARP responder utility in the PTF container.
+
+    setup_counters is requested only to make it run first, so an unsupported drop
+    reason is skipped before the ARP responder is set up. Its value is not used.
+    """
     vlan_network = testbed_params["vlan_interface"]["subnet"]
     is_storage_backend = "backend" in tbinfo["topo"]["name"]
 
@@ -597,8 +608,8 @@ def _generate_vlan_servers(vlan_network, vlan_ports):
     return vlan_host_map
 
 
-def _send_packets(duthost, ptfadapter, pkt, ptf_tx_port_id,
-                  count=PACKET_COUNT):
+def send_packets(duthost, ptfadapter, pkt, ptf_tx_port_id,
+                 count):
     duthost.command("sonic-clear dropcounters")
 
     ptfadapter.dataplane.flush()

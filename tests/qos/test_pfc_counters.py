@@ -68,8 +68,8 @@ def test_fc_unpause(fanouthosts, duthosts, enum_rand_one_per_hwsku_frontend_host
              enum_fanout_graph_facts, leaf_fanouts, is_pfc=False, pause_time=0)
 
 
-def test_continous_pfc(fanouthosts, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                       conn_graph_facts, enum_fanout_graph_facts, leaf_fanouts):     # noqa: F811
+def test_continuous_pfc(fanouthosts, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                        conn_graph_facts, enum_fanout_graph_facts, leaf_fanouts):     # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     run_test(fanouthosts, duthost, conn_graph_facts,
              enum_fanout_graph_facts, leaf_fanouts, check_continuous_pfc=True)

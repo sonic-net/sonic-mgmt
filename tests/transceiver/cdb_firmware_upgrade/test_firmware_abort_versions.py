@@ -30,7 +30,7 @@ def _check_firmware_versions(duthost, port, port_context, metadata_map):
     cdb_attrs = port_context["cdb_attrs"]
     expected_active = cdb_attrs.get("gold_firmware_version")
     dual_bank_supported = cdb_attrs.get("dual_bank_supported", True)
-    expected_inactive = cdb_attrs.get("inactive_firmware_version")
+    expected_inactive = cdb_attrs.get("inactive_firmware_version") if dual_bank_supported else None
 
     if not expected_active:
         return ["gold_firmware_version not defined"]
@@ -98,7 +98,6 @@ def _check_abort_support(duthost, port, port_context, metadata_map):
 
 def test_firmware_versions(
     duthost, port_attributes_dict, cdb_firmware_qualifying_ports, get_lport_to_pport_mapping,
-    dom_polling_disabled,
 ):
     """Verify each CMIS active-optical module runs its gold firmware.
 
@@ -106,8 +105,7 @@ def test_firmware_versions(
     Inactive Firmware MUST equal ``inactive_firmware_version``.  A qualifying
     port with no configured ``gold_firmware_version`` fails the test.
 
-    DOM polling on the ports under test is disabled for the duration of the test
-    by the ``dom_polling_disabled`` fixture.
+    The operation runner disables DOM polling around the CDB reads and restores it afterward.
     """
     all_failures, num_ports = execute_on_ports(
         duthost, port_attributes_dict, cdb_firmware_qualifying_ports,
@@ -120,12 +118,10 @@ def test_firmware_versions(
 
 def test_cdb_abort_support(
     duthost, port_attributes_dict, cdb_firmware_qualifying_ports, get_lport_to_pport_mapping,
-    dom_polling_disabled,
 ):
     """Verify advertised CDB firmware-download abort capability.
 
-    DOM polling on the ports under test is disabled for the duration of the test
-    by the ``dom_polling_disabled`` fixture.
+    The operation runner disables DOM polling around the CDB reads and restores it afterward.
     """
     all_failures, num_ports = execute_on_ports(
         duthost, port_attributes_dict, cdb_firmware_qualifying_ports,

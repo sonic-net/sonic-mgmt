@@ -2,16 +2,19 @@
 
 import json
 import logging
+import uuid
 from functools import partial
 
 import pytest
 
+from tests.common.config_reload import config_reload
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.custom_msg_utils import add_custom_msg
 from tests.gnmi_benchmark.benchmark_report import BenchmarkReport
 from tests.gnmi_benchmark.benchmark_runner import BenchmarkRunner
 from tests.gnmi_benchmark.blaster import RouteTableBlaster
+from tests.gnmi_benchmark.helpers import _restore_config
 
 logger = logging.getLogger(__name__)
 pytestmark = [
@@ -61,6 +64,25 @@ for name, benchmark in BENCHMARK_CONFIG["benchmarks"].items():
                 benchmark["runner"], partial(benchmark["blaster"], **params), id=case_id))
 
 
+@pytest.fixture(scope="module")
+def benchmark_recovery(duthosts, enum_rand_one_per_hwsku_frontend_hostname, sanity_check):
+    """Reload once after all cases/TLS finalizers, before module post-sanity."""
+    host = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    backup = "/tmp/gnmi-benchmark-{}.config_db.json".format(uuid.uuid4().hex)
+    # Preserve the saved baseline before TLS/GCU can change it; never save the loaded routes.
+    host.shell("cp -a /etc/sonic/config_db.json " + backup)
+    yield
+    try:
+        logger.info("gNMI benchmark pre-reload Redis memory host=%s: %s", host.hostname,
+                    host.shell("redis-cli info memory", module_ignore_errors=True))
+    finally:
+        _restore_config(host, backup)
+        logger.info("gNMI benchmark recovery reload starting host=%s; reports precede recovery", host.hostname)
+        config_reload(host, config_source="config_db", safe_reload=True,
+                      check_intf_up_ports=True, wait_for_bgp=True)
+        logger.info("gNMI benchmark recovery reload completed host=%s", host.hostname)
+
+
 def _emit_report(request, report):
     key = "gnmi_benchmark.{}".format(report["cid"])
     if request.node is request.session.items[-1]:
@@ -84,7 +106,8 @@ def test_gnmi_benchmark(
         pytest_require(device_sku, "DUT HwSKU is unavailable")
         if blaster.hwsku_prefixes:
             pytest_require(device_sku.startswith(blaster.hwsku_prefixes), "Unsupported HwSKU: " + device_sku)
-        # Resolve TLS setup only after checking the selected device.
+        # Arm module recovery before TLS setup, but only for an eligible device.
+        request.getfixturevalue("benchmark_recovery")
         connection = request.getfixturevalue("gnmi_tls")
         pytest_require(connection.transport == "tls" and connection.pygnmi_client is not None,
                        "The benchmark requires the TLS transport")

@@ -89,6 +89,8 @@ def apply_bgp_config(duthost, template_name):
         template_name: pathname of the bgp config on the DUT
     """
     duthost.docker_copy_to_all_asics('bgp', template_name, DEFAULT_BGP_CONFIG)
+    # Clear start-limit state left by earlier intentional test restarts.
+    duthost.reset_service("bgp")
     duthost.restart_service("bgp")
     pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "bgp"), "BGP not started.")
     pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "swss"),
@@ -108,18 +110,22 @@ def define_config(duthost, template_src_path, template_dst_path):
     duthost.copy(src=template_src_path, dest=template_dst_path)
 
 
-def get_no_export_output(vm_host, ipv6=False):
+def get_no_export_output(vm, ipv6=False):
     """
     Get no export routes on the VM
 
     Args:
-        vm_host: VM host object
+        vm: Neighbor entry from nbrhosts
         ipv6: Boolean flag to check IPv6 routes
     """
+    vm_host = vm['host']
+    vrf_option = ''
+    if isinstance(vm_host, EosHost) and vm.get('is_multi_vrf_peer', False):
+        vrf_option = ' vrf {}'.format(vm['multi_vrf_data']['vrf'])
     if ipv6:
         ipv6_pattern = r'[0-9a-fA-F:]+\/\d+\s+[0-9a-fA-F:]+.*'
         if isinstance(vm_host, EosHost):
-            out = vm_host.eos_command(commands=['show ipv6 bgp match community no-export'])["stdout"]
+            out = vm_host.eos_command(commands=['show ipv6 bgp match community no-export' + vrf_option])["stdout"]
             return re.findall(ipv6_pattern, out[0])
         elif isinstance(vm_host, SonicHost):
             out = vm_host.command("vtysh -c 'show ipv6 bgp community no-export'")["stdout"]
@@ -130,7 +136,7 @@ def get_no_export_output(vm_host, ipv6=False):
     else:
         ipv4_pattern = r'\d+\.\d+.\d+.\d+\/\d+\s+\d+\.\d+.\d+.\d+.*'
         if isinstance(vm_host, EosHost):
-            out = vm_host.eos_command(commands=['show ip bgp community no-export'])["stdout"]
+            out = vm_host.eos_command(commands=['show ip bgp community no-export' + vrf_option])["stdout"]
             return re.findall(ipv4_pattern, out[0])
         elif isinstance(vm_host, SonicHost):
             out = vm_host.command("vtysh -c 'show ip bgp community no-export'")["stdout"]
@@ -256,7 +262,8 @@ def restore_bgp_neighbors(duthost, asic_index, bgp_neighbors):
     # Convert the bgp_neighbors dict into json format after adding the table name.
     bgp_neigh_dict = {"BGP_NEIGHBOR": bgp_neighbors}
     bgp_neigh_json = json.dumps(bgp_neigh_dict)
-    duthost.shell("sudo sonic-cfggen {} -a '{}' --write-to-db".format(namespace_prefix, bgp_neigh_json))
+    # Pass the table on stdin to avoid the per-argument limit on scale topologies.
+    duthost.shell("sudo sonic-cfggen {} -j /dev/stdin --write-to-db".format(namespace_prefix), stdin=bgp_neigh_json)
 
     # Restart BGP instance on that asic
     duthost.asic_instance(asic_index).reset_service("bgp")
@@ -774,18 +781,27 @@ def get_eth_name_from_ptf_port(mg_facts, ptf_ports):
 
 def get_bgp_neighbor_ip(duthost, vm_name, vrf=DEFAULT):
     """
-    Get ipv4 and ipv6 bgp neighbor ip addresses
+    Get configured DUT-local IPv4 and IPv6 addresses for a BGP neighbor.
+
+    Use ASIC-scoped configuration rather than a snapshot of kernel interfaces.
+    An unconfigured address family is returned as an empty string.
     """
-    if vrf == DEFAULT:
-        cmd_v4 = "show ip interface | grep -w {} | awk '{{print $2}}'"
-        cmd_v6 = "show ipv6 interface | grep -w {} | awk '{{print $2}}'"
-        bgp_neighbor_ip = duthost.shell(cmd_v4.format(vm_name))['stdout'].split('/')[0]
-        bgp_neighbor_ipv6 = duthost.shell(cmd_v6.format(vm_name))['stdout'].split('/')[0]
-    else:
-        cmd_v4 = "show ip interface | grep -w {} | awk '{{print $3}}'"
-        cmd_v6 = "show ipv6 interface | grep -w {} | awk '{{print $3}}'"
-        bgp_neighbor_ip = duthost.shell(cmd_v4.format(vm_name))['stdout'].split('/')[0]
-        bgp_neighbor_ipv6 = duthost.shell(cmd_v6.format(vm_name))['stdout'].split('/')[0]
+    local_addresses = {}
+    for asic in duthost.asics:
+        config = asic.config_facts(source='running', verbose=False)['ansible_facts']
+        neighbors = config.get('BGP_NEIGHBOR', {})
+        if vrf in neighbors:
+            neighbors = neighbors[vrf]
+        elif vrf != DEFAULT:
+            continue
+        for neighbor in neighbors.values():
+            if neighbor.get('name') == vm_name:
+                local_address = ipaddress.IPAddress(neighbor['local_addr'])
+                local_addresses.setdefault(local_address.version, str(local_address))
+
+    pytest_assert(local_addresses, "No BGP neighbor {} configured in VRF {}".format(vm_name, vrf))
+    bgp_neighbor_ip = local_addresses.get(IP_VER, '')
+    bgp_neighbor_ipv6 = local_addresses.get(6, '')
     logging.info("BGP neighbor of {} is {}".format(vm_name, bgp_neighbor_ip))
     logging.info("IPv6 BGP neighbor of {} is {}".format(vm_name, bgp_neighbor_ipv6))
 
@@ -906,6 +922,8 @@ def validate_route_propagate_status(vmhost, route_list, bgp_neighbor, vrf=DEFAUL
     :param ip_ver: ip version number
     :param exist: route expected status
     """
+    pytest_assert(bgp_neighbor,
+                  "Vrf:{} - no IPv{} BGP peer address for upstream VM {}".format(vrf, ip_ver, vmhost))
     if exist:
         pytest_assert(wait_until(30, 2, 0, check_propagate_route, vmhost, route_list, bgp_neighbor, ip_ver),
                       "Vrf:{} - route:{} is not propagated to Upstream VM {}".format(vrf, route_list, vmhost))

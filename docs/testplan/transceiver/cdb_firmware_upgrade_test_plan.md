@@ -11,7 +11,7 @@ The scope of this test plan includes the following:
 - Firmware download, run, and commit validation
 - Firmware version verification against expected gold and inactive versions
 - Firmware download interruption and CDB abort handling
-- EEPROM static field integrity during firmware operations
+- Static and dynamic EEPROM field integrity during firmware operations
 - Firmware download, activation, and read stress testing
 - Firmware upgrade across firmware versions differing in minor and point numbers
 - Validating invalid firmware binary rejection
@@ -104,8 +104,8 @@ The following table summarizes the key attributes used in CDB firmware upgrade t
 
 | Attribute Name | Type | Default Value | Mandatory | Override Levels | Description |
 |-----------|------|---------|-----------|-------------|-------------|
-| ports_under_test | List | All | O | dut | A list of physical port names (e.g., `[1, 2, 6]`) under `dut.dut_name` containing the ports to be tested for CMIS FW upgrade test only. This attribute must exist only under the `dut` field. |
-| firmware_versions | List | None | M | transceivers | A list containing firmware versions to be tested. The last value in the list represents the final active firmware version after the test is completed. |
+| ports_under_test | List | None | O | dut | A list of physical port indices (e.g., `[1, 2, 6]`) under `dut.dut_name` containing the ports to be tested for CMIS FW upgrade testing. The suite is skipped when this attribute is absent or empty. This attribute must exist only under the `dut` field. |
+| firmware_versions | List | None | O | transceivers | A list containing firmware versions to be tested. The last value in the list represents the final active firmware version after the test is completed. CMIS active-optical ports without this attribute are excluded from CDB firmware testing. |
 | firmware_download_timeout_minutes | Int | 30 | O | transceivers | Maximum time in minutes to wait for a firmware download to complete. |
 | firmware_download_stress_iterations | Int | 5 | O | dut | The number of iterations to stress test the firmware download process. |
 | firmware_activation_stress_iterations | Int | 1 | O | dut | The number of iterations to stress test the firmware activation process. |
@@ -119,14 +119,14 @@ The following table summarizes the key attributes used in CDB firmware upgrade t
 | sleep_after_dom_disable_sec | Int | 5 | O | transceivers | The number of seconds to sleep after disabling DOM monitoring before proceeding with the test. |
 | thermalctld_disabling_required | Bool | False | O | transceivers or platform | A flag indicating whether to disable `thermalctld` during the test. |
 | dual_bank_supported | Bool | True | O | transceivers | Whether the transceiver supports dual-bank firmware. Used to determine if both active and inactive firmware versions should be validated. |
-| gold_firmware_version | String | - | M | transceivers | The expected active/gold firmware version for modules. Used as the baseline reference for firmware version validation. |
-| inactive_firmware_version | String | - | M | transceivers | The expected inactive bank firmware version for dual-bank modules. Optional only when `dual_bank_supported` is false. |
+| gold_firmware_version | String | - | O | transceivers | The expected active/gold firmware version. Required and validated for every qualifying port with `firmware_versions`. |
+| inactive_firmware_version | String | - | O | transceivers | The expected inactive bank firmware version. Required and validated only when `dual_bank_supported` is true. |
 | old_gold_firmware_version | String | - | O | transceivers | The previously deployed gold firmware version. Used to reproduce the upgrade from the old gold to `gold_firmware_version`. |
 | cdb_background_mode_supported | Bool | - | O | transceivers | CDB background mode support. |
 
 > **Note:** The `transceiver_reset_i2c_recover_sec`, `port_startup_wait_sec`, and `low_power_mode_supported` attributes are defined in the [System test attributes](system_test_plan.md#attributes) and are reused here. The `cmis_active_optical` attribute is defined in the [EEPROM test attributes](eeprom_test_plan.md#attributes).
 
-> **Attribute invariants:** `firmware_versions` must contain exactly 3 entries (1 gold plus 2 additional firmware versions). `gold_firmware_version` must equal `firmware_versions[-1]`, and `inactive_firmware_version` must equal `firmware_versions[-2]`. Additionally, at least one of the entries in `firmware_versions` must differ from `gold_firmware_version` in both the minor and point numbers. `old_gold_firmware_version`, when configured, must differ from `gold_firmware_version`. A mismatch skips the CDB firmware test suite with a clear configuration error.
+> **Attribute invariants:** `firmware_versions` must contain exactly 3 entries (1 gold plus 2 additional firmware versions). `gold_firmware_version` must equal `firmware_versions[-1]`. When `dual_bank_supported` is true, `inactive_firmware_version` is required and must equal `firmware_versions[-2]`. Additionally, at least one of the entries in `firmware_versions` must differ from `gold_firmware_version` in both the minor and point numbers. `old_gold_firmware_version`, when configured, must differ from `gold_firmware_version`. A mismatch skips the CDB firmware test suite with a clear configuration error.
 
 ## CMIS CDB Firmware Binary Management
 
@@ -271,7 +271,7 @@ Fail the test if the per-PN manifest file is missing, the specified firmware ver
 
 **Requirements for firmware upgrade tests:**
 
-1. **DOM polling must be disabled** to prevent race conditions between I2C transactions and the CDB mode for modules that do not support CDB background mode. The test should wait for `sleep_after_dom_disable_sec` seconds after disabling DOM to avoid the race condition. DOM polling is re-enabled at the end of every test case to evaluate basic DOM data.
+1. **DOM polling must be disabled during CDB operations** to prevent race conditions between I2C transactions and the CDB mode for modules that do not support CDB background mode. The operation runner performs pre-operation recovery verification before disabling polling, waits for `sleep_after_dom_disable_sec`, and disables polling only around CDB prefetch and per-port operations. Polling is restored before post-operation EEPROM/DOM/CMIS verification, which requires fresh publications. The same operation-scoped handling applies to version/abort-support checks and package firmware restoration. Cleanup runs on exceptions and interruption, restores only ports whose polling was changed, and reports re-enable failures explicitly. A port already disabled is not silently enabled to bypass pre-operation freshness checks.
 2. **Platform-specific processes:** On some platforms, `thermalctld` or similar user processes that perform I2C transactions with the module may need to be stopped if the `thermalctld_disabling_required` flag is set.
 3. **Firmware requirements:**
    - The firmware versions specified by the `firmware_versions` and `old_gold_firmware_version` test attributes must be available.
@@ -305,7 +305,7 @@ The Expected Results column in the Test Cases table references the following nam
 Firmware state is unchanged after a failed or aborted operation, and the module, port, and system remain healthy:
 
 1. Active firmware version remains unchanged.
-2. If `dual_bank_supported` is true, inactive firmware version is invalid (i.e. `N/A` or `0.0.0`).
+2. If `dual_bank_supported` is true, inactive firmware version is invalid (i.e. reported as `N/A`).
 3. Committed Image remains unchanged.
 4. Running Image remains unchanged.
 5. TC #3 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold for configured threshold attributes.
@@ -322,9 +322,10 @@ Firmware download succeeded, the inactive bank holds the new image, and the modu
 4. Running Image remains unchanged.
 5. Committed Image remains unchanged.
 6. Static EEPROM fields (vendor name, part number, hardware revision, etc.) remain unchanged.
-7. TC #3 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold for configured threshold attributes.
-8. After DOM monitoring is re-enabled, TC #1 and TC #2 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold.
-9. Execute the [Standard Port Recovery and Verification Procedure](system_test_plan.md#standard-port-recovery-and-verification-procedure).
+7. Dynamic EEPROM DataPath fields (active application select, host/media lane counts etc.) remain unchanged.
+8. TC #3 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold for configured threshold attributes.
+9. After DOM monitoring is re-enabled, TC #1 and TC #2 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold.
+10. Execute the [Standard Port Recovery and Verification Procedure](system_test_plan.md#standard-port-recovery-and-verification-procedure).
 
 #### Firmware Activation Verification
 
@@ -339,9 +340,10 @@ Firmware run and commit succeeded, the bank swap took effect, the committed Imag
 7. `sfputil show fwversion <port>` CLI shows the "Running Image" as the current active bank.
 8. Link is up within `port_startup_wait_sec` seconds.
 9. Static EEPROM fields (vendor name, part number, hardware revision, etc.) remain unchanged.
-10. TC #3 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold for configured threshold attributes.
-11. After DOM monitoring is re-enabled, TC #1 and TC #2 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold.
-12. Execute the [Standard Port Recovery and Verification Procedure](system_test_plan.md#standard-port-recovery-and-verification-procedure).
+10. Dynamic EEPROM DataPath fields (active application select, host/media lane counts etc.) remain unchanged.
+11. TC #3 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold for configured threshold attributes.
+12. After DOM monitoring is re-enabled, TC #1 and TC #2 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold.
+13. Execute the [Standard Port Recovery and Verification Procedure](system_test_plan.md#standard-port-recovery-and-verification-procedure).
 
 **Timing Requirements:**
 
