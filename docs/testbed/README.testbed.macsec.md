@@ -50,7 +50,7 @@ Out of scope:
 | Item | Reason |
 |------|--------|
 | `tests/macsec` | Those tests enable MACsec themselves and still run on plain testbeds. They are skipped on this topology |
-| Multi-ASIC DUTs | Only single-ASIC is tested |
+| Multi-ASIC DUTs | Only single-ASIC is tested on hardware; multi-ASIC has limited testing on a KVM testbed |
 | Rekey during a test run | The PTF holds a key snapshot. See [7.6](#76-keys-slots-and-packet-numbers) |
 | cEOS neighbors | `config_macsec_neighbors.yml` has a cEOS branch, but it has not been tested. The testbed uses vSONiC |
 
@@ -367,7 +367,7 @@ None on the DUT. The PTF holds one small SA record per MACsec port.
 - **Rekey is off and must stay off.** See [7.6](#76-keys-slots-and-packet-numbers).
 - **The PTF reads keys once per `ptf_runner` call.** A key change in the middle of a run breaks the PTF's receive path until the next call.
 - **XPN upper half starts at 0 when the codec loads.** A DUT SA already past 2^32 frames when the PTF starts is not recovered.
-- **Multi-ASIC is not supported.** The golden config generator warns and binds nothing.
+- **Multi-ASIC is not fully tested.** Support is in a separate stacked PR, which has been tested only on a multi-ASIC KVM testbed. Without it, the golden config generator warns and binds nothing.
 - **`tests/macsec` is skipped here.** Run it on a plain testbed.
 
 ### 11. Testing Requirements/Design
