@@ -6,12 +6,13 @@ import time
 
 import pytest
 
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.dhcp_relay_utils import enable_sonic_dhcpv4_relay_agent  # noqa: F401
 from tests.common.utilities import wait_until
 from dhcp_server_match_common import match_env, match_config_snapshot, match_test_isolation  # noqa: F401
-from dhcp_server_match_common import VENDOR_A, VENDOR_B, DHCP_SERVER_CONTAINER, DHCP_SERVER_CONFIG_TOOL_GCU, \
-    MatchConfig, DhcpClient, wait_for_kea_pools, get_dhcp_server_pids, new_client_mac
+from dhcp_server_match_common import VENDOR_A, VENDOR_B, DHCP_SERVER_CONTAINER, DHCP_RELAY_CONTAINER, \
+    DHCP_SERVER_CONFIG_TOOL_GCU, MatchConfig, DhcpClient, wait_for_kea_pools, get_dhcp_server_pids, \
+    get_container_process_identity, new_client_mac
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ FLOOD_RATE = 100
 FLOOD_SECONDS = 60
 FLOOD_DEADLINE = 5
 FLOOD_DRAIN = 5
+FLOOD_SCHEDULE_TOLERANCE = 0.05
 FLOOD_MACS_PER_CATEGORY = 16
 FLOOD_POOL_SIZE = 16
 FLOOD_SCRIPT = "dhcp_server_match_flood.py"
@@ -43,18 +45,23 @@ def stress_test_setup(match_test_isolation, enable_sonic_dhcpv4_relay_agent):  #
     yield
 
 
-def _assert_services_healthy(duthost, pids):
+def _assert_services_healthy(duthost, pids, relay):
     pytest_assert(get_dhcp_server_pids(duthost) == pids, "DHCP server processes restarted")
     status = duthost.shell("docker exec {} supervisorctl status".format(DHCP_SERVER_CONTAINER),
                            module_ignore_errors=True)["stdout_lines"]
     pytest_assert(all("RUNNING" in line for line in status if line.startswith("dhcp-server-ipv4")),
                   "dhcp_server processes are not running: {}".format(status))
-    pytest_assert(duthost.is_container_running("dhcp_relay"), "dhcp_relay is not running")
+    pytest_assert(duthost.is_container_running(DHCP_RELAY_CONTAINER), "dhcp_relay is not running")
+    current_relay = get_container_process_identity(duthost, DHCP_RELAY_CONTAINER)
+    pytest_assert(current_relay == relay, "dhcp_relay restarted: {} -> {}".format(relay, current_relay))
 
 
 def test_dhcp_server_match_scale(duthost, ptfadapter, match_env, relay_agent):  # noqa: F811
     """S01: five bindings on every VLAN member are generated in time and every combination is served."""
     env = match_env
+    needed = len(env.members) * (len(SCALE_VENDORS) + 1)
+    pytest_require(len(env.hosts) >= needed, "Scale test needs {} free addresses for {} ports, VLAN has {}".format(
+        needed, len(env.members), len(env.hosts)))
     cfg = MatchConfig(env)
     for index, vendor in enumerate(SCALE_VENDORS):
         cfg.add_match("scale_v{}".format(index), "option60", vendor)
@@ -121,6 +128,7 @@ def test_dhcp_server_match_flood(duthost, ptfhost, ptfadapter, match_env, relay_
     DhcpClient(env, ptfadapter, ports[0], VENDOR_A).expect_offer(env.ip_range(0, FLOOD_POOL_SIZE - 1))
     DhcpClient(env, ptfadapter, ports[0], "VendorZ").expect_no_offer()
     pids = get_dhcp_server_pids(duthost)
+    relay = get_container_process_identity(duthost, DHCP_RELAY_CONTAINER)
 
     flood_config = {"clients": clients, "rate": FLOOD_RATE, "duration": FLOOD_SECONDS,
                     "deadline": FLOOD_DEADLINE, "drain": FLOOD_DRAIN}
@@ -134,7 +142,9 @@ def test_dhcp_server_match_flood(duthost, ptfhost, ptfadapter, match_env, relay_
     result = json.loads(output.strip().splitlines()[-1])
     latencies = sorted(result.pop("latencies"))
     matching = sum(1 for index in range(result["sent"]) if clients[index % len(clients)]["expect"])
-    summary = dict(result, matching=matching, offer_rate=round(result["offers"] / FLOOD_SECONDS, 1),
+    send_seconds = max(result["send_seconds"], 0.01)
+    summary = dict(result, matching=matching, send_rate=round(result["sent"] / send_seconds, 1),
+                   offer_rate=round(result["offers"] / send_seconds, 1),
                    loss_pct=round(100.0 * result["missing"] / max(matching, 1), 2))
     if latencies:
         summary.update(latency_avg=round(sum(latencies) / len(latencies), 4),
@@ -142,11 +152,14 @@ def test_dhcp_server_match_flood(duthost, ptfhost, ptfadapter, match_env, relay_
     logger.info("Flood result: %s", summary)
 
     pytest_assert(result["sent"] == FLOOD_RATE * FLOOD_SECONDS, "Sent {} DISCOVERs".format(result["sent"]))
+    pytest_assert(result["send_seconds"] <= FLOOD_SECONDS * (1 + FLOOD_SCHEDULE_TOLERANCE),
+                  "Sending took {}s, the {} pps flood allows {}s: {}".format(
+                      result["send_seconds"], FLOOD_RATE, FLOOD_SECONDS, summary))
     pytest_assert(result["offers"] > 0, "No OFFER was received during the flood")
     pytest_assert(result["missing"] == 0 and result["late"] == 0,
                   "Matching DISCOVERs without a timely OFFER: {}".format(summary))
     pytest_assert(result["wrong_pool"] == 0, "OFFERs from the wrong pool: {}".format(summary))
     pytest_assert(result["unexpected"] == 0, "OFFERs to unmatched clients: {}".format(summary))
-    _assert_services_healthy(duthost, pids)
+    _assert_services_healthy(duthost, pids, relay)
     pytest_assert(wait_until(30, 2, 0, lambda: DhcpClient(env, ptfadapter, ports[1], VENDOR_B).discover() is not None),
                   "DHCP server does not answer after the flood")

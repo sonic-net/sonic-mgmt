@@ -60,13 +60,15 @@ def main(config_path):
     started = time.time()
     for index in range(total):
         target = started + float(index) / rate
+        client = clients[index % len(clients)]
+        xid = (xid_base + index) & 0xffffffff
+        packet = build_discover(client["mac"], xid, client.get("opt60"))
         delay = target - time.time()
         if delay > 0:
             time.sleep(delay)
-        client = clients[index % len(clients)]
-        xid = (xid_base + index) & 0xffffffff
-        sockets[client["iface"]].send(build_discover(client["mac"], xid, client.get("opt60")))
-        sent.append((xid, client, time.time()))
+        sent_at = time.time()
+        sockets[client["iface"]].send(packet)
+        sent.append((xid, client, sent_at))
     send_elapsed = time.time() - started
     time.sleep(deadline + drain)
     sniffer.stop()

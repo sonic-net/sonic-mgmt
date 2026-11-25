@@ -41,10 +41,13 @@ NO_REPLY_TIMEOUT = 4
 KEA_CONVERGE_TIMEOUT = 60
 KEA_CTRL_SOCKET = "/run/kea/kea4-ctrl-socket"
 DHCP_SERVER_CONTAINER = "dhcp_server"
+DHCP_RELAY_CONTAINER = "dhcp_relay"
+DHCP_SERVER_YANG = "/usr/local/yang-models/sonic-dhcp-server-ipv4.yang"
 KEA_LEASE_FILE = "/var/lib/kea/kea-lease.csv"
 KEA_PROGRAM = "dhcp-server-ipv4:kea-dhcp4"
 SAVED_CONFIG_DB = "/etc/sonic/config_db.json"
 ADDRESS_WINDOW = 200
+KEA_LEASE_STATE_EXPIRED_RECLAIMED = 2
 
 # Tables in an order that satisfies their references; delete in reverse.
 DHCP_SERVER_TABLES = [
@@ -121,8 +124,9 @@ def discover_match_env(duthost, tbinfo, vlan_name=None):
     ptf_non_members = [make_port(name, idx) for name, idx in sorted(ptf_indices.items(), key=lambda item: item[1])
                        if name in lag_members and name not in vlan_member_names]
 
+    now = int(duthost.shell("date +%s")["stdout"])
     leased = set(lease["ip-address"] for lease in get_kea_leases(duthost)
-                 if not lease.get("hw-address", "").startswith(TEST_MAC_PREFIX))
+                 if _is_active_lease(lease, now) and not lease.get("hw-address", "").startswith(TEST_MAC_PREFIX))
     hosts = [str(host) for host in vlan_intf.network.hosts() if host != vlan_intf.ip]
     env = MatchEnv(
         vlan=vlan_name,
@@ -142,16 +146,33 @@ def discover_match_env(duthost, tbinfo, vlan_name=None):
     return env
 
 
-def _find_free_window(hosts, leased, size):
-    window = []
-    for host in hosts:
+def _is_active_lease(lease, now):
+    """Released or deleted leases have a zero lifetime; expired leases are free for Kea to reallocate."""
+    return (lease["valid-lft"] > 0 and lease["state"] != KEA_LEASE_STATE_EXPIRED_RECLAIMED
+            and lease["cltt"] + lease["valid-lft"] > now)
+
+
+def _find_free_window(hosts, leased, min_size):
+    """Return the longest run of consecutive free host addresses, which must hold at least ``min_size``."""
+    best, start = (0, 0), 0
+    for index, host in enumerate(hosts):
         if host in leased:
-            window = []
-            continue
-        window.append(host)
-        if len(window) == size:
-            return window
-    pytest_require(False, "VLAN prefix has no window of {} free host addresses".format(size))
+            start = index + 1
+        elif index + 1 - start > best[1] - best[0]:
+            best = (start, index + 1)
+    window = hosts[best[0]:best[1]]
+    pytest_require(len(window) >= min_size, "VLAN prefix has no window of {} free host addresses".format(min_size))
+    return window
+
+
+def check_match_support(duthost):
+    """Skip unless the YANG model and the dhcp_server runtime both support MATCH mode, without changing the DUT."""
+    yang = duthost.shell("grep -q 'enum MATCH;' {}".format(DHCP_SERVER_YANG), module_ignore_errors=True)["rc"] == 0
+    runtime = duthost.shell(
+        "docker exec {} python3 -c 'from dhcp_utilities.dhcpservd.dhcp_cfggen import SUPPORTED_MATCH_TYPES'".format(
+            DHCP_SERVER_CONTAINER), module_ignore_errors=True)["rc"] == 0
+    pytest_require(yang and runtime, "Image does not support DHCP server MATCH mode (YANG: {}, runtime: {})".format(
+        yang, runtime))
 
 
 @pytest.fixture(scope="module")
@@ -209,6 +230,7 @@ def match_config_snapshot(duthost):
     absence) are captured independently on the test controller, so scenarios that
     run ``config save`` do not leave the test configuration behind.
     """
+    check_match_support(duthost)
     dhcp_tables = get_dhcp_server_config_db(duthost)
     local_dir = tempfile.mkdtemp(prefix="dhcp_match_")
     saved_path = _fetch_saved_config(duthost, local_dir)
@@ -686,35 +708,56 @@ def get_kea_subnet_leases(duthost, subnet_id):
     return {lease["hw-address"]: lease["ip-address"] for lease in response.get("arguments", {}).get("leases", [])}
 
 
-def wait_for_state_db_lease(duthost, vlan, mac, present=True, timeout=20):
-    """Wait for the State DB lease of ``mac`` to appear (or disappear) and return it."""
+def wait_for_state_db_lease(duthost, vlan, mac, present=True, timeout=20, ip=None, lease_time=None):
+    """Wait for the State DB lease of ``mac`` to disappear, or to appear with ``ip`` and ``lease_time`` if given.
+
+    A client that moved pools can leave its previous lease in State DB until synchronization, so
+    presence alone is not enough to return the new lease.
+    """
     state = {}
 
     def _check():
-        state["lease"] = get_state_db_lease(duthost, vlan, mac)
-        return bool(state["lease"]) == present
+        lease = state["lease"] = get_state_db_lease(duthost, vlan, mac)
+        if not present or not lease:
+            return bool(lease) == present
+        return ((ip is None or lease.get("ip") == ip) and
+                (lease_time is None or int(lease["lease_end"]) - int(lease["lease_start"]) == lease_time))
 
-    pytest_assert(wait_until(timeout, 1, 0, _check), "State DB lease for {} on {} is {}expected to exist: {}".format(
-        mac, vlan, "" if present else "not ", state.get("lease")))
+    pytest_assert(wait_until(timeout, 1, 0, _check),
+                  "State DB lease for {} on {} did not converge (present={}, ip={}, lifetime={}): {}".format(
+                      mac, vlan, present, ip, lease_time, state.get("lease")))
     return state["lease"]
 
 
 def verify_client_lease(duthost, env, client, ip, lease_time=MATCH_LEASE_TIME):
     """Correlate an ACKed address with the Kea lease and the State DB lease."""
     wait_for_kea_lease(duthost, ip, mac=client.mac)
-    lease = wait_for_state_db_lease(duthost, env.vlan, client.mac)
-    pytest_assert(lease.get("ip") == ip, "State DB lease for {} has ip {}, expected {}".format(
-        client.mac, lease.get("ip"), ip))
-    pytest_assert(int(lease["lease_end"]) - int(lease["lease_start"]) == lease_time,
-                  "State DB lease for {} has unexpected lifetime: {}".format(client.mac, lease))
-    return lease
+    return wait_for_state_db_lease(duthost, env.vlan, client.mac, ip=ip, lease_time=lease_time)
+
+
+def get_container_started_at(duthost, container):
+    return duthost.shell("docker inspect -f '{{{{.State.StartedAt}}}}' {}".format(container),
+                         module_ignore_errors=True)["stdout"].strip()
 
 
 def get_dhcp_server_pids(duthost):
-    """Return (dhcpservd, kea-dhcp4) PIDs to prove that changes apply without a restart."""
-    return tuple(duthost.shell("docker exec {} supervisorctl pid {}".format(DHCP_SERVER_CONTAINER, program),
-                               module_ignore_errors=True)["stdout"].strip()
-                 for program in ("dhcp-server-ipv4:dhcpservd", "dhcp-server-ipv4:kea-dhcp4"))
+    """Return the container start time and (dhcpservd, kea-dhcp4) PIDs to prove that changes apply without a restart.
+
+    PIDs are container-local and can be reused after a container restart, so the start time is included.
+    """
+    return (get_container_started_at(duthost, DHCP_SERVER_CONTAINER),) + tuple(
+        duthost.shell("docker exec {} supervisorctl pid {}".format(DHCP_SERVER_CONTAINER, program),
+                      module_ignore_errors=True)["stdout"].strip()
+        for program in ("dhcp-server-ipv4:dhcpservd", "dhcp-server-ipv4:kea-dhcp4"))
+
+
+def get_container_process_identity(duthost, container):
+    """Return the container start time and the (program, PID) pairs of its running supervisor programs."""
+    status = duthost.shell("docker exec {} supervisorctl status".format(container),
+                           module_ignore_errors=True)["stdout_lines"]
+    programs = tuple(sorted((line.split()[0], line.split("pid ")[1].split(",")[0])
+                            for line in status if " RUNNING " in line and "pid " in line))
+    return get_container_started_at(duthost, container), programs
 
 
 # ---------------------------------------------------------------------------
