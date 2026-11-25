@@ -61,7 +61,7 @@ MULTI_ASIC_T1_CHECKER = "multi-asic-t1-lag_checker"
 # Jobs in pr_test_template.yml, by their INCLUDE_JOBS name, that run each
 # checker's scripts. Keep in sync with the job conditions in that template.
 PR_CHECKER_JOBS = {
-    "t0_checker": ["t0_job"],
+    "t0_checker": ["t0_job", "t0_csonic_job"],
     "t0-2vlans_checker": ["t0_2vlans_job"],
     "t0-sonic_checker": ["t0_sonic_job"],
     "t0-vpp_checker": ["t0_vpp_job"],
