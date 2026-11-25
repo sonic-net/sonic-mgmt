@@ -77,7 +77,7 @@ def regenerate_and_apply_golden_config_db(dut, tbinfo, conn_graph_facts, preserv
     if 't2_single_node' in tbinfo['topo']['name']:
         common = tbinfo['topo']['properties'].get('configuration_properties', {}).get('common', {})
         # The generator’s update_preserved_config merges all keys of /tmp/dns_config.json, not just DNS.
-        dut.copy(content=json.dumps(preserved_config), dest="/tmp/dns_config.json", mode="0600")
+        dut.copy(content=json.dumps(preserved_config), dest="/tmp/dns_config.json", mode="0600", verbose=False)
 
         dut.generate_golden_config_db(
             topo_name=tbinfo['topo']['name'],
