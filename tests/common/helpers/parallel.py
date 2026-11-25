@@ -9,6 +9,7 @@ import tempfile
 import threading
 import time
 import traceback
+import re
 from contextlib import contextmanager
 from contextvars import ContextVar
 from collections.abc import Mapping, MutableMapping
@@ -102,12 +103,44 @@ def _is_command_result(result):
             result.get('exception') in (None, '', '(traceback unavailable)'))
 
 
+def _safe_worker_frames(formatted_traceback):
+    """Extract headers only; never return code, messages, locals or root paths."""
+    allowed = (
+        'tests/common/helpers/parallel.py',
+        'tests/common/plugins/sanity_check/checks.py',
+        'tests/common/plugins/sanity_check/__init__.py',
+        'tests/common/devices/base.py',
+        'tests/common/devices/sonic.py',
+        'tests/common/devices/sonic_asic.py',
+        'tests/common/devices/multi_asic.py',
+    )
+    if not isinstance(formatted_traceback, str) or len(formatted_traceback) > 16384:
+        return []
+    frames = []
+    for line in formatted_traceback.splitlines()[:128]:
+        if len(line) > 512:
+            continue
+        match = re.fullmatch(r'  File "([^"\r\n]+)", line ([1-9][0-9]{0,6}), in ([A-Za-z_][A-Za-z0-9_]{0,63})', line)
+        if match is None:
+            continue
+        filename, number, function = match.groups()
+        # Reject traversal/backslashes/ambiguous repeated repository segments.
+        # Only explicit known suffixes can shed an absolute deployment prefix.
+        if '\\' in filename or '..' in filename.split('/') or filename.count('tests/') != 1:
+            continue
+        relative = filename[filename.index('tests/'):]
+        if relative not in allowed or not (filename == relative or filename.endswith('/' + relative)):
+            continue
+        frames.append({'file': relative, 'line': int(number), 'function': function})
+    return frames[-8:]
+
+
 def _sanity_worker_failure(check_item, hostname, worker_exception):
     error = worker_exception[0] if worker_exception else None
     operational = isinstance(error, (AnsibleConnectionFailure, PytestAnsibleConnectionFailure))
     if isinstance(error, RunAnsibleModuleFail):
         operational = _is_operational_module_result(error.results)
-    return {
+    failure = {
         "check_item": check_item,
         "host": hostname,
         "exception_type": type(error).__name__,
@@ -115,6 +148,11 @@ def _sanity_worker_failure(check_item, hostname, worker_exception):
         "error_msg": ("DUT command or connection failed" if operational
                       else "Unexpected worker failure; inspect worker traceback"),
     }
+    if not operational:
+        frames = _safe_worker_frames(worker_exception[1] if worker_exception and len(worker_exception) == 2 else None)
+        failure['diagnostic_frames'] = frames
+        failure['diagnostic_status'] = 'available' if frames else 'unavailable'
+    return failure
 
 
 def patch_ansible_worker_process():

@@ -14,6 +14,7 @@ import json
 import logging
 import math
 import pickle
+import re
 import unittest
 from collections import defaultdict
 from collections.abc import Mapping, MutableMapping
@@ -99,7 +100,7 @@ class SanityControls(unittest.TestCase):
             "PytestAnsibleConnectionFailure": PytestAnsibleConnectionFailure,
             "logger": Mock(), "pytest": SimpleNamespace(fail=fail),
             "copy": copy, "json": json, "defaultdict": defaultdict, "Mapping": Mapping,
-            "MutableMapping": MutableMapping,
+            "MutableMapping": MutableMapping, "re": re,
             "DUT_CHECK_NAMESPACE": "dut", "STAGE_PRE_TEST": "pre", "STAGE_POST_TEST": "post",
             "pt_assert": check_assert,
             "add_custom_msg": lambda request, key, value: self.messages.append((key, value)),
@@ -110,7 +111,7 @@ class SanityControls(unittest.TestCase):
             "recover": Mock(), "recover_chassis": Mock(),
         }
         load(PARALLEL, ["SanityWorkerError", "sanity_worker_context", "_PublishedResults", "_is_command_result",
-                        "_is_operational_module_result", "_sanity_worker_failure"], self.ns)
+                        "_is_operational_module_result", "_safe_worker_frames", "_sanity_worker_failure"], self.ns)
         # Enable round-trip pickling of the actual AST-loaded carrier class.
         globals()["SanityWorkerError"] = self.ns["SanityWorkerError"]
         load(SANITY, ["fallback_serializer", "_update_check_items", "_validate_check_result",
@@ -212,6 +213,60 @@ class SanityControls(unittest.TestCase):
                     self.checks()
                 self.assertEqual(caught.exception.sanity_check_results, [self.process_failure])
                 self.ns['recover'].assert_not_called()
+
+    def test_nonoperational_frames_report_only_allowlisted_repository_headers(self):
+        traceback_text = ('Traceback (most recent call last):\n'
+                          '  File "/private/SECRET/repo/tests/common/plugins/sanity_check/checks.py", '
+                          'line 526, in _check_dbmemory_on_dut\n'
+                          '    password = "SECRET_SOURCE"\n'
+                          'local_secret = "SECRET_LOCAL"\n'
+                          'KeyError: SECRET_MESSAGE\n')
+        summary = self.ns['_sanity_worker_failure']('check_dbmemory', 'dut1', (KeyError('SECRET'), traceback_text))
+        self.assertFalse(summary['operational'])
+        self.assertEqual(summary['diagnostic_frames'], [{
+            'file': 'tests/common/plugins/sanity_check/checks.py', 'line': 526, 'function': '_check_dbmemory_on_dut'}])
+        self.assertEqual(summary['diagnostic_status'], 'available')
+        self.assertNotIn('SECRET', json.dumps(summary))
+        self.assertNotIn('/private/', json.dumps(summary))
+        self.fixtures['check_dbmemory'].side_effect = self.ns['SanityWorkerError']([summary], {})
+        with self.assertRaises(self.ns['SanityWorkerError']) as caught:
+            self.checks('post')
+        self.assertEqual(caught.exception.failures[0]['diagnostic_frames'], summary['diagnostic_frames'])
+        self.assertIn('checks.py', str(caught.exception))
+        self.assertEqual(caught.exception.sanity_check_results, [self.process_failure])
+        self.ns['recover'].assert_not_called()
+
+    def test_worker_frames_discard_unknown_paths_bad_schema_and_private_text(self):
+        invalid = [None, {}, 'x' * 16385,
+                   '  File "/private/secret.py", line 1, in leak',
+                   '  File "tests/private/secret.py", line 1, in leak',
+                   '  File "tests/common/devices/../devices/base.py", line 1, in leak',
+                   '  File "tests/common/devices/base.py", line 0, in leak',
+                   '  File "tests/common/devices/base.py", line -1, in leak',
+                   '  File "tests/common/devices/base.py", line 99999999, in leak',
+                   '  File "tests/common/devices/base.py", line 1, in leak.secret',
+                   '  File "tests/common/devices/base.py", line 1, in <module>',
+                   '  File "tests/common/devices/base.py", line 1, in leak\nSECRET_LOCAL=1']
+        for value in invalid[:-1]:
+            self.assertEqual(self.ns['_safe_worker_frames'](value), [])
+        # A valid header may coexist with arbitrary private lines: only its
+        # three allowlisted primitive fields survive, never the extra lines.
+        self.assertNotIn('SECRET', json.dumps(self.ns['_safe_worker_frames'](invalid[-1])))
+        summary = self.ns['_sanity_worker_failure']('check_dbmemory', 'dut1', (KeyError('private'), 'malformed'))
+        self.assertEqual(summary['diagnostic_status'], 'unavailable')
+        self.assertFalse(summary['operational'])
+
+    def test_worker_frame_bounds_and_operational_metadata_are_unchanged(self):
+        text = '\n'.join('  File "tests/common/devices/base.py", line {}, in command'.format(line)
+                         for line in range(1, 13))
+        frames = self.ns['_safe_worker_frames'](text)
+        self.assertEqual(len(frames), 8)
+        self.assertEqual([frame['line'] for frame in frames], list(range(5, 13)))
+        operational = self.ns['_sanity_worker_failure'](
+            'check_dbmemory', 'dut1', (RunAnsibleModuleFail('SECRET'), text))
+        self.assertTrue(operational['operational'])
+        self.assertNotIn('diagnostic_frames', operational)
+        self.assertEqual(operational['error_msg'], 'DUT command or connection failed')
 
     def test_other_workers_completed_results_are_retained(self):
         completed = dict(self.normal, host="dut2")
