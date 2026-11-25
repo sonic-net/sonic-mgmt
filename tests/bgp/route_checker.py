@@ -677,15 +677,8 @@ def check_and_log_routes_diff(duthost, neigh_hosts, orig_routes_on_all_nbrs, cur
     routes_dut = parse_rib(duthost, ip_ver)
     all_diffs_in_host_aspath = True
     first_host = list(neigh_hosts.items())[0][1]['host']
-    strict_csonic = (isinstance(first_host, CsonicHost)
-                     and first_host.bgp_vrf)
     for hostname in list(orig_routes_on_all_nbrs.keys()):
         if orig_routes_on_all_nbrs[hostname] != cur_routes_on_all_nbrs[hostname]:
-            if strict_csonic:
-                logger.warning(
-                    "Route snapshot mismatch on converged cSONiC host %s",
-                    hostname)
-                return False
             routes_diff = set(orig_routes_on_all_nbrs[hostname]) ^ set(
                 cur_routes_on_all_nbrs[hostname])
             for route in routes_diff:
@@ -697,7 +690,7 @@ def check_and_log_routes_diff(duthost, neigh_hosts, orig_routes_on_all_nbrs, cur
                 aspaths = routes_dut[route]
                 # Filter out routes announced by this neigh
                 skip = False
-                if isinstance(list(neigh_hosts.items())[0][1]['host'], EosHost):
+                if isinstance(first_host, (EosHost, CsonicHost)):
                     for aspath in aspaths:
                         if str(neigh_hosts[hostname]['conf']['bgp']['asn']) in aspath:
                             logger.debug(
