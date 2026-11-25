@@ -52,7 +52,12 @@ Out of scope:
 | `tests/macsec` | Those tests enable MACsec themselves and still run on plain testbeds. They are skipped on this topology |
 | Multi-ASIC DUTs | Only single-ASIC is tested on hardware; multi-ASIC has limited testing on a KVM testbed |
 | Rekey during a test run | The PTF holds a key snapshot. See [7.6](#76-keys-slots-and-packet-numbers) |
-| cEOS neighbors | `config_macsec_neighbors.yml` has a cEOS branch, but it has not been tested. The testbed uses vSONiC |
+| cEOS neighbors | `config_macsec_neighbors.yml` has a cEOS branch, but it has not been tested. The testbed uses vSONiC and cSONiC neighbors |
+
+Neighbor images used for testing, by their sonic-buildimage `master` base:
+
+- vSONiC: `304ae0535`
+- cSONiC: `ad7d3e114`
 
 Tests that need some rework to run on this testbed:
 
