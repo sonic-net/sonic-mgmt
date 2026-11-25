@@ -76,8 +76,8 @@ def restore_image(localhost, duthosts, rand_one_dut_hostname, upgrade_path_lists
 def regenerate_and_apply_golden_config_db(dut, tbinfo, conn_graph_facts, preserved_config):
     if 't2_single_node' in tbinfo['topo']['name']:
         common = tbinfo['topo']['properties'].get('configuration_properties', {}).get('common', {})
-        # The generator’s update_preserved_config merges all keys of /tmp/dns_config.json, not just DNS.
-        dut.copy(content=json.dumps(preserved_config), dest="/tmp/dns_config.json", mode="0600", verbose=False)
+        dut.copy(content=json.dumps({"DNS_NAMESERVER": preserved_config["dns"]}),
+                 dest="/tmp/dns_config.json", mode="0600", verbose=False)
 
         dut.generate_golden_config_db(
             topo_name=tbinfo['topo']['name'],
@@ -85,6 +85,15 @@ def regenerate_and_apply_golden_config_db(dut, tbinfo, conn_graph_facts, preserv
             bgp_confd_asn=common.get('dut_confed_asn'),
             bgp_confd_peers=common.get('dut_confed_peers'),
             device_conn=conn_graph_facts.get('device_conn', {}).get(dut.hostname, {}))
+
+        profiles = preserved_config["macsec_profiles"]
+        if profiles:
+            golden_config = json.loads(dut.shell("cat {}".format(GOLDEN_CONFIG_DB_PATH), verbose=False)['stdout'])
+            for namespace, table in profiles.items():
+                namespace_config = golden_config[namespace] if dut.is_multi_asic else golden_config
+                namespace_config["MACSEC_PROFILE"] = table
+            for path in (GOLDEN_CONFIG_DB_PATH, GOLDEN_CONFIG_DB_PATH_ORI):
+                dut.copy(content=json.dumps(golden_config), dest=path, mode="0600", verbose=False)
         config_reload(dut, config_source="minigraph", override_config=True,
                       safe_reload=True, wait_for_bgp=True)
 
