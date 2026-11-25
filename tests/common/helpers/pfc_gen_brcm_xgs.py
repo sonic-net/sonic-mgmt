@@ -183,14 +183,18 @@ class FanoutPfcStorm():
 
         Backpressure asserted while PFC transmit is off sends nothing, and keeps
         sending nothing after transmit is enabled, so it must be asserted after.
+
+        A read that fails counts as neither state and keeps the wait going.
         '''
-        while self._pfcTxEnabled(intf) != enabled:
+        state = self._pfcTxEnabled(intf)
+        while state != enabled:
             if time.time() > deadline:
-                state = "enabled" if enabled else "disabled"
+                wanted = "enabled" if enabled else "disabled"
                 raise RuntimeError(
-                    f"PFC transmit not {state} on {intf} within the {PFC_TX_ENABLE_TIMEOUT_S}s "
+                    f"PFC transmit not {wanted} on {intf} within the {PFC_TX_ENABLE_TIMEOUT_S}s "
                     "shared by the waits for transmit off and on")
             time.sleep(0.2)
+            state = self._pfcTxEnabled(intf)
 
     def startPfcStorm(self, intfs):
         '''
@@ -205,6 +209,7 @@ class FanoutPfcStorm():
         xgsSonic = self.os == 'sonic' and self.switchChip.startswith(("Tomahawk6", "Tomahawk5", "Tomahawk4"))
         intfs = [intf for intf in dict.fromkeys(intfs) if intf not in self.intfsEnabled]
         txWasEnabled = []
+        txUnreadable = set()
         for intf in intfs:
             # Backpressure lives in the ASIC, so a generator that died without
             # running its cleanup left this interface asserting PFC. Starting from
@@ -215,8 +220,19 @@ class FanoutPfcStorm():
 
             if self.os == 'sonic':
                 if xgsSonic:
-                    oldPfcEnable = self._shellCmd(f"redis-cli -n 4 HGET \"PORT_QOS_MAP|{intf}\" \"pfc_enable\"")
-                    if oldPfcEnable.strip() and self._pfcTxEnabled(intf) is not False:
+                    # The ASIC, not CONFIG_DB, says whether transmit is on: a pfc_enable
+                    # already cleared by an earlier generator may not have reached it yet.
+                    # ENABLE_TX is 1 only while orchagent has PFC bits applied on the port
+                    # (the SAI clears it at boot), and that pending cleanup or the clear
+                    # below sets them to 0, so a port that reads 1 is waited on until 0.
+                    txEnabled = self._pfcTxEnabled(intf)
+                    if txEnabled is None:
+                        # PC_PFC not readable here: assert without waiting, as the
+                        # generator did before it checked transmit
+                        logger.debug(f'PFC_STORM_DEBUG PC_PFC ENABLE_TX not readable on {intf}, '
+                                     'not waiting for PFC transmit')
+                        txUnreadable.add(intf)
+                    elif txEnabled:
                         txWasEnabled.append(intf)
                 self._shellCmd(f"redis-cli -n 4 HSET \"PORT_QOS_MAP|{intf}\" \"pfc_enable\" \"\"")
             else:
@@ -243,7 +259,7 @@ class FanoutPfcStorm():
             mmuPort = self.intfToMmuPort[intf]
             port = self.intfToPort[intf]
             if self.switchChip.startswith(("Tomahawk6", "Tomahawk5", "Tomahawk4")):
-                if self.os == 'sonic':
+                if self.os == 'sonic' and intf not in txUnreadable:
                     self._waitPfcTx(intf, True, deadline)
                 self._bcmltshellCmd(
                     f"pt MMU_INTFO_XPORT_BKP_HW_UPDATE_DISr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP=1")
