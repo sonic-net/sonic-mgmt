@@ -410,8 +410,17 @@ class PendingNexthop(object):
 
             address, nexthop = PENDING_NEXTHOP[ip_ver]
             prefix_list = PENDING_PREFIX_LIST.format(ip_ver)
+            subnet = ipaddress.ip_interface(address).network
+            # remove() deletes these objects, so they must not exist before the test creates them
+            pytest_assert("prefix-list {}:".format(prefix_list) not in
+                          self._vtysh(namespace, ["show {} prefix-list {}".format(family, prefix_list)])["stdout"],
+                          "Prefix-list {} already exists".format(prefix_list))
+            pytest_assert(not self._ip(namespace, "-{} addr show to {}".format(ip_ver, subnet))["stdout"].strip(),
+                          "Subnet {} is already in use".format(subnet))
+            pytest_assert(not self._ip(namespace, "-{} neigh show {}".format(ip_ver, nexthop))["stdout"].strip(),
+                          "Neighbor {} already exists".format(nexthop))
             logger.info("Hold routes from {} ({}) pending via next-hop {} on {}".format(vm, peer, nexthop, interface))
-            # Fails if the address already exists; register for cleanup only once the test owns it
+            # Register for cleanup only once the test owns the address
             self._ip(namespace, "-{} addr add {} dev {}".format(ip_ver, address, interface))
             self.targets.append((ip_ver, namespace, interface, mac, route_map, family, prefix_list, address, nexthop))
             prefix_len = max(ipaddress.ip_network(route).prefixlen for route in route_list)
@@ -1278,6 +1287,9 @@ def test_bgp_route_with_suppress(duthosts, enum_downstream_dut_hostname, enum_up
                             upstream_verification(duthost_up, ipv4_route_list, ipv6_route_list, exabgp_port,
                                                   exabgp_port_v6,
                                                   tbinfo, nbrhosts, queue=EMPTY, vrf_type=vrf_type)
+
+                    with allure.step("Validate BGP routes are not installed while their next-hop is unresolved"):
+                        pending.check_not_installed(ipv4_route_list, ipv6_route_list)
 
                     with allure.step("Validate BGP ipv4 and ipv6 routes are not announced to Upstream VM peer"):
                         validate_route_propagate(duthost_up, nbrhosts, tbinfo,
