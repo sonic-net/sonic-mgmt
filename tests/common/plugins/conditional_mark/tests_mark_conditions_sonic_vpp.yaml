@@ -467,6 +467,12 @@ ip/test_mgmt_ipv6_only.py::test_telemetry_output_ipv6_only:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/28017 and asic_type in ['vpp'] and release == 'master'"
 
+lldp/test_lldp_syncd.py:
+  skip:
+    reason: "Flaky port recovery and LLDP convergence on the KVM t0-vpp testbed"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/29438 and asic_type in ['vpp'] and topo_name == 't0'"
+
 #######################################
 #####         Memory Checker      #####
 #######################################
