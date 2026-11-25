@@ -351,6 +351,7 @@ python3 report_uploader.py -h
 usage: report_uploader.py [-h] [--external_id EXTERNAL_ID] [--json]
                           [--category CATEGORY] [--testbed TESTBED]
                           [--auth_method {appKey,managedId,interactive,azureCli,deviceCode,userToken,appToken,defaultCred}]
+                          [--strict]
                           [--image_url IMAGE_URL | --version VERSION]
                           path [path ...] database
 
@@ -371,6 +372,9 @@ optional arguments:
                         Name of testbed.
   --auth_method {appKey,managedId,interactive,azureCli,deviceCode,userToken,appToken,defaultCred}, -a {appKey,managedId,interactive,azureCli,deviceCode,userToken,appToken,defaultCred}
                         Authentication method for Kusto connection.
+  --strict              test_result only: exit 1 if any path fails to parse or queue, or yields no test results
+                        (some data may already be queued); exit 3 if every path was queued but some XML files
+                        under a folder were skipped. Without it, errors are printed and the exit code is 0.
   --image_url IMAGE_URL, -i IMAGE_URL
                         Image url. If has this argument, will ignore version. They are mutually exclusive.
   --version VERSION, -o VERSION
