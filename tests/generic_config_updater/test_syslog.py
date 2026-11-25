@@ -58,7 +58,7 @@ def get_current_syslog_servers(duthost):
     cmds = "show runningconfiguration syslog"
     output = duthost.shell(cmds)
 
-    if not output['rc']:
+    if output['rc']:
         logger.warning("'{}' exited with return code {}".format(cmds, output['rc']))
         return None
 
@@ -133,8 +133,10 @@ def expect_res_success_syslog(duthost, expected_content_list, unexpected_content
 
         for unexpected_content in unexpected_content_list:
             if unexpected_content in current_syslog_servers:
-                logger.warning(f"Found unexpected server {expected_content} in {expected_content_list}")
+                logger.warning(f"Found unexpected server {unexpected_content} in {expected_content_list}")
                 return False
+
+        return True
 
     pytest_assert(
             wait_until(60, 10, 0, check_syslog_servers_match, duthost, expected_content_list, unexpected_content_list),
