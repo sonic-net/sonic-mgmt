@@ -14,6 +14,7 @@ from cryptography import x509
 
 from tests.common.cert_utils import TlsCertificateGenerator
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.sonic_db import STATE_DB, redis_del, redis_hgetall, redis_keys
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -229,6 +230,25 @@ def assert_retry_after(response, path):
         "Retry-After from {} must be delay-seconds or an HTTP-date, got: {!r}".format(path, value)
     )
     return value
+
+
+def assert_bridge_down_response(response, path):
+    """Assert the answer to a request made while sonic-dbus-bridge is off the bus.
+
+    Only the 503 the forward itself produces carries Retry-After. A 401 or 500
+    from the mTLS user lookup leaves the header unchecked, which is logged as
+    a warning so a run where it was never verified can be found.
+    """
+    pytest_assert(
+        response.status_code in BRIDGE_DOWN_STATUSES,
+        "Expected one of {} from {} with {} stopped, got: {} body={!r}".format(
+            BRIDGE_DOWN_STATUSES, path, BRIDGE_SERVICE, response.status_code, response.text[:300])
+    )
+    if response.status_code == 503:
+        logger.info("503 from %s carries Retry-After: %s", path, assert_retry_after(response, path))
+    else:
+        logger.warning("Retry-After not verified: %s answered %s with %s stopped, not 503",
+                       path, response.status_code, BRIDGE_SERVICE)
 
 
 def best_effort(fn, *args, **kwargs):
@@ -528,11 +548,49 @@ BRIDGE_DOWN_STATUSES = (401, 500, 503)
 BMCCTLD = "bmcctld"
 BMCCTLD_TIMEOUT = 120
 
+# Host power commands sonic-dbus-bridge publishes in STATE_DB for bmcctld.
+COMMAND_KEY_GLOB = "RACK_MANAGER_COMMAND|*"
+# status values bmcctld leaves on a command it has finished with.
+COMMAND_TERMINAL_STATUSES = ("DONE", "FAILED")
+COMMAND_ROW_TIMEOUT = 30
+COMMAND_DONE_TIMEOUT = 60
 
-def bmcctld_running(duthost):
+
+def is_bmcctld_running(duthost):
     """True when bmcctld is RUNNING in the pmon container."""
     status, _ = duthost.get_pmon_daemon_status(BMCCTLD)
     return status == "RUNNING"
+
+
+def command_keys(duthost):
+    """The RACK_MANAGER_COMMAND keys in STATE_DB."""
+    return set(redis_keys(duthost, STATE_DB, COMMAND_KEY_GLOB))
+
+
+def command_done(duthost, key):
+    """True once bmcctld has completed or failed the command row `key`."""
+    return redis_hgetall(duthost, STATE_DB, key).get("status") in COMMAND_TERMINAL_STATUSES
+
+
+def wait_for_new_commands_done(duthost, keys_before):
+    """Wait for an accepted reset's command row to be published and finished by a running bmcctld.
+
+    The bridge publishes the row after bmcweb has answered, and bmcctld writes
+    its status when it finishes, so a row deleted earlier than that would be
+    missed or written back.
+    """
+    def _new_keys():
+        return command_keys(duthost) - keys_before
+
+    return (wait_until(COMMAND_ROW_TIMEOUT, 1, 0, _new_keys)
+            and wait_until(COMMAND_DONE_TIMEOUT, 2, 0, lambda: all(command_done(duthost, key) for key in _new_keys())))
+
+
+def remove_new_commands(duthost, keys_before):
+    """Delete every RACK_MANAGER_COMMAND row created since `keys_before` was read."""
+    for key in command_keys(duthost) - keys_before:
+        logger.info("Removing %s: %s", key, redis_hgetall(duthost, STATE_DB, key))
+        redis_del(duthost, STATE_DB, key)
 
 
 def supervisor(duthost, action, program):
