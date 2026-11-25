@@ -41,7 +41,7 @@ def test_bgp_bounce(duthost, nbrhosts, tbinfo, deploy_plain_bgp_config, deploy_n
 
     # Get random ToR VM
     vm_name = random.choice([vm_name for vm_name in list(nbrhosts.keys()) if vm_name.endswith('T0')])
-    vm_host = nbrhosts[vm_name]['host']
+    vm = nbrhosts[vm_name]
 
     # Start all bgp sessions
     duthost.shell('config bgp startup all')
@@ -53,7 +53,7 @@ def test_bgp_bounce(duthost, nbrhosts, tbinfo, deploy_plain_bgp_config, deploy_n
     time.sleep(BGP_ANNOUNCE_TIME)
 
     # Take action on one of the ToR VM
-    no_export_route_num = get_no_export_output(vm_host, ipv6=is_v6_topo)
+    no_export_route_num = get_no_export_output(vm, ipv6=is_v6_topo)
     pytest_assert(not no_export_route_num, "Routes has no_export attribute")
 
     # Apply bgp no export config
@@ -63,5 +63,5 @@ def test_bgp_bounce(duthost, nbrhosts, tbinfo, deploy_plain_bgp_config, deploy_n
     time.sleep(BGP_ANNOUNCE_TIME)
 
     # Take action on one of the ToR VM
-    no_export_route_num = get_no_export_output(vm_host, ipv6=is_v6_topo)
+    no_export_route_num = get_no_export_output(vm, ipv6=is_v6_topo)
     pytest_assert(no_export_route_num, "Routes received on T1 are no-export")
