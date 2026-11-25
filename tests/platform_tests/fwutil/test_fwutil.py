@@ -64,7 +64,7 @@ def test_fwutil_install_bad_path(duthost, component):
     assert find_pattern(out['stderr_lines'], pattern)
 
 
-def test_fwutil_update_bad_config(duthost, component):
+def test_fwutil_update_bad_config(duthost, component, backup_platform_file):
     """Tests that fwutil update validates the platform_components.json schema correctly."""
     versions = show_firmware(duthost)
     chassis = list(versions["chassis"].keys())[0]  # Only one chassis

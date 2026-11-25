@@ -7,7 +7,8 @@ from tests.common.utilities import wait_until
 from tests.common.devices.eos import EosHost
 from tests.common.macsec.macsec_helper import check_wpa_supplicant_process, check_appl_db, check_mka_session, \
                            get_mka_session, get_sci, get_appl_db, get_ipnetns_prefix
-from tests.common.macsec.macsec_config_helper import setup_macsec_configuration, delete_macsec_profile
+from tests.common.macsec.macsec_config_helper import setup_macsec_configuration, delete_macsec_profile, \
+    replace_macsec_port
 from tests.common.macsec.macsec_platform_helper import get_platform, get_macsec_ifname
 
 logger = logging.getLogger(__name__)
@@ -101,8 +102,6 @@ class TestControlPlane():
             duthost, port_name, nbr["host"], nbr["port"])
         # Replace existing profile with new profile
         new_profile_name = profile_name+"_NEW"
-        setup_macsec_configuration(duthost, ctrl_link, new_profile_name, default_priority,
-                                   cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period, tbinfo)
 
         def check_mka_new_session():
             _, _, new_dut_ingress_sc_table, new_dut_egress_sa_table, new_dut_ingress_sa_table = get_appl_db(
@@ -114,11 +113,22 @@ class TestControlPlane():
             assert last_dut_ingress_sa_table != new_dut_ingress_sa_table
             return True
         try:
+            setup_macsec_configuration(duthost, ctrl_link, new_profile_name, default_priority,
+                                       cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period, tbinfo)
             # To check whether the MKA establishment happened within 60 seconds
             assert wait_until(60, 5, 2, check_mka_new_session)
         finally:
-            # Revert back to original configuration
-            setup_macsec_configuration(duthost, ctrl_link, profile_name, default_priority,
-                                       cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period, tbinfo)
-            # Clean up new macsec profile
-            delete_macsec_profile(duthost, new_profile_name)
+            try:
+                try:
+                    replace_macsec_port(duthost, port_name, profile_name)
+                finally:
+                    replace_macsec_port(nbr["host"], nbr["port"], profile_name)
+            finally:
+                try:
+                    delete_macsec_profile(duthost, new_profile_name)
+                finally:
+                    delete_macsec_profile(nbr["host"], new_profile_name)
+            assert wait_until(300, 3, 0,
+                              lambda: duthost.iface_macsec_ok(port_name) and
+                              nbr["host"].iface_macsec_ok(nbr["port"])), \
+                "MACsec did not recover on {}".format(port_name)

@@ -526,12 +526,6 @@ debug "Stopped all remaining containers ..."
 # Stop the docker container engine. Otherwise we will have a broken docker storage
 systemctl stop docker.service || debug "Ignore stopping docker service error $?"
 
-# Stop kernel modules for Nephos platform
-if [[ "$sonic_asic_type" = 'nephos' ]];
-then
-  systemctl stop nps-modules-`uname -r`.service || debug "Ignore stopping nps service error $?"
-fi
-
 # Update the reboot cause file to reflect that user issued this script
 # Upon next boot, the contents of this file will be used to determine the
 # cause of the previous reboot

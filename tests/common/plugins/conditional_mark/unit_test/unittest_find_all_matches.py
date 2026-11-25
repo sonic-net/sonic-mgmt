@@ -1,6 +1,8 @@
 import logging
+import tempfile
 import unittest
-from unittest.mock import MagicMock
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 from tests.common.plugins.conditional_mark import find_all_matches, load_conditions
 
 logger = logging.getLogger(__name__)
@@ -33,6 +35,35 @@ def collect_marks(nodeid):
         for mark_name, mark_details in list(list(match.values())[0].items()):
             marks[mark_name] = mark_details
     return marks
+
+
+class TestLoadConditions(unittest.TestCase):
+    """Test condition-file expansion without losing adjacent patterns."""
+
+    def test_file_patterns(self):
+        """Load adjacent globs, literals and defaults without duplicate matches."""
+        with tempfile.TemporaryDirectory() as directory:
+            first = Path(directory, "first.yaml")
+            second = Path(directory, "second.yaml")
+            first.write_text("first: {}\n")
+            second.write_text("second: {}\n")
+            first_glob = str(Path(directory, "first*.yaml"))
+            second_glob = str(Path(directory, "second*.yaml"))
+            missing_glob = str(Path(directory, "missing*.yaml"))
+            cases = [
+                ([first_glob, second_glob], ["first", "second"]),
+                ([str(second), first_glob, second_glob], ["second", "first"]),
+                ([first_glob, missing_glob], ["first"]),
+                ([], ["first"]),
+                ([missing_glob], ["first"]),
+            ]
+            with patch("tests.common.plugins.conditional_mark.DEFAULT_CONDITIONS_FILE", first_glob):
+                for files, expected in cases:
+                    with self.subTest(files=files):
+                        session = MagicMock()
+                        session.config.option.mark_conditions_files = list(files)
+                        conditions = load_conditions(session)
+                        self.assertEqual(conditions, [{key: {}} for key in expected])
 
 
 class TestFindAllMatches(unittest.TestCase):

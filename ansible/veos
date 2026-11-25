@@ -16,6 +16,7 @@ all:
           - bmc
           - bmc-dual-mgmt
           - bmc-shared-mgmt
+          - ocs-mgmt
           - t1
           - t1-lag
           - t1-28-lag
@@ -77,6 +78,7 @@ all:
           - t0-isolated-v6-d256u256s2
           - t0-isolated-v6-d32u32s2
           - t0-isolated-d96u32s2
+          - t0-isolated-d960u16s8
           - dualtor
           - dualtor-56
           - cable-test

@@ -29,9 +29,10 @@ def test_radv_deployment_id(duthost):
     duthost.shell(docker_cmd)
     duthost.shell(restart_cmd)
     assert wait_until(10, 1, 0, is_container_running, duthost, "radv")
+    # Deployment ID 8 no longer disables RADV on T0 devices with IPv6 VLANs.
     logger.info("Check if radvd process is running")
-    ret = duthost.is_service_running("radvd", "radv")
-    assert ret is False, "radv service is still running"
+    ret = wait_until(10, 1, 0, duthost.is_service_running, "radvd", "radv")
+    assert ret is True, "radvd service is not running"
     logger.info("Set the deployment id back to {} and restart radv".format(origin_id))
     duthost.shell(set_cmd.format(origin_id))
     duthost.shell(docker_cmd)
