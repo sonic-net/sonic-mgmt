@@ -10,7 +10,7 @@ from tests.common.devices.sonic import SonicHost
 
 TEMPLATES_DIR = os.path.realpath((os.path.join(os.path.dirname(__file__), "../../common/templates")))
 ANSIBLE_ROOT = pathlib.Path(os.getenv("ANSIBLE_CONFIG",
-                                      pathlib.Path(__file__).resolve().parent.joinpath("../../ansible")))
+                                      pathlib.Path(__file__).resolve().parent.joinpath("../../../ansible")))
 RUN_PLAYBOOK = os.path.realpath(os.path.join(os.path.dirname(__file__), "../../scripts/exec_template.yml"))
 
 logger = logging.getLogger(__name__)
