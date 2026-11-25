@@ -496,7 +496,6 @@ def generate_pause_flows(testbed_config,
     pause_flow.metrics.loss = True
 
 
-
 def _rand_ipv6():
     # 2007:db8::/32 is documentation range
     return "2007:db8:%x:%x:%x:%x:%x:%x" % tuple(getrandbits(16) for _ in range(6))

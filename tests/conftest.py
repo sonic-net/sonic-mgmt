@@ -3450,7 +3450,8 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
                                                      verbose=False)['stdout'])
                         else:
                             if not dut.stat(
-                                    path="/etc/sonic/running_golden_config{}.json".format(asic_index))['stat']['exists']:
+                                    path="/etc/sonic/running_golden_config{}.json".format(asic_index)
+                            )['stat']['exists']:
                                 dut.shell(
                                     "sonic-cfggen -n {} -d --print-data > "
                                     "/etc/sonic/running_golden_config{}.json".format(
