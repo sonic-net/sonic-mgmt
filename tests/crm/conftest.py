@@ -22,18 +22,75 @@ logger = logging.getLogger(__name__)
 
 CRM_PERF_DUT_DIR = "/tmp/crm_perf_debug"
 CRM_PERF_SAMPLE_INTERVAL = 5
+CRM_PERF_IDLE_BASELINE = 60
 # Appends one line per interval to $1; started detached, so its PID is written to $1.pid.
 # us/sy/id/wa/st are percentages of all CPUs over the interval; st (steal) is CPU time the
-# hypervisor gave to other VMs; run is the number of runnable tasks; top lists the busiest processes.
+# hypervisor gave to other VMs; run is the number of runnable tasks; load1/5/15 are the load
+# averages over 1, 5 and 15 minutes (load15 at the first sample shows how busy the host was
+# before sampling started); top lists the busiest
+# processes as name[pid]=cpu%. The first time a process reaches 50% CPU, a "hot" line records
+# its full command line, parent, age in seconds and container (capped at 300 such lines), and a
+# "behavior" line measures it for one second: user/sys CPU %, voluntary context switches (times it
+# blocked waiting for input or I/O), involuntary ones (times it was preempted), read/write
+# syscalls (needs root) and the kernel function it is waiting in. A spinning process blocks ~0 times; a process
+# working on requests blocks between them.
 CRM_PERF_SAMPLER = r"""#!/bin/bash
 out=$1
 interval=$2
 echo $$ > $out.pid
 echo "$(date '+%F %T') nproc=$(nproc) $(grep -m1 'model name' /proc/cpuinfo)" >> $out
+containers=$(docker ps --format '{{.ID}}={{.Names}}' 2>/dev/null | paste -sd ' ')
+echo "$(date '+%F %T') containers: ${containers:--}" >> $out
+clk_tck=$(getconf CLK_TCK)
+declare -A seen
+hot_logged=0
+
+probe() {
+    local stat f sysc
+    stat=$(cat /proc/$1/stat 2>/dev/null) || return
+    f=(${stat##*) })
+    sysc=$(awk '/^syscr/ {r = $2} /^syscw/ {w = $2} END {print (r == "" ? "-" : r + w)}' /proc/$1/io 2>/dev/null)
+    echo "${f[0]} ${f[11]} ${f[12]}" \
+         "$(awk '/^voluntary_ctxt/ {v = $2} /^nonvoluntary_ctxt/ {n = $2} END {print v, n}' /proc/$1/status)" \
+         "${sysc:--}"
+}
+
 read -r _ u n s i w q sq st _ < /proc/stat
 while true; do
-    top5=$(top -b -n 2 -d 1 -w 512 | awk '/^top -/{f++} f == 2 && $1 ~ /^[0-9]+$/ {print $12 "=" $9}' \
-           | head -n 5 | paste -sd ' ')
+    procs=$(top -b -n 2 -d 1 -w 512 | awk '/^top -/{f++} f == 2 && $1 ~ /^[0-9]+$/ {print $1, $9, $12}' \
+            | head -n 5)
+    top5=$(echo "$procs" | awk 'NF {print $3 "[" $1 "]=" $2}' | paste -sd ' ')
+    declare -A before=()
+    while read -r pid cpu comm; do
+        [ -n "$pid" ] && [ "${cpu%.*}" -ge 50 ] && [ -z "${seen[$pid]}" ] && [ $hot_logged -lt 300 ] || continue
+        seen[$pid]=1
+        hot_logged=$((hot_logged + 1))
+        ctr=$(grep -o -m1 '[0-9a-f]\{64\}' /proc/$pid/cgroup 2>/dev/null | head -n 1 | cut -c1-12)
+        read -r ppid age < <(ps -o ppid=,etimes= -p $pid 2>/dev/null)
+        pcomm=$(ps -o comm= -p "${ppid:-0}" 2>/dev/null)
+        cmd=$(tr '\0\n' '  ' < /proc/$pid/cmdline 2>/dev/null | cut -c1-300)
+        echo "$(date '+%F %T') hot pid=$pid cpu=$cpu comm=$comm container=${ctr:-host}" \
+             "ppid=${ppid:--}($pcomm) age_s=${age:--} cmd=${cmd:--}" >> $out
+        before[$pid]=$(probe $pid)
+    done <<< "$procs"
+    if [ ${#before[@]} -gt 0 ]; then
+        sleep 1
+        for pid in "${!before[@]}"; do
+            read -r _ pu1 ps1 pv1 pn1 pc1 <<< "${before[$pid]}"
+            after=$(probe $pid)
+            if [ -z "$after" ] || [ -z "$pu1" ]; then
+                echo "$(date '+%F %T') behavior pid=$pid exited during measurement" >> $out
+                continue
+            fi
+            read -r pstate pu2 ps2 pv2 pn2 pc2 <<< "$after"
+            sysc="-"
+            [ "$pc1" = "-" ] || [ "$pc2" = "-" ] || sysc=$((pc2 - pc1))
+            echo "$(date '+%F %T') behavior pid=$pid over 1s: state=$pstate" \
+                 "user%=$(( (pu2 - pu1) * 100 / clk_tck )) sys%=$(( (ps2 - ps1) * 100 / clk_tck ))" \
+                 "blocked=$((pv2 - pv1)) preempted=$((pn2 - pn1)) rw_syscalls=$sysc" \
+                 "wchan=$(cat /proc/$pid/wchan 2>/dev/null)" >> $out
+        done
+    fi
     sleep $((interval - 1))
     read -r _ u2 n2 s2 i2 w2 q2 sq2 st2 _ < /proc/stat
     total=$(( (u2 + n2 + s2 + i2 + w2 + q2 + sq2 + st2) - (u + n + s + i + w + q + sq + st) ))
@@ -43,7 +100,7 @@ while true; do
     echo "$(date '+%F %T') us=$(( 100 * (u2 + n2 - u - n) / total ))" \
          "sy=$(( 100 * (s2 + q2 + sq2 - s - q - sq) / total )) id=$(( 100 * (i2 - i) / total ))" \
          "wa=$(( 100 * (w2 - w) / total )) st=$(( 100 * (st2 - st) / total ))" \
-         "run=$run load1=$(cut -d ' ' -f1 /proc/loadavg) psi_some10=${psi:--} top: $top5" >> $out
+         "run=$run load1/5/15=$(cut -d ' ' -f1-3 /proc/loadavg | tr ' ' /) psi_some10=${psi:--} top: $top5" >> $out
     u=$u2; n=$n2; s=$s2; i=$i2; w=$w2; q=$q2; sq=$sq2; st=$st2
 done
 """
@@ -62,9 +119,9 @@ class CrmPerfSampler(object):
 
     def start(self):
         script = os.path.join(CRM_PERF_DUT_DIR, "sampler.sh")
-        self.duthost.shell("rm -rf {0} && mkdir -p {0}".format(CRM_PERF_DUT_DIR))
+        self.duthost.shell("sudo rm -rf {0} && mkdir -p {0}".format(CRM_PERF_DUT_DIR))
         self.duthost.copy(content=CRM_PERF_SAMPLER, dest=script)
-        self.duthost.shell("setsid bash {} {} {} < /dev/null > /dev/null 2>&1 &".format(
+        self.duthost.shell("sudo setsid bash {} {} {} < /dev/null > /dev/null 2>&1 &".format(
             script, self.dut_out, CRM_PERF_SAMPLE_INTERVAL))
 
         script = os.path.join(self.runner_dir, "sampler.sh")
@@ -76,6 +133,12 @@ class CrmPerfSampler(object):
         dut_epoch = float(self.duthost.shell("date +%s.%N")["stdout"])
         logger.info("CRM_PERF sampling started every %s s; DUT clock minus runner clock = %.1f s",
                     CRM_PERF_SAMPLE_INTERVAL, dut_epoch - time.time())
+
+        # No Ansible calls during this window, so the samples show the DUT's own background load.
+        logger.info("CRM_PERF idle baseline start (%s s)", CRM_PERF_IDLE_BASELINE)
+        time.sleep(CRM_PERF_IDLE_BASELINE)
+        logger.info("CRM_PERF idle baseline end")
+        self.log_new_samples()
 
     def log_new_samples(self):
         result = self.duthost.shell("tail -n +{} {}".format(self.dut_lines_logged + 1, self.dut_out),
@@ -96,7 +159,7 @@ class CrmPerfSampler(object):
 
     def stop(self):
         self.log_new_samples()
-        self.duthost.shell("kill $(cat {0}.pid); rm -rf {1}".format(self.dut_out, CRM_PERF_DUT_DIR),
+        self.duthost.shell("sudo kill $(cat {0}.pid); sudo rm -rf {1}".format(self.dut_out, CRM_PERF_DUT_DIR),
                            module_ignore_errors=True)
         try:
             with open(self.runner_out + ".pid") as f:
