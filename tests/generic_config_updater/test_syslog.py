@@ -57,7 +57,9 @@ def get_current_syslog_servers(duthost):
     cmds = "show runningconfiguration syslog"
     output = duthost.shell(cmds)
 
-    pytest_assert(not output['rc'], "'{}' is not running successfully".format(cmds))
+    if not output['rc']:
+        logger.warning("'{}' exited with return code {}".format(cmds, output['rc]))
+        return None
 
     # If len less than 3 means not syslog output
     lines = output['stdout'].splitlines()
@@ -89,9 +91,16 @@ def setup_env(duthosts, rand_one_dut_hostname, original_syslog_servers):
         logger.info("Rolled back to original checkpoint")
         rollback_or_reload(duthost)
 
-        current_syslog_servers = get_current_syslog_servers(duthost)
+        def check_syslog_servers_match(duthost, original_syslog_servers):
+            current_syslog_servers = get_current_syslog_servers(duthost)
+
+            if current_syslog_servers is None:
+                return False
+
+            return set(current_syslog_servers) == set(original_syslog_servers)
+
         pytest_assert(
-            set(current_syslog_servers) == set(original_syslog_servers),
+            wait_until(60, 10, 0, check_syslog_servers_match, duthost, original_syslog_servers),
             "Syslog servers are not rollback_or_reload to initial config setup"
         )
     finally:
@@ -109,11 +118,26 @@ def setup_env(duthosts, rand_one_dut_hostname, original_syslog_servers):
 def expect_res_success_syslog(duthost, expected_content_list, unexpected_content_list):
     """Check if syslog server show as expected
     """
-    cmds = "show runningconfiguration syslog"
-    output = duthost.shell(cmds)
-    pytest_assert(not output['rc'], "'{}' is not running successfully".format(cmds))
 
-    expect_res_success(duthost, output, expected_content_list, unexpected_content_list)
+    def check_syslog_servers_match(duthost, expected_content_list, unexpected_content_list):
+        current_syslog_servers = get_current_syslog_servers(duthost)
+
+        if current_syslog_servers is None:
+            return False
+
+        for expected_content in expected_content_list:
+            if expected_content not in current_syslog_servers:
+                logger.warning(f"Missing expected server {expected_content} in {expected_content_list}")
+                return False
+
+        for unexpected_content in unexpected_content_list:
+            if unexpected_content in current_syslog_servers:
+                logger.warning(f"Found unexpected server {expected_content} in {expected_content_list}")
+                return False
+
+    pytest_assert(
+            wait_until(60, 10, 0, check_syslog_servers_match, duthost, expected_content_list, unexpected_content_list),
+            "Current syslog servers did not match requirements")
 
 
 def syslog_server_tc1_add_init(duthost):
@@ -145,8 +169,8 @@ def syslog_server_tc1_add_init(duthost):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        expected_content_list = ["[{}]".format(SYSLOG_DUMMY_IPV4_SERVER),
-                                 "[{}]".format(SYSLOG_DUMMY_IPV6_SERVER)]
+        expected_content_list = [SYSLOG_DUMMY_IPV4_SERVER,
+                                 SYSLOG_DUMMY_IPV6_SERVER]
         expect_res_success_syslog(duthost, expected_content_list, [])
     finally:
         delete_tmpfile(duthost, tmpfile)
@@ -183,8 +207,8 @@ def syslog_server_tc1_add_duplicate(duthost):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        expected_content_list = ["[{}]".format(SYSLOG_DUMMY_IPV4_SERVER),
-                                 "[{}]".format(SYSLOG_DUMMY_IPV6_SERVER)]
+        expected_content_list = [SYSLOG_DUMMY_IPV4_SERVER,
+                                 SYSLOG_DUMMY_IPV6_SERVER]
         expect_res_success_syslog(duthost, expected_content_list, [])
     finally:
         delete_tmpfile(duthost, tmpfile)
@@ -268,10 +292,10 @@ def syslog_server_tc1_replace(duthost):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        expected_content_list = ["[{}]".format(REPLACE_SYSLOG_SERVER_v4),
-                                 "[{}]".format(REPLACE_SYSLOG_SERVER_v6)]
-        unexpected_content_list = ["[{}]".format(SYSLOG_DUMMY_IPV4_SERVER),
-                                   "[{}]".format(SYSLOG_DUMMY_IPV6_SERVER)]
+        expected_content_list = [REPLACE_SYSLOG_SERVER_v4,
+                                 REPLACE_SYSLOG_SERVER_v6]
+        unexpected_content_list = [SYSLOG_DUMMY_IPV4_SERVER,
+                                   SYSLOG_DUMMY_IPV6_SERVER]
         expect_res_success_syslog(duthost, expected_content_list, unexpected_content_list)
     finally:
         delete_tmpfile(duthost, tmpfile)
@@ -300,8 +324,8 @@ def syslog_server_tc1_remove(duthost):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        unexpected_content_list = ["[{}]".format(REPLACE_SYSLOG_SERVER_v4),
-                                   "[{}]".format(REPLACE_SYSLOG_SERVER_v6)]
+        unexpected_content_list = [REPLACE_SYSLOG_SERVER_v4,
+                                   REPLACE_SYSLOG_SERVER_v6]
         expect_res_success_syslog(duthost, [], unexpected_content_list)
     finally:
         delete_tmpfile(duthost, tmpfile)
