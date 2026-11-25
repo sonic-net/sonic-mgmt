@@ -1,4 +1,5 @@
 import re
+import shlex
 import pytest
 import logging
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -38,6 +39,20 @@ def get_base_container_name(container_name):
     return container_name
 
 
+def _log_hosts_mount_diagnostics(duthost, container_name):
+    container = shlex.quote(container_name)
+    probes = (
+        ("hosts mountinfo",
+         "timeout -k 1 5 docker exec {} awk '$5 == \"/etc/hosts\"' /proc/self/mountinfo".format(container)),
+        ("container ID", r"timeout -k 1 5 docker inspect --format \{\{.Id\}\} " + container),
+    )
+    for label, command in probes:
+        result = duthost.shell(command, module_ignore_errors=True)
+        logger.error("Container %s %s: rc=%s stdout=%r stderr=%r",
+                     container_name, label, result.get('rc'),
+                     (result.get('stdout') or '')[:2048], (result.get('stderr') or '')[:2048])
+
+
 @pytest.fixture
 def block_device_test_container(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index,
                                 enum_dut_feature, vendor_specific_privileged_containers):
@@ -64,13 +79,23 @@ def test_container_block_device_mounted(block_device_test_container):
     """
     duthost, container_name = block_device_test_container
 
-    docker_exec_cmd = 'docker exec {} bash -c '.format(container_name)
-    cmd = duthost.shell(docker_exec_cmd + "'mount | grep /etc/hosts' | awk '{print $1}'")
-    rc, device = cmd['rc'], cmd['stdout']
-    output = duthost.shell(docker_exec_cmd + "'ls {}'".format(device), module_ignore_errors=True)['stdout']
+    docker_exec_cmd = 'docker exec {} '.format(shlex.quote(container_name))
+    mount_result = duthost.shell(docker_exec_cmd + 'mount', module_ignore_errors=True)
+    mount_ok = not mount_result.get('failed') and mount_result.get('rc') == 0
+    devices = re.findall(r'^(\S+) on /etc/hosts type ', mount_result.get('stdout') or '', re.MULTILINE)
+    device_ok = len(devices) == 1 and devices[0].startswith('/dev/')
+    if not mount_ok or not device_ok:
+        _log_hosts_mount_diagnostics(duthost, container_name)
 
-    pytest_assert(rc == 0, 'Failed to get the device name.')
-    pytest_assert(device.startswith('/dev/'), 'Invalid device {}.'.format(device))
+    pytest_assert(mount_ok,
+                  "Failed to read mounts in container '{}': rc={}, stderr={!r}".format(
+                      container_name, mount_result.get('rc'), mount_result.get('stderr')))
+    pytest_assert(device_ok,
+                  "Expected one /dev/ mount source for /etc/hosts in container '{}', got {!r}".format(
+                      container_name, devices))
+
+    device = devices[0]
+    output = duthost.shell(docker_exec_cmd + 'ls ' + shlex.quote(device), module_ignore_errors=True)['stdout']
     pytest_assert(not output, 'The partition {} exists.'.format(device))
 
     # Not only the partition needs to be checked but also the base block device.
@@ -78,7 +103,8 @@ def test_container_block_device_mounted(block_device_test_container):
     base_device = re.sub(r'p\d+$', '', device)  # e.g., /dev/nvme0n1p3 -> /dev/nvme0n1
     if base_device == device:
         base_device = re.sub(r'\d+$', '', device)  # e.g., /dev/sda3 -> /dev/sda
-    base_output = duthost.shell(docker_exec_cmd + "'ls {}'".format(base_device), module_ignore_errors=True)['stdout']
+    base_output = duthost.shell(
+        docker_exec_cmd + 'ls ' + shlex.quote(base_device), module_ignore_errors=True)['stdout']
     pytest_assert(not base_output, 'The base block device {} exists.'.format(base_device))
 
 
