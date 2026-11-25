@@ -9,6 +9,8 @@ import ptf.testutils as testutils
 from ptf.mask import Mask
 
 from tests.common.config_reload import config_reload
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 
 pytestmark = [
@@ -86,7 +88,7 @@ def dscp_context(supported_dscp_stage, duthosts, enum_dut_hostname, tbinfo):
         table_type = config["ACL_TABLE_TYPE"][table["type"]]
         table_type["MATCHES"] = [match_fields.get(field, field) for field in table_type["MATCHES"]]
     table["stage"] = stage
-    table["ports"] = [source_port] if stage == "ingress" else uplinks
+    table["ports"] = [source_port] if stage == "ingress" else list(facts["minigraph_portchannels"])
     for index, rule in enumerate(rules.values()):
         rule[source_match] = "{}/{}".format(sources[0], prefix_length)
         rule[destination_match] = "{}/{}".format(destinations[index], prefix_length)
@@ -100,6 +102,14 @@ def dscp_context(supported_dscp_stage, duthosts, enum_dut_hostname, tbinfo):
         # Exercise SWSS action handling independently of the companion YANG schema update.
         config_reload(dut, wait_for_bgp=True, yang_validate=False)
 
+        pytest_assert(
+            wait_until(90, 5, 0, lambda: all(
+                dut.shell(
+                    'sonic-db-cli STATE_DB hget "ACL_RULE_TABLE|{}" status'.format(rule_name)
+                )["stdout"].strip() == "Active" for rule_name in rules
+            )),
+            "DSCP rewrite rules did not become active",
+        )
         yield {
             "family": family,
             "rules": rules,

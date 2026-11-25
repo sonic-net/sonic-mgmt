@@ -3,7 +3,7 @@
         "DSCP_REWRITE_TEST": {
             "MATCHES": ["SRC_IP", "DST_IP", "DSCP"],
             "ACTIONS": ["DSCP_ACTION", "PACKET_ACTION", "COUNTER"],
-            "BIND_POINTS": ["PORT"]
+            "BIND_POINTS": ["PORT", "PORTCHANNEL"]
         }
     },
     "ACL_TABLE": {
