@@ -57,7 +57,7 @@
 
 - This plan says **what we verify and how to tell pass from fail**. For *how the feature works*, read the HLD.
 - Read **The core idea** first, then the **Test case summary & coverage** table; the cards are reference.
-- Size: 10 tests and one readiness gate (fixture), 31 parametrized rows. P0 = 3 tests (19 rows, ≈ 10–15 min), P0 + P1 without the long restarts ≈ 20 min; the reload / cold / fast / swss restart rows of `test_label_persistence` (≈ 25–30 min), the warm reboot test (≈ 7 min) and the P2 churn test make the complete run take about one hour.
+- Size: 10 tests and one readiness gate (fixture), 25 parametrized rows. P0 = 3 tests (13 rows, ≈ 10–15 min), P0 + P1 without the long restarts ≈ 20 min; the reload / cold / fast / swss restart rows of `test_label_persistence` (≈ 25–30 min), the warm reboot test (≈ 7 min) and the P2 churn test make the complete run take about one hour.
 - Log checks are not separate tests: the `loganalyzer` fixture runs around every test that does not restart the DUT (see Conventions).
 - Mirrored-traffic checks are steps inside existing tests (PTF), not separate tests: `test_label_create` (the label does not change the mirrored packet), `test_label_persistence` (mirror traffic is delivered again after every restart type) and `test_label_warm_reboot` (no mirrored packet is lost across a warm reboot).
 
@@ -85,7 +85,7 @@ A mirror session may carry an optional, create-only `label` (`[A-Za-z0-9_-]{1,31
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | --------------------- | ------------------------------ |
 | fixture `label_capability`          | DUT is label-capable on every ASIC and the CLI exposes `--label`; else skip the module (readiness gate, not a test)                                                                                                       | gate                           | Preconditions         | §2.10.3, §2.14.2                    |
 | `test_label_create`                 | Session with and without a label (3 CLI forms): label visible in CONFIG_DB, STATE_DB, `show` and ASIC_DB only when set; gone with the session; mirrored packet is the same with and without a label (PTF)                 | P0                             | 1 Functionality       | §1.2, §2.8, §2.11              |
-| `test_label_validation_syntax`      | Valid labels (length 1 and 31, full charset, 32-char session name) accepted verbatim; invalid labels (empty, 32, 65 chars, space, `.`, `/`, non-ASCII) rejected by the CLI and, for empty / over-long labels, by MirrorOrch | P0                             | 1 Functionality       | §1.1 (4), §2.8, §2.10.2, §3.2.2  |
+| `test_label_validation_syntax`      | Valid labels (length 1 and 31, full charset, 32-char session name) accepted verbatim; one randomly chosen invalid label (empty, 32, 65 chars, space, `.`, `/`, non-ASCII) rejected by the CLI and by MirrorOrch (direct CONFIG_DB injection) | P0                             | 1 Functionality       | §1.1 (2), §2.8, §2.10.2, §3.2.2  |
 | `test_label_validation_duplicate`   | A second session with an already used label on one ASIC is rejected by the CLI and by MirrorOrch; two same-label sessions written back to back produce one SAI object                                                      | P0                             | 1 Functionality       | §1.1 (4), §2.8, §4.5             |
 | `test_label_change_on_live_session` | Label changed on a live session (direct HSET / GCU replace) never alters an existing ASIC_DB object; delete + recreate works                                                                                              | P1                             | 1 Functionality       | §1.1 (5), §2.13                  |
 | `test_label_capability_unsupported` | CLI rejects `--label` (with the capability message) when the capability is false or missing; unlabeled creation still works                                                                                               | P1                             | 1 Functionality       | §2.10.3, §2.14.2               |
@@ -121,11 +121,11 @@ Test plan for the optional mirror-session `label` feature. Design: **SONiC Mirro
 
 - Throughput, latency and line-rate behaviour of mirrored traffic (HLD §1.4, area 4): traffic steps are functional only (delivery, packet content, loss count).
 - Counters (§2.7: none introduced); platform / lower-layer API (§2.5, §2.6); security (§4: no new surface; backend validation is covered by `test_label_validation_syntax` and `test_label_validation_duplicate`).
-- Multi-ASIC namespaces (HLD §1.6): the tests use the first ASIC only.
+- Multi-ASIC namespaces (HLD §1.6): the tests use the first ASIC only; multi-ASIC is not implemented for now (see Open items).
 - gNMI client tests (§2.10.4): same YANG → CONFIG_DB path as `test_label_gcu`.
 - Unit tests of sonic-swss / sonic-utilities / sonic-yang-models (§3.1).
+- Unsupported-platform negative tests (the capability is `false`, HLD §2.14.3): a functional test cannot provoke them; they need a dedicated SAI implementation that returns the capability and the error message, so they belong to unit tests. The module is skipped by the fixture `label_capability` on such a platform.
 - Out of scope in the HLD itself (§0.2): a policy requiring a label on every mirror session, a new mirror-session modify command, syncd label matching.
-- Unsupported-platform negative tests (the module is skipped once by the fixture `label_capability`).
 
 
 
@@ -155,7 +155,7 @@ Traffic is injected and captured with PTF. No VS-only, snappi or TGEN cases.
 - **Session commands** (HLD §2.10.3.2):
   - ERSPAN: `config mirror_session erspan add <name> <src_ip> <dst_ip> <dscp> <ttl> <gre> <queue> [<src_port> <direction>] [-l|--label <label>]`
   - SPAN: `config mirror_session span add <name> <dst_port> <src_port> <direction> <queue> [-l|--label <label>]`
-  - Legacy ERSPAN: `config mirror_session add <name> <src_ip> <dst_ip> <dscp> <ttl> <gre> <queue> [--label <label>]` (no source port, so no mirrored traffic)
+  - Legacy ERSPAN: `config mirror_session add <name> <src_ip> <dst_ip> <dscp> <ttl> <gre> <queue> [-l|--label <label>]` (no source port, so no mirrored traffic)
   - Remove: `config mirror_session remove <name>`.
 - **Direction of SPAN sessions**: the `span_direction` fixture reads `PORT_INGRESS_MIRROR_CAPABLE` and `PORT_EGRESS_MIRROR_CAPABLE` from STATE_DB (`SWITCH_CAPABILITY|switch`). Both `true` → `both`; only ingress `true` → `rx`; ingress not supported → the test is skipped. An absent key counts as supported, as in the CLI. ERSPAN sessions with a source port use `rx`.
 - **Layers** (source of truth for assertions):
@@ -167,11 +167,12 @@ Traffic is injected and captured with PTF. No VS-only, snappi or TGEN cases.
 - **Waiting**: after a reboot / restart wait for `wait_critical_processes`, then poll STATE_DB until every session is `active`, cap 300 s; timeout = failure.
 - **Cleanup**: the autouse fixture `label_session_cleanup` removes every test session (`lbl_*`, created through the CLI or injected into CONFIG_DB) before and after each test, so a failed test leaves nothing behind. Tests that save the configuration back up `/etc/sonic/config_db.json` first and restore it at the end (`label_config_backup`).
 - **ERSPAN control plane**: the fixture `label_erspan_route` writes into CONFIG_DB the IP `192.168.200.1/30` on the `routed` port, the static route `10.20.0.0/24` via `192.168.200.2` and a static `NEIGH` entry for the PTF host. ERSPAN destinations are `10.20.0.33` + index, so one route covers all of them, and everything survives reload and reboot.
-- **Mirrored packet identification**: a port-mirror session copies everything that enters the source port, including background packets of the PTF host. A test counts only the ERSPAN frames whose inner packet carries the test packet's source IP.
+- **Mirrored packet identification**: a port-mirror session copies everything that enters the source port, including background packets of the PTF host (and, with direction `both`, the packets that leave it). A test counts only the frames that carry the test packet's source IP: the ERSPAN frames by their inner packet, the SPAN frames on the `dst` port directly.
 - **Direct HSET injection** (backend-path rows): bypasses the CLI frontend check (HLD §4.5: the backend must not trust the CLI). To create a session write **one multi-field** `redis-cli -n 4 HSET "MIRROR_SESSION|<name>" type ... label <value>` — never the other fields first and `label` afterwards, which creates an unlabeled object and turns the label write into an in-place change. To change a label on a live session use the single-field `HSET ... label <value>`.
 - **Rejection rows** (expected error + no state change): capture CONFIG_DB / STATE_DB / ASIC_DB before; assert a non-zero exit of the CLI and that the three layers are unchanged after.
-- **Log checks (LogAnalyzer)**: the `loganalyzer` fixture runs around every test that does not restart the DUT. The wording of the MirrorOrch log lines about labels is not known, so label-related lines are ignored instead of asserted; the ERROR that orchagent writes when the key of a rejected session is removed (`Failed to remove non-existent mirror session`) is ignored where a test injects such a session. `test_label_persistence` and `test_label_warm_reboot` disable `loganalyzer`: reloads and reboots produce expected errors.
+- **Log checks (LogAnalyzer)**: the `loganalyzer` fixture runs around every test that does not restart the DUT. Backend rejection rows (direct CONFIG_DB injection) first wait, with a time limit, for the MirrorOrch line that proves the rejection (HLD §2.9 Table 5), registered through `loganalyzer.expect_regex`, and only then assert the absence of the STATE_DB key and of the ASIC_DB object: `Invalid label for mirror session <name>`, `Failed to create mirror session <name>: label <label> is already used by session <other>`, and `Failed to create session <name>: object already exists` (single-field HSET on a live session). A bare "sleep, then check nothing happened" is not used: it also passes when orchagent has not processed the write or rejected it for another reason. The ERROR that orchagent writes when the key of a rejected session is removed (`Failed to remove non-existent mirror session`) is ignored where a test injects such a session. `test_label_persistence` and `test_label_warm_reboot` disable `loganalyzer`: reloads and reboots produce expected errors.
 - **Reboot**: `tests/common/reboot.py::reboot(duthost, localhost, reboot_type=...)`; config reload through `config_reload(..., safe_reload=True)`.
+- **Hardware only**: the plan is written for hardware DUTs in the t0 topology; the virtual switch (vs, KVM) is not supported.
 
 
 
@@ -207,7 +208,7 @@ Parameters (6 rows): CLI form ∈ {`erspan` (`erspan add` with a source port), `
 2. Wait until it is `active`.
 3. Labeled: assert CONFIG_DB `label`, STATE_DB `label`, the `show mirror_session` `Label` column and exactly one ASIC_DB object with `SAI_MIRROR_SESSION_ATTR_LABEL` equal to the label. For ERSPAN forms also create an unlabeled ERSPAN session next to it, assert it has no label and remove it.
 4. Unlabeled: assert no label in CONFIG_DB / STATE_DB / ASIC_DB and exactly one new ASIC_DB object.
-5. Traffic (PTF): `span` — send a packet to the `src` port and verify exactly one identical copy on the `dst` port and no other packet; `erspan` — send an IP packet with a test source IP to the `src` port and verify exactly one ERSPAN frame towards the session destination on the `routed` PTF port (only frames carrying the test source IP are counted); the frames are logged with their IP id. `erspan_legacy` has no source port, so no traffic is sent. The expectation is the same for labeled and unlabeled rows.
+5. Traffic (PTF): `span` — send an IP packet with a test source IP to the `src` port, count for a fixed time the frames that carry this source IP on the `dst` port and verify exactly one, identical to the packet sent (other frames on `dst` are not counted: the port also receives copies of other traffic, and PTF in relax mode would not report an extra frame anyway); `erspan` — send an IP packet with a test source IP to the `src` port and verify exactly one ERSPAN frame towards the session destination on the `routed` PTF port (only frames carrying the test source IP are counted); the frames are logged with their IP id. `erspan_legacy` has no source port, so no traffic is sent. The expectation is the same for labeled and unlabeled rows.
 6. Remove the session; assert the STATE_DB key and the ASIC_DB object are gone and the object count equals the baseline.
 
 **Pass:** only labeled sessions carry the label in every layer while they exist; none after removal; the mirrored packet is the same with and without a label.
@@ -215,8 +216,8 @@ Parameters (6 rows): CLI form ∈ {`erspan` (`erspan add` with a source port), `
 ---
 
 `test_label_validation_syntax` **— valid label accepted; invalid label rejected, nothing changed · P0**
-**Goal:** frontend and backend validation (HLD §1.1 (4), §2.8 Tables 2–3, §2.10.2, §3.2.2, §4.5).
-Parameters (12 rows, one row at a time):
+**Goal:** frontend and backend validation (HLD §1.1 (2), §2.8 Tables 2–3, §2.10.2, §3.2.2, §4.5).
+Parameters (6 rows, one row at a time):
 
 | Row id                                   | Label / name                                 | Expected |
 | ---------------------------------------- | -------------------------------------------- | -------- |
@@ -225,21 +226,17 @@ Parameters (12 rows, one row at a time):
 | `valid-label-charset`                    | letters, digits, `_` and `-`                 | accepted |
 | `valid-label-charset-len31`              | 31 characters mixing all allowed characters  | accepted |
 | `valid-name-len32-label-len31`           | 32-character session name, 31-char label (HLD §2.13) | accepted |
-| `invalid-label-empty`                    | `""`                                         | rejected |
-| `invalid-label-len32`                    | 32 characters                                | rejected |
-| `invalid-label-len65`                    | 65 characters                                | rejected |
-| `invalid-label-space`                    | contains a space                             | rejected |
-| `invalid-label-dot`                      | contains `.`                                 | rejected |
-| `invalid-label-slash`                    | contains `/`                                 | rejected |
-| `invalid-label-non-ascii`                | contains a non-ASCII character               | rejected |
+| `invalid-label-random`                   | one label chosen at random from: empty, 32 characters, 65 characters, a space, `.`, `/`, a non-ASCII character | rejected |
 
 **Steps:**
 
 1. Valid rows: create a SPAN session with that label (direction from `span_direction`); wait for `active`; assert CONFIG_DB, STATE_DB and ASIC_DB carry the exact label (no truncation).
-2. Invalid rows: capture the three layers; run the session creation for SPAN, ERSPAN (`erspan add`) and legacy ERSPAN (`add`) with the label; each must exit non-zero and leave the three layers unchanged.
-3. Backend path (only `invalid-label-empty`, `-len32`, `-len65`): inject the session into CONFIG_DB with a direct multi-field HSET (Conventions); after a short settle time assert no new ASIC_DB object, the session is not `active`, and no 31-character truncated label appears in ASIC_DB.
+2. Invalid row: capture the three layers; run the session creation for SPAN, ERSPAN (`erspan add`) and legacy ERSPAN (`add`) with the label; each must exit non-zero and leave the three layers unchanged.
+3. Backend path (the invalid row): inject the session into CONFIG_DB with a direct multi-field HSET (Conventions); wait for the MirrorOrch ERROR `Invalid label for mirror session <name>`, then assert there is no `MIRROR_SESSION_TABLE|<name>` key in STATE_DB, no new ASIC_DB object, and no 31-character truncated label in ASIC_DB.
 
-**Pass:** every valid label is stored verbatim; every invalid label is rejected before any DB write; MirrorOrch never creates a SAI object for an invalid label and never truncates it.
+The invalid label is chosen at random on every run (the test log prints it); the rejection of every invalid form is covered by unit tests.
+
+**Pass:** every valid label is stored verbatim; the invalid label is rejected by the CLI before any DB write and by MirrorOrch on the direct path; MirrorOrch never creates a SAI object for an invalid label and never truncates it.
 
 ---
 
@@ -249,21 +246,21 @@ Parameters (12 rows, one row at a time):
 
 1. Create ERSPAN `m1` with label `DUP`; assert exactly one ASIC_DB object carries `DUP`.
 2. Via the CLI create ERSPAN `m2` (different destination) with label `DUP` (short `-l` form); assert a non-zero exit and no `MIRROR_SESSION|m2` in CONFIG_DB.
-3. Inject `m2` with a direct multi-field HSET and label `DUP`; after the settle time assert ASIC_DB still holds one `DUP` object and `m2` is not `active`; delete the injected key.
-4. Race: inject `m3` and `m4` (distinct destinations, same label `RACE`) back to back; assert exactly one ASIC_DB object carries `RACE` and `m1` is still `active`.
+3. Inject `m2` with a direct multi-field HSET and label `DUP`; wait for the ERROR `Failed to create mirror session m2: label DUP is already used by session m1`, then assert ASIC_DB still holds one `DUP` object and STATE_DB has no key for `m2`; delete the injected key.
+4. Race: inject `m3` and `m4` (distinct destinations, same label `RACE`) back to back; wait for the same ERROR for whichever of the two loses; assert exactly one ASIC_DB object carries `RACE` and `m1` is still `active`.
 
 **Pass:** the second same-label session never produces an ASIC_DB object and `m1` stays active; exactly one of the racing sessions gets the label.
 
 ---
 
 `test_label_change_on_live_session` **— label changed on a live session → no in-place SAI change · P1**
-**Goal:** create-only semantics (HLD §1.1 (5), §2.13, §2.10.4, §2.11.7).
+**Goal:** a label cannot be changed on a live session; the only way to change it is remove + create (HLD §1.1 (5), §2.13). Neither path below is a supported way to change a label: the test checks that they do not alter the SAI object in place.
 Parameters: `path` ∈ {direct single-field HSET of `label`, GCU `replace` of `/MIRROR_SESSION/<name>/label` through `config apply-patch`}.
 **Steps:**
 
 1. Create ERSPAN `live` with label `L1`; record its ASIC_DB object.
 2. Change the label to `L2` through the parameter's path.
-3. Assert that no existing ASIC_DB object changed its label. HSET: the object is untouched and STATE_DB still says `L1`. GCU: GCU applies the replace as delete + add, so the session is recreated as a new SAI object carrying `L2` and STATE_DB follows with `L2`. A recreation after a plain HSET is a failure.
+3. HSET: wait for the NOTICE `Failed to create session <name>: object already exists`, then assert the object is untouched and STATE_DB and ASIC_DB still say `L1`, while CONFIG_DB and the `Label` column of `show mirror_session` (it reads the label from CONFIG_DB) say `L2`: this is the divergence between CONFIG_DB and the runtime state that HLD §2.13 describes. GCU: there is no GCU operation that renames the label; poll until the session is `active` again. GCU treats every field of `MIRROR_SESSION` as create-only (`CreateOnlyFilter` contains `["MIRROR_SESSION", "*", "*"]` in `generic_config_updater/patch_sorter.py`, and `CreateOnlyMoveValidator` does not allow a replace), so it applies the replace as delete + add, i.e. the same remove + create flow: the session is recreated as a new SAI object carrying `L2` and every layer follows with `L2`. A recreation after a plain HSET is a failure.
 4. Rollback: remove the session, recreate it with `L1`; assert all layers say `L1`.
 5. Change the label the supported way: remove, recreate with `L2`; assert all layers say `L2`.
 
@@ -394,4 +391,6 @@ Parameters: `restart_type` ∈ {`config_reload`, `cold`, `fast`, `swss_restart`}
 
 ## Open items
 
-1. The exact wording of the MirrorOrch log lines about labels (NOTICE on create / remove, ERROR on rejection) is not confirmed, so these lines are ignored by the log analyzer instead of being asserted.
+1. The `inactive` → `active` cycle of a labeled ERSPAN session (MirrorOrch removes the SAI object when the next hop is lost and creates it again with the label, HLD §2.12) is not covered: the plan is written for the t0 topology, where the BGP default route always resolves the collector, so the session cannot become inactive.
+2. HLD §2.11.7 says that a GCU patch of the label path "is already accepted by the sorter", and §2.13 says that "a field-only GCU patch can make CONFIG_DB diverge from runtime state". In sonic-utilities master the GCU sorter treats every `MIRROR_SESSION` field as create-only, so a field-only patch is applied as delete + add and CONFIG_DB does not diverge. The plan follows the sorter. HLD fix requested in SONiC PR 2599.
+3. Multi-ASIC DUTs are out of scope for now (HLD §1.6, §3.2.4): the tests exercise the first ASIC only, there is no multi-ASIC setup. A follow-up has to add the per-ASIC label scope checks.
