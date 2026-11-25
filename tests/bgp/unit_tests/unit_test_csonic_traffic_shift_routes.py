@@ -461,7 +461,25 @@ def test_converged_community_verification_requires_every_original_prefix(
         object(), neighbors, original, {}, 4, ['no-export'])
 
 
-def test_converged_route_diff_fallback_is_strict(monkeypatch):
+def test_converged_route_diff_tolerates_peer_originated_route_churn(
+        monkeypatch):
+    host = CsonicHost('csonic-prime', bgp_vrf='VrfARISTA01T0')
+    neighbors = _logical_peer('ARISTA01T0', host, ['10.0.0.1'])
+    monkeypatch.setattr(
+        route_checker, 'parse_rib', lambda *args: {
+            '172.16.10.0/24': ['64001'],
+        })
+
+    assert route_checker.check_and_log_routes_diff(
+        object(),
+        neighbors,
+        {'ARISTA01T0': {'172.16.10.0/24': ''}},
+        {'ARISTA01T0': {}},
+        4,
+    )
+
+
+def test_converged_route_diff_rejects_unrelated_route_churn(monkeypatch):
     host = CsonicHost('csonic-prime', bgp_vrf='VrfARISTA01T0')
     neighbors = _logical_peer('ARISTA01T0', host, ['10.0.0.1'])
     monkeypatch.setattr(
