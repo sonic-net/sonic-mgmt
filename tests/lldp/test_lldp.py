@@ -386,23 +386,6 @@ def get_expected_chassis_mac(duthost, asic, tbinfo):
         return duthost.get_dut_iface_mac(mgmt_alias).lower()
 
 
-def eth0_has_lldp_neighbor(duthost):
-    """Return True if lldpd has discovered a remote LLDP neighbor on eth0.
-    show lldp table lists remote neighbors per local port. eth0 appears only
-    when the management path delivers LLDP frames from a peer. Standard lab
-    testbeds (t0/t1/t2) typically do not forward mgmt LLDP; see test_lldp_mgmt.py.
-    """
-    result = duthost.shell(
-        "docker exec lldp lldpcli show neighbors ports eth0 summary",
-        module_ignore_errors=True)
-    if result.get("rc", 0) != 0:
-        return False
-    match = re.search(r"Total entries displayed:\s*(\d+)", result["stdout"])
-    if not match:
-        return False
-    return int(match.group(1)) > 0
-
-
 def verify_lldp_table(duthost, intf_status_output, test_name=""):
     """
     Verify LLDP table interfaces match interface status (admin up, no PortChannels).
@@ -429,24 +412,14 @@ def verify_lldp_table(duthost, intf_status_output, test_name=""):
                 ifaces.add(interface)
         return ifaces
 
-    lldp_table_interfaces = set()
-
-    def _eth0_in_lldp_table():
-        nonlocal lldp_table_interfaces
-        lldp_table_interfaces = _parse_lldp_table()
-        return 'eth0' in lldp_table_interfaces
-
-    # show lldp table is a remote-neighbor table; require eth0 only when lldpd
-    # has discovered a mgmt LLDP peer.
-    if is_virtual_platform(duthost) or not eth0_has_lldp_neighbor(duthost):
-        lldp_table_interfaces = _parse_lldp_table()
-        if 'eth0' not in lldp_table_interfaces:
-            logger.info(
-                "eth0 not in LLDP table (no mgmt LLDP neighbor on this testbed){}"
-                .format(context))
+    # show lldp table is a remote-neighbor table: eth0 appears only when the
+    # management path delivers LLDP frames. Log presence/absence; do not assert.
+    # DUT-side coverage that lldpd manages eth0 is in verify_lldpcli_interfaces.
+    lldp_table_interfaces = _parse_lldp_table()
+    if 'eth0' in lldp_table_interfaces:
+        logger.info("eth0 present in LLDP table{}".format(context))
     else:
-        pytest_assert(wait_until(10, 1, 0, _eth0_in_lldp_table),
-                      "eth0 is missing from LLDP table{}".format(context))
+        logger.info("eth0 not in LLDP table (no management LLDP neighbor){}".format(context))
 
     logger.info("LLDP table interfaces{}: {}".format(context, sorted(lldp_table_interfaces)))
     logger.info("LLDP table interfaces in total: {}".format(len(lldp_table_interfaces)))
@@ -598,16 +571,11 @@ def verify_lldpctl_facts(duthost, enum_frontend_asic_index, intf_status_output, 
         skip_interface_pattern_list=["Ethernet-BP", "Ethernet-IB"] + internal_port_list
     )['ansible_facts']
 
-    # lldpctl_facts returns interfaces with LLDP neighbors; require eth0 only when
-    # lldpd has discovered a mgmt LLDP peer.
-    if is_virtual_platform(duthost) or not eth0_has_lldp_neighbor(duthost):
-        if 'eth0' not in lldpctl_facts.get('lldpctl', {}):
-            logger.info(
-                "eth0 not in lldpctl_facts (no mgmt LLDP neighbor on this testbed){}"
-                .format(context))
+    # lldpctl_facts is a neighbor table: eth0 is present only with a mgmt LLDP peer.
+    if 'eth0' in lldpctl_facts.get('lldpctl', {}):
+        logger.info("eth0 present in lldpctl_facts{}".format(context))
     else:
-        pytest_assert('eth0' in lldpctl_facts.get('lldpctl', {}),
-                      "eth0 is missing from lldpctl_facts{}".format(context))
+        logger.info("eth0 not in lldpctl_facts (no management LLDP neighbor){}".format(context))
 
     # Get interfaces from lldpctl_facts (excluding eth0)
     lldpctl_facts_interfaces = set(lldpctl_facts.get('lldpctl', {}).keys()) - {'eth0'}
