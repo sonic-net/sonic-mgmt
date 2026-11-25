@@ -10,7 +10,8 @@ import pytest
 from collections import defaultdict
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from .utils import MacToInt, IntToMac, fdb_cleanup, get_crm_resources, send_arp_request, get_fdb_dynamic_mac_count
+from .utils import MacToInt, IntToMac, fdb_cleanup, get_crm_resources, send_arp_request, get_fdb_dynamic_mac_count, \
+    get_asic_with_vlan, get_port_ptf_index_map, ns_option
 
 TOTAL_FDB_ENTRIES = 12000
 FDB_POPULATE_SLEEP_TIMEOUT = 2
@@ -155,7 +156,7 @@ def get_fdb_dict(ptfadapter, vlan_table, dummay_mac_count):
     return fdb
 
 
-def test_fdb_mac_move(ptfadapter, duthosts, fanouthosts, rand_one_dut_hostname, ptfhost,
+def test_fdb_mac_move(ptfadapter, duthosts, fanouthosts, rand_one_dut_hostname, ptfhost, tbinfo,
                       get_function_completeness_level, rotate_syslog):
 
     # Perform FDB clean up before each test
@@ -167,14 +168,16 @@ def test_fdb_mac_move(ptfadapter, duthosts, fanouthosts, rand_one_dut_hostname, 
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
 
     duthost = duthosts[rand_one_dut_hostname]
-    conf_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+    # On multi-ASIC DUTs VLAN, ports and FDB are per ASIC: use the facts of one ASIC with a VLAN
+    asic, conf_facts = get_asic_with_vlan(duthost)
+    port_index_map = get_port_ptf_index_map(duthost, conf_facts, tbinfo)
 
     # reinitialize data plane due to above changes on PTF interfaces
     ptfadapter.reinit()
 
     router_mac = duthost.facts['router_mac']
 
-    port_index_to_name = {v: k for k, v in list(conf_facts['port_index_map'].items())}
+    port_index_to_name = {v: k for k, v in list(port_index_map.items())}
 
     # Only take interfaces that are in ptf topology
     ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
@@ -201,12 +204,12 @@ def test_fdb_mac_move(ptfadapter, duthosts, fanouthosts, rand_one_dut_hostname, 
         port_index = []
         if ifname in config_portchannels:
             for member in config_portchannels[ifname]['members']:
-                if conf_facts['port_index_map'][member] in available_ports_idx:
-                    port_index.append(conf_facts['port_index_map'][member])
+                if port_index_map[member] in available_ports_idx:
+                    port_index.append(port_index_map[member])
             if port_index:
                 interface_table[ifname].add(vlan_id)
-        elif conf_facts['port_index_map'][ifname] in available_ports_idx:
-            port_index.append(conf_facts['port_index_map'][ifname])
+        elif port_index_map[ifname] in available_ports_idx:
+            port_index.append(port_index_map[ifname])
             interface_table[ifname].add(vlan_id)
         if port_index:
             vlan_table[vlan_id].append({'port_index': port_index, 'tagging_mode': tagging_mode})
@@ -214,7 +217,8 @@ def test_fdb_mac_move(ptfadapter, duthosts, fanouthosts, rand_one_dut_hostname, 
     vlan = list(vlan_table.keys())[0]
     vlan_member_count = len(vlan_table[vlan])
     total_fdb_entries = min(TOTAL_FDB_ENTRIES, (
-            get_crm_resources(duthost, "fdb_entry", "available") - get_crm_resources(duthost, "fdb_entry", "used")))
+            get_crm_resources(duthost, "fdb_entry", "available", asic.namespace) -
+            get_crm_resources(duthost, "fdb_entry", "used", asic.namespace)))
     dummay_mac_count = int(math.floor(total_fdb_entries / vlan_member_count))
 
     fdb = get_fdb_dict(ptfadapter, vlan_table, dummay_mac_count)
@@ -349,53 +353,57 @@ def _stop_storm_sender(ptfhost, pid):
     ptfhost.shell("kill -9 {} 2>/dev/null || true".format(pid), module_ignore_errors=True)
 
 
-def _apply_mac_move_guard_config(duthost, config):
-    """Write the MAC_MOVE_GUARD|GLOBAL entry into CONFIG_DB via sonic-cfggen."""
+def _apply_mac_move_guard_config(duthost, config, ns=""):
+    """Write the MAC_MOVE_GUARD|GLOBAL entry into CONFIG_DB via sonic-cfggen.
+
+    ``ns`` is the CLI namespace option of the target ASIC ("" on single-ASIC
+    DUTs, see :func:`ns_option`); the other helpers below take it as well.
+    """
     duthost.copy(content=json.dumps(config, indent=2),
                  dest=MMG_CONFIG_REMOTE_PATH)
-    res = duthost.shell("sonic-cfggen -j {} --write-to-db".format(MMG_CONFIG_REMOTE_PATH))
+    res = duthost.shell("sonic-cfggen {}-j {} --write-to-db".format(ns, MMG_CONFIG_REMOTE_PATH))
     pytest_assert(res.get('rc') == 0,
                   "sonic-cfggen failed to apply MAC_MOVE_GUARD config: {}".format(res))
 
 
-def _remove_mac_move_guard_config(duthost):
-    duthost.shell('sonic-db-cli CONFIG_DB DEL "MAC_MOVE_GUARD|GLOBAL"',
+def _remove_mac_move_guard_config(duthost, ns=""):
+    duthost.shell('sonic-db-cli {}CONFIG_DB DEL "MAC_MOVE_GUARD|GLOBAL"'.format(ns),
                   module_ignore_errors=True)
     duthost.shell("rm -f {}".format(MMG_CONFIG_REMOTE_PATH), module_ignore_errors=True)
 
 
-def _add_vlan_with_tagged_members(duthost, vlan_id, members):
+def _add_vlan_with_tagged_members(duthost, vlan_id, members, ns=""):
     """Create ``vlan_id`` and add each entry in ``members`` as a tagged member.
 
     ``members`` are the names returned by :func:`_vlan_member_parent` - either
     a physical port or a PortChannel - i.e. the entities that appear in
     VLAN_MEMBER rows.
     """
-    duthost.shell("config vlan add {}".format(vlan_id))
+    duthost.shell("config vlan {}add {}".format(ns, vlan_id))
     for m in members:
         # `config vlan member add` adds as tagged by default (omit -u).
-        duthost.shell("config vlan member add {} {}".format(vlan_id, m))
+        duthost.shell("config vlan {}member add {} {}".format(ns, vlan_id, m))
 
 
-def _remove_vlan_with_tagged_members(duthost, vlan_id, members):
+def _remove_vlan_with_tagged_members(duthost, vlan_id, members, ns=""):
     for m in members:
-        duthost.shell("config vlan member del {} {}".format(vlan_id, m),
+        duthost.shell("config vlan {}member del {} {}".format(ns, vlan_id, m),
                       module_ignore_errors=True)
-    duthost.shell("config vlan del {}".format(vlan_id),
+    duthost.shell("config vlan {}del {}".format(ns, vlan_id),
                   module_ignore_errors=True)
 
 
-def _get_port_oper_status(duthost, port_name):
+def _get_port_oper_status(duthost, port_name, ns=""):
     """Return APPL_DB PORT_TABLE oper_status for the given DUT port (or '' if unset)."""
     res = duthost.shell(
-        'sonic-db-cli APPL_DB HGET "PORT_TABLE:{}" oper_status'.format(port_name),
+        'sonic-db-cli {}APPL_DB HGET "PORT_TABLE:{}" oper_status'.format(ns, port_name),
         module_ignore_errors=True)
     return (res.get('stdout') or '').strip()
 
 
-def _disabled_ports(duthost, port_names):
+def _disabled_ports(duthost, port_names, ns=""):
     """Return the subset of port_names whose APPL_DB oper_status is 'down'."""
-    return [p for p in port_names if _get_port_oper_status(duthost, p) == 'down']
+    return [p for p in port_names if _get_port_oper_status(duthost, p, ns) == 'down']
 
 
 def _vlan_member_parent(conf_facts, physical_port):
@@ -430,8 +438,10 @@ def test_fdb_mac_move_guard_disable_port(duthosts, fanouthosts, rand_one_dut_hos
     fdb_cleanup(duthosts, rand_one_dut_hostname, fanouthosts)
 
     duthost = duthosts[rand_one_dut_hostname]
-    _skip_if_mmg_action_unsupported(duthost, "DISABLE_PORT")
-    conf_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+    # MAC_MOVE_GUARD, VLANs and ports are per ASIC namespace on multi-ASIC DUTs
+    asic, conf_facts = get_asic_with_vlan(duthost)
+    ns = ns_option(asic)
+    _skip_if_mmg_action_unsupported(duthost, "DISABLE_PORT", ns)
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     router_mac = duthost.facts['router_mac']
 
@@ -444,7 +454,7 @@ def test_fdb_mac_move_guard_disable_port(duthosts, fanouthosts, rand_one_dut_hos
 
     is_vpp = duthost.facts.get("asic_type") == "vpp"
     mmg_config = VPP_MAC_MOVE_GUARD_CONFIG if is_vpp else MAC_MOVE_GUARD_CONFIG
-    _apply_mac_move_guard_config(duthost, mmg_config)
+    _apply_mac_move_guard_config(duthost, mmg_config, ns)
     logger.info("Applied MAC_MOVE_GUARD config: {}".format(mmg_config))
 
     pid = None
@@ -458,11 +468,11 @@ def test_fdb_mac_move_guard_disable_port(duthosts, fanouthosts, rand_one_dut_hos
         # Phase 1: wait for the guard to disable one of the two ports.
         pytest_assert(
             wait_until(MMG_TIMEOUT, 1, 0,
-                       lambda: bool(_disabled_ports(duthost, candidate_ports))),
+                       lambda: bool(_disabled_ports(duthost, candidate_ports, ns))),
             "MAC_MOVE_GUARD did not disable any of {} within {}s"
             .format(candidate_ports, MMG_TIMEOUT)
         )
-        first_disabled = _disabled_ports(duthost, candidate_ports)
+        first_disabled = _disabled_ports(duthost, candidate_ports, ns)
         # The guard disables exactly one of the two ports on which the moves are seen.
         disabled_port = first_disabled[0]
         disable_time = time.time()
@@ -478,7 +488,7 @@ def test_fdb_mac_move_guard_disable_port(duthosts, fanouthosts, rand_one_dut_hos
             5, MMG_TIMEOUT - int(time.time() - disable_time))
         pytest_assert(
             wait_until(recovery_remaining, 2, 0,
-                       lambda: _get_port_oper_status(duthost, disabled_port) == 'up'),
+                       lambda: _get_port_oper_status(duthost, disabled_port, ns) == 'up'),
             "Port {} did not recover to oper-up within {}s of being disabled"
             .format(disabled_port, MMG_TIMEOUT)
         )
@@ -490,10 +500,10 @@ def test_fdb_mac_move_guard_disable_port(duthosts, fanouthosts, rand_one_dut_hos
         tail = ptfhost.shell("tail -n 20 {} || true".format(STORM_SENDER_LOG),
                              module_ignore_errors=True)
         logger.info("storm sender log tail:\n{}".format(tail.get('stdout', '')))
-        _remove_mac_move_guard_config(duthost)
+        _remove_mac_move_guard_config(duthost, ns)
         # Force any guard-disabled port back to admin-up so subsequent tests see a clean state.
         for p in candidate_ports:
-            duthost.shell("config interface startup {}".format(p),
+            duthost.shell("config interface {}startup {}".format(ns, p),
                           module_ignore_errors=True)
         fdb_cleanup(duthosts, rand_one_dut_hostname, fanouthosts)
 
@@ -521,30 +531,30 @@ def _parse_sonic_db_cli_hash(raw):
     return val if isinstance(val, dict) else {}
 
 
-def _asic_db_key_exists(duthost, key):
+def _asic_db_key_exists(duthost, key, ns=""):
     res = duthost.shell(
-        'sonic-db-cli ASIC_DB EXISTS "{}"'.format(key),
+        'sonic-db-cli {}ASIC_DB EXISTS "{}"'.format(ns, key),
         module_ignore_errors=True)
     return (res.get('stdout') or '').strip() == '1'
 
 
-def _asic_db_hgetall(duthost, key):
+def _asic_db_hgetall(duthost, key, ns=""):
     res = duthost.shell(
-        'sonic-db-cli ASIC_DB HGETALL "{}"'.format(key),
+        'sonic-db-cli {}ASIC_DB HGETALL "{}"'.format(ns, key),
         module_ignore_errors=True)
     return _parse_sonic_db_cli_hash(res.get('stdout'))
 
 
-def _asic_db_keys(duthost, pattern):
+def _asic_db_keys(duthost, pattern, ns=""):
     """Return the list of ASIC_DB keys matching ``pattern`` (Redis KEYS glob)."""
     res = duthost.shell(
-        "sonic-db-cli ASIC_DB KEYS '{}'".format(pattern),
+        "sonic-db-cli {}ASIC_DB KEYS '{}'".format(ns, pattern),
         module_ignore_errors=True)
     out = (res.get('stdout') or '').strip()
     return [k.strip() for k in out.splitlines() if k.strip()] if out else []
 
 
-def _find_pre_ingress_acl_table(duthost):
+def _find_pre_ingress_acl_table(duthost, ns=""):
     """Return the bare-hex OID of the ACL table currently bound to
     ``SAI_SWITCH_ATTR_PRE_INGRESS_ACL`` on the switch object, or ``None`` if
     the attribute is unset / oid:0x0.
@@ -554,8 +564,8 @@ def _find_pre_ingress_acl_table(duthost):
     time, so this becomes non-null as soon as the
     ``DISABLE_LEARN_ON_MAC_WITH_ACL`` action is configured.
     """
-    for sw_key in _asic_db_keys(duthost, "ASIC_STATE:SAI_OBJECT_TYPE_SWITCH:*"):
-        attrs = _asic_db_hgetall(duthost, sw_key)
+    for sw_key in _asic_db_keys(duthost, "ASIC_STATE:SAI_OBJECT_TYPE_SWITCH:*", ns):
+        attrs = _asic_db_hgetall(duthost, sw_key, ns)
         raw = attrs.get('SAI_SWITCH_ATTR_PRE_INGRESS_ACL')
         if not raw or not raw.startswith('oid:'):
             continue
@@ -565,7 +575,7 @@ def _find_pre_ingress_acl_table(duthost):
     return None
 
 
-def _find_dlomwa_acl_entry(duthost, table_oid):
+def _find_dlomwa_acl_entry(duthost, table_oid, ns=""):
     """Return ``(entry_oid, attrs)`` for any ASIC_DB ACL entry whose
     ``SAI_ACL_ENTRY_ATTR_TABLE_ID`` references ``table_oid`` (a bare hex
     string). Returns ``(None, None)`` if no such entry exists yet.
@@ -575,8 +585,8 @@ def _find_dlomwa_acl_entry(duthost, table_oid):
     """
     expected_table_id = "oid:" + table_oid
     for entry_key in _asic_db_keys(
-            duthost, "ASIC_STATE:SAI_OBJECT_TYPE_ACL_ENTRY:*"):
-        attrs = _asic_db_hgetall(duthost, entry_key)
+            duthost, "ASIC_STATE:SAI_OBJECT_TYPE_ACL_ENTRY:*", ns):
+        attrs = _asic_db_hgetall(duthost, entry_key, ns)
         if attrs.get('SAI_ACL_ENTRY_ATTR_TABLE_ID') != expected_table_id:
             continue
         prefix = "ASIC_STATE:SAI_OBJECT_TYPE_ACL_ENTRY:oid:"
@@ -595,30 +605,30 @@ def _syslog_line_count(duthost):
         return 0
 
 
-def _get_orchagent_loglevel(duthost):
+def _get_orchagent_loglevel(duthost, ns=""):
     """Return the current LOGLEVEL_DB value for orchagent, or '' if unset
     (i.e., the binary's compiled-in default — NOTICE)."""
     res = duthost.shell(
-        'sonic-db-cli LOGLEVEL_DB HGET "orchagent" "LOGLEVEL"',
+        'sonic-db-cli {}LOGLEVEL_DB HGET "orchagent" "LOGLEVEL"'.format(ns),
         module_ignore_errors=True)
     return (res.get('stdout') or '').strip()
 
 
-def _set_orchagent_loglevel(duthost, level):
+def _set_orchagent_loglevel(duthost, level, ns=""):
     """Set orchagent's log level via LOGLEVEL_DB. swss-common's logger
     watches that table and applies changes without a restart. Pass ``None``
     or '' to clear the override (reverts to the binary default)."""
     if level:
         duthost.shell(
-            'sonic-db-cli LOGLEVEL_DB HSET "orchagent" "LOGLEVEL" "{}"'.format(level),
+            'sonic-db-cli {}LOGLEVEL_DB HSET "orchagent" "LOGLEVEL" "{}"'.format(ns, level),
             module_ignore_errors=True)
     else:
         duthost.shell(
-            'sonic-db-cli LOGLEVEL_DB HDEL "orchagent" "LOGLEVEL"',
+            'sonic-db-cli {}LOGLEVEL_DB HDEL "orchagent" "LOGLEVEL"'.format(ns),
             module_ignore_errors=True)
 
 
-def _mmg_action_supported(duthost, action):
+def _mmg_action_supported(duthost, action, ns=""):
     """Return whether MAC_MOVE_GUARD supports ``action`` per the capability
     row macmoveguardorch publishes to STATE_DB at orchagent init.
 
@@ -638,7 +648,7 @@ def _mmg_action_supported(duthost, action):
               or the capability publish step has not run yet)
     """
     res = duthost.shell(
-        'sonic-db-cli STATE_DB HGETALL "MMG_CAPABILITY_TABLE|ACTIONS"',
+        'sonic-db-cli {}STATE_DB HGETALL "MMG_CAPABILITY_TABLE|ACTIONS"'.format(ns),
         module_ignore_errors=True)
     parsed = _parse_sonic_db_cli_hash(res.get('stdout'))
     if not parsed:
@@ -649,13 +659,13 @@ def _mmg_action_supported(duthost, action):
     return val.strip().lower() == 'true'
 
 
-def _skip_if_mmg_action_unsupported(duthost, action):
+def _skip_if_mmg_action_unsupported(duthost, action, ns=""):
     """Skip the calling test if MAC_MOVE_GUARD ``action`` is not supported.
 
     Treats both "capability row absent" (MMG not in this image) and "row
     present but action not listed as 'true'" as unsupported.
     """
-    if _mmg_action_supported(duthost, action) is not True:
+    if _mmg_action_supported(duthost, action, ns) is not True:
         pytest.skip(
             "MAC_MOVE_GUARD action '{}' is not supported".format(action))
 
@@ -734,12 +744,13 @@ def test_fdb_mac_move_guard_disable_mac_learning(duthosts, fanouthosts,
     fdb_cleanup(duthosts, rand_one_dut_hostname, fanouthosts)
 
     duthost = duthosts[rand_one_dut_hostname]
-    conf_facts = duthost.config_facts(host=duthost.hostname,
-                                      source="persistent")['ansible_facts']
+    # MAC_MOVE_GUARD, VLANs, ports and ASIC_DB are per ASIC namespace on multi-ASIC DUTs
+    asic, conf_facts = get_asic_with_vlan(duthost)
+    ns = ns_option(asic)
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     router_mac = duthost.facts['router_mac']
 
-    _skip_if_mmg_action_unsupported(duthost, "DISABLE_LEARN_ON_MAC_WITH_ACL")
+    _skip_if_mmg_action_unsupported(duthost, "DISABLE_LEARN_ON_MAC_WITH_ACL", ns)
 
     ptf_a, ptf_b, _selected_vlan_id, iface_a, iface_b, dut_a, dut_b = \
         _select_two_vlan_member_ptf_ports(conf_facts, ptfhost, mg_facts)
@@ -757,10 +768,10 @@ def test_fdb_mac_move_guard_disable_mac_learning(duthosts, fanouthosts,
                 vlan_id, ptf_a, iface_a, dut_a, ptf_b, iface_b, dut_b,
                 vlan100_members)
 
-    _add_vlan_with_tagged_members(duthost, vlan_id, vlan100_members)
+    _add_vlan_with_tagged_members(duthost, vlan_id, vlan100_members, ns)
     logger.info("Created VLAN %d with tagged members %s", vlan_id, vlan100_members)
 
-    _apply_mac_move_guard_config(duthost, DISABLE_LEARN_ON_MAC_GUARD_CONFIG)
+    _apply_mac_move_guard_config(duthost, DISABLE_LEARN_ON_MAC_GUARD_CONFIG, ns)
     logger.info("Applied MAC_MOVE_GUARD config: %s",
                 DISABLE_LEARN_ON_MAC_GUARD_CONFIG)
 
@@ -768,8 +779,8 @@ def test_fdb_mac_move_guard_disable_mac_learning(duthosts, fanouthosts,
     # check is emitted at INFO level by macmoveguardorch (NOTICE would flood
     # the log under a real storm). Bump orchagent's log level to INFO so
     # those lines reach syslog while the test is running.
-    original_loglevel = _get_orchagent_loglevel(duthost)
-    _set_orchagent_loglevel(duthost, "INFO")
+    original_loglevel = _get_orchagent_loglevel(duthost, ns)
+    _set_orchagent_loglevel(duthost, "INFO", ns)
     logger.info("Bumped orchagent log level to INFO (was %r)",
                 original_loglevel or "default")
 
@@ -794,7 +805,7 @@ def test_fdb_mac_move_guard_disable_mac_learning(duthosts, fanouthosts,
         acl_table_oid_holder = {}
 
         def _table_bound():
-            oid = _find_pre_ingress_acl_table(duthost)
+            oid = _find_pre_ingress_acl_table(duthost, ns)
             if oid:
                 acl_table_oid_holder['oid'] = oid
                 return True
@@ -817,9 +828,9 @@ def test_fdb_mac_move_guard_disable_mac_learning(duthosts, fanouthosts,
         # keys it with the "oid:" prefix.
         table_key = ("ASIC_STATE:SAI_OBJECT_TYPE_ACL_TABLE:oid:" +
                      acl_table_oid)
-        pytest_assert(_asic_db_key_exists(duthost, table_key),
+        pytest_assert(_asic_db_key_exists(duthost, table_key, ns),
                       "ACL table {} not present in ASIC_DB".format(table_key))
-        table_attrs = _asic_db_hgetall(duthost, table_key)
+        table_attrs = _asic_db_hgetall(duthost, table_key, ns)
         # SET_DO_NOT_LEARN is only supported at PRE_INGRESS; macmoveguardorch
         # programs the table with SAI_ACL_STAGE_PRE_INGRESS and binds it to
         # SAI_SWITCH_ATTR_PRE_INGRESS_ACL.
@@ -858,7 +869,7 @@ def test_fdb_mac_move_guard_disable_mac_learning(duthosts, fanouthosts,
         entry_holder = {}
 
         def _entry_installed():
-            entry_oid, attrs = _find_dlomwa_acl_entry(duthost, acl_table_oid)
+            entry_oid, attrs = _find_dlomwa_acl_entry(duthost, acl_table_oid, ns)
             if entry_oid:
                 entry_holder['oid'] = entry_oid
                 entry_holder['attrs'] = attrs
@@ -977,7 +988,7 @@ def test_fdb_mac_move_guard_disable_mac_learning(duthosts, fanouthosts,
                     "action_interval=%ds and waiting for cleanup =====",
                     DISABLE_LEARN_ON_MAC_CLEANUP_ACTION_INTERVAL)
         _apply_mac_move_guard_config(
-            duthost, DISABLE_LEARN_ON_MAC_CLEANUP_GUARD_CONFIG)
+            duthost, DISABLE_LEARN_ON_MAC_CLEANUP_GUARD_CONFIG, ns)
         logger.info("Reapplied MAC_MOVE_GUARD config: %s",
                     DISABLE_LEARN_ON_MAC_CLEANUP_GUARD_CONFIG)
 
@@ -986,7 +997,7 @@ def test_fdb_mac_move_guard_disable_mac_learning(duthosts, fanouthosts,
         cleanup_timeout = DISABLE_LEARN_ON_MAC_CLEANUP_ACTION_INTERVAL + 60
         pytest_assert(
             wait_until(cleanup_timeout, 5, 0,
-                       lambda: not _asic_db_key_exists(duthost, entry_key)),
+                       lambda: not _asic_db_key_exists(duthost, entry_key, ns)),
             "ACL entry {} for bad MAC {} was not removed from ASIC_DB "
             "within {}s after reconfiguring action_interval={}s"
             .format(entry_key, target_mac, cleanup_timeout,
@@ -1001,7 +1012,7 @@ def test_fdb_mac_move_guard_disable_mac_learning(duthosts, fanouthosts,
         tail = ptfhost.shell("tail -n 20 {} || true".format(STORM_SENDER_LOG),
                              module_ignore_errors=True)
         logger.info("storm sender log tail:\n%s", tail.get('stdout', ''))
-        _remove_mac_move_guard_config(duthost)
-        _set_orchagent_loglevel(duthost, original_loglevel)
-        _remove_vlan_with_tagged_members(duthost, vlan_id, vlan100_members)
+        _remove_mac_move_guard_config(duthost, ns)
+        _set_orchagent_loglevel(duthost, original_loglevel, ns)
+        _remove_vlan_with_tagged_members(duthost, vlan_id, vlan100_members, ns)
         fdb_cleanup(duthosts, rand_one_dut_hostname, fanouthosts)
