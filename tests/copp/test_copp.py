@@ -27,6 +27,7 @@ import random
 import re
 import time
 from collections import namedtuple
+from contextlib import contextmanager, nullcontext
 
 from tests.copp import copp_utils
 from tests.ptf_runner import ptf_runner
@@ -66,6 +67,7 @@ _COPPTestParameters = namedtuple("_COPPTestParameters",
 _TOR_ONLY_PROTOCOL = ["DHCP", "DHCP6"]
 _TEST_RATE_LIMIT_DEFAULT = 600
 _TEST_RATE_LIMIT_MARVELL = 625
+_BGP_TEST_TCP_SPORT = 1234
 
 # Protocol to trap ID mapping indicating which trap
 # being for which protocol. Trap ID is used to verify
@@ -85,6 +87,24 @@ PROTOCOL_TO_TRAP_ID = {
 }
 
 logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def _suppress_bgp_synack(dut, test_params, tcp_sport):
+    """Prevent the synthetic BGP SYN from generating a competing RST to port 179."""
+    rule = (
+        "-p tcp -s {} --sport 179 -d {} --dport {} "
+        "--tcp-flags SYN,ACK SYN,ACK -m comment --comment copp-bgp-test -j DROP"
+    ).format(str(ipaddr.IPAddress(test_params.peerip)), str(ipaddr.IPAddress(test_params.myip)), tcp_sport)
+    iptables = "sudo "
+    if test_params.nn_target_namespace:
+        iptables += "ip netns exec {} ".format(test_params.nn_target_namespace)
+    iptables += "iptables -w"
+    dut.command("{} -I OUTPUT 1 {}".format(iptables, rule))
+    try:
+        yield
+    finally:
+        dut.command("{} -D OUTPUT {}".format(iptables, rule))
 
 
 class TestCOPP(object):
@@ -491,6 +511,8 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True,
               "ip_version": ip_version,
               "packet_size": packet_size,
               "neighbor_miss_trap_supported": test_params.neighbor_miss_trap_supported}
+    if protocol == "BGP":
+        params["tcp_sport"] = _BGP_TEST_TCP_SPORT
 
     dut_ip = dut.mgmt_ip
     device_sockets = ["0-{}@tcp://127.0.0.1:10900".format(test_params.nn_target_port),
@@ -501,22 +523,28 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True,
     # could hang there forever.
     ptf.shell(f"ping {dut_ip} -c 5 -i 0.2")
 
-    # NOTE: debug_level can actually slow the PTF down enough to fail the test cases
-    # that are not rate limited. Until this is addressed, do not use this flag as part of
-    # nightly test runs.
-    ptf_runner(host=ptf,
-               testdir="ptftests",
-               # Special Handling for DHCP if we are using T1 Topo
-               testname="copp_tests.{}Test".format((protocol+"TopoT1") if protocol in _TOR_ONLY_PROTOCOL and
-                                                   dut_type not in ["ToRRouter", "MgmtToRRouter", "BmcMgmtToRRouter"]
-                                                   else protocol),
-               platform="nn",
-               qlen=100000,
-               params=params,
-               relax=None,
-               debug_level=None,
-               device_sockets=device_sockets,
-               is_python3=True)
+    # Install only around a BGP PTF run. A reboot or config reload can flush
+    # OUTPUT rules, and test_remove_trap may invoke this runner repeatedly.
+    suppress_synack = nullcontext()
+    if protocol == "BGP" and is_ipv4:
+        suppress_synack = _suppress_bgp_synack(dut, test_params, params["tcp_sport"])
+    with suppress_synack:
+        # NOTE: debug_level can actually slow the PTF down enough to fail the test cases
+        # that are not rate limited. Until this is addressed, do not use this flag as part of
+        # nightly test runs.
+        ptf_runner(host=ptf,
+                   testdir="ptftests",
+                   # Special Handling for DHCP if we are using T1 Topo
+                   testname="copp_tests.{}Test".format(
+                       (protocol + "TopoT1") if protocol in _TOR_ONLY_PROTOCOL and
+                       dut_type not in ["ToRRouter", "MgmtToRRouter", "BmcMgmtToRRouter"] else protocol),
+                   platform="nn",
+                   qlen=100000,
+                   params=params,
+                   relax=None,
+                   debug_level=None,
+                   device_sockets=device_sockets,
+                   is_python3=True)
     return True
 
 
