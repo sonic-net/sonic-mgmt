@@ -225,6 +225,20 @@ stages:
       displayName: "Run GoBGP shim and speaker manager unit tests"
 
 
+- stage: Unit_Tests
+  displayName: "Unit Tests"
+  dependsOn: []
+  jobs:
+  - job: run_unit_tests
+    displayName: "Run offline unit tests"
+    timeoutInMinutes: 30
+    continueOnError: false
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - template: .azure-pipelines/unit_tests/unit-tests.yml
+
+
 - stage: Test
   dependsOn: Pre_test
   condition: and(succeeded(), not(canceled()), in(dependencies.Pre_test.result, 'Succeeded'), not(startsWith(variables['Build.SourceBranch'], 'refs/heads/gh-readonly-queue/')))

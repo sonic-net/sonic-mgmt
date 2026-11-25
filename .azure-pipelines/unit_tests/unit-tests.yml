@@ -1,0 +1,23 @@
+# Runs the offline unit tests that no change-gated stage covers, on every PR.
+steps:
+- checkout: self
+  clean: true
+
+# Unit tests must not reach testbeds or services, so they run with no network.
+- script: |
+    set -euo pipefail
+    image=sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest
+    docker pull "$image"
+    docker run --rm --network none --user "$(id -u):$(id -g)" \
+      -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 \
+      -v "$(System.DefaultWorkingDirectory):/sonic-mgmt" -w /sonic-mgmt \
+      "$image" .azure-pipelines/unit_tests/run_unit_tests.sh
+  displayName: 'Run offline unit tests'
+
+- task: PublishTestResults@2
+  condition: always()
+  inputs:
+    testResultsFormat: JUnit
+    testResultsFiles: 'unit-test-results/*.xml'
+    testRunTitle: 'Offline unit tests'
+  displayName: 'Publish unit test results'

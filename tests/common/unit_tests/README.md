@@ -4,6 +4,10 @@ This directory contains unit tests for modules under `tests/common`.
 
 ## Running Unit Tests
 
+CI runs these, and other offline unit tests, on every PR: see
+`.azure-pipelines/unit_tests/run_unit_tests.sh` (the `Unit Tests` stage in
+`azure-pipelines.yml`).
+
 ### Run all unit tests in this directory
 ```bash
 # From repository root
