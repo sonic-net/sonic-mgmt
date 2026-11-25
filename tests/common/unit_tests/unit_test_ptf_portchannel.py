@@ -77,6 +77,7 @@ STATUS_LINE = "portchannel-PortChannel1         RUNNING   pid 3141, uptime 0:05:
     STATUS_LINE.encode("utf-8"),
 ], ids=["str", "bytes"])
 def test_get_portchannel_status(output):
+    """Verify that RUNNING is parsed from supervisorctl output returned as str or bytes."""
     module = FakeModule(output)
     assert ptf_portchannel.get_portchannel_status(module, "PortChannel1") == "RUNNING"
     assert module.commands == ["supervisorctl status portchannel-PortChannel1"]
