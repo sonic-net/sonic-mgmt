@@ -73,7 +73,7 @@ class TestLinkLocalIPacket:
         elif duthost.stat(path=sai_profile)["stat"]["exists"]:
             sai_profile_cmd = "cat {}".format(sai_profile)
         elif duthost.stat(path=sai_profile_template)["stat"]["exists"]:
-            sai_profile_cmd = "sonic-cfggen -d -t {}".format(sai_profile_template)
+            sai_profile_cmd = "sonic-cfggen -d --redis-unix-socket -t {}".format(sai_profile_template)
         else:
             pytest.skip("Unable to determine link-local support: sai.profile or sai.profile.j2 is not present")
             return

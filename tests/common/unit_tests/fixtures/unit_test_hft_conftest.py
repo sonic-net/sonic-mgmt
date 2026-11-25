@@ -31,8 +31,11 @@ def hft_conftest():
     ptf.testutils = types.ModuleType("ptf.testutils")
     natsort = types.ModuleType("natsort")
     natsort.natsorted = sorted
+    sonic_db = types.ModuleType("tests.common.helpers.sonic_db")
+    sonic_db.redis_cli_argv = MagicMock(return_value=["redis-cli"])
+    sonic_db.redis_cli_command = MagicMock(return_value="redis-cli")
     with pytest.MonkeyPatch.context() as patch:
-        for module in (common_utilities, ptf, ptf.testutils, natsort):
+        for module in (common_utilities, ptf, ptf.testutils, natsort, sonic_db):
             patch.setitem(sys.modules, module.__name__, module)
 
         def load(name, path):

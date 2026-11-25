@@ -94,14 +94,14 @@ def perf_ctx(duthosts, rand_one_dut_front_end_hostname):
     # Discover admin-up ports, excluding PortChannel members
     # (binding ACL tables to LAG member ports causes orchagent ERR logs
     # which trigger loganalyzer failures)
-    output = duthost.shell("sonic-cfggen -d --var-json PORT")
+    output = duthost.shell("sonic-cfggen -d --redis-unix-socket --var-json PORT")
     # Devices with no PORT table at all (e.g. a BMC) return empty stdout, so fall
     # through to the admin-up port check below rather than failing to parse.
     ports = {}
     if output['rc'] == 0 and output['stdout'].strip():
         ports = json.loads(output['stdout'])
 
-    pc_output = duthost.shell("sonic-db-cli CONFIG_DB keys 'PORTCHANNEL_MEMBER|*'",
+    pc_output = duthost.shell("sonic-db-cli -s CONFIG_DB keys 'PORTCHANNEL_MEMBER|*'",
                               module_ignore_errors=True)
     lag_members = set()
     for key in pc_output.get('stdout_lines', []):
@@ -269,11 +269,11 @@ def _cleanup_test_tables(duthost, table_prefix):
     so transient inconsistency between tests is acceptable.
     """
     duthost.shell(
-        "sonic-db-cli CONFIG_DB keys 'ACL_TABLE|{}*' | xargs -r -n1 sonic-db-cli CONFIG_DB del".format(
+        "sonic-db-cli -s CONFIG_DB keys 'ACL_TABLE|{}*' | xargs -r -n1 sonic-db-cli -s CONFIG_DB del".format(
             table_prefix),
         module_ignore_errors=True)
     duthost.shell(
-        "sonic-db-cli CONFIG_DB keys 'ACL_RULE|{}*' | xargs -r -n1 sonic-db-cli CONFIG_DB del".format(
+        "sonic-db-cli -s CONFIG_DB keys 'ACL_RULE|{}*' | xargs -r -n1 sonic-db-cli -s CONFIG_DB del".format(
             table_prefix),
         module_ignore_errors=True)
 
@@ -301,7 +301,7 @@ def _skip_if_insufficient_acl_table_resources(duthost):
 
 def _get_free_ctrlplane_service(duthost):
     """Return a CTRLPLANE ACL service not already bound to an ACL table."""
-    output = duthost.shell("sonic-cfggen -d --var-json ACL_TABLE")
+    output = duthost.shell("sonic-cfggen -d --redis-unix-socket --var-json ACL_TABLE")
     acl_tables = json.loads(output["stdout"])
 
     used_services = set()
@@ -619,7 +619,7 @@ def test_perf_ntp_server(perf_ctx):
     measured_overhead = perf_ctx['measured_overhead']
 
     # Check if NTP_SERVER table exists
-    output = duthost.shell("sonic-cfggen -d --var-json NTP_SERVER",
+    output = duthost.shell("sonic-cfggen -d --redis-unix-socket --var-json NTP_SERVER",
                            module_ignore_errors=True)
     existing_servers = {}
     if output['rc'] == 0 and output['stdout'].strip():

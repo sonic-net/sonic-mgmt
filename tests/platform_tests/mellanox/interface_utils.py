@@ -16,7 +16,7 @@ def get_interfaces_info(duthost):
     asics_name_list = [f' -n {asic.namespace}' for asic in duthost.frontend_asics] if duthost.is_multi_asic else ['']
     interfaces_info = {}
     for asic in asics_name_list:
-        cmd = f"sonic-cfggen{asic} -d --print-data"
+        cmd = f"sonic-cfggen{asic} -d --redis-unix-socket --print-data"
         db_output = json.loads(duthost.command(cmd)["stdout"])
         interfaces_info.update(db_output["PORT"])
     return interfaces_info

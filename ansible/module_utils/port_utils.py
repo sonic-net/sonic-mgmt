@@ -24,7 +24,7 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
         from sonic_py_common import multi_asic
         from ansible.module_utils.multi_asic_utils import load_db_config
         load_db_config()
-        ports_info = multi_asic.get_port_table(namespace=asic_name)
+        ports_info = multi_asic.get_port_table(namespace=asic_name, use_tcp=False)
         for port, port_data in ports_info.items():
             if "alias" in port_data:
                 port_alias_to_name_map[port_data["alias"]] = port

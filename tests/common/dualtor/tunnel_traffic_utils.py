@@ -46,11 +46,17 @@ def dut_dscp_tc_queue_maps(duthost):
     maps = {}
     try:
         # dscp_to_tc_map
-        maps['dscp_to_tc_map'] = json.loads(duthost.shell("sonic-cfggen -d --var-json 'DSCP_TO_TC_MAP'")['stdout'])
+        maps['dscp_to_tc_map'] = json.loads(
+            duthost.shell("sonic-cfggen -d --redis-unix-socket --var-json 'DSCP_TO_TC_MAP'")['stdout']
+        )
         # tc_to_queue_map
-        maps['tc_to_queue_map'] = json.loads(duthost.shell("sonic-cfggen -d --var-json 'TC_TO_QUEUE_MAP'")['stdout'])
+        maps['tc_to_queue_map'] = json.loads(
+            duthost.shell("sonic-cfggen -d --redis-unix-socket --var-json 'TC_TO_QUEUE_MAP'")['stdout']
+        )
         # tc_to_dscp_map
-        maps['tc_to_dscp_map'] = json.loads(duthost.shell("sonic-cfggen -d --var-json 'TC_TO_DSCP_MAP'")['stdout'])
+        maps['tc_to_dscp_map'] = json.loads(
+            duthost.shell("sonic-cfggen -d --redis-unix-socket --var-json 'TC_TO_DSCP_MAP'")['stdout']
+        )
     except Exception as e:
         logging.error("Failed to retrieve map on {}, exception {}".format(duthost.hostname, repr(e)))
     return maps

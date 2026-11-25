@@ -277,7 +277,7 @@ def update_mux_configs_and_config_reload(dut, state):
     STATE_LIST = ['auto', 'active', 'standby']
     pt_assert(state in STATE_LIST, "state should be one of {}".format(STATE_LIST))
 
-    mux_cable_config = dut.shell("sonic-cfggen -d  --var-json 'MUX_CABLE'")['stdout']
+    mux_cable_config = dut.shell("sonic-cfggen -d --redis-unix-socket  --var-json 'MUX_CABLE'")['stdout']
     pt_assert(len(mux_cable_config.strip()) != 0, "No mux_cable configuration is found in config_db")
 
     # Update mux_cable state and dump to a temp file
@@ -881,7 +881,7 @@ def mux_cable_server_ip(dut):
     Returns:
         A dict: {"Ethernet12" : {"server_ipv4":"192.168.0.4/32", "server_ipv6":"fc02:1000::4/128"}, ....}
     """
-    mux_cable_config = dut.shell("sonic-cfggen -d  --var-json 'MUX_CABLE'")['stdout']
+    mux_cable_config = dut.shell("sonic-cfggen -d --redis-unix-socket  --var-json 'MUX_CABLE'")['stdout']
     return json.loads(mux_cable_config)
 
 
@@ -1562,8 +1562,8 @@ def recover_linkmgrd_probe_interval(duthosts, tbinfo, ipv6=False):
     default_probe_interval_ms = 100
     update_linkmgrd_probe_interval(duthosts, tbinfo, default_probe_interval_ms)
     if ipv6 and 'dualtor' in tbinfo['topo']['name']:
-        duthosts.shell('sonic-db-cli CONFIG_DB HSET "MUX_LINKMGR|LINK_PROBER" "interval_v6" "1000"')
-    duthosts.shell('sonic-db-cli CONFIG_DB DEL "MUX_LINKMGR|LINK_PROBER"')
+        duthosts.shell('sonic-db-cli -s CONFIG_DB HSET "MUX_LINKMGR|LINK_PROBER" "interval_v6" "1000"')
+    duthosts.shell('sonic-db-cli -s CONFIG_DB DEL "MUX_LINKMGR|LINK_PROBER"')
 
 
 def update_linkmgrd_probe_interval(duthosts, tbinfo, probe_interval_ms, ipv6=False):
@@ -1574,7 +1574,7 @@ def update_linkmgrd_probe_interval(duthosts, tbinfo, probe_interval_ms, ipv6=Fal
         return
 
     logger.info("Update linkmgrd probe interval on {} to {}ms".format(duthosts, probe_interval_ms))
-    command = 'sonic-db-cli CONFIG_DB HSET "MUX_LINKMGR|LINK_PROBER" "interval_v4" "{}"'.format(probe_interval_ms)
+    command = 'sonic-db-cli -s CONFIG_DB HSET "MUX_LINKMGR|LINK_PROBER" "interval_v4" "{}"'.format(probe_interval_ms)
     if ipv6:
         command += ' "interval_v6" "{}"'.format(probe_interval_ms)
     duthosts.shell(command)
@@ -1623,7 +1623,7 @@ def dualtor_ports(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     "
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    dualtor_ports_str = duthost.run_redis_cmd(argv=["sonic-db-cli", "CONFIG_DB", "eval",
+    dualtor_ports_str = duthost.run_redis_cmd(argv=["sonic-db-cli", "-s", "CONFIG_DB", "eval",
                                                     fetch_dual_tor_ports_script, "0"])
     if dualtor_ports_str:
         dualtor_ports_set = set(dualtor_ports_str)
@@ -1640,8 +1640,10 @@ def is_tunnel_qos_remap_enabled(duthost):
     Check whether tunnel_qos_remap is enabled or not
     """
     try:
-        tunnel_qos_remap_status = duthost.shell('sonic-cfggen -d -v \'SYSTEM_DEFAULTS.tunnel_qos_remap.status\'',
-                                                module_ignore_errors=True)["stdout_lines"][0]
+        tunnel_qos_remap_status = duthost.shell(
+            'sonic-cfggen -d --redis-unix-socket -v \'SYSTEM_DEFAULTS.tunnel_qos_remap.status\'',
+            module_ignore_errors=True,
+        )["stdout_lines"][0]
     except (IndexError, NameError):
         return False
     return "enabled" == tunnel_qos_remap_status
@@ -2133,5 +2135,5 @@ def disable_timed_oscillation_active_standby(duthosts, tbinfo):
         return
 
     for duthost in duthosts:
-        duthost.shell('sonic-db-cli CONFIG_DB HSET "MUX_LINKMGR|TIMED_OSCILLATION" "oscillation_enabled" "false"')
+        duthost.shell('sonic-db-cli -s CONFIG_DB HSET "MUX_LINKMGR|TIMED_OSCILLATION" "oscillation_enabled" "false"')
         duthost.shell("config save -y")

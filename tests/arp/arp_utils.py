@@ -81,7 +81,7 @@ def get_dut_mac(duthost, config_facts, tbinfo):
     if 'dualtor' in tbinfo['topo']['name']:
         for vlan_details in list(config_facts['VLAN'].values()):
             return vlan_details['mac'].lower()
-    return duthost.shell("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0]
+    return duthost.shell("sonic-cfggen -d --redis-unix-socket -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0]
 
 
 def fdb_has_mac(duthost, mac):

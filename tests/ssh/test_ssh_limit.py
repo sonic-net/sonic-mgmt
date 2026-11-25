@@ -34,7 +34,7 @@ TEMPLATE_MOVE_COMMAND = "sudo mv ~/temp_config_file {0}"
 
 def get_device_type(duthost):
     device_config_db = json.loads(duthost.shell(
-        "sonic-cfggen -d --print-data")['stdout'])
+        "sonic-cfggen -d --redis-unix-socket --print-data")['stdout'])
     dut_type = None
 
     if "DEVICE_METADATA" in device_config_db and \

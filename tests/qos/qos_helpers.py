@@ -311,13 +311,13 @@ def dutBufferConfig(duthost, dut_asic=None):
                 # multi-asic support
                 ns_spec = " -n " + ns
         bufferConfig['BUFFER_POOL'] = json.loads(duthost.shell(
-            'sonic-cfggen -d --var-json "BUFFER_POOL"' + ns_spec)['stdout'])
+            'sonic-cfggen -d --redis-unix-socket --var-json "BUFFER_POOL"' + ns_spec)['stdout'])
         bufferConfig['BUFFER_PROFILE'] = json.loads(duthost.shell(
-            'sonic-cfggen -d --var-json "BUFFER_PROFILE"' + ns_spec)['stdout'])
+            'sonic-cfggen -d --redis-unix-socket --var-json "BUFFER_PROFILE"' + ns_spec)['stdout'])
         bufferConfig['BUFFER_QUEUE'] = json.loads(duthost.shell(
-            'sonic-cfggen -d --var-json "BUFFER_QUEUE"' + ns_spec)['stdout'])
+            'sonic-cfggen -d --redis-unix-socket --var-json "BUFFER_QUEUE"' + ns_spec)['stdout'])
         bufferConfig['BUFFER_PG'] = json.loads(duthost.shell(
-            'sonic-cfggen -d --var-json "BUFFER_PG"' + ns_spec)['stdout'])
+            'sonic-cfggen -d --redis-unix-socket --var-json "BUFFER_PG"' + ns_spec)['stdout'])
     except Exception as err:
         logger.info(err)
     return bufferConfig

@@ -153,7 +153,11 @@ def test_gnmi_queue_buffer_cnt(rand_one_dut_hostname, gnmi_tls):  # noqa: F811
     ]
 
     cfggen_namespace = "-n {} ".format(namespace_name) if namespace_name else ""
-    data = json.loads(duthost.shell("sonic-cfggen {}-d --print-data".format(cfggen_namespace), verbose=False)["stdout"])
+    data = json.loads(
+        duthost.shell("sonic-cfggen {}-d --redis-unix-socket --print-data".format(cfggen_namespace), verbose=False)[
+            "stdout"
+        ]
+    )
 
     if "BUFFER_QUEUE" not in data or not data["BUFFER_QUEUE"]:
         pytest.skip("Skipping test as BUFFER_QUEUE table is not present in config db")

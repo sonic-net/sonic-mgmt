@@ -131,7 +131,7 @@ def test_vlan_ports_down(vlan_ports_setup, duthosts, rand_one_dut_hostname, nbrh
         return
 
     ip_decap_result = duthost.shell(
-        "sonic-cfggen -d -v 'SYSTEM_DEFAULTS.ip_decap.status'",
+        "sonic-cfggen -d --redis-unix-socket -v 'SYSTEM_DEFAULTS.ip_decap.status'",
         module_ignore_errors=True
     )
     ip_decap_status = ip_decap_result.get("stdout", "").strip().lower()

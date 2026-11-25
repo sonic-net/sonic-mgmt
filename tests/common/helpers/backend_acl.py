@@ -22,7 +22,7 @@ def apply_acl_rules(duthost, tbinfo, intf_list=None):
     else:
         dst_acl_template = "/usr/share/sonic/templates/backend_acl.j2"
 
-    duthost.shell("sonic-cfggen {}-d -t {} > {}".format(add_var, dst_acl_template, dst_acl_file))
+    duthost.shell("sonic-cfggen {}-d --redis-unix-socket -t {} > {}".format(add_var, dst_acl_template, dst_acl_file))
     tmp = duthost.stat(path=dst_acl_file)
     if tmp['stat']['exists']:
         duthost.command("acl-loader update incremental {}".format(dst_acl_file))

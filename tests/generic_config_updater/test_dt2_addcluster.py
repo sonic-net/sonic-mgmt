@@ -356,7 +356,7 @@ def build_golden_override(duthost):
         str or None: DUT path to the override file, or None if the device carries none
         of these tables, in which case the reload needs no override.
     """
-    result = duthost.shell("sonic-cfggen -d --print-data", module_ignore_errors=True)
+    result = duthost.shell("sonic-cfggen -d --redis-unix-socket --print-data", module_ignore_errors=True)
     if result['rc'] != 0 or not result['stdout'].strip():
         logger.warning("Could not read running config; reloading without a golden override")
         return None

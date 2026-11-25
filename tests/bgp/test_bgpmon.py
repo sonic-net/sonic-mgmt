@@ -247,7 +247,7 @@ def test_bgpmon_v4(dut_with_default_route, localhost, tbinfo, enum_rand_one_fron
     # For Public cloudtype, nht resolve-via-default is not configured in the template.
     # Temporarily enable it so the DUT can resolve the BGP monitor peer and send a SYN.
     cloudtype = duthost.shell(
-        "sonic-cfggen -d -v \"DEVICE_METADATA['localhost'].get('cloudtype', '')\"",
+        "sonic-cfggen -d --redis-unix-socket -v \"DEVICE_METADATA['localhost'].get('cloudtype', '')\"",
         module_ignore_errors=True
     )['stdout'].strip().lower()
     nht_configured_for_test = cloudtype == 'public'

@@ -60,7 +60,7 @@ def _update_vxlan_endpoints(duthost, vnet, prefix, endpoints, vni, mac_address=N
         f"with {len(endpoints)} endpoints, vni={vni}, mac={mac_address}"
     )
     cmd = (
-        f"sonic-db-cli CONFIG_DB hmset 'VNET_ROUTE_TUNNEL|{vnet}|{prefix}' "
+        f"sonic-db-cli -s CONFIG_DB hmset 'VNET_ROUTE_TUNNEL|{vnet}|{prefix}' "
         f"endpoint '{ep_str}' vni '{vni}'"
     )
     if mac_address:
@@ -190,7 +190,7 @@ def one_vnet_setup_teardown(
     """
     duthost = duthosts[rand_one_dut_hostname]
     try:
-        cfg_facts = json.loads(duthost.shell("sonic-cfggen -d --print-data")["stdout"])
+        cfg_facts = json.loads(duthost.shell("sonic-cfggen -d --redis-unix-socket --print-data")["stdout"])
         config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
         duts_map = tbinfo["duts_map"]
         dut_indx = duts_map[duthost.hostname]
@@ -233,7 +233,7 @@ def clean_vnet_route(one_vnet_setup_teardown):
 
     # Delete the entire route entry to ensure clean state
     duthost.shell(
-        f"sonic-db-cli CONFIG_DB del 'VNET_ROUTE_TUNNEL|{VNET_NAME}|{PREFIX}' || true"
+        f"sonic-db-cli -s CONFIG_DB del 'VNET_ROUTE_TUNNEL|{VNET_NAME}|{PREFIX}' || true"
     )
     time.sleep(2)
 

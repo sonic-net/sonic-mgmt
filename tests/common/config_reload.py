@@ -178,7 +178,7 @@ def _wait_for_smartswitch_dpu_states(sonic_host):
     """
     # Get all CHASSIS_MODULE keys from config_db
     output = sonic_host.shell(
-        'redis-cli -n 4 keys "CHASSIS_MODULE|*"',
+        'sonic-db-cli -s CONFIG_DB keys "CHASSIS_MODULE|*"',
         module_ignore_errors=True
     )
     if output['rc'] != 0 or not output['stdout'].strip():
@@ -195,7 +195,7 @@ def _wait_for_smartswitch_dpu_states(sonic_host):
         # entry is like "CHASSIS_MODULE|DPU0"
         dpu_name = entry.split('|', 1)[1] if '|' in entry else entry
         admin_output = sonic_host.shell(
-            'redis-cli -n 4 hget "%s" "admin_status"' % entry,
+            'sonic-db-cli -s CONFIG_DB hget "%s" "admin_status"' % entry,
             module_ignore_errors=True
         )
         admin_status = admin_output['stdout'].strip() if admin_output['rc'] == 0 else ''
@@ -237,7 +237,9 @@ def config_reload_minigraph_with_rendered_golden_config_override(
     # If dut_template_path is being set, we can directly generate Golden Config from there.
     # Otherwise, we can copy and parse the template in sonic-mgmt repo
     if dut_golden_config_template:
-        sonic_host.shell("sonic-cfggen -d -t {} > {}".format(dut_golden_config_template, golden_config_path))
+        sonic_host.shell(
+            "sonic-cfggen -d --redis-unix-socket -t {} > {}".format(dut_golden_config_template, golden_config_path)
+        )
     else:
         dut_golden_config_template = '/tmp/golden_config_db.j2'
         # default src: tests/common/templates/golden_config_db.j2
@@ -245,7 +247,9 @@ def config_reload_minigraph_with_rendered_golden_config_override(
         # Check test_config_reload_with_rendered_golden_config.py
         sonic_host.copy(src=local_golden_config_template, dest=dut_golden_config_template, remote_src=remote_src)
         # run sonic-cfggen to generate golden_config_db.json with existing config.
-        sonic_host.shell("sonic-cfggen -d -t {} > {}".format(dut_golden_config_template, golden_config_path))
+        sonic_host.shell(
+            "sonic-cfggen -d --redis-unix-socket -t {} > {}".format(dut_golden_config_template, golden_config_path)
+        )
 
     config_reload(sonic_host, 'minigraph', wait, start_bgp, start_dynamic_buffer, safe_reload,
                   wait_before_force_reload, wait_for_bgp, check_intf_up_ports, traffic_shift_away,
@@ -289,7 +293,7 @@ def _reapply_golden_link_training(sonic_host, golden_config_path):
     lt_ports = _golden_config_link_training(sonic_host, golden_config_path)
     if not lt_ports:
         return
-    keys = sonic_host.shell('sonic-db-cli CONFIG_DB keys "PORT|*"', module_ignore_errors=True)
+    keys = sonic_host.shell('sonic-db-cli -s CONFIG_DB keys "PORT|*"', module_ignore_errors=True)
     present = {line.split('|', 1)[1] for line in keys.get('stdout_lines', []) if '|' in line}
     cmds = []
     for port in sorted(lt_ports):
@@ -297,7 +301,7 @@ def _reapply_golden_link_training(sonic_host, golden_config_path):
             logger.warning("Golden config sets link_training=%s on %s, which is not in the reloaded "
                            "PORT table; skipping", lt_ports[port], port)
             continue
-        cmds.append('sonic-db-cli CONFIG_DB hset "PORT|{}" link_training {}'.format(port, lt_ports[port]))
+        cmds.append('sonic-db-cli -s CONFIG_DB hset "PORT|{}" link_training {}'.format(port, lt_ports[port]))
     if not cmds:
         return
     logger.info("Re-applying link_training from golden config on %d ports after minigraph reload", len(cmds))
@@ -411,7 +415,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
 
     if config_source == 'minigraph':
         if start_dynamic_buffer and sonic_host.facts['asic_type'] == 'mellanox':
-            output = sonic_host.shell('redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model',
+            output = sonic_host.shell('sonic-db-cli -s CONFIG_DB hget "DEVICE_METADATA|localhost" buffer_model',
                                       module_ignore_errors=True)
             is_buffer_model_dynamic = (output and output.get('stdout') == 'dynamic')
         else:
@@ -432,7 +436,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         if zebra_nexthop:
             logger.info("Setting zebra_nexthop='{}' in CONFIG_DB DEVICE_METADATA".format(zebra_nexthop))
             sonic_host.shell(
-                'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" zebra_nexthop {}'.format(zebra_nexthop)
+                'sonic-db-cli -s CONFIG_DB hset "DEVICE_METADATA|localhost" zebra_nexthop {}'.format(zebra_nexthop)
             )
         if is_dut and not golden_override:
             _reapply_golden_link_training(sonic_host, golden_config_path)

@@ -588,9 +588,9 @@ def _dut_qos_map(dut):
     maps = {}
     try:
         if dut.is_multi_asic:
-            sonic_cfggen_cmd = "sonic-cfggen -n asic0 -d --var-json"
+            sonic_cfggen_cmd = "sonic-cfggen -n asic0 -d --redis-unix-socket --var-json"
         else:
-            sonic_cfggen_cmd = "sonic-cfggen -d --var-json"
+            sonic_cfggen_cmd = "sonic-cfggen -d --redis-unix-socket --var-json"
 
         # port_qos_map
         port_qos_map = dut.shell("{} 'PORT_QOS_MAP'".format(sonic_cfggen_cmd))['stdout']
@@ -732,7 +732,7 @@ def frontend_asic_index_with_portchannel(request, duthosts, tbinfo):
 
 def get_pdb_num(duthost):
     """Return pdb_num from chassis_info in STATE_DB."""
-    command = 'sonic-db-cli STATE_DB HGET "CHASSIS_INFO|chassis 1" pdb_num'
+    command = 'sonic-db-cli -s STATE_DB HGET "CHASSIS_INFO|chassis 1" pdb_num'
     result = duthost.shell(command, module_ignore_errors=True)
     if result['rc'] != 0:
         stderr = result.get('stderr', '').strip()

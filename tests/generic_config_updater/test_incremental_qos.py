@@ -126,19 +126,19 @@ def get_neighbor_type_to_pg_headroom_map(duthost):
     for neighbor in neighbor_set:
         interface = neighbor_to_interface_map[neighbor]
 
-        cable_length = duthost.shell('sonic-db-cli CONFIG_DB hget "CABLE_LENGTH|AZURE" {}'
+        cable_length = duthost.shell('sonic-db-cli -s CONFIG_DB hget "CABLE_LENGTH|AZURE" {}'
                                      .format(interface))['stdout']
         if cable_length == "0m":
             pytest.skip("skip the test due to no buffer lossless pg")
 
-        port_speed = duthost.shell('sonic-db-cli CONFIG_DB hget "PORT|{}" speed'
+        port_speed = duthost.shell('sonic-db-cli -s CONFIG_DB hget "PORT|{}" speed'
                                    .format(interface))['stdout']
 
         expected_profile = 'pg_lossless_{}_{}_profile'.format(port_speed, cable_length)
 
-        xoff = int(duthost.shell('sonic-db-cli APPL_DB hget "BUFFER_PROFILE_TABLE:{}" xoff'
+        xoff = int(duthost.shell('sonic-db-cli -s APPL_DB hget "BUFFER_PROFILE_TABLE:{}" xoff'
                                  .format(expected_profile))['stdout'])
-        xon = int(duthost.shell('sonic-db-cli APPL_DB hget "BUFFER_PROFILE_TABLE:{}" xon'
+        xon = int(duthost.shell('sonic-db-cli -s APPL_DB hget "BUFFER_PROFILE_TABLE:{}" xon'
                                 .format(expected_profile))['stdout'])
         pg_headroom = int((xoff + xon) / 1024)
 
@@ -201,9 +201,9 @@ def ensure_application_of_updated_config(duthost, configdb_field, value):
             buffer_pool = "ingress_lossless_pool"
         elif "egress_lossy_pool" in configdb_field:
             buffer_pool = "egress_lossy_pool"
-        oid = duthost.shell('sonic-db-cli COUNTERS_DB HGET COUNTERS_BUFFER_POOL_NAME_MAP {}'
+        oid = duthost.shell('sonic-db-cli -s COUNTERS_DB HGET COUNTERS_BUFFER_POOL_NAME_MAP {}'
                             .format(buffer_pool))["stdout"]
-        buffer_pool_data = duthost.shell('sonic-db-cli ASIC_DB hgetall ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_POOL:{}'
+        buffer_pool_data = duthost.shell('sonic-db-cli -s ASIC_DB hgetall ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_POOL:{}'
                                          .format(oid))["stdout"]
         return str(value) in buffer_pool_data
 
@@ -223,7 +223,7 @@ def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, c
     logger.info("tmpfile {} created for json patch of field: {} and operation: {}"
                 .format(tmpfile, configdb_field, op))
 
-    field_value = duthost.shell('sonic-db-cli CONFIG_DB hget "BUFFER_POOL|{}" {}'
+    field_value = duthost.shell('sonic-db-cli -s CONFIG_DB hget "BUFFER_POOL|{}" {}'
                                 .format(configdb_field.split("/")[0], configdb_field.split("/")[1]))['stdout']
     if op == "remove":
         if is_mellanox_device(duthost):
@@ -302,7 +302,7 @@ def test_buffer_profile_create_remove_rollback(duthost, ensure_dut_readiness, cl
 
         # Verify profile exists in CONFIG_DB
         result = duthost.shell(
-            'sonic-db-cli {} CONFIG_DB hget "BUFFER_PROFILE|{}" xon'.format(
+            'sonic-db-cli -s {} CONFIG_DB hget "BUFFER_PROFILE|{}" xon'.format(
                 cli_namespace_prefix, profile_name),
             module_ignore_errors=True)
         pytest_assert(result["stdout"] == profile_data["xon"], "Profile creation failed in CONFIG_DB")
@@ -320,7 +320,7 @@ def test_buffer_profile_create_remove_rollback(duthost, ensure_dut_readiness, cl
 
         # Verify profile no longer exists in CONFIG_DB
         result = duthost.shell(
-            'sonic-db-cli {} CONFIG_DB exists "BUFFER_PROFILE|{}"'.format(
+            'sonic-db-cli -s {} CONFIG_DB exists "BUFFER_PROFILE|{}"'.format(
                 cli_namespace_prefix, profile_name),
             module_ignore_errors=True)
         pytest_assert(result["stdout"] == "0", "Profile removal failed in CONFIG_DB")

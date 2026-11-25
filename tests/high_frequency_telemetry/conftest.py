@@ -9,6 +9,7 @@ from functools import partial
 
 import pytest
 from _pytest.outcomes import OutcomeException
+from tests.common.helpers.sonic_db import redis_cli_argv
 from tests.common.utilities import wait_until
 from tests.high_frequency_telemetry.counter_profiles import (
     CounterObjectType,
@@ -101,8 +102,8 @@ def _is_otel_container_stopped(duthost):
 
 
 def _feature_fields(duthost, name):
-    result = duthost.command(argv=["redis-cli", "-n", "4", "--raw", "HGETALL", f"FEATURE|{name}"],
-                             strip_empty_ends=False)
+    command = redis_cli_argv(duthost, "CONFIG_DB", use_tcp=False) + ["--raw", "HGETALL", f"FEATURE|{name}"]
+    result = duthost.command(argv=command, strip_empty_ends=False)
     lines = result["stdout_lines"]
     if not lines or lines == [""]:
         return {}
@@ -320,7 +321,8 @@ def _restore_otel(duthost, baseline):
             if not wait_until(60, 2, 0, _is_otel_container_stopped, duthost):
                 pytest.fail("OTEL container did not stop during restoration")
             if not baseline["otel_feature_existed"]:
-                duthost.command(argv=["sonic-db-cli", "CONFIG_DB", "DEL", "FEATURE|otel"])
+                duthost.command(
+                    argv=["sonic-db-cli", "-s", "--authenticate", "CONFIG_DB", "DEL", "FEATURE|otel"])
     elif baseline["original_collector_running"]:
         duthost.command("systemctl reset-failed otel.service", module_ignore_errors=True)
         duthost.command("systemctl restart otel.service")
@@ -334,8 +336,10 @@ def _clear_hft_sessions(duthost):
     cleanup_hft_config(duthost)
 
     def sessions_gone():
-        keys = duthost.command(argv=["redis-cli", "-n", "6", "--raw", "KEYS",
-                                     "HIGH_FREQUENCY_TELEMETRY_SESSION_TABLE|*"])
+        command = redis_cli_argv(duthost, "STATE_DB", use_tcp=False) + [
+            "--raw", "KEYS", "HIGH_FREQUENCY_TELEMETRY_SESSION_TABLE|*",
+        ]
+        keys = duthost.command(argv=command)
         return not keys["stdout"].strip()
 
     if not wait_until(30, 1, 0, sessions_gone):

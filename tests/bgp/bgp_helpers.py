@@ -240,7 +240,7 @@ def remove_bgp_neighbors(duthost, asic_index):
     db_cli = get_db_cli_prefix(duthost, asic_index)
 
     # Convert the json formatted result of sonic-cfggen into bgp_neighbors dict
-    bgp_neighbors = json.loads(duthost.command("sudo sonic-cfggen {} -d --var-json {}"
+    bgp_neighbors = json.loads(duthost.command("sudo sonic-cfggen {} -d --redis-unix-socket --var-json {}"
                                .format(namespace_prefix, "BGP_NEIGHBOR"))["stdout"])
     cmd = 'sudo {db_cli} CONFIG_DB keys "BGP_NEI*" | xargs {db_cli} CONFIG_DB del'.format(db_cli=db_cli)
     duthost.shell(cmd)
@@ -1049,7 +1049,7 @@ def get_sup_cfggen_tsa_value(suphost):
     """
     @summary: Returns the supervisor sonic-cfggen value for BGP_DEVICE_GLOBAL.STATE.tsa_enabled flag
     """
-    tsa_conf = suphost.shell('sonic-cfggen -d -v BGP_DEVICE_GLOBAL.STATE.tsa_enabled')['stdout']
+    tsa_conf = suphost.shell('sonic-cfggen -d --redis-unix-socket -v BGP_DEVICE_GLOBAL.STATE.tsa_enabled')['stdout']
     return tsa_conf
 
 

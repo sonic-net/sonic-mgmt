@@ -166,7 +166,14 @@ save_proc() {
 save_redis() {
     local db=$1
     local db_name=$2
-    save_cmd "docker exec -i database redis-cli -n $db keys \* | docker exec -i database xargs --verbose -n 1 redis-cli -n $db hgetall" "$db_name"
+    local redis_endpoint
+    redis_endpoint=$(docker exec database python3 -c '
+import json, shlex
+with open("/var/run/redis/sonic-db/database_config.json") as stream:
+    config = json.load(stream)
+instance = config["INSTANCES"][config["DATABASES"]["CONFIG_DB"]["instance"]]
+print("-s " + shlex.quote(instance["unix_socket_path"]))') || return 1
+    save_cmd "docker exec -i database redis-cli $redis_endpoint -n $db keys \* | docker exec -i database xargs --verbose -n 1 redis-cli $redis_endpoint -n $db hgetall" "$db_name"
 }
 
 ###############################################################################

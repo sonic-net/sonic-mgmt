@@ -86,9 +86,9 @@ def remove_dataacl_table(rand_selected_dut, rand_unselected_dut, tbinfo):
     """
     TABLE_NAME = "DATAACL"
     data_acl_table = None
-    output = rand_selected_dut.shell("sonic-cfggen -d --var-json \"ACL_TABLE\"")['stdout']
+    output = rand_selected_dut.shell("sonic-cfggen -d --redis-unix-socket --var-json \"ACL_TABLE\"")['stdout']
     if "dualtor-aa" in tbinfo["topo"]["name"]:
-        output = rand_unselected_dut.shell("sonic-cfggen -d --var-json \"ACL_TABLE\"")['stdout']
+        output = rand_unselected_dut.shell("sonic-cfggen -d --redis-unix-socket --var-json \"ACL_TABLE\"")['stdout']
     try:
         acl_tables = json.loads(output)
         if TABLE_NAME in acl_tables:
@@ -160,9 +160,9 @@ def setup_and_cleanup_custom_acl_table(rand_selected_dut, rand_unselected_dut, t
     if "dualtor-aa" in tbinfo["topo"]["name"]:
         rand_unselected_dut.shell(cmd_remove_table)
     # Remove custom type
-    rand_selected_dut.shell("sonic-db-cli CONFIG_DB del \'ACL_TABLE_TYPE|{}\'".format(table_type_name))
+    rand_selected_dut.shell("sonic-db-cli -s CONFIG_DB del \'ACL_TABLE_TYPE|{}\'".format(table_type_name))
     if "dualtor-aa" in tbinfo["topo"]["name"]:
-        rand_unselected_dut.shell("sonic-db-cli CONFIG_DB del \'ACL_TABLE_TYPE|{}\'".format(table_type_name))
+        rand_unselected_dut.shell("sonic-db-cli -s CONFIG_DB del \'ACL_TABLE_TYPE|{}\'".format(table_type_name))
 
 
 @pytest.fixture(scope='function')

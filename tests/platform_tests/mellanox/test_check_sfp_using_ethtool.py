@@ -23,7 +23,7 @@ def test_check_sfp_using_ethtool(duthosts, rand_one_dut_hostname,
     """
     duthost = duthosts[rand_one_dut_hostname]
     ports_config = json.loads(duthost.command(
-        "sudo sonic-cfggen -d --var-json PORT")["stdout"])
+        "sudo sonic-cfggen -d --redis-unix-socket --var-json PORT")["stdout"])
 
     logging.info("Use the ethtool to check SFP information")
     if duthost.facts["hwsku"] in SPC3_HWSKUS:
