@@ -213,34 +213,61 @@ def disable_fdb_aging(duthost):
     switch_config_template = Template(switch_config)
     duthost.copy(content=switch_config_template.render(aging_time=0),
                  dest=TMP_SWITCH_CONFIG_FILE)
+    # Each front-end ASIC has its own FDB and swss container, so disable aging on all of them
     if duthost.is_multi_asic:
-        ns = duthost.get_asic_namespace_list()[0]
-        asic_id = duthost.get_asic_id_from_namespace(ns)
+        swss_dockers = [asic.get_docker_name("swss") for asic in duthost.frontend_asics]
     else:
-        asic_id = ''
+        swss_dockers = ["swss"]
 
     # Generate and load config with swssconfig
-    cmds = [
-        "docker cp {} swss{}:{}".format(TMP_SWITCH_CONFIG_FILE, asic_id, DST_SWITCH_CONFIG_FILE),
-        "docker exec -i swss{} swssconfig {}".format(asic_id, DST_SWITCH_CONFIG_FILE)
-    ]
+    cmds = []
+    for swss_docker in swss_dockers:
+        cmds += [
+            "docker cp {} {}:{}".format(TMP_SWITCH_CONFIG_FILE, swss_docker, DST_SWITCH_CONFIG_FILE),
+            "docker exec -i {} swssconfig {}".format(swss_docker, DST_SWITCH_CONFIG_FILE)
+        ]
     duthost.shell_cmds(cmds=cmds)
 
     yield
     # Recover default aging time
     DEFAULT_SWITCH_CONFIG_FILE = "/etc/swss/config.d/switch.json"
-    cmds = [
-        "docker exec -i swss{} rm {}".format(asic_id, DST_SWITCH_CONFIG_FILE),
-        "docker exec -i swss{} swssconfig {}".format(asic_id, DEFAULT_SWITCH_CONFIG_FILE)
-    ]
+    cmds = []
+    for swss_docker in swss_dockers:
+        cmds += [
+            "docker exec -i {} rm {}".format(swss_docker, DST_SWITCH_CONFIG_FILE),
+            "docker exec -i {} swssconfig {}".format(swss_docker, DEFAULT_SWITCH_CONFIG_FILE)
+        ]
     duthost.shell_cmds(cmds=cmds)
     duthost.file(path=TMP_SWITCH_CONFIG_FILE, state="absent")
+
+
+def get_vlan_test_asic(duthost):
+    """
+    Get the front-end ASIC used by VLAN tests on a multi-ASIC DUT.
+
+    The ASICs of a multi-ASIC DUT may not be connected to each other (isolated topologies), so the VLAN
+    test ports, the test VLAN/portchannel and the PTF traffic must all stay on one ASIC. The first
+    front-end ASIC with VLAN members is chosen, so that every caller picks the same ASIC.
+
+    Returns:
+        The SonicAsic instance, or None on single-ASIC DUTs or if no front-end ASIC has VLAN members.
+    """
+    if not duthost.is_multi_asic:
+        return None
+    for asic in duthost.frontend_asics:
+        asic_cfg_facts = asic.config_facts(source="persistent")['ansible_facts']
+        if asic_cfg_facts.get('VLAN_MEMBER'):
+            logger.info("Use {} for VLAN tests".format(asic.namespace))
+            return asic
+    logger.warning("No front-end ASIC with VLAN members found on {}".format(duthost.hostname))
+    return None
 
 
 @pytest.fixture(scope="module")
 def ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
-    cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+    asic = get_vlan_test_asic(duthost)
+    cfg_facts = (asic or duthost).config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     config_ports = {k: v for k, v in list(cfg_facts['PORT'].items()) if v.get('admin_status', 'down') == 'up'}
     config_port_indices = {k: v for k, v in list(mg_facts['minigraph_ptf_indices'].items()) if k in config_ports}
@@ -471,7 +498,8 @@ def utils_vlan_intfs_dict_orig(duthosts, rand_one_dut_hostname, tbinfo):
             }
     '''
     duthost = duthosts[rand_one_dut_hostname]
-    cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+    asic = get_vlan_test_asic(duthost)
+    cfg_facts = (asic or duthost).config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
     vlan_intfs_dict = {}
     if 'VLAN_INTERFACE' not in cfg_facts:
         return vlan_intfs_dict
