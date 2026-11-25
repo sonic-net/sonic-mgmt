@@ -16,12 +16,15 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.bmc_utils import (
+    CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC,
+    CAUSE_POWER_DOWN_FROM_BMC,
     get_host_uptime,
     get_switch_host_or_skip_test,
     verify_bmc_initiated_reboot,
     wait_host_off,
     wait_host_on,
 )
+from tests.common.helpers.sonic_db import CONFIG_DB, redis_hget
 from tests.common.utilities import get_inventory_files, get_host_visible_vars, wait_until
 
 logger = logging.getLogger(__name__)
@@ -236,7 +239,7 @@ class TestBmcCliCommands:
                 "SWITCH-HOST did not reach Offline/off (or Offline/down) after shutdown"
             )
 
-            wait_host_off(host, timeout=300)
+            wait_host_off(self.duthost, host, timeout=300)
 
             startup_result = self.duthost.shell("config chassis modules startup SWITCH-HOST",
                                                 module_ignore_errors=True)
@@ -259,7 +262,12 @@ class TestBmcCliCommands:
                 "SWITCH-HOST did not return to Online/on (or Online/up) after startup"
             )
 
-            verify_bmc_initiated_reboot(host, pre_boot)
+            # CLI config shutdown takes the graceful path, which always falls back to
+            # power_off() if GNOI times out/fails, so accept either the graceful or the
+            # hard power-down cause.
+            verify_bmc_initiated_reboot(
+                host, pre_boot,
+                (CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC, CAUSE_POWER_DOWN_FROM_BMC))
         finally:
             self.duthost.shell("config chassis modules startup SWITCH-HOST",
                                module_ignore_errors=True)
@@ -319,13 +327,14 @@ class TestBmcCliCommands:
         logger.info(f"Original LEAK_CONTROL_POLICY snapshot: {original}")
 
         applied_changes = []  # list of (target, severity, original_action) to restore
+        threshold_restore = None  # original value, '__DELETE__', or None (nothing to restore)
 
         try:
             # --- leak-action functional round-trip ---
             for target in ['system', 'rack_mgr']:
                 # LEAK_CONTROL_POLICY field naming: system_{sev}_leak_action, rack_mgr_{sev}_alert_action.
                 action_suffix = 'leak_action' if target == 'system' else 'alert_action'
-                for severity in ['minor', 'critical']:
+                for severity in ['minor', 'major', 'critical']:
                     field_substr = f"{target}_{severity}_{action_suffix}"
                     current_action = next(
                         (v for k, v in original.items()
@@ -347,6 +356,13 @@ class TestBmcCliCommands:
                                   f"After {cmd!r}, show platform leak control-policy does not "
                                   f"reflect {field_substr}={new_action}")
                     logger.info(f"Verified via show: {field_substr}={new_action}")
+                    # Restore right away so a power-down action is not left active while
+                    # the later steps run (the outer finally still covers failures above).
+                    restore_cmd = f"config liquid-cool leak-action {target} {severity} {current_action}"
+                    restore = self.duthost.shell(restore_cmd, module_ignore_errors=True)
+                    pytest_assert(restore['rc'] == 0 and policy_has(field_substr, current_action),
+                                  f"Failed to restore {field_substr}={current_action} via {restore_cmd!r}")
+                    applied_changes.pop()
 
             # --- leak-control functional toggle (policy field: {target}_leak_policy=enabled|disabled) ---
             for target in ['system', 'rack_mgr']:
@@ -380,7 +396,54 @@ class TestBmcCliCommands:
                     module_ignore_errors=True
                 )
 
+            # --- major-leak-threshold functional round-trip (MIN-N) ---
+            # `config liquid-cool major-leak-threshold <N>` writes
+            # system_major_leak_num_min_sensors (>= 2) to CONFIG_DB and is reflected in show
+            # output. Show prints the CONFIG_DB value if set, else the platform default, or
+            # "none" when that is 0, so decide the restore action from CONFIG_DB itself.
+            threshold_field = 'system_major_leak_num_min_sensors'
+            threshold_help = self.duthost.shell(
+                "config liquid-cool major-leak-threshold --help 2>&1",
+                module_ignore_errors=True)
+            if threshold_help['rc'] != 0:
+                logger.info("Skipping major-leak-threshold: subcommand not available in this build")
+            else:
+                shown_threshold = next(
+                    (v for k, v in original.items() if threshold_field in k.lower()),
+                    None
+                )
+                db_threshold = redis_hget(self.duthost, CONFIG_DB, 'LEAK_CONTROL_POLICY|policy',
+                                          threshold_field)
+                # New value must be a valid (2..4294967295) value that differs from the current one.
+                new_threshold = '3'
+                if shown_threshold is not None and shown_threshold.isdigit():
+                    new_threshold = str(int(shown_threshold) - 1 if int(shown_threshold) >= 4294967295
+                                        else int(shown_threshold) + 1)
+                cmd = f"config liquid-cool major-leak-threshold {new_threshold}"
+                result = self.duthost.shell(cmd, module_ignore_errors=True)
+                pytest_assert(result['rc'] == 0,
+                              f"{cmd!r} failed rc={result['rc']} stderr={result['stderr']!r}")
+                # Restore the CONFIG_DB override if there was one, else remove the field
+                # (the CLI has no unset; delete the CONFIG_DB field directly on cleanup).
+                threshold_restore = db_threshold if db_threshold else '__DELETE__'
+                pytest_assert(policy_has(threshold_field, new_threshold),
+                              f"After {cmd!r}, show platform leak control-policy does not "
+                              f"reflect {threshold_field}={new_threshold}")
+                logger.info(f"Verified via show: {threshold_field}={new_threshold}")
+
         finally:
+            # Restore major-leak-threshold
+            if threshold_restore == '__DELETE__':
+                self.duthost.shell(
+                    "sonic-db-cli CONFIG_DB HDEL 'LEAK_CONTROL_POLICY|policy' "
+                    "system_major_leak_num_min_sensors",
+                    module_ignore_errors=True
+                )
+            elif threshold_restore is not None:
+                self.duthost.shell(
+                    f"config liquid-cool major-leak-threshold {threshold_restore}",
+                    module_ignore_errors=True
+                )
             # Restore all leak-action changes
             for target, severity, orig_action in applied_changes:
                 self.duthost.shell(

@@ -16,6 +16,13 @@ def pytest_collection_modifyitems(config, items):
             if "macsec_required" in item.keywords:
                 item.add_marker(skip_macsec)
 
+    if not config.getoption("per_interface_macsec"):
+        skip_per_interface = pytest.mark.skip(
+            reason="Requires --per_interface_macsec")
+        for item in items:
+            if item.path.name == "test_per_interface_profile.py":
+                item.add_marker(skip_per_interface)
+
 
 @pytest.fixture(scope="module")
 def profile_name(macsec_profile):

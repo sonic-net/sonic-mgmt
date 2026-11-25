@@ -4,7 +4,7 @@ This document describes the steps to setup the testbed and deploy a topology.
 
 ## Prepare Testbed Server
 
-- Install Ubuntu 20.04 amd64 on the server. (ubuntu-20.04.1-live-server-amd64.iso)
+- Install Ubuntu 22.04 or Ubuntu 24.04 amd64 on the server.
 - Install Ubuntu prerequisites
     ```
     sudo apt -y update

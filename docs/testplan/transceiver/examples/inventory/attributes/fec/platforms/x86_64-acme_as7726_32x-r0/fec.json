@@ -1,0 +1,5 @@
+{
+  "basic_fec_stats_supported": true,
+  "verify_fec_oper_mode_supported": true,
+  "configure_fec_oper_mode_supported": true
+}

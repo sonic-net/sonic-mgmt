@@ -10,7 +10,7 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1'),
+    pytest.mark.topology('t0', 't1', 't1-lag', 't1-8-lag', 'lma', 'uma'),
     pytest.mark.disable_loganalyzer,
 ]
 
@@ -35,34 +35,59 @@ SONIC_FRR_CONFIG_FILES = {
 }
 
 
-def parse_frr_config_file(duthost, config_file):
+def _frontend_asic_indexes(duthost):
+    if duthost.is_multi_asic:
+        return duthost.get_frontend_asic_ids()
+    return [None]
+
+
+def _bgp_container_name(duthost, asic_index):
+    if not duthost.is_multi_asic:
+        return "bgp"
+    return "bgp{}".format(asic_index)
+
+
+def _asic_label(duthost, asic_index):
+    return "asic{}".format(asic_index) if duthost.is_multi_asic else "default"
+
+
+def parse_frr_config_file(duthost, config_file, asic_index=None):
     """
     Parse FRR configuration file and extract meaningful configuration lines
     """
-    config_lines = []
-    try:
-        # Read the configuration file
+    asic_label = _asic_label(duthost, asic_index)
+    if duthost.is_multi_asic:
+        cmd = "docker exec {} cat /etc/frr/{}".format(
+            _bgp_container_name(duthost, asic_index), config_file
+        )
+    else:
         cmd = "sudo cat /etc/sonic/frr/{}".format(config_file)
-        result = duthost.shell(cmd)
+    result = duthost.shell(cmd, module_ignore_errors=True)
+    if result['rc'] != 0:
+        pytest.fail(
+            "Failed to read FRR config file {} on {}: {}".format(
+                config_file, asic_label, result.get('stderr') or result.get('stdout', ''))
+        )
 
-        for line in result['stdout_lines']:
-            line = line.strip()
-            # Skip empty lines and comments
-            if (line and not line.startswith('!')):
-                config_lines.append(line)
-
-    except Exception as e:
-        logger.warning("Failed to read config file {}: {}".format(config_file, str(e)))
+    config_lines = []
+    for line in result['stdout_lines']:
+        line = line.strip()
+        # Skip empty lines and comments
+        if (line and not line.startswith('!')):
+            config_lines.append(line)
 
     return config_lines
 
 
-def parse_vtysh_running_config(duthost):
+def parse_vtysh_running_config(duthost, asic_index=None):
     """
     Get running configuration from vtysh and parse it
     """
     try:
-        result = duthost.shell('vtysh -c "show running-config"')
+        if duthost.is_multi_asic:
+            result = duthost.asic_instance(asic_index).run_vtysh('-c "show running-config"')
+        else:
+            result = duthost.shell('vtysh -c "show running-config"')
         running_config = result['stdout']
         return running_config
     except Exception as e:
@@ -104,14 +129,15 @@ def is_config_in_running(config_line, running_config):
     return False
 
 
-def verify_frr_config_in_running(duthost, config_file, running_config):
+def verify_frr_config_in_running(duthost, config_file, running_config, asic_index=None):
     """
     Verify that configurations in config file are present in running configuration
     """
-    logger.info("Verifying FRR config file: {}".format(config_file))
+    asic_label = _asic_label(duthost, asic_index)
+    logger.info("Verifying FRR config file {} on {}".format(config_file, asic_label))
 
     # Get configuration lines from file
-    config_lines = parse_frr_config_file(duthost, config_file)
+    config_lines = parse_frr_config_file(duthost, config_file, asic_index)
     logger.info("Parsed {} lines from config file {}".format(len(config_lines), config_file))
     logger.debug("Configuration lines: {}".format(config_lines))
 
@@ -162,22 +188,33 @@ def verify_frr_config_in_running(duthost, config_file, running_config):
     return missing_configs
 
 
-def get_frr_config_files(duthost):
+def get_frr_config_files(duthost, asic_index=None):
     """
     Get list of FRR config files from /etc/sonic/frr directory
     """
+    asic_label = _asic_label(duthost, asic_index)
+    if duthost.is_multi_asic:
+        result = duthost.shell(
+            "docker exec {} ls /etc/frr".format(_bgp_container_name(duthost, asic_index)),
+            module_ignore_errors=True,
+        )
+    else:
+        result = duthost.shell("ls /etc/sonic/frr", module_ignore_errors=True)
+    if result['rc'] != 0:
+        pytest.fail(
+            "Failed to list FRR config files on {}: {}".format(
+                asic_label, result.get('stderr') or result.get('stdout', ''))
+        )
+
     config_files = []
-    try:
-        result = duthost.shell("ls /etc/sonic/frr")
-        for file in result['stdout_lines']:
-            file = file.strip()
-            if file in SONIC_FRR_CONFIG_FILES:
-                config_files.append(file)
-        logger.info("Found FRR config files: {}".format(config_files))
-        return config_files
-    except Exception as e:
-        logger.error("Failed to get FRR config files: {}".format(str(e)))
-        return config_files
+    for file in result['stdout_lines']:
+        file = file.strip()
+        if file in SONIC_FRR_CONFIG_FILES:
+            config_files.append(file)
+    if not config_files:
+        pytest.fail("No recognized FRR config files found on {}".format(asic_label))
+    logger.info("Found FRR config files on {}: {}".format(asic_label, config_files))
+    return config_files
 
 
 # Add iteration level mapping similar to bgp_stress_link_flap
@@ -355,6 +392,32 @@ def _verify_config_file_forward(config_content, running_config):
     return missing
 
 
+def _collect_missing_frr_configs(duthost):
+    missing_configs = {}
+    for asic_index in _frontend_asic_indexes(duthost):
+        asic_label = _asic_label(duthost, asic_index)
+        running_config = parse_vtysh_running_config(duthost, asic_index)
+        if not running_config:
+            pytest.fail("Failed to get FRR running configuration on {}".format(asic_label))
+
+        frr_config_files = get_frr_config_files(duthost, asic_index)
+        files_read = 0
+        for config_file in frr_config_files:
+            parse_frr_config_file(duthost, config_file, asic_index)
+            files_read += 1
+            missing = verify_frr_config_in_running(
+                duthost, config_file, running_config, asic_index
+            )
+            if missing:
+                missing_configs.setdefault(asic_label, {})[config_file] = missing
+
+        pytest_assert(
+            files_read >= 1,
+            "Expected at least one FRR config file to be read on {}".format(asic_label),
+        )
+    return missing_configs
+
+
 def test_frr_config_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname, get_function_completeness_level):
     """
     Test FRR configuration consistency
@@ -374,30 +437,16 @@ def test_frr_config_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname, g
     num_iterations = ITERATION_LEVEL_MAP[normalized_level]
     logger.info('Completeness level: {}, setting iterations to: {}'.format(normalized_level, num_iterations))
 
-    # FRR config files to check - ['bgpd.conf', 'staticd.conf', 'zebra.conf', 'vtysh.conf']
-    frr_config_files = get_frr_config_files(duthost)
-    logger.info("FRR config files to check: {}".format(frr_config_files))
-
-    # Get current FRR running configuration (once)
-    logger.info("Getting FRR running configuration")
-    running_config = parse_vtysh_running_config(duthost)
-    # logger.debug("Running configuration: {}".format(running_config))
-
     # Initial configuration verification
     logger.info("Verifying initial FRR configuration consistency")
-    initial_missing_configs = {}
-
-    for config_file in frr_config_files:
-        missing_configs = verify_frr_config_in_running(duthost, config_file, running_config)
-        logger.info("Missing configurations in {}: {}".format(config_file, missing_configs))
-        if missing_configs:
-            initial_missing_configs[config_file] = missing_configs
+    initial_missing_configs = _collect_missing_frr_configs(duthost)
 
     # Log initial results
     if initial_missing_configs:
         logger.warning("Initial check - Found missing configurations:")
-        for config_file, missing in initial_missing_configs.items():
-            logger.warning("File {}: {}".format(config_file, missing))
+        for asic_label, missing_by_file in initial_missing_configs.items():
+            for config_file, missing in missing_by_file.items():
+                logger.warning("{} file {}: {}".format(asic_label, config_file, missing))
     else:
         logger.info("Initial check - All configurations are present in running config")
 
@@ -416,20 +465,14 @@ def test_frr_config_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname, g
         except Exception as e:
             pytest.fail("Iteration {}: Config reload failed: {}".format(iteration, str(e)))
 
-        # Get running configuration again after reload
-        logger.info("Iteration {}: Getting FRR running configuration after reload".format(iteration))
-        post_reload_running_config = parse_vtysh_running_config(duthost)
-
         # Verify configuration after reload
         logger.info("Iteration {}: Verifying FRR configuration after config reload".format(iteration))
-        post_reload_missing_configs = {}
-
-        for config_file in frr_config_files:
-            missing_configs = verify_frr_config_in_running(duthost, config_file, post_reload_running_config)
-            if missing_configs:
-                post_reload_missing_configs[config_file] = missing_configs
-                logger.warning("Iteration {}: Missing configs in {}: {}".format(
-                    iteration, config_file, missing_configs))
+        post_reload_missing_configs = _collect_missing_frr_configs(duthost)
+        if post_reload_missing_configs:
+            for asic_label, missing_by_file in post_reload_missing_configs.items():
+                for config_file, missing_configs in missing_by_file.items():
+                    logger.warning("Iteration {}: Missing configs on {} in {}: {}".format(
+                        iteration, asic_label, config_file, missing_configs))
 
         # Compare with initial results
         logger.info("Iteration {}: Comparing with initial configuration check".format(iteration))
@@ -443,8 +486,10 @@ def test_frr_config_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname, g
         # Final verification for this iteration
         if post_reload_missing_configs:
             logger.error("Iteration {}: Found missing configurations:".format(iteration))
-            for config_file, missing in post_reload_missing_configs.items():
-                logger.error("Iteration {}: File {}: {}".format(iteration, config_file, missing))
+            for asic_label, missing_by_file in post_reload_missing_configs.items():
+                for config_file, missing in missing_by_file.items():
+                    logger.error("Iteration {}: {} file {}: {}".format(
+                        iteration, asic_label, config_file, missing))
 
             # Fail immediately when configuration inconsistency is detected
             pytest.fail("Iteration {}: FRR configuration inconsistency detected after config reload".format(iteration))
@@ -454,7 +499,7 @@ def test_frr_config_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname, g
     logger.info("Completed {} iterations of config reload and verification".format(num_iterations))
 
 
-@pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh')
+@pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'lma', 'uma')
 def test_frr_large_config_load_stress(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                       get_function_completeness_level):
     """Stress test FRR config file loading with large configuration.

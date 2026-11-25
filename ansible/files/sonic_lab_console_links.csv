@@ -5,3 +5,5 @@ console-1,12,str-7260-11,ssh,,,
 management-1,13,str-acs-serv-01,ssh,,,9600
 console-1,14,switch01-bmc,ssh,sonic_config,sonicadmin,9600
 switch01-bmc-con,1,switch01,ssh,sonic_config,sonicadmin,115200
+keysight-console,7030,keysight-css01,telnet,,,9600
+keysight-console,7031,keysight-nss01,telnet,,,9600

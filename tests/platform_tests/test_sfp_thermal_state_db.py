@@ -2,6 +2,8 @@
 Verify SFP temperature in 'show platform temperature' is sourced from
 xcvrd-managed TRANSCEIVER_DOM_TEMPERATURE / TRANSCEIVER_DOM_THRESHOLD /
 TRANSCEIVER_DOM_FLAG tables in STATE_DB.
+Read DOM data from each port's owning ASIC namespace while keeping platform
+sensor checks in the host STATE_DB.
 """
 import json
 import logging
@@ -10,6 +12,7 @@ import re
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.platform.transceiver_utils import get_passive_cable_port_list
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -27,23 +30,23 @@ class TestSfpThermalStateDb:
     """
 
     def _get_sfp_ports_with_dom_temperature(self, duthost):
-        """Return list of port names that have TRANSCEIVER_DOM_TEMPERATURE entries."""
-        result = duthost.shell(
-            'sonic-db-cli STATE_DB KEYS "TRANSCEIVER_DOM_TEMPERATURE|*"',
-            module_ignore_errors=True
-        )
-        if result["rc"] != 0 or not result["stdout"].strip():
-            return []
-        keys = result["stdout"].strip().split("\n")
-        return [k.split("|", 1)[1] for k in keys]
+        """Return ports with TRANSCEIVER_DOM_TEMPERATURE entries across ASICs."""
+        ports = []
+        for asic in duthost.asics:
+            result = asic.run_sonic_db_cli_cmd(
+                'STATE_DB KEYS "TRANSCEIVER_DOM_TEMPERATURE|*"'
+            )
+            keys = result["stdout"].strip().splitlines()
+            ports.extend(k.split("|", 1)[1] for k in keys)
+        return ports
 
     def _get_dom_temperature_data(self, duthost, port):
         """Get temperature value from TRANSCEIVER_DOM_TEMPERATURE for a port."""
-        result = duthost.shell(
-            'sonic-db-cli STATE_DB HGET "TRANSCEIVER_DOM_TEMPERATURE|{}" temperature'.format(port),
-            module_ignore_errors=True
+        asic = duthost.get_port_asic_instance(port)
+        result = asic.run_sonic_db_cli_cmd(
+            'STATE_DB HGET "TRANSCEIVER_DOM_TEMPERATURE|{}" temperature'.format(port)
         )
-        if result["rc"] == 0 and result["stdout"].strip():
+        if result["stdout"].strip():
             return result["stdout"].strip()
         return None
 
@@ -54,12 +57,12 @@ class TestSfpThermalStateDb:
         """
         fields = ["temphighwarning", "templowwarning", "temphighalarm", "templowalarm"]
         thresholds = {}
+        asic = duthost.get_port_asic_instance(port)
         for field in fields:
-            result = duthost.shell(
-                'sonic-db-cli STATE_DB HGET "TRANSCEIVER_DOM_THRESHOLD|{}" {}'.format(port, field),
-                module_ignore_errors=True
+            result = asic.run_sonic_db_cli_cmd(
+                'STATE_DB HGET "TRANSCEIVER_DOM_THRESHOLD|{}" {}'.format(port, field)
             )
-            value = result["stdout"].strip() if result["rc"] == 0 else ""
+            value = result["stdout"].strip()
             if value and value.upper() != "N/A":
                 thresholds[field] = value
             else:
@@ -73,25 +76,41 @@ class TestSfpThermalStateDb:
         """
         fields = ["tempHWarn", "tempLWarn", "tempHAlarm", "tempLAlarm"]
         flags = {}
+        asic = duthost.get_port_asic_instance(port)
         for field in fields:
-            result = duthost.shell(
-                'sonic-db-cli STATE_DB HGET "TRANSCEIVER_DOM_FLAG|{}" {}'.format(port, field),
-                module_ignore_errors=True
+            result = asic.run_sonic_db_cli_cmd(
+                'STATE_DB HGET "TRANSCEIVER_DOM_FLAG|{}" {}'.format(port, field)
             )
-            if result["rc"] == 0 and result["stdout"].strip():
+            if result["stdout"].strip():
                 flags[field] = result["stdout"].strip()
             else:
                 flags[field] = None
         return flags
 
-    def _is_sfp_sensor(self, sensor_name):
-        """
-        Determine if a sensor name refers to an SFP/transceiver temperature.
-        Matches patterns like 'xSFP module N Temp'.
-        """
-        sensor_lower = sensor_name.lower()
-        return ("sfp" in sensor_lower or "transceiver" in sensor_lower or
-                "optic" in sensor_lower)
+    @staticmethod
+    def _sfp_display_name(port, index):
+        """Match tempershow's label, including its logical-port fallback."""
+        try:
+            index = int(index)
+        except (TypeError, ValueError):
+            logger.warning("Missing or invalid PORT index %r for %s; using the logical port name", index, port)
+            return port
+        return "xSFP module {} Temp".format(index)
+
+    def _get_sfp_sensor_names(self, duthost, sfp_ports):
+        """Derive exact SFP sensor names from DOM ports and ASIC PORT tables."""
+        if not sfp_ports:
+            return set()
+
+        port_config = {}
+        for asic in duthost.asics:
+            config_facts = asic.config_facts(source="running")["ansible_facts"]
+            port_config.update(config_facts.get("PORT", {}))
+
+        return {
+            self._sfp_display_name(port, port_config.get(port, {}).get("index"))
+            for port in sfp_ports
+        }
 
     def test_sfp_temperature_present_in_show_platform_temperature(
             self, duthosts, enum_rand_one_per_hwsku_hostname):
@@ -112,7 +131,8 @@ class TestSfpThermalStateDb:
         pytest_assert(len(temp_output) > 0,
                       "'show platform temperature' returned no data")
 
-        sfp_rows = [row for row in temp_output if self._is_sfp_sensor(row.get("sensor", ""))]
+        sfp_sensor_names = self._get_sfp_sensor_names(duthost, sfp_ports)
+        sfp_rows = [row for row in temp_output if row.get("sensor", "") in sfp_sensor_names]
 
         logger.info("Found %d SFP sensor rows in 'show platform temperature'", len(sfp_rows))
 
@@ -154,7 +174,8 @@ class TestSfpThermalStateDb:
             pytest.skip("No TRANSCEIVER_DOM_TEMPERATURE entries found")
 
         temp_output = duthost.show_and_parse("show platform temperature")
-        sfp_rows = [row for row in temp_output if self._is_sfp_sensor(row.get("sensor", ""))]
+        sfp_sensor_names = self._get_sfp_sensor_names(duthost, sfp_ports)
+        sfp_rows = [row for row in temp_output if row.get("sensor", "") in sfp_sensor_names]
 
         if not sfp_rows:
             pytest.skip("No SFP rows in 'show platform temperature' output")
@@ -260,7 +281,8 @@ class TestSfpThermalStateDb:
             pytest.skip("No TRANSCEIVER_DOM_TEMPERATURE entries found")
 
         temp_output = duthost.show_and_parse("show platform temperature")
-        sfp_rows = [row for row in temp_output if self._is_sfp_sensor(row.get("sensor", ""))]
+        sfp_sensor_names = self._get_sfp_sensor_names(duthost, sfp_ports)
+        sfp_rows = [row for row in temp_output if row.get("sensor", "") in sfp_sensor_names]
 
         if not sfp_rows:
             pytest.skip("No SFP rows in 'show platform temperature' output")
@@ -363,6 +385,37 @@ class TestSfpThermalStateDb:
                 if row_matched:
                     rows_verified += 1
 
+        no_numeric_dom_thresholds = not any([
+            dom_crit_high_values,
+            dom_crit_low_values,
+            dom_high_th_values,
+            dom_low_th_values
+        ])
+
+        # Only apply the passive-copper skip when no port reports a
+        # numeric DOM threshold. Mixed platforms with at least one numeric row
+        # continue through the normal majority-match validation below.
+        if rows_with_thresholds == 0 and no_numeric_dom_thresholds:
+            ports_with_dom_threshold_rows = set(dom_thresholds)
+            passive_cable_ports = set(get_passive_cable_port_list(duthost))
+            non_passive_cable_ports = sorted(
+                ports_with_dom_threshold_rows - passive_cable_ports
+            )
+
+            if non_passive_cable_ports:
+                pytest_assert(
+                    False,
+                    "No numeric TRANSCEIVER_DOM_THRESHOLD temperature values available, "
+                    "but non-passive-copper/unknown transceivers are present: {}".format(
+                        non_passive_cable_ports
+                    )
+                )
+
+            pytest.skip(
+                "No numeric TRANSCEIVER_DOM_THRESHOLD temperature values available "
+                "for passive copper transceivers"
+            )
+
         logger.info("Verified %d/%d SFP rows with thresholds matched TRANSCEIVER_DOM_THRESHOLD",
                     rows_verified, rows_with_thresholds)
 
@@ -393,7 +446,8 @@ class TestSfpThermalStateDb:
             pytest.skip("No TRANSCEIVER_DOM_TEMPERATURE entries found")
 
         temp_output = duthost.show_and_parse("show platform temperature")
-        sfp_rows = [row for row in temp_output if self._is_sfp_sensor(row.get("sensor", ""))]
+        sfp_sensor_names = self._get_sfp_sensor_names(duthost, sfp_ports)
+        sfp_rows = [row for row in temp_output if row.get("sensor", "") in sfp_sensor_names]
 
         if not sfp_rows:
             pytest.skip("No SFP rows in 'show platform temperature' output")
@@ -467,11 +521,13 @@ class TestSfpThermalStateDb:
             "expected at least platform sensors (ASIC, CPU, PSU, etc.)"
         )
 
+        sfp_ports = self._get_sfp_ports_with_dom_temperature(duthost)
+        if not sfp_ports:
+            pytest.skip("No TRANSCEIVER_DOM_TEMPERATURE entries found")
+        sfp_sensor_names = self._get_sfp_sensor_names(duthost, sfp_ports)
+
         keys = result["stdout"].strip().split("\n")
-        sfp_keys = [
-            k for k in keys
-            if any(pattern in k.lower() for pattern in ["sfp", "transceiver", "xsfp", "optic"])
-        ]
+        sfp_keys = [k for k in keys if k.split("|", 1)[1] in sfp_sensor_names]
 
         logger.info("TEMPERATURE_INFO keys: %d total, %d SFP-related",
                     len(keys), len(sfp_keys))
@@ -508,9 +564,11 @@ class TestSfpThermalStateDb:
             "(ASIC, CPU, PSU, etc.)"
         )
 
+        sfp_ports = self._get_sfp_ports_with_dom_temperature(duthost)
+        sfp_sensor_names = self._get_sfp_sensor_names(duthost, sfp_ports)
         non_sfp_sensors = [
             name for name in sensor_names
-            if not any(p in name.lower() for p in ["sfp", "transceiver", "xsfp", "optic"])
+            if name not in sfp_sensor_names
         ]
 
         pytest_assert(

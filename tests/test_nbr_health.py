@@ -5,6 +5,7 @@ import logging
 from .common.helpers.assertions import pytest_assert
 from .common.devices.eos import EosHost
 from .common.devices.sonic import SonicHost
+from .common.devices.csonic import CsonicHost
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,7 @@ def check_sonic_facts(hostname, mgmt_addr, host):
     if len(mgmt_addrs) == 0:
         return "there is no management interface in neighbor {}".format(hostname)
     for addr in mgmt_addrs:
-        if addr == mgmt_addr:
+        if addr.split('/')[0] == mgmt_addr:
             return
     return "neighbor {} has no management address {}".format(hostname, mgmt_addr)
 
@@ -88,7 +89,12 @@ def check_eos_bgp_facts(hostname, host):
 
 def check_sonic_bgp_facts(hostname, host):
     logger.info("Check neighbor {} bgp facts".format(hostname))
-    res = host.command('vtysh -c "show ip bgp sum"')
+    if isinstance(host, CsonicHost):
+        # Keep this command bare so a converged logical CsonicHost can scope it
+        # to its runtime VRF.  Stock cSONiC still passes it through unchanged.
+        res = host.command("show ip bgp summary")
+    else:
+        res = host.command('vtysh -c "show ip bgp sum"')
     logger.info("bgp: {}".format(res))
     if 'stdout_lines' not in res or u'Unicast Summary' not in "\n".join(res['stdout_lines']):
         return "neighbor {} bgp not configured correctly".format(hostname)
@@ -133,7 +139,9 @@ def test_neighbors_health(duthosts, localhost, nbrhosts, eos, sonic, enum_fronte
                 fails.append(failmsg)
 
         elif isinstance(nbrhost, SonicHost):
-            failmsg = check_snmp(k, v['mgmt_addr'], localhost, sonic['snmp_rocommunity'], False)
+            snmp_community = sonic(nbrhosts, k)['snmp_rocommunity']
+            failmsg = check_snmp(
+                k, v['mgmt_addr'], localhost, snmp_community, False)
             if failmsg:
                 fails.append(failmsg)
 
@@ -141,6 +149,17 @@ def test_neighbors_health(duthosts, localhost, nbrhosts, eos, sonic, enum_fronte
             if failmsg:
                 fails.append(failmsg)
 
+            failmsg = check_sonic_bgp_facts(k, nbrhost)
+            if failmsg:
+                fails.append(failmsg)
+
+        elif isinstance(nbrhost, CsonicHost):
+            # A cSONiC (docker-sonic-vs) neighbor is reached via 'docker exec',
+            # not SSH: by design it has no dedicated management IP and no
+            # SNMP-over-mgmt endpoint (see CsonicHost docstring). The mgmt-addr
+            # and SNMP checks used for EOS/SonicHost neighbors therefore do not
+            # apply. Its health is verified by confirming BGP is configured
+            # correctly via vtysh (the same check used for SonicHost neighbors).
             failmsg = check_sonic_bgp_facts(k, nbrhost)
             if failmsg:
                 fails.append(failmsg)

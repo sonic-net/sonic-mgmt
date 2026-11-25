@@ -1,15 +1,16 @@
 from tests.common.snappi_tests.snappi_fixtures import (                           # noqa: F401
     snappi_api, snappi_api_serv_ip, snappi_api_serv_port, tgen_ports,
     get_snappi_ports_single_dut, get_snappi_ports, setup_bgp_testbed)
-from tests.snappi_tests.lacp.files.lacp_dut_helper import run_lacp_add_remove_link_from_dut
+from tests.snappi_tests.lacp.files.lacp_helper import run_lacp_add_remove_link_from_dut  # noqa: F401
 from tests.common.fixtures.conn_graph_facts import (                    # noqa: F401
     conn_graph_facts, fanout_graph_facts)
 import pytest
+from tests.common.helpers.assertions import pytest_assert  # noqa: F401
 
 pytestmark = [pytest.mark.topology('tgen')]
 
 
-@pytest.mark.parametrize('port_count', [4])
+@pytest.mark.parametrize('port_count', [3])
 @pytest.mark.parametrize('number_of_routes', [1000])
 @pytest.mark.parametrize('iterations', [1])
 def test_lacp_add_remove_link_from_dut(snappi_api,                      # noqa: F811
@@ -50,6 +51,9 @@ def test_lacp_add_remove_link_from_dut(snappi_api,                      # noqa: 
         number_of_routes:  Number of IPv4/IPv6 Routes
     """
     # port_count, number_of_routes ,iterations and port_speed parameters can be modified as per user preference
+    pytest_assert(port_count >= 3, "Need minimum 3 ports to run the test")
+    pytest_assert(len(tgen_ports) >= port_count, "Not enough ports is defined in links.csv for the test \
+                  Reduce port_count or add more ports. ")
     run_lacp_add_remove_link_from_dut(snappi_api,
                                       duthost,
                                       tgen_ports,
