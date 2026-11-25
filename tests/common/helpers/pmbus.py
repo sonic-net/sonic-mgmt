@@ -22,6 +22,9 @@ STATUS_WORD_OFF = 1 << 6
 STATUS_WORD_POWER_GOOD_N = 1 << 11
 STATUS_IOUT_OC_FAULT = 1 << 7
 
+# Either of these in STATUS_WORD means the output is not delivering power.
+STATUS_WORD_OUTPUT_DOWN = STATUS_WORD_OFF | STATUS_WORD_POWER_GOOD_N
+
 LINEAR11_MAX_MANTISSA = 1023
 
 
@@ -61,19 +64,26 @@ class PmbusPsu:
         self.bus = bus
         self.addr = addr
 
-    def _xfer(self, args):
+    def _xfer(self, args, read_len=0):
         cmd = "sudo i2ctransfer -y {} {}".format(self.bus, args)
         res = self.duthost.shell(cmd, module_ignore_errors=True)
         if res['rc'] != 0:
             raise PmbusError("{}: '{}' failed (rc={}): {}{}".format(
                 self.name, cmd, res['rc'], res['stdout'], res['stderr']))
-        return [int(tok, 16) for tok in res['stdout'].split()]
+        try:
+            data = [int(tok, 16) for tok in res['stdout'].split()]
+        except ValueError:
+            data = None
+        if data is None or len(data) != read_len:
+            raise PmbusError("{}: '{}' returned {!r}, expected {} byte(s)".format(
+                self.name, cmd, res['stdout'], read_len))
+        return data
 
     def read_byte(self, command):
-        return self._xfer("w1@0x{:02x} 0x{:02x} r1".format(self.addr, command))[0]
+        return self._xfer("w1@0x{:02x} 0x{:02x} r1".format(self.addr, command), read_len=1)[0]
 
     def read_word(self, command):
-        low, high = self._xfer("w1@0x{:02x} 0x{:02x} r2".format(self.addr, command))
+        low, high = self._xfer("w1@0x{:02x} 0x{:02x} r2".format(self.addr, command), read_len=2)
         return low | (high << 8)
 
     def write_byte(self, command, value):
@@ -87,7 +97,7 @@ class PmbusPsu:
         self._xfer("w1@0x{:02x} 0x{:02x}".format(self.addr, command))
 
     def output_is_up(self):
-        return not self.read_word(PMBUS_STATUS_WORD) & (STATUS_WORD_OFF | STATUS_WORD_POWER_GOOD_N)
+        return not self.read_word(PMBUS_STATUS_WORD) & STATUS_WORD_OUTPUT_DOWN
 
     def oc_fault_latched(self):
         return bool(self.read_byte(PMBUS_STATUS_IOUT) & STATUS_IOUT_OC_FAULT)

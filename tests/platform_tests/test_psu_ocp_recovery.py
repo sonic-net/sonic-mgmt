@@ -47,11 +47,13 @@ PDDF_DEVICE_JSON_PATH = "/usr/share/sonic/platform/pddf/pddf-device.json"
 PDDFPARSE_TIMEOUT_SEC = 30
 
 # Any of these in STATUS_WORD means the PSU output is not healthy.
-STATUS_WORD_FAULT_MASK = pmbus.STATUS_WORD_OFF | pmbus.STATUS_WORD_POWER_GOOD_N | pmbus.STATUS_WORD_IOUT_OC_FAULT
+STATUS_WORD_FAULT_MASK = pmbus.STATUS_WORD_OUTPUT_DOWN | pmbus.STATUS_WORD_IOUT_OC_FAULT
 
 FAULT_TIMEOUT_SEC = 15
 RECOVERY_TIMEOUT_SEC = 30
 RESTORE_ATTEMPTS = 3
+# The lowered limit may be at most this fraction of the measured current, so the trip is certain.
+TRIP_MARGIN = 0.75
 PSUD_REFRESH_TIMEOUT_SEC = 90
 LOAD_HEADROOM = 1.25
 
@@ -247,7 +249,7 @@ def _low_oc_limit(fault_limit, iout):
     pytest_assert(mantissa <= pmbus.LINEAR11_MAX_MANTISSA,
                   "Cannot encode an IOUT limit below {:.2f}A with exponent {}".format(iout, exponent))
     limit = pmbus.linear11_encode(mantissa, exponent)
-    if pmbus.linear11_decode(limit) >= iout:
+    if pmbus.linear11_decode(limit) > iout * TRIP_MARGIN:
         raise PsuNotTestable("output current {:.2f}A is too low to induce an OCP fault (lowest limit {:.2f}A)".format(
             iout, pmbus.linear11_decode(limit)))
     return limit
@@ -273,6 +275,8 @@ def _restore_oc_limits(psu, warn_limit, fault_limit):
     does not read them back. Raising the fault limit first keeps warn <= fault."""
     restored = False
     for attempt in range(1, RESTORE_ATTEMPTS + 1):
+        if attempt > 1:
+            time.sleep(1)
         try:
             psu.write_word(pmbus.PMBUS_IOUT_OC_FAULT_LIMIT, fault_limit)
             psu.write_word(pmbus.PMBUS_IOUT_OC_WARN_LIMIT, warn_limit)
@@ -292,11 +296,10 @@ def _restore_oc_limits(psu, warn_limit, fault_limit):
                       psu.name, warn_limit, fault_limit, RESTORE_ATTEMPTS))
 
 
-def _recover_with_operation_cycle(psu):
-    logger.info("%s: OPERATION before recovery: 0x%02x", psu.name, psu.read_byte(pmbus.PMBUS_OPERATION))
+def _recover_with_operation_cycle(psu, operation_on):
     psu.write_byte(pmbus.PMBUS_OPERATION, pmbus.PMBUS_OPERATION_OFF)
     time.sleep(1)
-    psu.write_byte(pmbus.PMBUS_OPERATION, pmbus.PMBUS_OPERATION_ON)
+    psu.write_byte(pmbus.PMBUS_OPERATION, operation_on)
     return wait_until(RECOVERY_TIMEOUT_SEC, 1, 0, psu.output_is_up)
 
 
@@ -312,10 +315,14 @@ def _trip_and_recover(psu):
     iout = pmbus.linear11_decode(psu.read_word(pmbus.PMBUS_READ_IOUT))
     orig_warn = psu.read_word(pmbus.PMBUS_IOUT_OC_WARN_LIMIT)
     orig_fault = psu.read_word(pmbus.PMBUS_IOUT_OC_FAULT_LIMIT)
+    orig_operation = psu.read_byte(pmbus.PMBUS_OPERATION)
+    # Recover with the PSU's own OPERATION value when it has the on bit, so margin bits survive.
+    operation_on = orig_operation if orig_operation & pmbus.PMBUS_OPERATION_ON else pmbus.PMBUS_OPERATION_ON
     low_limit = _low_oc_limit(orig_fault, iout)
     logger.info("%s: READ_IOUT=%.2fA, IOUT_OC_WARN_LIMIT=%.2fA (0x%04x), IOUT_OC_FAULT_LIMIT=%.2fA (0x%04x), "
-                "lowering both to %.2fA (0x%04x)", psu.name, iout, pmbus.linear11_decode(orig_warn), orig_warn,
-                pmbus.linear11_decode(orig_fault), orig_fault, pmbus.linear11_decode(low_limit), low_limit)
+                "OPERATION=0x%02x, lowering both limits to %.2fA (0x%04x)", psu.name, iout,
+                pmbus.linear11_decode(orig_warn), orig_warn, pmbus.linear11_decode(orig_fault), orig_fault,
+                orig_operation, pmbus.linear11_decode(low_limit), low_limit)
 
     recovered = None
     output_down = False
@@ -332,18 +339,23 @@ def _trip_and_recover(psu):
     finally:
         # Only cycle the output once the original limits are confirmed back in place.
         _restore_oc_limits(psu, orig_warn, orig_fault)
-        output_down = not psu.output_is_up()
-        if output_down or psu.oc_fault_latched():
-            logger.info("%s: fault still present after restoring limits STATUS_WORD=0x%04x STATUS_IOUT=0x%02x",
-                        psu.name, psu.read_word(pmbus.PMBUS_STATUS_WORD), psu.read_byte(pmbus.PMBUS_STATUS_IOUT))
-            recovered = _recover_with_operation_cycle(psu)
+        status_word = psu.read_word(pmbus.PMBUS_STATUS_WORD)
+        status_iout = psu.read_byte(pmbus.PMBUS_STATUS_IOUT)
+        output_down = bool(status_word & pmbus.STATUS_WORD_OUTPUT_DOWN)
+        logger.info("%s: after restoring limits STATUS_WORD=0x%04x STATUS_IOUT=0x%02x",
+                    psu.name, status_word, status_iout)
+        if output_down:
+            recovered = _recover_with_operation_cycle(psu, operation_on)
+        elif status_iout & pmbus.STATUS_IOUT_OC_FAULT:
+            psu.send_byte(pmbus.PMBUS_CLEAR_FAULTS)
 
     pytest_assert(output_down,
                   "{}: output came back on its own once limits were restored; OPERATION recovery was not exercised"
                   .format(psu.name))
     status_word = psu.read_word(pmbus.PMBUS_STATUS_WORD)
-    pytest_assert(recovered, "{}: output not back up within {}s of the OPERATION cycle (STATUS_WORD=0x{:04x})".format(
-        psu.name, RECOVERY_TIMEOUT_SEC, status_word))
+    status_iout = psu.read_byte(pmbus.PMBUS_STATUS_IOUT)
+    pytest_assert(recovered, "{}: output not back up within {}s of the OPERATION cycle (STATUS_WORD=0x{:04x} "
+                  "STATUS_IOUT=0x{:02x})".format(psu.name, RECOVERY_TIMEOUT_SEC, status_word, status_iout))
 
     psu.send_byte(pmbus.PMBUS_CLEAR_FAULTS)
     status_word = psu.read_word(pmbus.PMBUS_STATUS_WORD)
