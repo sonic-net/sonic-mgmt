@@ -197,6 +197,17 @@
             <a:Reference i:nil="true"/>
             <a:Value>{{ zebra_nexthop_value }}</a:Value>
           </a:DeviceProperty>
+{# EVPN multihoming timers of an L3EvpnMH device, from the topology's DUT.evpn_mh_timers. #}
+{% set evpn_mh_timers = vm_topo_config['DUT']['evpn_mh_timers'] | default({}) %}
+{% for prop_name, timer in [('EvpnMhStartupDelay', 'startup_delay'), ('EvpnMhMacHoldtime', 'mac_holdtime'), ('EvpnMhNeighHoldtime', 'neigh_holdtime')] %}
+{% if timer in evpn_mh_timers %}
+          <a:DeviceProperty>
+            <a:Name>{{ prop_name }}</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>{{ evpn_mh_timers[timer] }}</a:Value>
+          </a:DeviceProperty>
+{% endif %}
+{% endfor %}
         </a:Properties>
       </a:DeviceMetadata>
 {% if num_asics > 1 and switch_type is defined and switch_type == 'voq' %}

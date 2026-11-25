@@ -1195,7 +1195,9 @@ class GenerateGoldenConfigDBModule(object):
         """Set SYSTEM_DEFAULTS|ip_decap to mirror the IP-in-IP decap default that
         sonic-buildimage PR #28693 generates in minigraph.py.
 
-        IP-in-IP decap is disabled for DPU switches, the lossy
+        IP-in-IP decap is disabled for DPU switches, L3EvpnMH devices (EVPN L3
+        multihoming dT0s, which do not use the decap tunnels; on Cisco 8000 they
+        conflict with VXLAN's decap TTL mode), the lossy
         Arista-7060X6-64PE-B-C512S2 / -C448O16 hwskus, and NVIDIA/Mellanox
         non-storage backend devices; it is enabled everywhere else. The knob is
         consumed by ipinip.json.j2 in swss, which runs per ASIC, so on multi-ASIC
@@ -1216,6 +1218,8 @@ class GenerateGoldenConfigDBModule(object):
 
         enable_ip_decap = True
         if switch_type == "dpu":
+            enable_ip_decap = False
+        elif metadata.get("subtype") == "L3EvpnMH":
             enable_ip_decap = False
         elif hwsku in ("Arista-7060X6-64PE-B-C512S2", "Arista-7060X6-64PE-B-C448O16"):
             enable_ip_decap = False

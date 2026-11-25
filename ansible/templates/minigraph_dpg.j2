@@ -122,6 +122,9 @@
       <MplsTeInterfaces/>
       <RsvpInterfaces/>
       <Hostname>{{ inventory_hostname }}</Hostname>
+{% if vm_topo_config['DUT']['vni'] is defined %}
+      <VNI>{{ vm_topo_config['DUT']['vni'] }}</VNI>
+{% endif %}
       <PortChannelInterfaces>
 {% if vm_topo_config['topo_type'] != 'wan' %}
 {% for index in range(vms_number) %}
@@ -141,6 +144,9 @@
           <Name>{{ portchannel }}</Name>
           <AttachTo>{{ port_channel_intf }}</AttachTo>
           <SubInterface/>
+{% if params['fallback'] is defined %}
+          <Fallback>{{ params['fallback'] | string | lower }}</Fallback>
+{% endif %}
         </PortChannel>
 {% endfor %}
 {% endif %}

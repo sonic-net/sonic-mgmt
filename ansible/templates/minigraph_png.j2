@@ -141,6 +141,9 @@
 {% endif %}
         <Hostname>{{ inventory_hostname }}</Hostname>
         <HwSku>{{ hwsku }}</HwSku>
+{% if vm_topo_config['DUT']['device_subtype'] is defined %}
+        <SubType>{{ vm_topo_config['DUT']['device_subtype'] }}</SubType>
+{% endif %}
 {% if 'loopback' in dual_tor_facts %}
         <Address xmlns:a="Microsoft.Search.Autopilot.NetMux">
           <a:IPPrefix>{{ dual_tor_facts['loopback'][inventory_hostname]['ipv4'] }}</a:IPPrefix>

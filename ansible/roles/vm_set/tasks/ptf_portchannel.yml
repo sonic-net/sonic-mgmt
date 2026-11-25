@@ -12,7 +12,7 @@
 
 - name: find downlink portchannel configuration
   set_fact:
-    portchannel_config: "{{ topology['DUT']['portchannel_config'] | default({})}}"
+    portchannel_config: "{{ topology['DUT']['ptf_portchannel_config'] | default(topology['DUT']['portchannel_config'] | default({})) }}"
 
 - name: find portchannel mode
   set_fact:
