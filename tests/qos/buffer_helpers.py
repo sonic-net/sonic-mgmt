@@ -131,9 +131,10 @@ def update_cable_len_for_all_ports(duthost, skip_traditional_model):
                     ports_cable_len_map_with_config_exceed_max_headroom, original_ports_cable_len_map, new_cable_len)
                 restore_snapshot = original_ports_cable_len_map, original_pool_size
                 change_ports_cable_len(duthost, ports_cable_info)
-                pytest_assert(wait_until(20, 2, 0, lambda: duthost.shell(BUFFER_POOL_SIZE_COMMAND)['stdout']
-                                        != original_pool_size), "Failed to update the buffer pool size after changing "
-                              "the cable length")
+                pytest_assert(
+                    wait_until(20, 2, 0,
+                               lambda: duthost.shell(BUFFER_POOL_SIZE_COMMAND)['stdout'] != original_pool_size),
+                    "Failed to update the buffer pool size after changing the cable length")
 
         yield
     finally:
