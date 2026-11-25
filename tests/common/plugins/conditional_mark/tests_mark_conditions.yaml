@@ -5181,6 +5181,12 @@ route/test_static_route.py::test_static_route[:
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/24537 and 't0-isolated-d256u256s2' in topo_name"
 
+route/test_static_route.py::test_static_route_config_reload_with_traffic[:
+  xfail:
+    reason: "xfail for scale topology, issue https://github.com/sonic-net/sonic-buildimage/issues/24537"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/24537 and 't0-isolated-d256u256s2' in topo_name"
+
 route/test_static_route.py::test_static_route_ecmp[:
   xfail:
     reason: "xfail for scale topology, issue https://github.com/sonic-net/sonic-buildimage/issues/24537"
