@@ -100,17 +100,15 @@ def get_ntp_service_name(duthost):
 def ntp_service_restarted(duthost, systemd_service, start_time):
     """ Check if ntp.service is just restarted after start_time
     """
-    def check_ntp_activestate(duthost, systemd_service):
+    def check_ntp_has_restarted(duthost, systemd_service, start_time):
         output = duthost.command(f"systemctl show {systemd_service} -P ActiveState")
         if output["stdout"] != "active":
             return False
-        return True
 
-    if not wait_until(60, 10, 0, check_ntp_activestate, duthost, systemd_service):
-        return False
+        output = duthost.command(f"systemctl show {systemd_service} --timestamp unix -P ExecMainStartTimestamp")
+        return int(output['stdout'][1:]) > start_time
 
-    output = duthost.command(f"systemctl show {systemd_service} --timestamp unix -P ExecMainStartTimestamp")
-    return int(output['stdout'][1:]) > start_time
+    return wait_until(60, 10, 0, check_ntp_has_restarted, duthost, systemd_service, start_time)
 
 
 def ntp_server_tc1_add_config(duthost, ntp_service):
