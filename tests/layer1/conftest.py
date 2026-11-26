@@ -43,7 +43,7 @@ class TestMACFaultGeneral:
         return supported_available_interfaces, []
 
     def is_setting_support_feature(self, dut):
-        return True
+        pass
 
 
 class TestMACFaultMellanox(TestMACFaultGeneral):
