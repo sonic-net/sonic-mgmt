@@ -48,9 +48,12 @@ MAC_MOVE_GUARD_THRESHOLD = 100
 # a rate-limited notification path rather than directly from packet learning.
 MAC_MOVE_GUARD_DETECT_INTERVAL = 20
 # VPP reports a MAC's moves from a periodic L2 FIB scan, at most once per
-# scan, and on a loaded KVM DUT the scans can be a second apart: on VPP,
-# test_fdb_mac_move_guard_disable_port trips the guard at one move per second.
-VPP_MAC_MOVE_GUARD_THRESHOLD = 60
+# scan, and on a loaded KVM DUT the scans can be a second apart. orchagent
+# also merges identical FDB notifications that queue up while its main loop is
+# busy, before MAC_MOVE_GUARD counts them. On such a DUT the guard has counted
+# as few as 0.7 moves per second per MAC, so on VPP
+# test_fdb_mac_move_guard_disable_port trips it at one move every 3 seconds.
+VPP_MAC_MOVE_GUARD_THRESHOLD = 20
 VPP_MAC_MOVE_GUARD_DETECT_INTERVAL = 60
 MAC_MOVE_GUARD_ACTION_INTERVAL = 60
 # Rate limit applied to the storm sender. The guard trips when a single MAC
@@ -415,7 +418,7 @@ def test_fdb_mac_move_guard_disable_port(duthosts, fanouthosts, rand_one_dut_hos
     Validate the MAC_MOVE_GUARD feature end-to-end:
 
       1. Configure MAC_MOVE_GUARD (GLOBAL) with action=DISABLE_PORT,
-         threshold=100, detect_interval=20s (60 and 60s on VPP),
+         threshold=100, detect_interval=20s (20 and 60s on VPP),
          action_interval=60s.
       2. Drive a MAC-move storm from PTF on two VLAN-member ports so the
          per-MAC move count crosses the configured threshold.

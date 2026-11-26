@@ -740,7 +740,9 @@ class TestIPPacket(object):
         rx_ok = int(portstat_out[peer_ip_ifaces_pair[0][1][0]]["rx_ok"].replace(",", ""))
         rx_drp = int(portstat_out[peer_ip_ifaces_pair[0][1][0]]["rx_drp"].replace(",", ""))
         rx_err = int(rif_counter_out[rif_rx_ifaces]["rx_err"].replace(",", "")) if rif_support else 0
-        tx_ok = sum_ifaces_counts(portstat_out, out_ifaces, "tx_ok")
+        # RIF TX_OK reflects routed forwarding; member-port TX_OK can include background traffic.
+        tx_ok = sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_ok") if rif_support else \
+            sum_ifaces_counts(portstat_out, out_ifaces, "tx_ok")
         tx_drp = sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_err = sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
 
