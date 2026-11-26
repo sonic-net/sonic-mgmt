@@ -70,6 +70,8 @@ def pytest_runtest_setup(item):
     for duthost in duthosts:
         if duthost.topo_type == 't2':
             continue
+        if duthost.is_bmc():
+            continue
 
         if enable_monit_refresh:
             # Trigger monit to refresh its cache so subsequent collection reads fresh data
@@ -125,6 +127,8 @@ def pytest_runtest_teardown(item, nextitem):
 
     for duthost in duthosts:
         if duthost.topo_type == 't2':
+            continue
+        if duthost.is_bmc():
             continue
 
         if enable_monit_refresh:
@@ -186,6 +190,8 @@ def memory_utilization(duthosts, request):
 
     for duthost in duthosts:
         if duthost.topo_type == 't2':
+            continue
+        if duthost.is_bmc():
             continue
         memory_monitor = MemoryMonitor(ansible_host=duthost)
         memory_values["before_test"][duthost.hostname] = {}

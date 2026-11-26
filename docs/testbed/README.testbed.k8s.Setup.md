@@ -10,26 +10,26 @@ By connecting each SONiC DUT to HA Kubernetes master, containers running in SONi
 
 In local mode, the SONiC feature container runs based on the image tagged `feature_name:latest` in the local image store; this feature runs independent of the Kubernetes master. In kube mode, SONiC container properties are based on specifications defined in the associated Kubernetes manifest. A Kubernetes manifest is a file in the Kubernetes master that defines the Kubernetes object and container configurations, including a URL from which to source the feature image. In our case, we use Kubernetes Daemonset objects. The Kubernetes Daemonset object ensures that each worker node is running exactly one container of the image specified in the Daemonset manifest file.
 
-For example, in order to run SNMP and Telemetry containers in kube mode, we must have two manifests that define two Kubernetes Daemonset objects- one for each container/feature running in kube mode.
+For example, in order to run SNMP and gNMI containers in kube mode, we must have two manifests that define two Kubernetes Daemonset objects- one for each container/feature running in kube mode.
 
-The following is a snippet of the Telemetry Daemonset manifest file that specifies the Kubernetes object type and container image:
+The following is a snippet of the gNMI Daemonset manifest file that specifies the Kubernetes object type and container image:
 
 ```
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: telemetry-ds
+  name: gnmi-ds
 spec:
   template:
     metadata:
       labels:
-        name: telemetry
+        name: gnmi
     spec:
       hostname: sonic
       hostNetwork: true
       containers:
-      - name: telemetry
-        image: sonicanalytics.azurecr.io/sonic-dockers/any/docker-sonic-telemetry:20200531
+      - name: gnmi
+        image: <registry>/docker-sonic-gnmi:<tag>
         tty: true
             .
             .

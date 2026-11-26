@@ -324,11 +324,15 @@ def extract_iface_names(config_file):
     with open(config_file) as fp:
         graph = json.load(fp)
 
+    port_indices = graph['minigraph_port_indices']
     net_ports = []
-    for name, val in list(graph['minigraph_portchannels'].items()):
-        members = ['eth%d' % graph['minigraph_port_indices'][member]
+    for name, val in list(graph.get('minigraph_portchannels', {}).items()):
+        members = ['eth%d' % port_indices[member]
                    for member in val['members']]
         net_ports.extend(members)
+
+    if not net_ports:
+        net_ports = graph.get('net_ports', [])
 
     return net_ports
 

@@ -63,10 +63,10 @@ class MacsecPlugin(object):
     def get_ctrl_nbr_names(self, macsec_duthost, nbrhosts, tbinfo):
         return NotImplementedError()
 
-    def downstream_neighbor(self,tbinfo, neighbor):
+    def downstream_neighbor(self, tbinfo, neighbor):
         return NotImplementedError()
 
-    def upstream_neighbor(self,tbinfo, neighbor):
+    def upstream_neighbor(self, tbinfo, neighbor):
         return NotImplementedError()
 
     @pytest.fixture(scope="module")
@@ -116,6 +116,7 @@ class MacsecPlugin(object):
     @pytest.fixture(scope="module")
     def startup_macsec(self, request, macsec_duthost, ctrl_links, macsec_profile, port_profiles, tbinfo):
         topo_name = tbinfo['topo']['name']
+
         def __startup_macsec():
             profile = macsec_profile
             if request.config.getoption("neighbor_type") == "eos":
@@ -147,9 +148,9 @@ class MacsecPlugin(object):
                 if 't2' not in topo_name:
                     cleanup_macsec_configuration(macsec_duthost, ctrl_links, profile['name'])
                 setup_macsec_configuration(macsec_duthost, ctrl_links,
-                                        profile['name'], profile['priority'], profile['cipher_suite'],
-                                        profile['primary_cak'], profile['primary_ckn'], profile['policy'],
-                                        profile['send_sci'], profile['rekey_period'], tbinfo)
+                                           profile['name'], profile['priority'], profile['cipher_suite'],
+                                           profile['primary_cak'], profile['primary_ckn'], profile['policy'],
+                                           profile['send_sci'], profile['rekey_period'], tbinfo)
             logger.info(
                 "Setup MACsec configuration with arguments:\n{}".format(locals()))
 
@@ -173,14 +174,15 @@ class MacsecPlugin(object):
                     # only check the port if it was actually put back to an old macsec configuration
                     if orig.get(dut_port):
                         wait_until(300, 3, 0,
-                                lambda dp=dut_port, n=nbr: macsec_duthost.iface_macsec_ok(dp) and
-                                n["host"].iface_macsec_ok(n["port"]))
+                                   lambda dp=dut_port, n=nbr: macsec_duthost.iface_macsec_ok(dp) and
+                                   n["host"].iface_macsec_ok(n["port"]))
             else:
                 cleanup_macsec_configuration(macsec_duthost, ctrl_links, profile['name'])
         return __shutdown_macsec
 
     @pytest.fixture(scope="module")
-    def macsec_setup(self, startup_macsec, shutdown_macsec, macsec_feature, macsec_duthost, macsec_profile, port_profiles, ctrl_links):
+    def macsec_setup(self, startup_macsec, shutdown_macsec, macsec_feature, macsec_duthost, macsec_profile,
+                     port_profiles, ctrl_links):
         '''
             setup macsec links
         '''
@@ -198,7 +200,8 @@ class MacsecPlugin(object):
             shutdown_macsec()
 
     @pytest.fixture(scope="module", autouse=True)
-    def load_macsec_info(self, request, macsec_setup, macsec_duthost, ctrl_links, macsec_profile, port_profiles, tbinfo):
+    def load_macsec_info(self, request, macsec_setup, macsec_duthost, ctrl_links, macsec_profile,
+                         port_profiles, tbinfo):
         """Pre-load MACsec session info for all control links.
 
         If MACsec is enabled and configured for this DUT/profile, wait for
@@ -304,6 +307,7 @@ class MacsecPlugin(object):
 
     def find_links_from_nbr(self, duthost, tbinfo, nbrhosts):
         links = collections.defaultdict(dict)
+
         def filter(interface, neighbor, mg_facts, tbinfo):
             if neighbor["name"] not in list(nbrhosts.keys()):
                 return
@@ -318,37 +322,37 @@ class MacsecPlugin(object):
         self.find_links(duthost, tbinfo, filter)
         return links
 
+
 class MacsecPluginT0(MacsecPlugin):
     """
     Pytest macsec plugin
     """
 
-
     def __init__(self):
-         super(MacsecPluginT0, self).__init__()
+        super(MacsecPluginT0, self).__init__()
 
     def get_ctrl_nbr_names(self, macsec_duthost, nbrhosts, tbinfo):
         ctrl_nbr_names = natsort.natsorted(nbrhosts.keys())[:2]
         return ctrl_nbr_names
 
-    def downstream_neighbor(self,tbinfo, neighbor):
+    def downstream_neighbor(self, tbinfo, neighbor):
         if (tbinfo["topo"]["type"] == "t0" and "Server" in neighbor["name"]):
             return True
         return False
 
-    def upstream_neighbor(self,tbinfo, neighbor):
+    def upstream_neighbor(self, tbinfo, neighbor):
         if (tbinfo["topo"]["type"] == "t0" and "T1" in neighbor["name"]):
             return True
         return False
+
 
 class MacsecPluginT2(MacsecPlugin):
     """
     Pytest macsec plugin
     """
 
-
     def __init__(self):
-         super(MacsecPluginT2, self).__init__()
+        super(MacsecPluginT2, self).__init__()
 
     def get_ctrl_nbr_names(self, macsec_duthost, nbrhosts, tbinfo):
         ctrl_nbr_names = []
@@ -359,12 +363,12 @@ class MacsecPluginT2(MacsecPlugin):
             ctrl_nbr_names = natsort.natsorted(nbrhosts.keys())[:4]
         return ctrl_nbr_names
 
-    def downstream_neighbor(self,tbinfo, neighbor):
+    def downstream_neighbor(self, tbinfo, neighbor):
         if ("t2" in tbinfo["topo"]["type"] and ("T1" in neighbor["name"] or "LT2" in neighbor["name"])):
             return True
         return False
 
-    def upstream_neighbor(self,tbinfo, neighbor):
+    def upstream_neighbor(self, tbinfo, neighbor):
         if ("t2" in tbinfo["topo"]["type"] and "T3" in neighbor["name"]):
             return True
         return False

@@ -9,6 +9,7 @@ import random
 import re
 import six
 import socket
+import tempfile
 
 from jinja2 import Template
 from tests.bgp.constants import SHOW_IP_INTERFACE_CMD
@@ -20,14 +21,15 @@ from tests.common.utilities import wait_until, get_plt_reboot_ctrl
 from tests.common.utilities import wait_tcp_connection
 from tests.common.utilities import is_ipv6_only_topology
 from tests.common import config_reload
-from bgp_helpers import define_config, apply_default_bgp_config, DUT_TMP_DIR, TEMPLATE_DIR, BGP_PLAIN_TEMPLATE,\
-    BGP_NO_EXPORT_TEMPLATE, DUMP_FILE, CUSTOM_DUMP_SCRIPT, CUSTOM_DUMP_SCRIPT_DEST,\
+from bgp_helpers import define_config, apply_default_bgp_config, DUT_TMP_DIR, TEMPLATE_DIR, BGP_PLAIN_TEMPLATE, \
+    BGP_NO_EXPORT_TEMPLATE, DUMP_FILE, CUSTOM_DUMP_SCRIPT, CUSTOM_DUMP_SCRIPT_DEST, \
     BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
 from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG, DEFAULT_NAMESPACE
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common import constants
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
+from tests.common.devices.csonic import CsonicHost
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +57,56 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
 
+    gr_neighbors = {}
+    for name, neighbor in nbrhosts.items():
+        if isinstance(neighbor['host'], EosHost) and neighbor.get('is_multi_vrf_peer', False):
+            primary_host = neighbor['multi_vrf_data']['primary_host']
+            # VRF peers share a cEOS VM. Apply all VRF configuration through the primary peer.
+            if primary_host not in gr_neighbors:
+                gr_neighbors[primary_host] = {**nbrhosts[primary_host], 'vrfs': []}
+            gr_neighbors[primary_host]['vrfs'].append(neighbor['multi_vrf_data']['vrf'])
+        else:
+            gr_neighbors[name] = neighbor
+
+    def configure_multi_vrf_gr(node, enable):
+        # Apply all VRFs in one Ansible call to avoid repeated eos_config.
+        # Repeat the VRF block for every VRF on the primary host:
+        # Setup config:
+        # router bgp <primary_asn>
+        #    vrf <vrf1>
+        #       graceful-restart restart-time 300
+        #       address-family ipv4
+        #          graceful-restart
+        #       address-family ipv6
+        #          graceful-restart
+        #    vrf <vrf2>
+        #       ...
+        #
+        # Disable config:
+        # router bgp <primary_asn>
+        #    vrf <vrf1>
+        #       address-family ipv4
+        #          no graceful-restart
+        #       address-family ipv6
+        #          no graceful-restart
+        #    vrf <vrf2>
+        #       ...
+        asn = node['multi_vrf_data']['primary_host_asn']
+        lines = ['router bgp {}'.format(asn)]
+        command = 'graceful-restart' if enable else 'no graceful-restart'
+        for vrf in node['vrfs']:
+            lines.append('   vrf {}'.format(vrf))
+            if enable:
+                lines.append('      graceful-restart restart-time 300')
+            for af in ['ipv4', 'ipv6']:
+                lines.append('      address-family {}'.format(af))
+                lines.append('         {}'.format(command))
+
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.cfg') as config_file:
+            config_file.write('\n'.join(lines) + '\n')
+            config_file.flush()
+            return node['host'].eos_config(src=config_file.name, module_ignore_errors=True)
+
     @reset_ansible_local_tmp
     def configure_nbr_gr(node=None, results=None):
         """Target function will be used by multiprocessing for configuring VM hosts.
@@ -74,23 +126,7 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
         logger.info('bgp asn {}'.format(asn))
         if isinstance(node['host'], EosHost):
             if node.get('is_multi_vrf_peer', False):
-                vrf = node['multi_vrf_data']['vrf']
-                asn = node['multi_vrf_data']['primary_host_asn']
-                node_results.append(node['host'].config(
-                        lines=['graceful-restart restart-time 300'],
-                        parents=['router bgp {}'.format(asn), 'vrf {}'.format(vrf)],
-                        module_ignore_errors=True)
-                    )
-                node_results.append(node['host'].config(
-                        lines=['graceful-restart'],
-                        parents=['router bgp {}'.format(asn), 'vrf {}'.format(vrf), 'address-family ipv4'],
-                        module_ignore_errors=True)
-                    )
-                node_results.append(node['host'].config(
-                        lines=['graceful-restart'],
-                        parents=['router bgp {}'.format(asn), 'vrf {}'.format(vrf), 'address-family ipv6'],
-                        module_ignore_errors=True)
-                    )
+                node_results.append(configure_multi_vrf_gr(node, enable=True))
             else:
                 node_results.append(node['host'].config(
                         lines=['graceful-restart restart-time 300'],
@@ -107,7 +143,7 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
                         parents=['router bgp {}'.format(asn), 'address-family ipv6'],
                         module_ignore_errors=True)
                     )
-        elif isinstance(node['host'], SonicHost):
+        elif isinstance(node['host'], (SonicHost, CsonicHost)):
             node_results.append(node['host'].config(
                 lines=['bgp graceful-restart', 'bgp graceful-restart restart-time 300'],
                 parents=['router bgp {}'.format(asn)],
@@ -157,18 +193,7 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
         asn = (node['conf']['bgp']['asn'])
         if isinstance(node['host'], EosHost):
             if node.get('is_multi_vrf_peer', False):
-                vrf = node['multi_vrf_data']['vrf']
-                asn = node['multi_vrf_data']['primary_host_asn']
-                node_results.append(node['host'].config(
-                        lines=['no graceful-restart'],
-                        parents=['router bgp {}'.format(asn), 'vrf {}'.format(vrf), 'address-family ipv4'],
-                        module_ignore_errors=True)
-                    )
-                node_results.append(node['host'].config(
-                        lines=['no graceful-restart'],
-                        parents=['router bgp {}'.format(asn), 'vrf {}'.format(vrf), 'address-family ipv6'],
-                        module_ignore_errors=True)
-                    )
+                node_results.append(configure_multi_vrf_gr(node, enable=False))
             else:
                 node_results.append(node['host'].config(
                         lines=['no graceful-restart'],
@@ -180,7 +205,7 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
                         parents=['router bgp {}'.format(asn), 'address-family ipv6'],
                         module_ignore_errors=True)
                     )
-        elif isinstance(node['host'], SonicHost):
+        elif isinstance(node['host'], (SonicHost, CsonicHost)):
             node_results.append(node['host'].config(
                 lines=['no bgp graceful-restart', 'no bgp graceful-restart restart-time 300'],
                 parents=['router bgp {}'.format(asn)],
@@ -208,11 +233,7 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
         results[node['host'].hostname] = node_results
 
     # enable graceful restart on neighbors
-    if tbinfo['topo']['properties'].get('topo_is_multi_vrf', False):
-        # cEOSLab only supports running 5 concurrent in-progress config sessions.
-        # We run this task sequentially to avoid races
-        cct = 1
-    results = parallel_run(configure_nbr_gr, (), {}, list(nbrhosts.values()), timeout=120, concurrent_tasks=cct)
+    results = parallel_run(configure_nbr_gr, (), {}, list(gr_neighbors.values()), timeout=120, concurrent_tasks=cct)
 
     check_results(results)
 
@@ -234,12 +255,12 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
 
     if not res:
         # Disable graceful restart in case of failure
-        parallel_run(restore_nbr_gr, (), {}, list(nbrhosts.values()), timeout=120, concurrent_tasks=cct)
+        parallel_run(restore_nbr_gr, (), {}, list(gr_neighbors.values()), timeout=120, concurrent_tasks=cct)
         pytest.fail(err_msg)
 
     yield
 
-    results = parallel_run(restore_nbr_gr, (), {}, list(nbrhosts.values()), timeout=120, concurrent_tasks=cct)
+    results = parallel_run(restore_nbr_gr, (), {}, list(gr_neighbors.values()), timeout=120, concurrent_tasks=cct)
 
     check_results(results)
 
@@ -361,6 +382,8 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
         POLICY_ROUTE_TABLE_BASE = 100
         while any((POLICY_ROUTE_TABLE_BASE + i) in used_table_ids for i in range(peer_count)):
             POLICY_ROUTE_TABLE_BASE += peer_count
+        original_arp_ignore = None
+        orig_arp_sysctls = {}
         try:
             connections = []
             vlan_intf = _find_vlan_intferface(mg_facts)
@@ -384,8 +407,29 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                     }
                 )
 
+            if not is_v6_topo:
+                original_arp_ignore = int(ptfhost.command(
+                    "sysctl -n net.ipv4.conf.all.arp_ignore"
+                )['stdout'].strip())
+                # VLAN broadcasts reach every PTF port. Restrict kernel ARP
+                # replies to the port owning the IP, including replies on ports
+                # not selected for BGP; source routing alone does not do this.
+                ptfhost.command("sysctl -w net.ipv4.conf.all.arp_ignore=1")
+
             ptfhost.remove_ip_addresses()
             _setup_arp_responder(duthost, ptfhost, tbinfo, is_v6_topo)
+
+            if not is_v6_topo:
+                arp_keys = ["net.ipv4.conf.{}.{}".format(conn["neighbor_intf"], param)
+                            for conn in connections for param in ("arp_ignore", "arp_announce")]
+                arp_values = ptfhost.shell("sysctl -n {}".format(" ".join(arp_keys)))["stdout_lines"]
+                orig_arp_sysctls = dict(zip(arp_keys, arp_values))
+                ptfhost.shell("sysctl -w {}".format(" ".join(
+                    "{}={}".format(key, 1 if key.endswith("arp_ignore") else 2) for key in arp_keys)))
+                # Drop existing neighbor entries that may still point to another port's MAC
+                flush_cmd = "; ".join("sudo ip neigh flush to {}".format(conn["neighbor_addr"].split("/")[0])
+                                      for conn in connections)
+                duthosts.shell(flush_cmd, module_ignore_errors=True)
 
             for conn in connections:
                 ptfhost.shell("ip address add %s dev %s" % (conn["neighbor_addr"], conn["neighbor_intf"]))
@@ -408,17 +452,27 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
             yield connections
 
         finally:
-            ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
-            ptfhost.shell("ip route delete {}{}".format(loopback_intf_addr, "/128" if is_v6_topo else "/32"),
-                          module_ignore_errors=True)
-            for i, conn in enumerate(connections):
-                table_id = POLICY_ROUTE_TABLE_BASE + i
-                neighbor_ip = conn["neighbor_addr"].split("/")[0]
-                ptfhost.shell("ip rule del from %s table %d" % (neighbor_ip, table_id),
+            try:
+                ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
+                ptfhost.shell("ip route delete {}{}".format(loopback_intf_addr, "/128" if is_v6_topo else "/32"),
                               module_ignore_errors=True)
-                ptfhost.shell("ip route flush table %d" % table_id,
-                              module_ignore_errors=True)
-                ptfhost.shell("ip address flush %s scope global" % conn["neighbor_intf"])
+                for i, conn in enumerate(connections):
+                    table_id = POLICY_ROUTE_TABLE_BASE + i
+                    neighbor_ip = conn["neighbor_addr"].split("/")[0]
+                    ptfhost.shell("ip rule del from %s table %d" % (neighbor_ip, table_id),
+                                  module_ignore_errors=True)
+                    ptfhost.shell("ip route flush table %d" % table_id,
+                                  module_ignore_errors=True)
+                    ptfhost.shell("ip address flush %s scope global" % conn["neighbor_intf"])
+            finally:
+                try:
+                    if orig_arp_sysctls:
+                        ptfhost.shell("sysctl -w {}".format(" ".join(
+                            "{}={}".format(key, value) for key, value in orig_arp_sysctls.items())),
+                            module_ignore_errors=True)
+                finally:
+                    if original_arp_ignore is not None:
+                        ptfhost.command("sysctl -w net.ipv4.conf.all.arp_ignore=%d" % original_arp_ignore)
 
     @contextlib.contextmanager
     def _setup_interfaces_t0_or_mx(mg_facts, peer_count):
@@ -622,7 +676,7 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
         setup_func = _setup_interfaces_dualtor
     elif tbinfo["topo"]["type"] in ["t0", "mx"]:
         setup_func = _setup_interfaces_t0_or_mx
-    elif tbinfo["topo"]["type"] in set(["t1", "t2", "m1", "lt2", "ft2", "c0", "lrh", "urh"]):
+    elif tbinfo["topo"]["type"] in set(["t1", "t2", "m1", "lt2", "ft2", "c0", "lrh", "urh", "lma", "uma"]):
         setup_func = _setup_interfaces_t1_t2_drh
     elif tbinfo["topo"]["type"] == "m0":
         if topo_scenario == "m0_l3_scenario":
@@ -721,11 +775,19 @@ def bgpmon_setup_teardown(ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_ho
         'peer_name': BGP_MONITOR_NAME
     }
     bgpmon_template = Template(open(BGPMON_TEMPLATE_FILE).read())
+    asichost = duthost.asic_instance_from_namespace(connection['namespace'])
+    # Match bgpcfgd's same-AS monitor template.
+    monitor_asn = int(asichost.run_sonic_db_cli_cmd(
+        "CONFIG_DB HGET 'DEVICE_METADATA|localhost' bgp_asn"
+    )["stdout"])
+    pt_assert(
+        0 < monitor_asn <= 0xFFFFFFFF,
+        "DEVICE_METADATA|localhost bgp_asn must be a valid 32-bit ASN, got {}".format(monitor_asn)
+    )
     duthost.copy(content=bgpmon_template.render(**bgpmon_args),
                  dest=BGPMON_CONFIG_FILE)
     # Start bgpmon on DUT
     logger.info("Starting bgpmon on DUT")
-    asichost = duthost.asic_instance_from_namespace(connection['namespace'])
     asichost.write_to_config_db(BGPMON_CONFIG_FILE)
 
     logger.info("Starting bgp monitor session on PTF")
@@ -749,8 +811,8 @@ def bgpmon_setup_teardown(ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_ho
                    local_ip=peer_addr,
                    router_id=router_id,
                    peer_ip=dut_lo_addr,
-                   local_asn=asn,
-                   peer_asn=asn,
+                   local_asn=monitor_asn,
+                   peer_asn=monitor_asn,
                    port=BGP_MONITOR_PORT,
                    dump_script=CUSTOM_DUMP_SCRIPT_DEST)
 
@@ -850,6 +912,7 @@ def config_bgp_suppress_fib(duthosts, rand_one_dut_hostname, request):
         logger.info('Enable BGP suppress fib pending function')
         duthost.shell('sudo config suppress-fib-pending enabled')
         duthost.shell('sudo config save -y')
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
     yield
 
@@ -857,6 +920,7 @@ def config_bgp_suppress_fib(duthosts, rand_one_dut_hostname, request):
         logger.info('Disable BGP suppress fib pending function')
         duthost.shell('sudo config suppress-fib-pending disabled')
         duthost.shell('sudo config save -y')
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
 
 @pytest.fixture(scope="module")

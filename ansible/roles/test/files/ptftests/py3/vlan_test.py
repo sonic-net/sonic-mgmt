@@ -9,7 +9,7 @@ import ptf
 import ptf.packet as scapy
 
 from ptf.base_tests import BaseTest
-from ptf.testutils import test_params_get, send, simple_icmp_packet, verify_packet, verify_packets,\
+from ptf.testutils import test_params_get, send, simple_icmp_packet, verify_packet, verify_packets, \
     verify_each_packet_on_each_port, verify_no_packet_any
 from ptf.mask import Mask
 

@@ -74,6 +74,16 @@ def main():
                         help="seconds between progress reports on stdout")
     parser.add_argument("--vlan-tag", type=int, default=None,
                         help="if set, insert an 802.1Q tag with this VID on every frame")
+    parser.add_argument("--pps", type=float, default=0.0,
+                        help="aggregate send rate limit in packets/second across both "
+                             "interfaces; 0 means unlimited. MAC_MOVE_GUARD only needs "
+                             "threshold/detect_interval moves per second per MAC, and "
+                             "pacing keeps the CPU-punted copies of the storm under the "
+                             "CoPP ARP policer so the kernel netlink consumers in the "
+                             "swss container are not overrun.")
+    parser.add_argument("--side-dwell", type=float, default=0.0,
+                        help="minimum seconds each MAC remains on one interface before "
+                             "moving to the other")
     args = parser.parse_args()
 
     signal.signal(signal.SIGTERM, _stop)
@@ -91,25 +101,53 @@ def main():
     n = len(pkts)
 
     sys.stdout.write(
-        "storm started: iface_a={} iface_b={} num_macs={} router_mac={} vlan_tag={}\n".format(
-            args.iface_a, args.iface_b, n, args.router_mac, args.vlan_tag))
+        "storm started: iface_a={} iface_b={} num_macs={} router_mac={} vlan_tag={} "
+        "pps={} side_dwell={}\n".format(
+            args.iface_a, args.iface_b, n, args.router_mac, args.vlan_tag,
+            args.pps if args.pps > 0 else "unlimited", args.side_dwell))
     sys.stdout.flush()
+
+    round_period = (2.0 * n / args.pps) if args.pps > 0 else 0.0
+    side_period = max((float(n) / args.pps) if args.pps > 0 else 0.0,
+                      args.side_dwell)
 
     sent = 0
     last_report = time.time()
+    next_round = time.time()
     while _running:
-        # One round: each MAC is sent on iface_a immediately followed by iface_b,
-        # producing one FDB MAC-move event per MAC per round on the DUT.
-        for i in range(n):
-            if not _running:
-                break
-            try:
-                sock_a.send(pkts[i])
-                sock_b.send(pkts[i])
-                sent += 2
-            except OSError as e:
-                sys.stderr.write("send error on mac index {}: {}\n".format(i, e))
-                time.sleep(0.01)
+        if args.side_dwell > 0:
+            for sock in (sock_a, sock_b):
+                for i in range(n):
+                    if not _running:
+                        break
+                    try:
+                        sock.send(pkts[i])
+                        sent += 1
+                    except OSError as e:
+                        sys.stderr.write("send error on mac index {}: {}\n".format(i, e))
+                        time.sleep(0.01)
+                if _running and side_period:
+                    # Measure from actual burst completion so scheduler delays
+                    # cannot shorten the requested exposure time.
+                    time.sleep(side_period)
+        else:
+            next_round += round_period
+            for i in range(n):
+                if not _running:
+                    break
+                try:
+                    sock_a.send(pkts[i])
+                    sock_b.send(pkts[i])
+                    sent += 2
+                except OSError as e:
+                    sys.stderr.write("send error on mac index {}: {}\n".format(i, e))
+                    time.sleep(0.01)
+            if round_period:
+                delay = next_round - time.time()
+                if delay > 0:
+                    time.sleep(delay)
+                elif delay < -round_period:
+                    next_round = time.time()
         now = time.time()
         elapsed = now - last_report
         if elapsed >= args.report_interval:

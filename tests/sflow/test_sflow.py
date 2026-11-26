@@ -21,8 +21,12 @@ from tests.common.utilities import wait_until
 from tests.common.utilities import get_upstream_neigh_type
 from tests.common.utilities import get_neighbor_port_list
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.dualtor import mux_simulator_control
 
 SFLOW_RATE_DEFAULT = 512
+# Seconds to wait for hsflowd to quiesce counter polling after it is disabled.
+# See TestSflowPolling.testDisablePolling for the rationale.
+SFLOW_DISABLE_POLL_SETTLE_TIME = 40
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0', 'mx')
@@ -32,13 +36,16 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope='module', autouse=True)
-def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, config_sflow_feature):
-    duthost = duthosts[rand_one_dut_hostname]
+def setup(rand_selected_dut, ptfhost, tbinfo, config_sflow_feature):
+    duthost = rand_selected_dut
     global var
     var = {}
 
-    feature_status, _ = duthost.get_feature_status()
-    if 'sflow' not in feature_status or feature_status['sflow'] == 'disabled':
+    def _sflow_feature_enabled():
+        feature_status, _ = duthost.get_feature_status()
+        return 'sflow' in feature_status and feature_status['sflow'] in ('enabled', 'always_enabled')
+
+    if not wait_until(30, 5, 0, _sflow_feature_enabled):
         pytest.skip("sflow feature is not enabled")
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -92,7 +99,13 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, config_sflow_feature
     # -------- Testing ----------
     yield
     # -------- Teardown ----------
-    config_reload(duthost, config_source='minigraph', wait=120, override_config=True)
+    config_reload(
+        duthost,
+        config_source='running_golden_config',
+        wait=120,
+        safe_reload=True
+    )
+    duthost.command('sudo config save -y')
 
 # ----------------------------------------------------------------------------------
 
@@ -149,6 +162,22 @@ def get_default_agent(duthost):
 # ----------------------------------------------------------------------------------
 
 
+def wait_until_hsflowd_applied_agent(duthost, expected_agent_ip):
+    # hsflowd (host-sflow >= 2.1.26, pulled in by sonic-buildimage PR #27806) applies a
+    # runtime "config sflow agent-id" change asynchronously: it rewrites /etc/hsflowd.auto
+    # through its tick-driven reconfig state machine. verify_show_sflow only confirms that
+    # CONFIG_DB was updated, so a trailing counter-poll round can still emit the previously
+    # auto-selected agent right after the change. Wait until hsflowd.auto advertises the
+    # expected agentIP before running the PTF check so any in-flight sample drains first.
+    read_agent_cmd = "docker exec sflow grep -w 'agentIP' /etc/hsflowd.auto 2>/dev/null | cut -d '=' -f 2"
+    pytest_assert(
+        wait_until(60, 2, 0, lambda: duthost.shell(
+            read_agent_cmd, module_ignore_errors=True)['stdout'].strip() == expected_agent_ip),
+        "hsflowd did not apply agentIP {} in /etc/hsflowd.auto".format(expected_agent_ip))
+
+# ----------------------------------------------------------------------------------
+
+
 def get_ifindex(duthost, port):
     ifindex = duthost.shell('cat /sys/class/net/%s/ifindex' % port)['stdout']
     return ifindex
@@ -197,10 +226,12 @@ def config_sflow_agent(duthosts, rand_one_dut_hostname):
 
 def config_sflow(duthost, sflow_status='enable'):
     duthost.shell('config sflow %s' % sflow_status)
-    expected = 'up' if sflow_status == 'enable' else 'down'
-    wait_until(30, 5, 0, lambda: re.search(
-        r"sFlow Admin State:\s+%s" % expected,
-        duthost.shell('show sflow')['stdout']))
+    if sflow_status == 'enable':
+        wait_for_hsflowd(duthost)
+    else:
+        wait_until(30, 5, 0, lambda: re.search(
+            r"sFlow Admin State:\s+down",
+            duthost.shell('show sflow')['stdout']))
 # ----------------------------------------------------------------------------------
 
 
@@ -216,14 +247,17 @@ def config_sflow_feature(request, duthosts, rand_one_dut_hostname):
     if sflow_disabled_by_default:
         logger.info("sflow feature is disabled by default, enabling it for this test run")
         duthost.shell("sudo config feature state sflow enabled")
-        wait_until(30, 5, 0, lambda: duthost.get_feature_status()[0].get(
-            'sflow') == 'enabled')
+        duthost.shell("sudo config feature autorestart sflow enabled")
+        if not wait_until(60, 5, 0, duthost.is_service_fully_started, 'sflow'):
+            pytest.fail("sflow container did not start within 60 seconds")
+        logger.info("sflow container is up and running")
 
     yield
 
     if sflow_disabled_by_default:
         logger.info("Disabling sflow feature")
         duthost.shell("sudo config feature state sflow disabled")
+        duthost.shell("sudo config feature autorestart sflow disabled")
 # ----------------------------------------------------------------------------------
 
 
@@ -236,33 +270,74 @@ def config_sflow_interfaces(duthost, intf, **kwargs):
         duthost.shell('config sflow interface sample-rate %s %s' %
                       (intf, str(kwargs['sample_rate'])))
 
+    def _intf_config_applied():
+        show_intf = duthost.shell('show sflow interface')['stdout']
+        if 'status' in kwargs:
+            state = 'up' if kwargs['status'] == 'enable' else 'down'
+            if not re.search(r"%s\s+\|\s+%s\s+\|" % (intf, state), show_intf):
+                return False
+        if 'sample_rate' in kwargs:
+            if not re.search(r"%s\s+\|\s+\w+\s+\|\s+%s\b" % (intf, kwargs['sample_rate']), show_intf):
+                return False
+        return True
+
+    wait_until(30, 2, 0, _intf_config_applied)
+
 # ----------------------------------------------------------------------------------
 
 
+def is_hsflowd_running(duthost):
+    """Check if hsflowd process is running inside the sflow container."""
+    result = duthost.shell('docker exec sflow ps aux | grep -v grep | grep hsflowd',
+                           module_ignore_errors=True)
+    return result['rc'] == 0
+
+
+def wait_for_hsflowd(duthost, timeout=120):
+    """Wait for hsflowd to be spawned by sflowmgrd after sflow is enabled."""
+    logger.info("Waiting up to %d seconds for hsflowd to start...", timeout)
+    if not wait_until(timeout, 5, 0, is_hsflowd_running, duthost):
+        pytest.fail("hsflowd did not start within %d seconds" % timeout)
+    logger.info("hsflowd is running")
+
+
+def wait_for_sflow_emission(duthost, ports, timeout=120, min_datagrams=1):
+    """Wait until hsflowd emits at least `min_datagrams` sFlow datagrams on each given UDP port."""
+    window = 20
+    for port in ports:
+        deadline = time.time() + timeout
+        confirmed = False
+        while not confirmed and time.time() < deadline:
+            wnd = min(window, max(1, int(deadline - time.time())))
+            cmd = ("sudo timeout {t} tcpdump -i any -c {c} -nn 'udp dst port {p}' 2>&1"
+                   .format(t=wnd, c=min_datagrams, p=port))
+            result = duthost.shell(cmd, module_ignore_errors=True)
+            out = "{}\n{}".format(result.get('stdout', ''), result.get('stderr', ''))
+            match = re.search(r'(\d+)\s+packets?\s+captured', out)
+            captured = int(match.group(1)) if match else 0
+            if captured >= min_datagrams:
+                logger.info("sFlow emission confirmed on UDP port %s (%d datagrams captured)",
+                            port, captured)
+                confirmed = True
+        if not confirmed:
+            logger.warning("No sFlow datagrams (need %d) on UDP port %s within %ss",
+                           min_datagrams, port, timeout)
+            return False
+    return True
+
+
 def verify_hsflowd_ready(duthost, collector_ips):
-    """
-    Verify hsflowd has fully initialized with all specified collector configurations.
-    This is done by checking if /etc/hsflowd.auto contains an entry for each collector IP.
-
-    Args:
-        duthost: DUT host object
-        collector_ips: List of collector IP addresses to check for
-
-    Returns:
-        True if hsflowd.auto contains entries for all collector IPs, False otherwise
-    """
-    return all(
-        duthost.shell(
-            f"docker exec sflow grep -q 'collector={ip}' /etc/hsflowd.auto 2>/dev/null",
-            module_ignore_errors=True
-        )['rc'] == 0
-        for ip in collector_ips
-    )
+    """Check that hsflowd has applied exactly the expected collectors."""
+    result = duthost.shell("docker exec sflow cat /etc/hsflowd.auto", module_ignore_errors=True)
+    if result['rc'] != 0:
+        return False
+    applied_collectors = set(re.findall(r"^collector=(\S+)", result['stdout'], re.MULTILINE))
+    return applied_collectors == set(collector_ips)
 
 
 def wait_until_hsflowd_ready(duthost, collector_ips):
     """
-    Wait until hsflowd has fully initialized with all specified collector configurations.
+    Wait until hsflowd has applied exactly the specified collector configurations.
 
     Retries every 10 seconds for up to 240 seconds (4 minutes). This timeout accounts for
     cases where hsflowd takes over 3 minutes to initialize (e.g., first-time sflow config
@@ -270,12 +345,12 @@ def wait_until_hsflowd_ready(duthost, collector_ips):
 
     Args:
         duthost: DUT host object
-        collector_ips: List of collector IP addresses that must all be present in hsflowd.auto
+        collector_ips: Expected collector IP addresses in hsflowd.auto
 
     Raises:
-        AssertionError: If not all collectors are initialized within 240 seconds
+        AssertionError: If the expected collectors are not applied within 240 seconds
     """
-    logger.info(f"Waiting for hsflowd to initialize with collector(s): {collector_ips}")
+    logger.info(f"Waiting for hsflowd to apply collector(s): {collector_ips}")
     start_time = time.time()
     pytest_assert(
         wait_until(
@@ -284,11 +359,13 @@ def wait_until_hsflowd_ready(duthost, collector_ips):
             duthost,
             collector_ips,
         ),
-        f"hsflowd failed to initialize collector(s) {collector_ips} within 240 seconds. "
+        f"hsflowd failed to apply collector(s) {collector_ips} within 240 seconds. "
         f"Check /etc/hsflowd.auto in sflow container."
     )
     elapsed = time.time() - start_time
-    logger.info(f"hsflowd initialized with all collector(s) after {elapsed:.1f} seconds")
+    logger.info("hsflowd initialized with all collector(s) after {:.1f} seconds".format(elapsed))
+
+# ----------------------------------------------------------------------------------
 
 
 def config_sflow_collector(duthost, collector, config):
@@ -302,7 +379,18 @@ def config_sflow_collector(duthost, collector, config):
 
 
 def verify_show_sflow(duthost, status, **kwargs):
-    show_sflow = duthost.shell('show sflow')['stdout']
+    result = {}
+
+    def _show_sflow_ready():
+        try:
+            result['stdout'] = duthost.shell('show sflow')['stdout']
+            return True
+        except Exception as e:
+            logger.warning("show sflow failed: %s, retrying...", e)
+            return False
+
+    pytest_assert(wait_until(30, 5, 0, _show_sflow_ready), "show sflow command did not succeed within 30s")
+    show_sflow = result['stdout']
     assert re.search(r"sFlow Admin State:\s+%s" %
                      status, show_sflow), "Sflow Admin State is not %s" % status
     if 'polling_int' in kwargs:
@@ -335,6 +423,78 @@ def verify_sflow_config_apply(duthost):
     return False
 
 
+def are_mux_ports_initialized(duthost, interfaces):
+    """Check that linkmgrd has populated APPL_DB state for the required MUX ports."""
+    for intf in interfaces:
+        result = duthost.shell(
+            'redis-cli -n 0 HGET "MUX_CABLE_TABLE:{}" "state"'.format(intf),
+            module_ignore_errors=True
+        )
+        if result['rc'] != 0 or result['stdout'].strip() not in ('active', 'standby'):
+            return False
+    return True
+
+
+def are_mux_ports_active(duthost, interfaces):
+    """Check that all required MUX ports are fully active and consistent."""
+    result = duthost.shell('show muxcable status --json', module_ignore_errors=True)
+    if result['rc'] != 0:
+        return False
+
+    try:
+        mux_status = json.loads(result['stdout'])['MUX_CABLE']
+        return all(
+            mux_status[intf]['STATUS'] == 'active'
+            and mux_status[intf]['SERVER_STATUS'] == 'active'
+            and mux_status[intf]['HWSTATUS'] == 'consistent'
+            for intf in interfaces
+        )
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
+def are_mux_ports_forwarding(duthost, interfaces):
+    """Check that the required ports are forwarding on an active-active ToR."""
+    result = duthost.shell('show muxcable status --json', module_ignore_errors=True)
+    if result['rc'] != 0:
+        return False
+
+    try:
+        mux_status = json.loads(result['stdout'])['MUX_CABLE']
+        return all(mux_status[intf]['STATUS'] == 'active' for intf in interfaces)
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
+def restore_mux_ports_after_reboot(duthost, duthosts, target_dut_hostname,
+                                   tbinfo, mux_server_url, interfaces,
+                                   force_active_tor):
+    """Restore and verify the dual-ToR MUX path to the rebooted DUT."""
+    if 'dualtor' not in tbinfo['topo']['name']:
+        return
+
+    pytest_assert(
+        wait_until(120, 5, 0, are_mux_ports_initialized, duthost, interfaces),
+        "Required MUX ports were not initialized after reboot: {}".format(interfaces)
+    )
+
+    if 'dualtor-aa' in tbinfo['topo']['name']:
+        force_active_tor(duthost, interfaces)
+        pytest_assert(
+            wait_until(120, 5, 0, are_mux_ports_forwarding, duthost, interfaces),
+            "Required MUX ports did not become active after reboot: {}".format(interfaces)
+        )
+        return
+
+    mux_simulator_control._toggle_all_simulator_ports_to_target_dut(
+        target_dut_hostname, duthosts, mux_server_url, tbinfo
+    )
+    pytest_assert(
+        wait_until(120, 5, 0, are_mux_ports_active, duthost, interfaces),
+        "Required MUX ports did not become active after reboot: {}".format(interfaces)
+    )
+
+
 def verify_sflow_interfaces(duthost, intf, status, sampling_rate):
     show_sflow_intf = duthost.shell('show sflow interface')['stdout']
     assert re.search(r"%s\s+\|\s+%s\s+\|\s+%s" % (intf, status, sampling_rate),
@@ -357,8 +517,7 @@ def partial_ptf_runner(request, duthosts, rand_one_dut_hostname, ptfhost, tbinfo
                   'kvm_support': True}
         params.update(kwargs)
 
-        # Make sure hsflowd daemon has processed collector config before
-        # proceeding with traffic verification.
+        # Wait for the applied collector set before checking traffic.
         collectors = kwargs.get('active_collectors', '[]')
         collector_list = ast.literal_eval(collectors or '[]') if isinstance(collectors, str) else collectors
         collector_ips = [var[collector]['ip_addr'] for collector in collector_list]
@@ -460,10 +619,15 @@ class TestSflowCollector():
         for port in var['sflow_ports']:
             config_sflow_interfaces(
                 duthost, port, status='enable', sample_rate=SFLOW_RATE_DEFAULT)
+        wait_until(30, 5, 0, verify_sflow_config_apply, duthost)
         verify_show_sflow(duthost, status='up', collector=['collector0'])
         for intf in var['sflow_ports']:
             verify_sflow_interfaces(duthost, intf, 'up', SFLOW_RATE_DEFAULT)
-        wait_until(30, 5, 0, verify_sflow_config_apply, duthost)
+        duthost.shell("config sflow polling-interval 20")
+        # One datagram seen is enough to show hsflowd is fully initialized
+        assert wait_for_sflow_emission(
+            duthost, [var['collector0']['port']], timeout=300, min_datagrams=1), (
+            "hsflowd did not emit any sFlow datagram on collector0 within 300s of cold start")
         partial_ptf_runner(
             enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
             active_collectors="['collector0']")
@@ -478,6 +642,7 @@ class TestSflowCollector():
                        'show sflow')['stdout'])) == 0)
         verify_show_sflow(duthost, status='up', collector=[])
         wait_until(30, 5, 0, verify_sflow_config_apply, duthost)
+        wait_until_hsflowd_ready(duthost, [])
         partial_ptf_runner(
             enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
             active_collectors="[]")
@@ -553,6 +718,14 @@ class TestSflowPolling():
         duthost.shell("config sflow polling-interval 0")
 
         verify_show_sflow(duthost, status='up', polling_int=0)
+        # verify_show_sflow only confirms CONFIG_DB was updated. hsflowd (host-sflow
+        # >= 2.1.26, sonic-buildimage PR #27806) applies a runtime polling-interval
+        # change asynchronously via its tick-driven reconfig state machine, so counter
+        # polling is not torn down instantly. The preceding testPolling leaves 20s
+        # counter pollers active, so wait for at least the previous polling interval
+        # plus hsflowd settling time to let any trailing counter-poll round drain
+        # before verifying that the DUT sends no counter samples.
+        time.sleep(SFLOW_DISABLE_POLL_SETTLE_TIME)
         partial_ptf_runner(
             polling_int=0,
             active_collectors="['collector0','collector1']")
@@ -659,6 +832,7 @@ class TestAgentId():
         duthost.shell(" config sflow agent-id del")
         duthost.shell(" config sflow agent-id  add Loopback0")
         verify_show_sflow(duthost, status='up', agent_id='Loopback0')
+        wait_until_hsflowd_applied_agent(duthost, agent_ip)
         partial_ptf_runner(
             polling_int=20,
             agent_id=agent_ip,
@@ -687,6 +861,7 @@ class TestAgentId():
         agent_ip = var['mgmt_ip']
         duthost.shell(" config sflow agent-id  add  eth0")
         verify_show_sflow(duthost, status='up', agent_id='eth0')
+        wait_until_hsflowd_applied_agent(duthost, agent_ip)
         partial_ptf_runner(
             polling_int=20,
             agent_id=agent_ip,
@@ -699,8 +874,9 @@ class TestAgentId():
 class TestReboot():
 
     def testRebootSflowEnable(self, sflowbase_config, config_sflow_agent,
-                              duthosts, rand_one_dut_hostname, force_active_tor,
-                              localhost, partial_ptf_runner, ptfhost):
+                              duthosts, rand_one_dut_hostname, localhost,
+                              partial_ptf_runner, ptfhost, tbinfo, mux_server_url,
+                              force_active_tor):
         duthost = duthosts[rand_one_dut_hostname]
         duthost.command("config sflow polling-interval 80")
         verify_show_sflow(duthost, status='up', polling_int=80)
@@ -708,7 +884,10 @@ class TestReboot():
         reboot(duthost, localhost)
         assert wait_until(
             300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
-        force_active_tor(duthost, "all")
+        restore_mux_ports_after_reboot(
+            duthost, duthosts, rand_one_dut_hostname,
+            tbinfo, mux_server_url, var['test_ports'], force_active_tor
+        )
         assert wait_until(60, 5, 0, verify_sflow_config_apply, duthost)
         verify_show_sflow(duthost, status='up', collector=[
                           'collector0', 'collector1'], polling_int=80)
@@ -728,7 +907,8 @@ class TestReboot():
             active_collectors="['collector0','collector1']")
 
     def testRebootSflowDisable(self, sflowbase_config, duthosts, rand_one_dut_hostname,
-                               force_active_tor, localhost, partial_ptf_runner, ptfhost):
+                               localhost, partial_ptf_runner, ptfhost, tbinfo, mux_server_url,
+                               force_active_tor):
         duthost = duthosts[rand_one_dut_hostname]
         config_sflow(duthost, sflow_status='disable')
         verify_show_sflow(duthost, status='down')
@@ -739,7 +919,10 @@ class TestReboot():
         reboot(duthost, localhost)
         assert wait_until(
             300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
-        force_active_tor(duthost, "all")
+        restore_mux_ports_after_reboot(
+            duthost, duthosts, rand_one_dut_hostname,
+            tbinfo, mux_server_url, var['test_ports'], force_active_tor
+        )
         verify_show_sflow(duthost, status='down')
         for intf in var['sflow_ports']:
             var['sflow_ports'][intf]['ifindex'] = get_ifindex(duthost, intf)
@@ -773,6 +956,13 @@ class TestReboot():
             verify_sflow_interfaces(duthost, intf, 'up', SFLOW_RATE_DEFAULT)
         var['portmap'] = json.dumps(var['sflow_ports'])
         ptfhost.copy(content=var['portmap'], dest="/tmp/sflow_ports.json")
+        wait_for_hsflowd(duthost, timeout=180)
+        # One datagram seen is enough to show hsflowd is fully initialized
+        assert wait_for_sflow_emission(
+            duthost,
+            [var['collector0']['port'], var['collector1']['port']],
+            timeout=300, min_datagrams=1), \
+            "hsflowd did not emit any sFlow datagram on both collectors after fast reboot within 300s"
         partial_ptf_runner(
             enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
             active_collectors="['collector0','collector1']")

@@ -98,8 +98,9 @@ def test_check_show_lpmode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         duthost, conn_graph_facts, enum_frontend_asic_index)
     sfp_lpmode = duthost.command(cmd_sfp_lpmode, module_ignore_errors=True)
 
-    # For vs testbed, we will get expected Error code `ERROR_CHASSIS_LOAD = 2` here.
-    if duthost.facts["asic_type"] == "vs" and sfp_lpmode['rc'] == 2:
+    # 'show interface transceiver lpmode' is unsupported on vs and returns a
+    # non-zero rc (2 on single-asic, 1/5 on multi-asic); skip the check on vs.
+    if duthost.facts["asic_type"] == "vs" and sfp_lpmode['rc'] != 0:
         return
     assert sfp_lpmode['rc'] == 0, (
         "Run command '{}' failed with return code {}."

@@ -6,7 +6,7 @@ import allure
 
 from datetime import datetime
 from tests.common import reboot
-from tests.ecmp.inner_hashing.conftest import get_src_dst_ip_range, FIB_INFO_FILE_DST, VXLAN_PORT,\
+from tests.ecmp.inner_hashing.conftest import get_src_dst_ip_range, FIB_INFO_FILE_DST, VXLAN_PORT, \
     PTF_QLEN, OUTER_ENCAP_FORMATS, NVGRE_TNI, setup_lag_config, config_pbh_lag
 from tests.ptf_runner import ptf_runner
 

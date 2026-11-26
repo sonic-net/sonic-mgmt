@@ -14,6 +14,7 @@ from tests.common.vxlan_ecmp_utils import Ecmp_Utils
 from tests.common.helpers.dut_utils import check_container_state
 from tests.common.helpers.gnmi_utils import GNMIEnvironment, gnmi_container, create_gnmi_certs, \
     delete_gnmi_certs
+from tests.common.helpers.ntp_helper import setup_ntp_context, check_ntp_sync_status
 
 ecmp_utils = Ecmp_Utils()
 
@@ -532,7 +533,7 @@ def setup_portchannel_subintfs(duthost, ptfhost, portchannel_info, vnet_vnis, ba
                 gnmi_set_update_config_db_json(
                     duthost,
                     ptfhost,
-                    f"{GNMI_PATH_PREFIX}/VLAN_SUB_INTERFACE/{subintf_name}|{dut_ips[j][i].replace('/','~1')}",
+                    f"{GNMI_PATH_PREFIX}/VLAN_SUB_INTERFACE/{subintf_name}|{dut_ips[j][i].replace('/', '~1')}",
                     {},
                     f"{subintf_name}_ip")
 
@@ -619,10 +620,13 @@ def setup_vnets(duthost, ptfhost, num_vnets, tunnel, base_vni):
 
 
 def setup_vxlan_tunnel(duthost, ptfhost, name, src_ip):
+    tunnel_entry = {"src_ip": src_ip}
+    # On cisco-8000, base topology IP-in-IP decap tunnels may already use pipe TTL mode.
+    # Set VXLAN decap ttl_mode to pipe so orchagent passes DECAP_TTL_MODE consistently.
+    if duthost.facts.get("asic_type") == "cisco-8000":
+        tunnel_entry["ttl_mode"] = "pipe"
     gnmi_set_update_config_db_json(duthost, ptfhost, f"{GNMI_PATH_PREFIX}/VXLAN_TUNNEL", {
-        name: {
-            "src_ip": src_ip
-        }
+        name: tunnel_entry
     }, "vxlan")
 
 
@@ -636,7 +640,14 @@ def setup_gnmi_server(duthost, localhost, ptfhost):
         "Test was not supported on devices which do not support GNMI!")
 
     create_gnmi_certs(duthost, localhost, ptfhost)
-    apply_cert_config(duthost)
+
+    if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0' or check_ntp_sync_status(duthost):
+        apply_cert_config(duthost)
+    else:
+        duthost_mgmt_info = duthost.get_mgmt_ip()
+        use_v6 = duthost_mgmt_info["version"] == "v6"
+        with setup_ntp_context(ptfhost, duthost, use_v6):
+            apply_cert_config(duthost)
 
 
 @pytest.fixture(scope="module")

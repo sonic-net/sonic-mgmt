@@ -124,7 +124,7 @@ def check_transceiver_dom_sensor_basic(dut, asic_index, interfaces, xcvr_skip_li
     parsed_xcvr_dom_sensor = parse_transceiver_dom_sensor(xcvr_dom_sensor["stdout_lines"])
     for intf in interfaces:
         if intf not in xcvr_skip_list[dut.hostname] + port_list_with_flat_memory[dut.hostname]:
-            assert lport_to_first_subport_mapping[intf] in parsed_xcvr_dom_sensor,\
+            assert lport_to_first_subport_mapping[intf] in parsed_xcvr_dom_sensor, \
                 "TRANSCEIVER_DOM_SENSOR of subport %s of %s port is not found in DB" \
                 % (lport_to_first_subport_mapping[intf], intf)
 
@@ -344,7 +344,7 @@ def parse_one_sfp_eeprom_info(sfp_eeprom_info):
     """
     pattern_top_layer_key_value = r"^(?P<key>Ethernet\d+):(?P<value>.*)"
     pattern_second_layer_key_value = r"(^\s{8}|\t{1})(?P<key>[a-zA-Z0-9][a-zA-Z0-9\s\/\(\)-]+):(?P<value>.*)"
-    pattern_third_layer_key_value = r"(^\s{16}|\t{2})(?P<key>[a-zA-Z0-9][a-zA-Z0-9\s\/]+):(?P<value>.*)"
+    pattern_third_layer_key_value = r"(^\s{16}|\t{2})(?P<key>[a-zA-Z0-9][a-zA-Z0-9\s\/\+]+):(?P<value>.*)"
 
     one_sfp_eeprom_info_dict = {}
     second_layer_dict = {}

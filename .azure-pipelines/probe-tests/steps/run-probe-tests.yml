@@ -9,7 +9,7 @@ steps:
   - script: |
       set -e
 
-      pip install pytest pytest-cov pytest-mock pytest-order coverage
+      sudo uv pip install --system pytest pytest-cov pytest-mock pytest-order coverage
 
       source .azure-pipelines/probe-tests/scripts/get-changed-probe-files.sh
 

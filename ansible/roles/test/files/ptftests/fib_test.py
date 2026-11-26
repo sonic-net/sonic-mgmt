@@ -426,7 +426,7 @@ class FibTest(BaseTest):
                 exp_src_mac = self.ptf_test_port_map[str(
                     rcvd_port)]["target_src_mac"][0]
             actual_src_mac = scapy.Ether(rcvd_pkt).src
-            if exp_src_mac != actual_src_mac:
+            if str(exp_src_mac).lower() != str(actual_src_mac).lower():
                 raise Exception(
                     "Pkt sent from {} to {} on port {} was rcvd pkt on {} which is one of the expected ports, "
                     "but the src mac doesn't match, expected {}, got {}".
@@ -534,7 +534,7 @@ class FibTest(BaseTest):
                 exp_src_mac = self.ptf_test_port_map[str(
                     rcvd_port)]["target_src_mac"][0]
             actual_src_mac = scapy.Ether(rcvd_pkt).src
-            if exp_src_mac != actual_src_mac:
+            if str(exp_src_mac).lower() != str(actual_src_mac).lower():
                 raise Exception(
                     "Pkt sent from {} to {} on port {} was rcvd pkt on {} which is one of the expected ports, "
                     "but the src mac doesn't match, expected {}, got {}".
@@ -557,7 +557,7 @@ class FibTest(BaseTest):
     def check_same_asic(self, src_port, exp_port_list):
         updated_exp_port_list = list()
         for port in exp_port_list:
-            if type(port) == list:
+            if isinstance(port, list):
                 per_port_list = list()
                 for per_port in port:
                     if self.ptf_test_port_map[str(per_port)]['target_dut'] \
@@ -600,7 +600,7 @@ class FibTest(BaseTest):
             asic_list['voq'] = dest_port_list
         else:
             for port in dest_port_list:
-                if type(port) == list:
+                if isinstance(port, list):
                     port_map = self.ptf_test_port_map[str(port[0])]
                     asic_id = port_map.get('asic_idx', 0)
                     member = asic_list.get(asic_id)

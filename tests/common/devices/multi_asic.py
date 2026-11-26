@@ -82,22 +82,24 @@ class MultiAsicSonicHost(object):
                 active_asics = []
         service_list += self._DEFAULT_SERVICES
 
+        config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
         # NOTE: Add mux to critical services for dualtor
         if (
-            self.facts.get('router_subtype', '') == 'DualToR' and
-            self.facts.get('features', {}).get('mux', {}).get('state', '') == 'enabled'
+            "DEVICE_METADATA" in config_facts and
+            "localhost" in config_facts["DEVICE_METADATA"] and
+            "subtype" in config_facts["DEVICE_METADATA"]["localhost"] and
+                config_facts["DEVICE_METADATA"]["localhost"]["subtype"] == "DualToR" and
+            "mux" in config_facts["FEATURE"] and config_facts["FEATURE"]["mux"]["state"] == "enabled"
         ):
             service_list.append("mux")
 
-        _features = self.facts.get('features', {})
-
-        if _features.get('dhcp_relay', {}).get('state', '') == 'enabled':
+        if "dhcp_relay" in config_facts["FEATURE"] and config_facts["FEATURE"]["dhcp_relay"]["state"] == "enabled":
             service_list.append("dhcp_relay")
 
-        if _features.get('dhcp_server', {}).get('state', '') == 'enabled':
+        if "dhcp_server" in config_facts["FEATURE"] and config_facts["FEATURE"]["dhcp_server"]["state"] == "enabled":
             service_list.append("dhcp_server")
 
-        is_dpu = self.facts.get('switch_type', '') == 'dpu'
+        is_dpu = config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu'
         if is_dpu and 'snmp' in service_list:
             service_list.remove('snmp')
 
@@ -113,11 +115,11 @@ class MultiAsicSonicHost(object):
             if service == 'teamd' and is_dpu:
                 logger.info("Removing teamd from default services for switch_type DPU")
                 continue
-            if service not in _features:
+            if service not in config_facts['FEATURE']:
                 continue
-            if _features.get(service, {}).get('has_per_asic_scope', '') == "False":
+            if config_facts['FEATURE'][service]['has_per_asic_scope'] == "False":
                 continue
-            if _features.get(service, {}).get('state', '') == "disabled":
+            if config_facts['FEATURE'][service]['state'] == "disabled":
                 continue
             filtered_asic_services.append(service)
         self.sonichost.DEFAULT_ASIC_SERVICES = filtered_asic_services
@@ -160,14 +162,14 @@ class MultiAsicSonicHost(object):
         else:
             asic_complex_args = copy.deepcopy(complex_args)
             asic_index = asic_complex_args.pop("asic_index")
-            if type(asic_index) == int:
+            if isinstance(asic_index, int):
                 # Specific ASIC/namespace
                 if self.sonichost.facts['num_asic'] == 1:
                     if asic_index != 0:
                         raise ValueError("Trying to run module '{}' against asic_index '{}' on a single asic dut '{}'"
                                          .format(multi_asic_attr, asic_index, self.sonichost.hostname))
                 return getattr(self.asic_instance(asic_index), multi_asic_attr)(*module_args, **asic_complex_args)
-            elif type(asic_index) == str and asic_index.lower() == "all":
+            elif isinstance(asic_index, str) and asic_index.lower() == "all":
                 # All ASICs/namespace
                 return [getattr(asic, multi_asic_attr)(*module_args, **asic_complex_args) for asic in self.asics]
             else:
@@ -367,13 +369,13 @@ class MultiAsicSonicHost(object):
         return json.loads(output['stdout'])
 
     def get_bmc_host(self):
-        """Get the SonicHost instance of the associated host (CPU) for this BMC.
+        """Get the MultiAsicSonicHost of the associated host (CPU) for this BMC.
 
         The host-side device is resolved from the 'bmc_host' field defined in
         the testbed YAML file.
 
         Returns:
-            SonicHost: A SonicHost instance representing the host (CPU) side.
+            MultiAsicSonicHost: Host-side DUT object from duthosts, with critical_services populated.
 
         Raises:
             AssertionError: If the current device is not a BMC or bmc_host is not defined.
@@ -381,7 +383,22 @@ class MultiAsicSonicHost(object):
         pytest_assert(self.sonichost.is_bmc(), "get_bmc_host() can only be called on a BMC device")
         bmc_host_hostname = self.duthosts.tbinfo.get('bmc_host')
         pytest_assert(bmc_host_hostname, "bmc_host field not defined in testbed YAML")
-        return SonicHost(self.duthosts.ansible_adhoc, bmc_host_hostname)
+        return MultiAsicSonicHost(self.duthosts.ansible_adhoc, bmc_host_hostname,
+                                  self.duthosts, self.duthosts.tbinfo['topo']['type'])
+
+    def get_bmc_from_host(self):
+        """Return the MultiAsicSonicHost of the paired BMC for this switch host."""
+        pytest_assert(not self.sonichost.is_bmc(),
+                      "get_bmc_from_host() can only be called on a switch-host device")
+        my_hostname = self.sonichost.hostname
+        tbinfo = self.duthosts.tbinfo
+        pytest_assert(tbinfo.get('bmc_host') == my_hostname,
+                      "Testbed bmc_host field ({}) does not name this host ({})".format(
+                          tbinfo.get('bmc_host'), my_hostname))
+        bmc_hostnames = tbinfo.get('duts') or []
+        pytest_assert(bmc_hostnames,
+                      "No 'duts' entries in testbed YAML to resolve paired BMC")
+        return self.duthosts[bmc_hostnames[0]]
 
     def __getattr__(self, attr):
         """ To support calling an ansible module on a MultiAsicSonicHost.
@@ -573,30 +590,32 @@ class MultiAsicSonicHost(object):
                 if service_name in self.sonichost.critical_services:
                     services.append(service_name)
 
+        enable_interval_pattern = r'SysSock\.RateLimit\.Interval="[1-9][0-9]*"'
+        disable_interval_value = "SysSock.RateLimit.Interval=\"0\""
+        default_interval_value = "SysSock.RateLimit.Interval=\"300\""
+
         for docker in services:
             # This is to avoid gbsyncd check fo VS test_disable_rsyslog_rate_limit
             # we are still getting whatever enabled feature in test_disable_rsyslog_rate_limit
             # and gbsyncd feature will be added to services
             if self.get_facts()['asic_type'] == 'vs' and "gbsyncd" in docker:
                 continue
-            cmd_disable_rate_limit = (
-                r"docker exec -i {} sed -i "
-                r"'s/^\$SystemLogRateLimit/#\$SystemLogRateLimit/g' "
-                r"/etc/rsyslog.conf"
-            )
-            cmd_enable_rate_limit = (
-                r"docker exec -i {} sed -i "
-                r"'s/^#\$SystemLogRateLimit/\$SystemLogRateLimit/g' "
-                r"/etc/rsyslog.conf"
-            )
-            cmd_reload = r"docker exec -i {} supervisorctl restart rsyslogd"
+            cmd_reload = f"docker exec -i {docker} supervisorctl restart rsyslogd"
             cmds = []
 
             if rl_option == 'disable':
-                cmds.append(cmd_disable_rate_limit.format(docker))
+                cmds.append(
+                    f"docker exec -i {docker} sed -i "
+                    f"'s/{enable_interval_pattern}/{disable_interval_value}/g' "
+                    f"/etc/rsyslog.conf"
+                )
             else:
-                cmds.append(cmd_enable_rate_limit.format(docker))
-            cmds.append(cmd_reload.format(docker))
+                cmds.append(
+                    f"docker exec -i {docker} sed -i "
+                    f"'s/{disable_interval_value}/{default_interval_value}/g' "
+                    f"/etc/rsyslog.conf"
+                )
+            cmds.append(cmd_reload)
             self.sonichost.shell_cmds(cmds=cmds)
 
     def get_bgp_neighbors(self, namespace=None):

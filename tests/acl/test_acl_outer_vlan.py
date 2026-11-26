@@ -10,6 +10,7 @@ import json
 import ptf.testutils as testutils
 from ptf import mask
 from scapy.all import Ether, IP
+from collections import defaultdict
 
 from tests.common.utilities import wait_until
 from tests.common.config_reload import config_reload
@@ -130,7 +131,21 @@ def vlan_setup_info(rand_selected_dut, tbinfo):
     vlan_setup['default_vlan'] = minigraph_vlan['name']
     # 4 interfaces are required to cover all test scenarios
     pytest_require(len(minigraph_vlan['members']) >= 4, "There is no sufficient ports for testing")
-    ports_for_test = minigraph_vlan['members'][:4]
+
+    # Pick a pair of ports with the same speed for the PortChannel (LAG members must match speed),
+    # then pick 2 more ports for untagged Vlan members.
+    port_table = rand_selected_dut.config_facts(
+        host=rand_selected_dut.hostname, source="running")['ansible_facts'].get('PORT', {})
+    speed_groups = defaultdict(list)
+    for port in minigraph_vlan['members']:
+        speed = port_table.get(port, {}).get('speed')
+        if speed is not None:
+            speed_groups[speed].append(port)
+    lag_pair = next((ports[:2] for ports in speed_groups.values() if len(ports) >= 2), None)
+    pytest_require(lag_pair is not None,
+                   "No pair of Vlan members with matching speed found for PortChannel setup")
+    remaining_ports = [p for p in minigraph_vlan['members'] if p not in lag_pair]
+    ports_for_test = lag_pair + remaining_ports[:2]
 
     portchannel_setup = {
         DUT_LAG_NAME: {
@@ -258,7 +273,7 @@ def vlan_setup_teardown(rand_selected_dut, vlan_setup_info, ptfhost):
         ptfhost.ptf_nn_agent()
         # Wait for lag sync
         time.sleep(10)
-        config_reload(rand_selected_dut, safe_reload=True, check_intf_up_ports=True)
+        config_reload(rand_selected_dut, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
 
 def send_and_verify_traffic(ptfadapter, pkt, exp_pkt, src_port_list, dst_port_list, pkt_action=ACTION_FORWARD):
@@ -283,7 +298,7 @@ def send_and_verify_traffic(ptfadapter, pkt, exp_pkt, src_port_list, dst_port_li
         testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=dst_port_list)
 
 
-def get_acl_counter(duthost, table_name, rule_name, timeout=ACL_COUNTERS_UPDATE_INTERVAL):
+def get_acl_counter(duthost, table_name, rule_name, timeout=ACL_COUNTERS_UPDATE_INTERVAL, min_count=0):
     """
     Get Acl counter packets value
 
@@ -292,28 +307,28 @@ def get_acl_counter(duthost, table_name, rule_name, timeout=ACL_COUNTERS_UPDATE_
         table_name: Acl Table name
         rule_name: Acl rule name
         timeout: Timeout for Acl counters to update
+        min_count: Wait until the counter reaches at least this value (default 0 = read current value)
 
     Returns:
         Acl counter value for packets
     """
+    counter = {}
+
     def _check_acl_counter():
-        result = duthost.show_and_parse('aclshow -a')
-        if len(result) == 0:
-            return False
-        for rule in result:
+        for rule in duthost.show_and_parse('aclshow -a'):
             if table_name == rule['table name'] and rule_name == rule['rule name']:
-                return True
+                count = int(rule['packets count'])
+                if count >= min_count:
+                    counter['value'] = count
+                    return True
+                return False
         return False
 
     # Wait for orchagent to update the ACL counters
-    if not wait_until(timeout, 2, 0, _check_acl_counter):
+    if not (_check_acl_counter() or wait_until(timeout, 2, 0, _check_acl_counter)):
         pytest.fail("Failed to retrieve acl counter for {}|{}".format(table_name, rule_name))
 
-    result = duthost.show_and_parse('aclshow -a')
-    for rule in result:
-        if table_name == rule['table name'] and rule_name == rule['rule name']:
-            return int(rule['packets count'])
-    pytest.fail("Failed to retrieve acl counter for {}|{}".format(table_name, rule_name))
+    return counter['value']
 
 
 def craft_packet(src_mac, dst_mac, dst_ip, ip_version, stage, tagged_mode, vlan_id=10, outer_vlan_id=0, pkt_type=None):
@@ -573,7 +588,7 @@ class AclVlanOuterTest_Base(object):
 
             count_before = get_acl_counter(duthost, table_name, RULE_1, timeout=0)
             send_and_verify_traffic(ptfadapter, pkt, exp_pkt, src_port, dst_port, pkt_action=action)
-            count_after = get_acl_counter(duthost, table_name, RULE_1)
+            count_after = get_acl_counter(duthost, table_name, RULE_1, min_count=count_before + 1)
 
             logger.info("Verify Acl counter incremented {} > {}".format(count_after, count_before))
             pytest_assert(count_after >= count_before + 1,

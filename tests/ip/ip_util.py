@@ -23,11 +23,9 @@ def safe_int_counter(value):
     cleaned = str(value).strip().replace(",", "")
     if cleaned in NON_NUMERIC_COUNTER_VALUES:
         return 0
-    try:
-        return int(cleaned)
-    except ValueError:
-        logger.warning("Unexpected non-numeric counter value %r, treating as 0", value)
-        return 0
+    # Only known uninitialized-counter placeholders mean zero. Unexpected
+    # values must still fail visibly rather than hide broken counter output.
+    return int(cleaned)
 
 
 def sum_ifaces_counts(counter_out, ifaces, column):

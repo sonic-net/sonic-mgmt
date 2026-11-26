@@ -102,6 +102,8 @@ def parse_args():
                         default=DEFAULT_CONFIG_PATH, help='path to json file with configuration')
     parser.add_argument('--extended', '-e', action='store_true',
                         dest='extended', default=False, help='enable extended mode')
+    parser.add_argument('--ready-file', type=str,
+                        help='create this file when packet capture is ready')
     args = parser.parse_args()
 
     return args
@@ -169,7 +171,20 @@ def main():
     ARPResponder.ip_sets = ip_sets
     ARPResponder.sockets = sockets
 
-    scapy.sniff(prn=ARPResponder.action, opened_socket=inverse_sockets, store=False)
+    def notify_ready():
+        if args.ready_file:
+            with open(args.ready_file, 'w'):
+                pass
+
+    try:
+        scapy.sniff(prn=ARPResponder.action, opened_socket=inverse_sockets, store=False,
+                    started_callback=notify_ready)
+    finally:
+        if args.ready_file:
+            try:
+                os.remove(args.ready_file)
+            except FileNotFoundError:
+                pass
 
 
 if __name__ == '__main__':

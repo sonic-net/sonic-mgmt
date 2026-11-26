@@ -2,12 +2,12 @@ import logging
 import time
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
     fanout_graph_facts  # noqa: F401
-from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,\
-    get_lossless_buffer_size, get_pg_dropped_packets,\
-    stop_pfcwd, disable_packet_aging, sec_to_nanosec,\
-    get_pfc_frame_count, packet_capture, config_capture_pkt,\
+from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
+    get_lossless_buffer_size, get_pg_dropped_packets, \
+    stop_pfcwd, disable_packet_aging, sec_to_nanosec, \
+    get_pfc_frame_count, packet_capture, config_capture_pkt, \
     start_pfcwd, enable_packet_aging, start_pfcwd_fwd, \
     traffic_flow_mode, calc_pfc_pause_flow_rate      # noqa: F401
 from tests.common.snappi_tests.port import select_ports, select_tx_port  # noqa: F401
@@ -33,19 +33,19 @@ global DATA_FLOW_DURATION_SEC
 global data_flow_delay_sec
 
 
-def run_pfc_test(api,
-                 testbed_config,
-                 port_config_list,
-                 conn_data,
-                 fanout_data,
-                 global_pause,
-                 pause_prio_list,
-                 test_prio_list,
-                 bg_prio_list,
-                 prio_dscp_map,
-                 test_traffic_pause,
-                 test_def,
-                 snappi_extra_params=None):
+def run_pfcwd_test(api,
+                   testbed_config,
+                   port_config_list,
+                   conn_data,
+                   fanout_data,
+                   global_pause,
+                   pause_prio_list,
+                   test_prio_list,
+                   bg_prio_list,
+                   prio_dscp_map,
+                   test_traffic_pause,
+                   test_def,
+                   snappi_extra_params=None):
     """
     Run a multidut PFC test
     Args:

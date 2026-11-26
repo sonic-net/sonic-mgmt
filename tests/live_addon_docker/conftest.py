@@ -5,7 +5,8 @@ Default path: ``files/<asic_type>_live_addon_docker.json`` (``asic_type`` from t
 Override with ``--live-addon-docker-config``.
 Commands on the DUT are assembled in live_addon_docker_helpers from that JSON only.
 
-Registry and tag at test time: ``--live_addon_docker_registry``, ``--live_addon_docker_image_tag``.
+Registry and tag at test time: ``--live_addon_docker_registry``, ``--live_addon_docker_image_tag`` (baseline /
+module tests), ``--live_addon_docker_image_upgrade_tag`` (upgrade test only).
 """
 
 import logging
@@ -56,8 +57,17 @@ def pytest_addoption(parser):
         action="store",
         default=None,
         help=(
-            "Docker image tag for registry pull and docker_run.image_ref (overrides JSON tag and "
-            "dut os_version for pull). For CI builds, e.g. kube-20260527-202505-amd64."
+            "Docker image tag for baseline / module tests (registry pull and docker_run.image_ref). "
+            "When omitted, registry pull uses dut os_version if image_ref is :latest."
+        ),
+    )
+    parser.addoption(
+        "--live_addon_docker_image_upgrade_tag",
+        action="store",
+        default=None,
+        help=(
+            "Docker image tag for test_live_addon_docker_image_upgrade only (upgrade target after "
+            "baseline --live_addon_docker_image_tag)."
         ),
     )
 
@@ -89,6 +99,23 @@ def live_addon_docker_vendor_cfg(request, duthosts, enum_rand_one_per_hwsku_fron
             cfg["docker_run"]["image_ref"],
         )
     return cfg
+
+
+@pytest.fixture(scope="module")
+def live_addon_docker_vendor_cfg_raw(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    """Vendor JSON from disk without CLI tag overrides (upgrade test applies baseline/upgrade tags)."""
+    opt = request.config.getoption("--live-addon-docker-config")
+    if opt:
+        path = os.path.abspath(opt)
+    else:
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        asic_type = (duthost.facts.get("asic_type") or "").strip()
+        if not asic_type:
+            pytest.fail("DUT asic_type is empty; cannot resolve live-addon docker JSON path")
+        path = lad.default_live_addon_config_path(asic_type)
+    if not os.path.isfile(path):
+        pytest.skip("Live-addon docker config not found: {}".format(path))
+    return lad.load_live_addon_config(path)
 
 
 @pytest.fixture(scope="module")

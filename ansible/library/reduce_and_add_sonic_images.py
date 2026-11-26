@@ -161,7 +161,7 @@ def download_new_sonic_image(module, new_image_url, save_as):
         log("Downloading new image using curl")
         exec_command(
             module,
-            cmd="curl -Lo {} {}".format(save_as, new_image_url),
+            cmd="curl --interface eth0 -Lo {} {}".format(save_as, new_image_url),
             msg="downloading new image"
         )
         log("Completed downloading image")
