@@ -1,11 +1,22 @@
 import logging
 import pytest
 
+from tests.common.helpers.sed_password_helper import SED_Change_Password_Mellanox
+from tests.common.mellanox_data import is_mellanox_device
+
 logger = logging.getLogger(__name__)
 
 
+@pytest.fixture(scope='module')
+def vendor_sed_class(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if not is_mellanox_device(duthost):
+        pytest.skip("SED password change tests are only supported for Mellanox devices")
+    return SED_Change_Password_Mellanox()
+
+
 @pytest.fixture(scope='module', autouse=True)
-def set_values_for_tests(duthosts, enum_rand_one_per_hwsku_hostname, localhost, vendor_sed_class):
+def set_values_for_tests(duthosts, enum_rand_one_per_hwsku_hostname, vendor_sed_class):
     """
     Fixture that resets SED password to default before and after all tests in this module.
 
@@ -17,9 +28,9 @@ def set_values_for_tests(duthosts, enum_rand_one_per_hwsku_hostname, localhost, 
     logger.info("SED password reset to default before tests")
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     vendor_sed_class.verify_sed_pass_change_feature_enabled(duthost)
-    vendor_sed_class.reset_sed_pass_via_cli(duthost, localhost)
+    vendor_sed_class.reset_sed_pass_via_cli(duthost)
 
     yield
 
     logger.info("SED password reset to default after tests")
-    vendor_sed_class.reset_sed_pass_via_cli(duthost, localhost)
+    vendor_sed_class.reset_sed_pass_via_cli(duthost)

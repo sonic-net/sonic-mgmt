@@ -5,6 +5,7 @@
 | **Document Name** | **Link** |
 |-------------------|----------|
 | SONiC SED (Self-Encrypting Drive) | [sonic-net/SONiC#2171](https://github.com/sonic-net/SONiC/pull/2171) |
+| SED password change HLD | [change_sed_password_hld.md](https://github.com/sonic-net/SONiC/blob/master/doc/sed/change_sed_password_hld.md) |
 
 ## 1. Overview
 
@@ -14,48 +15,43 @@ The SED password change feature on SONiC provides:
 
 - Setting a new SED password via CLI
 - Resetting the SED password to a platform default
-- Persistence of the password in TPM (tests assert consistency across at least two persistent TPM handles used as primary and secondary “banks”)
-- Recovery after the primary bank is deliberately out of sync (cold reboot; platform is expected to reconcile so the correct SED password is reflected again in both banks)
+- Persistence of the password in two TPM persistent handles, bank A (primary) and bank B (secondary)
+- Recovery at boot by `sed-pw-tpm-recovery.service`: when one bank does not unlock the disk, the service copies the other bank into it
 
-The sonic-mgmt tests under `tests/sed_password_change/` validate CLI change and reset, password verification against the drive, length validation, TPM persistence checks, and reboot recovery. A **vendor abstraction** (`SED_Change_Password_General` plus per-vendor subclasses) supplies TPM handle identifiers, password length limits, and any TPM authorization needed for seal/unseal. Tests run only when the module fixture selects a vendor implementation for the DUT; otherwise the run is skipped.
+The sonic-mgmt tests under `tests/sed_password_change/` validate CLI change and reset, password verification against the drive, length validation, TPM persistence checks, the recovery service, and reboot recovery. A **vendor abstraction** (`SED_Change_Password_General` plus per-vendor subclasses) supplies the vendor-specific parts. Tests run only when the module fixture selects a vendor implementation for the DUT; otherwise the run is skipped.
 
-## 2. Requirements
+## 2. Prerequisites
 
-### 2.1 Feature functionality (as exercised by tests)
+The tests change the disk password and corrupt a TPM bank on purpose. Run them only on a DUT that meets all of the following:
 
-1. Change SED password to a user-defined value within vendor-defined min/max length
-2. Reset SED password to platform default
-3. Persist the SED password such that both primary and secondary TPM banks (vendor-defined persistent handles) match after a successful change
-4. After primary-bank corruption and cold reboot, primary and secondary banks again hold the same correct SED password (recovery behavior asserted by the test)
+1. NVIDIA DUT with an Opal SED NVMe disk, where `sedutil-cli --query <disk>` shows `LockingEnabled = Y`
+2. TPM persistent handles `0x81010001` (bank A), `0x81010002` (bank B) and `0x81010003` (default password) are defined
+3. `/etc/sonic/sed_config.conf` holds `tpm_bank_a` and `tpm_bank_b`
+4. The pre-boot component (PBA) tries bank B when bank A does not unlock the disk. The HLD places this component outside SONiC. Without it, `test_reboot_recovery_password` leaves a DUT that does not boot.
 
-### 2.2 CLI (as used in automation)
+### 2.1 Recovering a DUT after a failed run
 
-1. **Change password:** `sudo config sed change-password`
-2. **Reset to default:** `sudo config sed reset-password & wait` (automation waits for completion via the shell)
+- **The DUT keeps a test password.** Banks A and B still hold the same test password, so the DUT boots. Run `sudo config sed reset-password` to go back to the default password.
+- **Bank A was left with a wrong password.** Run `sudo systemctl start sed-pw-tpm-recovery.service`. It copies bank B into bank A when bank B unlocks the disk. Then run `sudo config sed reset-password`.
+- **The DUT does not boot.** The pre-boot component could not unlock the disk with either bank. Recovery needs the platform procedure of the pre-boot component, which is outside SONiC.
 
-Success/failure for change-password is inferred from whether the command output contains `error` (case-insensitive), matching the current test helper behavior.
+## 3. Requirements
 
-### 2.3 Error handling / preconditions
+### 3.1 Feature functionality
 
-#### 2.3.1 CLI / validation
+| **ID** | **Requirement** | **HLD section** |
+|--------|-----------------|-----------------|
+| R1 | Change the SED password to a value within the platform minimal and maximal length | §7.3 |
+| R2 | Reset the SED password to the platform default | §7.4 |
+| R3 | After a change or a reset, banks A and B hold the same password and it unlocks the disk | §7.3, §7.4 |
+| R4 | A changed password survives a reboot and still unlocks the disk | §4, §7.5 |
+| R5 | At boot, `sed-pw-tpm-recovery.service` repairs a bank that does not unlock the disk | §5, §7.2, §7.5 |
+| R6 | A password with an invalid length is rejected, and the current password stays in place | §7.3 |
 
-1. Password length below vendor minimum → change-password treated as failure by tests
-2. Password length above vendor maximum → change-password treated as failure by tests
+### 3.2 CLI (as used in automation)
 
-#### 2.3.2 Platform / environment
-
-1. No suitable SED device or locking not enabled → feature check skips (see §3.3)
-2. Required TPM persistent handles for primary and secondary banks not present → skip
-
-## 3. Scope
-
-Tests verify CLI change and reset, that the password works with the SED (via `sedutil-cli` in the shared base helper), and that TPM banks match expectations including after recovery reboot. Vendor-specific items are TPM handle IDs, min/max length, TPM policy/password arguments for `tpm2_*` if required, and any extra feature gating (e.g. stricter disk checks) implemented by overriding base methods.
-
-### 3.1 Scale / performance
-
-No scale or performance tests; functional correctness and recovery only.
-
-### 3.2 CLI structure (conceptual)
+1. **Change password:** `sudo config sed change-password`. The CLI prompts twice and hides the input. The automation waits for each prompt before it sends the password, and treats the change as successful only when the CLI prints `SED password change process completed successfully`.
+2. **Reset to default:** `sudo config sed reset-password`
 
 ```
 config
@@ -67,90 +63,107 @@ config
 Examples:
 
 ```bash
-1.sudo config sed change-password
-New SED passdowrd: MyNewSEDPassword123
-Reapeat for confirmation: MyNewSEDPassword123
-2.sudo config sed reset-password
+admin@sonic:~$ sudo config sed change-password
+New SED password:
+Repeat for confirmation:
+Handling SED password change started...
+SED password change process completed successfully
+admin@sonic:~$ sudo config sed reset-password
+Handling SED password reset started...
+SED password reset process completed successfully
 ```
 
-### 3.3 Code layout and common interface
+### 3.3 Platform / environment checks
+
+1. No SED NVMe disk, or `LockingEnabled` is not `Y` → skip
+2. TPM banks A, B or the default bank not present → skip
+
+## 4. Scope
+
+### 4.1 Code layout and common interface
 
 | **Area** | **Location** |
 |----------|----------------|
-| Base vendor API and shared SED/TPM steps | `tests/common/helpers/sed_password_helper.py` — class `SED_Change_Password_General` |
+| Base vendor API, shared SED/TPM steps, NVIDIA implementation | `tests/common/helpers/sed_password_helper.py` — classes `SED_Change_Password_General`, `SED_Change_Password_Mellanox` |
 | Test cases | `tests/sed_password_change/test_sed_password.py` |
-| Module autouse setup/teardown | `tests/sed_password_change/conftest.py` |
+| Vendor fixture, module autouse setup/teardown | `tests/sed_password_change/conftest.py` |
 
 **Base class** (`SED_Change_Password_General`) provides:
 
-- **Disk:** `get_disk_name(duthost)` — discovers device from `sudo sedutil-cli --scan` (`/dev/...` parsing)
+- **TPM banks:** `get_primary_sed_tpm_bank(duthost)`, `get_secondary_sed_tpm_bank(duthost)` — read from `/etc/sonic/sed_config.conf`, the same file the platform scripts use
+- **Length limits:** `get_min_and_max_pass_len(duthost)` — read from `chassis.get_sed_mgmt()` on the DUT
+- **Disk:** `get_disk_name(duthost)` — discovers the device from `sudo sedutil-cli --scan`
 - **Verify password on disk:** `verify_sed_pass_works(duthost, password)` — `sedutil-cli --listLockingRanges`
 - **CLI wrappers:** `change_sed_pass_via_cli`, `reset_sed_pass_via_cli` (reset then runs `verify_default_pass`)
-- **Password generation:** `generate_pass_with_len(min_len, max_len, exclude_passwords=...)`
-- **Feature gate:** `verify_sed_pass_change_feature_enabled(duthost)` — `sedutil-cli --query` must show `LockingEnabled = Y`; `tpm2_getcap handles-persistent` must list both `get_primary_sed_tpm_bank()` and `get_secondary_sed_tpm_bank()` return values
-- **TPM read/write helpers:** `get_sed_pass_from_tpm_bank(duthost, tpm_bank, tpm_auth_pass=None)`, `set_sed_pass_in_tpm_bank(...)` — use `tpm2_unseal` / `tpm2_create` + evict/load flow; vendors may override to supply TPM authorization
-- **Consistency checks:** `verify_pass_saved(duthost, expected_pass)` — unseals primary and secondary banks and asserts both match `expected_pass`
-- **After reset:** `verify_default_pass(duthost, localhost)` — obtains the platform default secret from the TPM handle the subclass defines for that purpose, confirms `verify_pass_saved` and `verify_sed_pass_works`; on failure may cold reboot then raise (recovery attempt)
+- **Default password check:** `verify_default_pass(duthost)` — one DUT-side script reads the default password, compares it with banks A and B, and runs `sedutil-cli --listLockingRanges`. Only the exit status comes back, so the default password never reaches the test host, the logs or the report. On a mismatch it starts `sed-pw-tpm-recovery.service` and fails.
+- **TPM read/write helpers:** `get_sed_pass_from_tpm_bank`, `set_sed_pass_in_tpm_bank` — use the TPM auth and unseal flow of `/usr/local/bin/sed_pw_utils.sh`. A bank write creates and loads the new object first, then evicts and persists in the same DUT-side command.
+- **Consistency checks:** `is_pass_saved(duthost, expected_pass)` returns whether both banks hold the password; `verify_pass_saved` asserts it
 
-**Vendor subclass must implement** (base raises skip/TODO if missing):
-
-- `get_primary_sed_tpm_bank()`, `get_secondary_sed_tpm_bank()`
-- `get_min_and_max_pass_len(duthost)`
-
-**Vendor subclass must align with base expectations for reset validation:**
-
-- Expose whichever persistent TPM handle (or equivalent) holds the expected default SED password after `reset-password`, so `verify_default_pass` can read and validate it (the base implementation expects a subclass-defined handle used for that read path)
-
-**Optional overrides:** e.g. `verify_sed_pass_change_feature_enabled`, `get_sed_pass_from_tpm_bank`, `set_sed_pass_in_tpm_bank` for extra preconditions or TPM auth.
+**Vendor subclass must implement:** `get_default_sed_pass_cmd()` — a DUT-side command that prints the default password. The NVIDIA implementation unseals TPM handle `0x81010003`.
 
 **Test selection:** Module-scoped fixture `vendor_sed_class` returns an instance of the vendor class for the DUT or skips if no implementation is registered for that device.
 
-### 3.4 Topology and marks
+### 4.2 Topology and marks
 
 - `pytest.mark.topology('any')`
-- `pytest.mark.disable_loganalyzer` (reboots and disruptive operations)
+- `pytest.mark.disable_loganalyzer` only on `test_reboot_recovery_password`. `test_password_length_negative` keeps the log analyzer and ignores the expected length error.
 
-## 4. Test cases
+### 4.3 Out of scope
 
-| **No.** | **Test Case** | **Test Purpose** |
-|---------|---------------|------------------|
-| 1 | `test_change_sed_password` | Set a new password via CLI; confirm it works with `verify_sed_pass_works`; confirm primary and secondary TPM banks hold the same password via `verify_pass_saved`. |
-| 2 | `test_set_default_pass` | Set a random valid password and verify; reset via CLI; verify default works and differs from the random password; `verify_pass_saved` for the default. |
-| 3 | `test_password_length_negative` | Attempt change-password with length > max and < min; expect helper-reported failure (`change_sed_pass_via_cli` with `expect_success=False`). |
-| 4 | `test_reboot_recovery_password` | Set new password and `verify_pass_saved`; overwrite **primary** bank only with a wrong password and confirm readback; **cold reboot** (`safe_reboot=False`); then `verify_pass_saved` for the original password. |
+- Platforms without SED management (`chassis.get_sed_mgmt()` is `None`), where the CLI prints `Error: SED management not supported on this platform`
+- A password change interrupted between the bank A and bank B writes
+- A missing or malformed `/etc/sonic/sed_config.conf`
 
-### Module fixture behavior (`conftest.py`)
+## 5. Test cases
 
-Autouse, module-scoped fixture (depends on `vendor_sed_class`):
+### Module setup and teardown (`conftest.py`)
 
 1. Before all tests: `verify_sed_pass_change_feature_enabled`, then `reset_sed_pass_via_cli`
 2. After all tests: `reset_sed_pass_via_cli` again
 
-### Test case steps (aligned with code)
+| **No.** | **Test Case** | **Requirements** |
+|---------|---------------|------------------|
+| 5.1 | `test_change_sed_password[min/max/random]` | R1, R3 |
+| 5.2 | `test_set_default_pass` | R2, R3 |
+| 5.3 | `test_password_length_negative` | R6 |
+| 5.4 | `test_reboot_recovery_password` | R4, R5 |
+| 5.5 | `test_recovery_service_configured` | R5 |
 
-#### 4.1 `test_change_sed_password`
+### 5.1 `test_change_sed_password`
 
-1. `get_min_and_max_pass_len` → `generate_pass_with_len` within range
-2. `change_sed_pass_via_cli`
-3. `verify_sed_pass_works`
-4. `verify_pass_saved`
+- **Setup:** The default password is set (module setup).
+- **Procedure:**
+  1. Generate a password with the minimal length, the maximal length, or a random valid length (one parameter per run).
+  2. `change_sed_pass_via_cli`.
+- **Expected:** The password unlocks the disk (`verify_sed_pass_works`), and both banks hold it (`verify_pass_saved`).
+- **Teardown:** Module teardown resets to default.
 
-#### 4.2 `test_set_default_pass`
+### 5.2 `test_set_default_pass`
 
-1. Generate random valid password; `change_sed_pass_via_cli`; `verify_sed_pass_works`
-2. `reset_sed_pass_via_cli` → returns validated default password string
-3. Assert `verify_sed_pass_works` for default and default ≠ random password
-4. `verify_pass_saved` for default
+- **Setup:** Set a random valid password and verify it unlocks the disk.
+- **Procedure:** `reset_sed_pass_via_cli`.
+- **Expected:** `verify_default_pass` passes on the DUT, and the random password no longer unlocks the disk.
+- **Teardown:** None. The default password is set.
 
-#### 4.3 `test_password_length_negative`
+### 5.3 `test_password_length_negative`
 
-1. `get_min_and_max_pass_len`
-2. Long password: length in `(max+1 .. max+30]` (random upper slack); `change_sed_pass_via_cli(..., expect_success=False)`; assert failure
-3. Short password: length in `[max(1, min−offset) .. min−1]` with bounded offset; same failure assertion
+- **Setup:** The default password is set (module setup).
+- **Procedure:** Try `change_sed_pass_via_cli` with a password of `max_len + 1` characters, then with `min_len - 1` characters.
+- **Expected:** For each attempt, the CLI does not report success, syslog has `SED password length is not valid: <len>.`, and `verify_default_pass` passes.
+- **Teardown:** None.
 
-#### 4.4 `test_reboot_recovery_password`
+### 5.4 `test_reboot_recovery_password`
 
-1. New password; `change_sed_pass_via_cli`; `verify_pass_saved`
-2. `set_sed_pass_in_tpm_bank` on **primary** handle only with wrong password; `get_sed_pass_from_tpm_bank` on primary confirms wrong value
-3. `reboot(..., reboot_type='cold', safe_reboot=False)`
-4. `verify_pass_saved` for the original password
+- **Setup:** Set a new password and `verify_pass_saved`.
+- **Procedure:**
+  1. `set_sed_pass_in_tpm_bank` writes a wrong password to bank A only; reading bank A returns the wrong value.
+  2. Cold reboot with `safe_reboot=True`.
+- **Expected:** `sed-pw-tpm-recovery.service` ran in this boot with `Result=success` and logged `Stored PW from Bank 2 to Bank 1 succeed`. Both banks hold the new password, and it still unlocks the disk.
+- **Teardown:** If the test fails before the reboot, bank A is restored from the bank B value. Module teardown resets to default.
+
+### 5.5 `test_recovery_service_configured`
+
+- **Setup:** None.
+- **Procedure:** Read the unit state and the TPM handles.
+- **Expected:** `sed-pw-tpm-recovery.service` is enabled, and the banks in `/etc/sonic/sed_config.conf` are defined TPM handles.
+- **Teardown:** None.
