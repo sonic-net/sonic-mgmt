@@ -49,6 +49,8 @@ logger = logging.getLogger(__name__)
 CREATE_CUSTOM_TABLE_TYPE_FILE = "create_custom_table_type.json"
 CREATE_CUSTOM_TABLE_TEMPLATE = "create_custom_table.j2"
 CREATE_FORWARD_RULES_TEMPLATE = "create_forward_rules.j2"
+CREATE_SRC_IP_FORWARD_RULE_TEMPLATE = "create_src_ip_forward_rule.j2"
+CREATE_SRC_IPV6_FORWARD_RULE_TEMPLATE = "create_src_ipv6_forward_rule.j2"
 CREATE_FORWARD_RULES_SAME_PRIORITY_TEMPLATE = "create_forward_rules_same_priority.j2"
 CREATE_SECONDARY_FORWARD_RULES_TEMPLATE = "create_secondary_forward_rules.j2"
 CREATE_INITIAL_DROP_RULE_TEMPLATE = "create_initial_drop_rule.j2"
@@ -666,19 +668,20 @@ def verify_expected_packet_behavior_standby(exp_pkt, ptfadapter, setup, itfs, ex
         testutils.verify_packet_any_port(ptfadapter, exp_pkt, rx_ports, timeout=20)
 
 
-def generate_packets(setup, tbinfo, dst_ip=DST_IP_FORWARDED_ORIGINAL, dst_ipv6=DST_IPV6_FORWARDED_ORIGINAL):
-    """Generate packets that match the destination IP of given ips.
+def generate_packets(setup, tbinfo, dst_ip=DST_IP_FORWARDED_ORIGINAL, dst_ipv6=DST_IPV6_FORWARDED_ORIGINAL,
+                     src_ip=IP_SOURCE, src_ipv6=IPV6_SOURCE):
+    """Generate packets that match the source and destination IPs of given ips.
     If no IP is given, default to our original forwarding ips"""
 
     packets = {}
     if not is_ipv6_only_topology(tbinfo):
         packets["IPV4"] = testutils.simple_tcp_packet(eth_dst=setup["router_mac"],
-                                                      ip_src=IP_SOURCE,
+                                                      ip_src=src_ip,
                                                       ip_dst=dst_ip,
                                                       ip_ttl=64)
 
     packets["IPV6"] = testutils.simple_tcpv6_packet(eth_dst=setup["router_mac"],
-                                                    ipv6_src=IPV6_SOURCE,
+                                                    ipv6_src=src_ipv6,
                                                     ipv6_dst=dst_ipv6)
 
     return packets
@@ -768,6 +771,44 @@ def dynamic_acl_create_forward_rules(duthost, setup):
         expect_op_success(duthost, output)
 
     expect_acl_rule_match(duthost, "RULE_1", expected_rule_1_content, setup)
+    expect_acl_rule_match(duthost, "RULE_2", expected_rule_2_content, setup)
+
+
+def dynamic_acl_create_src_ip_forward_rule(duthost, setup):
+    """Create a source IPv4 forward ACL rule"""
+
+    IPV4_SUBNET = IP_SOURCE + "/32"
+
+    extra_vars = {
+        'ipv4_subnet': IPV4_SUBNET
+        }
+
+    outputs = format_and_apply_template(duthost, CREATE_SRC_IP_FORWARD_RULE_TEMPLATE, extra_vars, setup)
+
+    expected_rule_1_content = ["DYNAMIC_ACL_TABLE", "RULE_1", "900", "FORWARD", "SRC_IP: " + IPV4_SUBNET, "Active"]
+
+    for output in outputs:
+        expect_op_success(duthost, output)
+
+    expect_acl_rule_match(duthost, "RULE_1", expected_rule_1_content, setup)
+
+
+def dynamic_acl_create_src_ipv6_forward_rule(duthost, setup):
+    """Create a source IPv6 forward ACL rule"""
+
+    IPV6_SUBNET = IPV6_SOURCE + "/128"
+
+    extra_vars = {
+        'ipv6_subnet': IPV6_SUBNET
+        }
+
+    outputs = format_and_apply_template(duthost, CREATE_SRC_IPV6_FORWARD_RULE_TEMPLATE, extra_vars, setup)
+
+    expected_rule_2_content = ["DYNAMIC_ACL_TABLE", "RULE_2", "899", "FORWARD", "SRC_IPV6: " + IPV6_SUBNET, "Active"]
+
+    for output in outputs:
+        expect_op_success(duthost, output)
+
     expect_acl_rule_match(duthost, "RULE_2", expected_rule_2_content, setup)
 
 
@@ -913,16 +954,37 @@ def dynamic_acl_create_arp_forward_rule(duthost, setup):
 
 
 def dynamic_acl_create_ndp_forward_rule(duthost, setup):
-    "Create an NDP forwarding rule with high priority"
+    """Create high priority forwarding rules for ICMPv6 types 133, 135, and 136"""
 
     outputs = load_and_apply_json_patch(duthost, CREATE_NDP_FORWARD_RULE_FILE, setup, is_asic_specific=True)
 
     for output in outputs:
         expect_op_success(duthost, output)
 
-    expected_rule_content = ["DYNAMIC_ACL_TABLE", "NDP_RULE", "897", "FORWARD", "IP_PROTOCOL: 58", "Active"]
+    expected_rule_9100_content = ["DYNAMIC_ACL_TABLE",
+                                  "RULE_9100", "900",
+                                  "FORWARD",
+                                  "IP_PROTOCOL: 58",
+                                  "ICMPV6_TYPE: 133",
+                                  "Active"]
 
-    expect_acl_rule_match(duthost, "NDP_RULE", expected_rule_content, setup)
+    expected_rule_9101_content = ["DYNAMIC_ACL_TABLE",
+                                  "RULE_9101", "899",
+                                  "FORWARD",
+                                  "IP_PROTOCOL: 58",
+                                  "ICMPV6_TYPE: 135",
+                                  "Active"]
+
+    expected_rule_9102_content = ["DYNAMIC_ACL_TABLE",
+                                  "RULE_9102", "898",
+                                  "FORWARD",
+                                  "IP_PROTOCOL: 58",
+                                  "ICMPV6_TYPE: 136",
+                                  "Active"]
+
+    expect_acl_rule_match(duthost, "RULE_9100", expected_rule_9100_content, setup)
+    expect_acl_rule_match(duthost, "RULE_9101", expected_rule_9101_content, setup)
+    expect_acl_rule_match(duthost, "RULE_9102", expected_rule_9102_content, setup)
 
 
 def dynamic_acl_create_dhcp_forward_rule(duthost, setup):
@@ -1179,8 +1241,8 @@ def test_gcu_acl_arp_rule_creation(rand_selected_dut,
                                    dynamic_acl_create_table,
                                    prepare_ptf_intf_and_ip,
                                    toggle_all_simulator_ports_to_rand_selected_tor, tbinfo):  # noqa: F811
-    """Test that we can create a blanket ARP/NDP packet forwarding rule with GCU, and that ARP/NDP packets
-    are correctly forwarded while all others are dropped."""
+    """Test that we can create ARP and type-specific NDP packet forwarding rules with GCU, and that ARP/NDP packets
+    are correctly forwarded while other test traffic is dropped."""
 
     ip_address_for_test, _, ptf_intf_index, port_name = prepare_ptf_intf_and_ip
 
@@ -1297,6 +1359,53 @@ def test_gcu_acl_forward_rule_priority_respected(rand_selected_dut,
                                packets_dropped=False)
     dynamic_acl_verify_packets(setup, ptfadapter,
                                packets=generate_packets(setup, tbinfo, DST_IP_BLOCKED, DST_IPV6_BLOCKED),
+                               packets_dropped=True)
+
+
+def test_gcu_acl_src_ip_forward_rule_priority_respected(rand_selected_dut,
+                                                        rand_unselected_dut,
+                                                        ptfadapter,
+                                                        setup,
+                                                        dynamic_acl_create_table,
+                                                        toggle_all_simulator_ports_to_rand_selected_tor,  # noqa: F811
+                                                        tbinfo):
+    """Test that packets matching a source IPv4 forward rule are forwarded despite a lower priority drop rule,
+    and that packets with a different source IPv4 address are dropped"""
+
+    if is_ipv6_only_topology(tbinfo):
+        pytest.skip("IPv4 traffic is not supported on IPv6-only topologies, skipping test.")
+
+    dynamic_acl_create_src_ip_forward_rule(rand_selected_dut, setup)
+    dynamic_acl_create_secondary_drop_rule(rand_selected_dut, setup)
+
+    forward_packets = generate_packets(setup, tbinfo)
+    drop_packets = generate_packets(setup, tbinfo, src_ip=increment_ipv4_addr(IP_SOURCE, 1))
+
+    dynamic_acl_verify_packets(setup, ptfadapter, packets={"IPV4": forward_packets["IPV4"]},
+                               packets_dropped=False)
+    dynamic_acl_verify_packets(setup, ptfadapter, packets={"IPV4": drop_packets["IPV4"]},
+                               packets_dropped=True)
+
+
+def test_gcu_acl_src_ipv6_forward_rule_priority_respected(rand_selected_dut,
+                                                          rand_unselected_dut,
+                                                          ptfadapter,
+                                                          setup,
+                                                          dynamic_acl_create_table,
+                                                          toggle_all_simulator_ports_to_rand_selected_tor,  # noqa: F811
+                                                          tbinfo):
+    """Test that packets matching a source IPv6 forward rule are forwarded despite a lower priority drop rule,
+    and that packets with a different source IPv6 address are dropped"""
+
+    dynamic_acl_create_src_ipv6_forward_rule(rand_selected_dut, setup)
+    dynamic_acl_create_secondary_drop_rule(rand_selected_dut, setup)
+
+    forward_packets = generate_packets(setup, tbinfo)
+    drop_packets = generate_packets(setup, tbinfo, src_ipv6=increment_ipv6_addr(IPV6_SOURCE, 1))
+
+    dynamic_acl_verify_packets(setup, ptfadapter, packets={"IPV6": forward_packets["IPV6"]},
+                               packets_dropped=False)
+    dynamic_acl_verify_packets(setup, ptfadapter, packets={"IPV6": drop_packets["IPV6"]},
                                packets_dropped=True)
 
 

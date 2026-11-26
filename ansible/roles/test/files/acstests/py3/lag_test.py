@@ -148,11 +148,16 @@ class LacpTimingTest(BaseTest, RouterUtility):
         # Flush packets in dataplane
         self.dataplane.flush()
 
+        # tolerance is configurable; default 0.1s for existing tests
+        self.tolerance = float(self.test_params.get('tolerance', 0.1))
+
         # Check that packet timing matches the expected value.
         current_pkt_timing = self.getMedianInterval(masked_exp_pkt)
-        self.assertTrue(abs(current_pkt_timing - float(self.packet_timing)) < 0.1, "Bad packet timing: \
-                        %.2f seconds while expected timing is %d seconds from port %s out of %d intervals" %
-                        (current_pkt_timing, self.packet_timing, self.exp_iface, self.interval_count))
+        self.assertTrue(abs(current_pkt_timing - float(self.packet_timing)) < self.tolerance,
+                        "Bad packet timing: %.2f seconds while expected timing is %d seconds "
+                        "from port %s out of %d intervals (tolerance=%.2f)" %
+                        (current_pkt_timing, self.packet_timing, self.exp_iface,
+                         self.interval_count, self.tolerance))
 
 
 class LagMemberTrafficTest(BaseTest, RouterUtility):

@@ -1,0 +1,16 @@
+{
+    "CONSOLE_PORT": {
+{% for port, link in fanout_serial_links.items() %}
+        "{{ port }}": {
+            "baud_rate": "{{ link.baud_rate | default('9600') }}",
+            "flow_control": "{{ link.flow_control | default('0') }}",
+            "remote_device": "{{ link.peerdevice }}"
+        }{% if not loop.last %},{% endif %}
+{% endfor %}
+    },
+    "CONSOLE_SWITCH": {
+        "console_mgmt": {
+            "enabled": "yes"
+        }
+    }
+}

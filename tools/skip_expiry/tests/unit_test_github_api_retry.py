@@ -97,3 +97,29 @@ def test_get_issue_retries_on_request_exception(monkeypatch: pytest.MonkeyPatch)
 
     assert issue["number"] == 100
     assert sleep_calls == [0.25]
+
+
+def test_list_open_issues_with_label_filters_by_label_and_drops_pull_requests(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = GitHubApiClient(token="token")
+    requests_made: List[Dict[str, Any]] = []
+    payload = [
+        {"number": 7},
+        {"number": 8, "pull_request": {"url": "https://api.github.com/repos/sonic-net/sonic-mgmt/pulls/8"}},
+    ]
+
+    def fake_request(method, url, **kwargs):
+        requests_made.append({"method": method, "url": url, "params": kwargs.get("params")})
+        return FakeResponse(200, json_payload=payload)
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+
+    issues = client.list_open_issues_with_label("sonic-net", "sonic-mgmt", "skip-wf-issue-expired")
+
+    assert issues == [IssueRef(owner="sonic-net", repo="sonic-mgmt", number=7)]
+    assert len(requests_made) == 1
+    assert requests_made[0]["method"] == "GET"
+    assert requests_made[0]["url"] == "https://api.github.com/repos/sonic-net/sonic-mgmt/issues"
+    assert requests_made[0]["params"]["state"] == "open"
+    assert requests_made[0]["params"]["labels"] == "skip-wf-issue-expired"

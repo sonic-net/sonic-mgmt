@@ -1,0 +1,42 @@
+---
+# Minimal SmartSwitch topology for Keysight lab:
+#   - Switch (NPU) at 10.36.78.150
+#   - DPU 0 via midplane (169.254.200.1)
+#   - No neighbour VMs required for DASH API speed tests
+#
+# Network layout (DPU 0):
+#   NPU Ethernet224  <-> 10.0.0.56/31 <-> 10.0.0.57/31 <-> DPU Ethernet0
+#   DPU Loopback0: 221.0.0.1/32
+
+topology:
+  DPUs:
+    keysight-nss01-dpu0:
+      vlans:
+        - 0
+        - 1
+      vm_offset: 0
+
+configuration_properties:
+  common:
+    dut_asn: 65100
+    dut_type: SonicHost
+    nhipv4: 10.0.0.56
+    nhipv6: FC00::1
+
+configuration:
+  keysight-nss01-dpu0:
+    properties:
+      - common
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.56
+    interfaces:
+      Loopback0:
+        ipv4: 221.0.0.1/32
+      Ethernet0:
+        ipv4: 10.0.0.57/31
+    bp_interface:
+      ipv4: 10.10.246.1/24
+      ipv6: fc0a::2/64

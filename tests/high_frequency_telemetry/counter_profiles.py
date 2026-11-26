@@ -79,6 +79,29 @@ SUPPORTED_STATS: Mapping[str, Mapping[CounterObjectType, Sequence[str]]] = {
         CounterObjectType.INGRESS_PRIORITY_GROUP: _INGRESS_PRIORITY_GROUP_COUNTERS,
         CounterObjectType.BUFFER_POOL: _BUFFER_POOL_COUNTERS,
     },
+    # The current SN6810_LD SDK does not support these counters yet, add them back once supported:
+    #   PORT: IF_IN_UCAST_PKTS, IF_OUT_UCAST_PKTS, IF_OUT_ERRORS
+    #   QUEUE: PACKETS, DROPPED_PACKETS
+    #   INGRESS_PRIORITY_GROUP: PACKETS, BYTES
+    #   BUFFER_POOL: CURR_OCCUPANCY_CELLS, WATERMARK_CELLS
+    "x86_64-nvidia_sn6810_ld-r0": {
+        CounterObjectType.PORT: (
+            "IF_IN_OCTETS",
+            "IF_IN_DISCARDS",
+            "IF_OUT_OCTETS",
+        ),
+        CounterObjectType.QUEUE: (
+            "BYTES",
+            "CURR_OCCUPANCY_CELLS",
+            "WATERMARK_CELLS",
+            "WRED_ECN_MARKED_PACKETS",
+        ),
+        CounterObjectType.INGRESS_PRIORITY_GROUP: (
+            "CURR_OCCUPANCY_CELLS",
+            "WATERMARK_CELLS",
+        ),
+        CounterObjectType.BUFFER_POOL: (),
+    },
     "x86_64-arista_7060x6_64pe_b": {
         CounterObjectType.PORT: (),
         CounterObjectType.QUEUE: (),

@@ -1,17 +1,19 @@
 """Shared prerequisite check primitives for transceiver tests.
 
-Each function returns a result dict (with ``'passed'`` and ``'details'`` keys);
-the caller decides whether to ``pytest.skip``, ``pytest.fail``, or assert.
+Most functions return a result dict with ``'passed'`` and ``'details'`` keys;
+the polling helper returns a failure list. Callers decide the pytest verdict.
 """
 import logging
 
 from tests.common.platform.interface_utils import get_dut_interfaces_status
+from tests.common.utilities import wait_until
 from tests.transceiver.attribute_parser.attribute_keys import (
     CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY,
     EEPROM_ATTRIBUTES_KEY,
 )
-from tests.transceiver.common import cli_helpers
+from tests.transceiver.common import cli_helpers, health_checks
 from tests.transceiver.common.cli_parser_helper import parse_presence
+from tests.transceiver.common.db_helpers import get_config_db_port_table
 
 logger = logging.getLogger(__name__)
 
@@ -228,7 +230,7 @@ def check_gold_firmware(duthost, port_attributes_dict):
 # ──────────────────────────────────────────────────────────────────────
 
 
-def check_links_up(duthost, port_attributes_dict):
+def check_links_up(duthost, port_attributes_dict, suppressWarnings=False):
     """Verify every port in *port_attributes_dict* is admin-up and oper-up.
 
     Uses :func:`tests.common.platform.interface_utils.get_dut_interfaces_status`
@@ -258,7 +260,8 @@ def check_links_up(duthost, port_attributes_dict):
             admin = status.get("admin", "missing") if status else "missing"
             oper = status.get("oper", "missing") if status else "missing"
             down.append(f"{port}(admin={admin}, oper={oper})")
-            logger.warning("Port %s not up: admin=%s oper=%s", port, admin, oper)
+            if not suppressWarnings:
+                logger.warning("Port %s not up: admin=%s oper=%s", port, admin, oper)
 
     passed = len(down) == 0
     total = len(expected_ports)
@@ -271,3 +274,122 @@ def check_links_up(duthost, port_attributes_dict):
         )
     logger.info("Link-up check: %s", details)
     return {"passed": passed, "up": up, "down": down, "details": details}
+
+
+def wait_until_links_up(
+    duthost, port_attributes_dict, timeout_sec, poll_interval_sec=2
+):
+    """Poll :func:`check_links_up` until every port is up or ``timeout_sec``
+    elapses.
+
+    Args:
+        duthost: SONiC DUT host fixture.
+        port_attributes_dict: dict of ``{port: port_attrs}``, as accepted by
+            :func:`check_links_up`.
+        timeout_sec: total time budget to wait for all ports to come up.
+        poll_interval_sec: time between polls.
+
+    Returns:
+        dict: the ``check_links_up`` result from the last poll (i.e. the
+        latest snapshot), regardless of whether it passed.
+    """
+    latest_result = {}
+
+    def _links_up():
+        nonlocal latest_result
+        latest_result = check_links_up(duthost, port_attributes_dict, True)
+        return (latest_result["down"] == [])
+
+    wait_until(timeout_sec, poll_interval_sec, 0, _links_up)
+    for down_port in latest_result.get("down", []):
+        logger.warning("%s", down_port)
+    return latest_result
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Shared DOM/VDM polling check
+# ──────────────────────────────────────────────────────────────────────
+
+DOM_POLLING_ENABLED_VALUES = ("", "enabled")
+DOM_POLLING_DISABLED_VALUE = "disabled"
+
+
+def build_dom_polling_failures(duthost, primary_ports):
+    """Return shared DOM/VDM polling prerequisite failures."""
+    failures = []
+    port_table = get_config_db_port_table(duthost)
+
+    for port in primary_ports:
+        port_config = port_table.get(port)
+        if port_config is None:
+            failures.append("{} missing from CONFIG_DB PORT table".format(port))
+            continue
+        if not isinstance(port_config, dict):
+            failures.append(
+                "{} CONFIG_DB PORT entry has unexpected type {}".format(
+                    port,
+                    type(port_config).__name__,
+                )
+            )
+            continue
+
+        raw_value = port_config.get("dom_polling")
+        normalized = "" if raw_value is None else str(raw_value).strip().lower()
+        if normalized in DOM_POLLING_ENABLED_VALUES:
+            logger.debug(
+                "%s DOM polling is enabled: %s",
+                port,
+                raw_value if raw_value is not None else "<default-enabled>",
+            )
+            continue
+        if normalized == DOM_POLLING_DISABLED_VALUE:
+            failures.append("{} dom_polling is disabled".format(port))
+        else:
+            failures.append(
+                "{} dom_polling has unexpected value {!r}".format(
+                    port,
+                    raw_value,
+                )
+            )
+
+    return failures
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Docker/process health check
+# ──────────────────────────────────────────────────────────────────────
+
+
+def wait_until_health_ok(
+    duthost, baseline, timeout_sec, poll_interval_sec=2,
+    monitored_processes=None, expect_pid_change=None,
+):
+    """Poll :func:`health_checks.verify_health` until it passes or
+    ``timeout_sec`` elapses.
+
+    Args:
+        duthost: SONiC DUT host fixture.
+        baseline: baseline dict returned by
+            :func:`health_checks.capture_baseline`.
+        timeout_sec: total time budget to wait for health to pass.
+        poll_interval_sec: time between polls.
+        monitored_processes: dict of ``{process_name: container_name}``.
+        expect_pid_change: set of process names where a PID change is
+            expected (e.g., after an intentional service restart).
+
+    Returns:
+        dict: the ``verify_health`` result from the last poll (i.e. the
+        latest snapshot), regardless of whether it passed.
+    """
+    latest_result = {}
+
+    def _health_ok():
+        nonlocal latest_result
+        latest_result = health_checks.verify_health(
+            duthost, baseline, monitored_processes=monitored_processes,
+            expect_pid_change=expect_pid_change,
+        )
+        return latest_result["passed"]
+
+    wait_until(timeout_sec, poll_interval_sec, 0, _health_ok)
+    return latest_result

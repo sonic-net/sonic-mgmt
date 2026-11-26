@@ -48,7 +48,7 @@ from tests.common.helpers.constants import (
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.topology("m1")]
+pytestmark = [pytest.mark.topology("m1", "uma", "lma")]
 
 # ExaBGP base ports
 EXABGP_BASE_PORT = 5000

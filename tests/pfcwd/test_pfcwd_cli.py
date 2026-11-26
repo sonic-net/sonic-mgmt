@@ -8,7 +8,8 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.common.helpers.pfcwd_helper import start_wd_on_ports, send_tx_egress, \
     shutdown_lag_members, restore_original_config
-from tests.common.helpers.pfcwd_helper import has_neighbor_device
+from tests.common.helpers.pfcwd_helper import has_neighbor_device, is_pfcwd_hw_recovery_enabled, \
+    get_pfcwd_hw_timers
 from tests.ptf_runner import ptf_runner
 from tests.common import constants
 from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports  # noqa: F401
@@ -18,10 +19,19 @@ from tests.common.utilities import wait_until
 from tests.common.cisco_data import is_cisco_device
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "lt2", "ft2")
+    pytest.mark.topology("t0", "t1", "t2", "lt2", "ft2")
 ]
 
 logger = logging.getLogger(__name__)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def skip_pfcwd_cli_on_vs_t2(duthosts, tbinfo):
+    """Skip VS/KVM t2: storm_setup needs a hardware fanout peer that KVM t2 does not have."""
+    if tbinfo["topo"]["type"] != "t2":
+        return
+    if any(dut.facts.get("asic_type") == "vs" for dut in duthosts):
+        pytest.skip("Skip test_pfcwd_cli on VS/KVM t2: no fanout peer for PFC storm generation")
 
 
 @pytest.fixture(autouse=True)
@@ -306,7 +316,8 @@ class SendVerifyTraffic():
 
 
 @pytest.fixture(scope='function')
-def manage_lag_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, nbrhosts, setup_pfc_test):
+def manage_lag_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, nbrhosts, setup_pfc_test,
+                      loganalyzer):
     """Complete LAG config resource manager.
 
     Setup (before test): backs up config_db and shuts down extra LAG members so
@@ -322,7 +333,8 @@ def manage_lag_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinf
 
     yield
 
-    restore_original_config(duthost, port, vm_host, neigh_port_channel, min_links, ports)
+    restore_original_config(duthost, port, vm_host, neigh_port_channel, min_links, ports,
+                            loganalyzer=loganalyzer)
 
 
 class TestPfcwdFunc(SetupPfcwdFunc):
@@ -341,6 +353,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         """
         restore_time = self.timers['pfc_wd_restore_time_large']
         detect_time = self.timers['pfc_wd_detect_time']
+        if self.is_hw_recovery:
+            detect_time, restore_time = get_pfcwd_hw_timers(dut, detect_time, restore_time, port)
 
         selected_test_ports = [self.pfc_wd['rx_port'][0]]
         test_ports_info = {self.pfc_wd['rx_port'][0]: self.pfc_wd}
@@ -439,7 +453,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         time.sleep(10)  # wait for the traffic to be processed
         pfcwd_stat_after_rx = parser_show_pfcwd_stat(dut, port, self.pfc_wd['queue_index'])
         logger.debug("pfcwd_stat_after_rx {}".format(pfcwd_stat_after_rx))
-        if asic_type != 'vs':
+        # Hardware recovery acts on the egress queue only: no RX counters.
+        if asic_type != 'vs' and not self.is_hw_recovery:
             # check count, drop: rx_drop_count; forward: rx_ok_count
             if self.rx_action == "drop":
                 rx_drop_count_init = int(pfcwd_stat_init[0]['rx_drop_count'])
@@ -464,7 +479,9 @@ class TestPfcwdFunc(SetupPfcwdFunc):
     def set_traffic_action(self, duthost, action):
         action = action if action != "dontcare" else "drop"
         if duthost.facts["asic_type"] in ["mellanox", "cisco-8000", "marvell-teralynx"] \
-                or is_tunnel_qos_remap_enabled(duthost):
+                or is_tunnel_qos_remap_enabled(duthost) \
+                or self.is_hw_recovery:
+            # HW recovery is egress-only
             self.rx_action = "forward"
         else:
             self.rx_action = action
@@ -507,6 +524,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.rx_action = None
         self.tx_action = None
         self.is_dualtor = setup_dut_info['basicParams']['is_dualtor']
+        self.is_hw_recovery = is_pfcwd_hw_recovery_enabled(duthost)
 
         # skip the pytest when the device does not have neighbors
         # 'rx_port' being None indicates there are no ports available to receive frames for pfc storm
@@ -548,3 +566,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                     self.storm_hndle.stop_storm()
                 logger.info("--- Stop PFC WD ---")
                 self.dut.command("pfcwd stop")
+                # Reset global ARP settings modified by resolve_arp
+                self.ptf.command("sysctl -w net.ipv4.conf.all.arp_ignore=0",
+                                 module_ignore_errors=True)

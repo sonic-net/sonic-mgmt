@@ -2,20 +2,24 @@
 Test the feature of monitoring critical processes on 20191130 image (Monit),
 202012 and newer images (Supervisor)
 """
-from collections import defaultdict
+from collections import defaultdict, namedtuple
+from multiprocessing.pool import ThreadPool
+from time import monotonic
 import re
 import time
 import logging
+import os
 
 import pytest
+from pytest_ansible.errors import AnsibleConnectionFailure
 
 from pkg_resources import parse_version
 from tests.common import config_reload
 from tests.common.vs_data import is_vs_device
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
-from tests.common.reboot import wait_for_startup
-from tests.common.utilities import pdu_reboot, wait_until, kill_process_by_pid
+from tests.common.reboot import REBOOT_TYPE_COLD, reboot_ctrl_dict, wait_for_shutdown, wait_for_startup
+from tests.common.utilities import get_plt_reboot_ctrl, wait_until, kill_process_by_pid, pdu_reboot
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, NAMESPACE_PREFIX
 from tests.common.helpers.dut_utils import get_program_info
 from tests.common.helpers.dut_utils import get_group_program_info
@@ -33,12 +37,116 @@ CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 POST_CHECK_INTERVAL_SECS = 1
 POST_CHECK_THRESHOLD_SECS = 600
+# config_reload adds 120 seconds to these values for its BGP convergence check.
+CONFIG_RELOAD_WAIT_SECS = 120
+LT2_CONFIG_RELOAD_WAIT_SECS = 480
 
 # Delay (seconds) between issuing the SysRq kernel reboot and when it fires.
 # Used on multi-ASIC VS: the reboot is scheduled just before the global DB
 # kill so that SSH is still alive when the nohup command is issued, but the
 # kernel reboot fires shortly after the global DB container is stopped.
 MULTI_ASIC_VS_REBOOT_DELAY_SEC = 15
+
+# Maximum time (seconds) for a physical DUT to go down after 'reboot' is issued.
+# The reboot script stops services first, so allow more time than a power cut.
+REBOOT_SHUTDOWN_TIMEOUT_SEC = 300
+
+DatabaseRecovery = namedtuple("DatabaseRecovery", "method controller boot_id")
+BOOT_ID_COMMAND = "cat /proc/sys/kernel/random/boot_id"
+
+
+def _read_boot_id(duthost):
+    result = duthost.command(BOOT_ID_COMMAND, module_ignore_errors=True)
+    boot_id = result.get("stdout", "").strip()
+    pytest_assert(result.get("rc") == 0 and re.fullmatch(
+        r"[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}", boot_id),
+        "Could not read a valid boot ID from {}".format(duthost.hostname))
+    return boot_id
+
+
+def _admit_database_recovery(duthost, tbinfo, get_pdu_controller):
+    """Resolve one immutable recovery route while Redis/SSH are still healthy.
+
+    No power operation is performed here. A missing controller is different from
+    a controller lookup/operation failure, which must propagate without fallback.
+    """
+    if is_vs_device(duthost):
+        method, controller = "vs", None
+    else:
+        controller = get_pdu_controller(duthost, require_complete=True)
+        if controller is not None:
+            pytest_assert(callable(getattr(controller, "turn_off_outlet", None))
+                          and callable(getattr(controller, "turn_on_outlet", None)),
+                          "PDU controller does not expose power-cycle operations")
+            method = "pdu"
+        else:
+            # This route verifies BMC/DUT OS recovery only. It does not claim
+            # the paired-device system-cycle qualification requested by #29262.
+            # Probe only existence/executability while healthy. This is not a
+            # claim that platform shutdown hooks work without Redis.
+            result = duthost.command("test -x /sbin/reboot", module_ignore_errors=True)
+            pytest_assert(result.get("rc") == 0 and not result.get("failed") and not result.get("unreachable"),
+                          "Normal /sbin/reboot is unavailable; database destruction is not admitted")
+            method = "os"
+    return DatabaseRecovery(method, controller, _read_boot_id(duthost))
+
+
+def _boot_id_changed(duthost, previous):
+    try:
+        return _read_boot_id(duthost) != previous
+    except (Exception, pytest.fail.Exception) as error:
+        logger.info("Waiting for authenticated boot-ID read: %s", error)
+        return False
+
+
+def _submit_os_reboot_and_wait_for_shutdown(duthost, localhost):
+    """Submit once and observe SSH-down while Ansible is still returning.
+
+    close() is nonblocking. A timed-out running thread is NOT cancelled; retain
+    its future/pool on the error for the owning fixture's diagnostic handoff.
+    No join/terminate (which can wait on running work), retry or second reset.
+    """
+    deadline = monotonic() + REBOOT_SHUTDOWN_TIMEOUT_SEC
+    pool = ThreadPool(processes=1)
+    future = None
+    try:
+        future = pool.apply_async(duthost.command, ("/sbin/reboot",), {"module_ignore_errors": True})
+        shutdown_error = None
+        try:
+            # Ansible wait_for requires integer seconds; never pass zero
+            # (special wait_for semantics) or round up beyond this deadline.
+            shutdown_timeout = int(deadline - monotonic())
+            if shutdown_timeout < 1:
+                raise TimeoutError("Shutdown observation budget expired before a positive integer timeout remained")
+            wait_for_shutdown(duthost, localhost, delay=0, timeout=shutdown_timeout)
+        except (Exception, pytest.fail.Exception) as error:
+            shutdown_error = error
+        disconnect = None
+        try:
+            result = future.get(timeout=max(0, deadline - monotonic()))
+        except AnsibleConnectionFailure as error:
+            disconnect = error  # Indeterminate submission, never success alone.
+        except (Exception, pytest.fail.Exception) as submission_error:
+            if shutdown_error is not None:
+                raise shutdown_error from submission_error
+            raise
+        else:
+            pytest_assert(result.get("rc") == 0 and not result.get("failed") and not result.get("unreachable"),
+                          "Normal /sbin/reboot was not accepted; no automatic retry or forced fallback")
+        if shutdown_error is not None:
+            if disconnect is not None:
+                raise shutdown_error from disconnect
+            raise shutdown_error
+        return disconnect
+    except (Exception, pytest.fail.Exception) as error:
+        if future is not None and not future.ready():
+            error.reboot_dispatch_future = future
+            error.reboot_dispatch_pool = pool
+            logger.error("Reboot submission is still unresolved; worker may remain active; no retry is safe")
+        raise
+    finally:
+        pool.close()  # Running work drains on completion; no cancellation claim.
+
 
 # Critical processes that are listed in the image's per-container critical_processes
 # file but are not actually runnable on BMC topology (BMC image runs a reduced set
@@ -48,6 +156,33 @@ MULTI_ASIC_VS_REBOOT_DELAY_SEC = 15
 BMC_UNSUPPORTED_CRITICAL_PROCESSES = {
     "lldp": ["lldp-syncd"],
 }
+
+
+# Critical processes whose container supervisord.conf sets `autorestart=true`.
+# When killed, supervisord restarts them immediately, so they never stay down
+# long enough for the supervisor-proc-exit-listener to emit a
+# "Process '<name>' is not running" alert into syslog. They are still killed to
+# exercise the kill/restart path, but must be excluded from the expected
+# alerting messages. Keyed by container name:
+#   - otel: the 'otel' process autorestarts
+#   - redfish: 'bmcweb' / 'sonic-dbus-bridge' autorestart (BMC platforms only)
+AUTORESTART_CRITICAL_PROCESSES = {
+    "otel": ["otel"],
+    "redfish": ["sonic-dbus-bridge", "bmcweb"],
+}
+
+
+def _is_autorestart_process(container_name, critical_process):
+    """Return True if the given critical process is configured with
+    autorestart=true and therefore never emits a "not running" alert when killed.
+
+    Matches against the base container name, tolerating a namespace/ASIC suffix
+    (e.g. 'otel0') that may be appended for multi-ASIC platforms.
+    """
+    for base_container, processes in AUTORESTART_CRITICAL_PROCESSES.items():
+        if container_name.startswith(base_container) and critical_process in processes:
+            return True
+    return False
 
 
 def _filter_bmc_unsupported(duthost, container_name, critical_process_list):
@@ -68,11 +203,16 @@ def _filter_bmc_unsupported(duthost, container_name, critical_process_list):
     return filtered
 
 
+def get_config_reload_wait(tbinfo):
+    return LT2_CONFIG_RELOAD_WAIT_SECS if tbinfo["topo"]["type"] == "lt2" else CONFIG_RELOAD_WAIT_SECS
+
+
 @pytest.fixture(autouse=True, scope='module')
-def config_reload_after_tests(duthosts, rand_one_dut_hostname):
+def config_reload_after_tests(duthosts, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     yield
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True,
+                  wait=get_config_reload_wait(tbinfo), wait_for_bgp=True)
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -360,8 +500,13 @@ def get_expected_alerting_messages_supervisor(duthost, containers_in_namespaces)
                 # TODO: Should remove the following two lines once the issue was solved in the image.
                 if "syncd" in container_name_in_namespace and critical_process == "dsserve":
                     continue
-                # Skip 'otel' process since it would autorestart
-                if "otel" in container_name_in_namespace and critical_process == "otel":
+                # Skip processes configured with autorestart=true (e.g. 'otel', and
+                # the redfish container's 'bmcweb' / 'sonic-dbus-bridge'). They are
+                # restarted immediately when killed, so they never emit a
+                # "not running" alert into syslog.
+                if _is_autorestart_process(container_name_in_namespace, critical_process):
+                    logger.info("Skipping autorestart process '{}' in container '{}' from expected alerts"
+                                .format(critical_process, container_name_in_namespace))
                     continue
                 logger.info("Generating the regex of expected alerting message for process '{}' in container '{}'"
                             .format(critical_process, container_name_in_namespace))
@@ -371,6 +516,10 @@ def get_expected_alerting_messages_supervisor(duthost, containers_in_namespaces)
             for critical_group in critical_group_list:
                 group_program_info = get_group_program_info(duthost, container_name_in_namespace, critical_group)
                 for program_name in group_program_info:
+                    if _is_autorestart_process(container_name_in_namespace, program_name):
+                        logger.info("Skipping autorestart process '{}' in container '{}' from expected alerts"
+                                    .format(program_name, container_name_in_namespace))
+                        continue
                     logger.info("Generating the regex of expected alerting message for process '{}' in container '{}'"
                                 .format(program_name, container_name_in_namespace))
                     expected_alerting_messages.append(".*Process '{}' is not running in namespace '{}'.*"
@@ -591,143 +740,159 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
     # Check if database container is being tested
     is_testing_database = "database" not in skip_containers
 
+    # Admission is a dependency of the test body, before ANY process kills.
+    # Keep the controller/route and pre-kill boot ID fixed through teardown.
+    recovery = (_admit_database_recovery(duthost, tbinfo, get_pdu_controller)
+                if is_testing_database else None)
+
     # add log to indicate start of yield
     logger.info("Starting test to monitor critical processes...")
     yield
 
-    # add log to indicate end of yield
-    logger.info("Test to monitor critical processes is done, starting recovery...")
+    dispatch_disconnect = None
+    authenticated_reboot_verified = False
+    try:
+        # add log to indicate end of yield
+        logger.info("Test to monitor critical processes is done, starting recovery...")
 
-    # Special handling for database container - use power cycle
-    if is_testing_database:
-        logger.info("Database container was tested - performing power cycle...")
+        # Special handling for database container - reboot the DUT
+        if is_testing_database:
+            logger.info("Database container was tested - rebooting the DUT...")
 
-        # Check if this is a virtual switch (KVM) testbed (no PDU available)
-        if is_vs_device(duthost):
+            # Check if this is a virtual switch (KVM) testbed
+            if recovery.method == "vs":
+                num_asics = duthost.facts.get("num_asic", 1)
+                if num_asics > 1:
+                    # Multi-ASIC VS: after killing the global database container, SSH
+                    # becomes unresponsive (sshd depends on the global namespace database).
+                    # The SysRq reboot was pre-scheduled in Phase 2 while SSH was still
+                    # alive.  Just wait here for the scheduled reboot to complete.
+                    logger.info("Multi-ASIC KVM: SysRq reboot was pre-scheduled in Phase 2; "
+                                "waiting for DUT to come back up...")
+                else:
+                    # Single-ASIC VS: SSH remains alive after killing the global database
+                    # container (sshd does not depend on the database on single-ASIC KVM).
+                    # Issue the SysRq reboot now; the DUT will reboot in ~2 seconds and
+                    # wait_for_startup will wait for it to come back up.
+                    logger.info("Single-ASIC KVM: issuing SysRq kernel reboot...")
+                    try:
+                        duthost.shell(
+                            'nohup bash -c "sleep 2 && echo 1 > /proc/sys/kernel/sysrq '
+                            '&& echo b > /proc/sysrq-trigger" > /dev/null 2>&1 &',
+                            module_ignore_errors=True)
+                        logger.info("Kernel reboot trigger command issued successfully")
+                    except Exception as e:
+                        logger.info("Reboot trigger (expected disconnect on immediate reboot): {}".format(str(e)))
+            elif recovery.method == "pdu":
+                pytest_assert(pdu_reboot(recovery.controller), "PDU reboot failed; no software fallback attempted")
+            else:
+                dispatch_disconnect = _submit_os_reboot_and_wait_for_shutdown(duthost, localhost)
+
+            logger.info("Waiting for DUT to boot up after reboot...")
+            # Wait for DUT to come back up after reboot. Like tests.common.reboot.reboot(), use the
+            # cold reboot timeout and its platform override (plt_reboot_dict) from the inventory.
+            tc_name = os.environ.get("PYTEST_CURRENT_TEST", "").split(" ")[0]
+            plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, tc_name, REBOOT_TYPE_COLD)
+            timeout = plt_reboot_ctrl.get("timeout", reboot_ctrl_dict[REBOOT_TYPE_COLD]["timeout"])
+            if duthost.facts.get("modular_chassis"):
+                timeout = max(timeout, 420)
+
+            # Wait for SSH to come back up
+            wait_for_startup(duthost, localhost, delay=10, timeout=timeout)
+            pytest_assert(wait_until(120, 5, 0, _boot_id_changed, duthost, recovery.boot_id),
+                          "DUT boot ID did not change after database recovery")
+            authenticated_reboot_verified = True
+            logger.info("Authenticated access and changed boot ID verified, waiting for database recovery...")
+
+            # After a reboot with redis killed, /var/run/redis/sonic-db/database_config.json
+            # (on tmpfs) may not exist yet -- even "config reload -h" crashes without it.
+            # The file appearing is necessary but NOT sufficient: it lands on tmpfs before
+            # redis-server is actually accepting connections, so "config reload" (which
+            # connects to redis even for "config reload -h") can still crash with
+            # "Unable to connect to redis - Connection refused".  Wait for both the config
+            # files AND redis connectivity before running config_reload, which also waits
+            # for BGP sessions to re-establish.
+            db_config_timeout = 120
+            if duthost.facts.get("modular_chassis"):
+                db_config_timeout = max(db_config_timeout, 600)
+
+            # Build list of database_config.json files to wait for.
+            # On multi-ASIC devices swsscommon.SonicDBConfig.load_sonic_global_db_config()
+            # loads both the global config (/var/run/redis/sonic-db/) and per-ASIC configs
+            # (/var/run/redis{N}/sonic-db/).  All of them must be present before
+            # "config reload" can run successfully.
+            db_config_files = ["/var/run/redis/sonic-db/database_config.json"]
             num_asics = duthost.facts.get("num_asic", 1)
             if num_asics > 1:
-                # Multi-ASIC VS: after killing the global database container, SSH
-                # becomes unresponsive (sshd depends on the global namespace database).
-                # The SysRq reboot was pre-scheduled in Phase 2 while SSH was still
-                # alive.  Just wait here for the scheduled reboot to complete.
-                logger.info("Multi-ASIC KVM: SysRq reboot was pre-scheduled in Phase 2; "
-                            "waiting for DUT to come back up...")
-            else:
-                # Single-ASIC VS: SSH remains alive after killing the global database
-                # container (sshd does not depend on the database on single-ASIC KVM).
-                # Issue the SysRq reboot now; the DUT will reboot in ~2 seconds and
-                # wait_for_startup will wait for it to come back up.
-                logger.info("Single-ASIC KVM: issuing SysRq kernel reboot...")
-                try:
-                    duthost.shell(
-                        'nohup bash -c "sleep 2 && echo 1 > /proc/sys/kernel/sysrq '
-                        '&& echo b > /proc/sysrq-trigger" > /dev/null 2>&1 &',
-                        module_ignore_errors=True)
-                    logger.info("Kernel reboot trigger command issued successfully")
-                except Exception as e:
-                    logger.info("Reboot trigger (expected disconnect on immediate reboot): {}".format(str(e)))
+                for asic_idx in range(num_asics):
+                    db_config_files.append(
+                        "/var/run/redis{}/sonic-db/database_config.json".format(asic_idx)
+                    )
+
+            logger.info("Waiting for database_config.json to be ready (files: {})...".format(db_config_files))
+
+            def _all_db_configs_ready():
+                for db_config_file in db_config_files:
+                    if duthost.shell(
+                            "test -f {}".format(db_config_file),
+                            module_ignore_errors=True)["rc"] != 0:
+                        return False
+                # database_config.json on tmpfs can appear before redis-server is actually
+                # accepting connections.  Probe redis directly so the subsequent
+                # config_reload (which runs "config reload -h" against redis) does not crash
+                # with "Unable to connect to redis - Connection refused".
+                ping_commands = ["sonic-db-cli PING"]
+                if num_asics > 1:
+                    ping_commands.extend("sonic-db-cli -n asic{} PING".format(idx) for idx in range(num_asics))
+                for command in ping_commands:
+                    redis_ping = duthost.shell(command, module_ignore_errors=True)
+                    if redis_ping.get("rc") != 0 or redis_ping.get("stdout", "").strip() != "PONG":
+                        return False
+                return True
+
+            db_config_ready = wait_until(db_config_timeout, 5, 0, _all_db_configs_ready)
+            if not db_config_ready:
+                # Fail fast here to protect subsequent tests from a sick DUT.
+                pytest.fail("database_config.json / redis not ready after %ds -- DUT recovery incomplete"
+                            % db_config_timeout)
+
+            logger.info("Database config ready, performing config reload for clean recovery...")
+            config_reload(duthost, safe_reload=True, check_intf_up_ports=True,
+                          wait=get_config_reload_wait(tbinfo), wait_for_bgp=True)
+
+            ensure_all_critical_processes_running(duthost, containers_in_namespaces)
+            pytest_assert(wait_until(POST_CHECK_THRESHOLD_SECS, 5, 0,
+                                     duthost.critical_services_fully_started),
+                          "Critical services did not recover after database recovery")
+
+            logger.info("DUT recovered successfully after reboot!")
         else:
-            # For physical testbed, use PDU reboot
-            logger.info("Physical testbed - performing power cycle via PDU...")
-            try:
-                pdu_ctrl = get_pdu_controller(duthost)
-                logger.info("PDU controller obtained: {}".format(pdu_ctrl))
+            # Normal recovery for other containers
+            logger.info("Executing the config reload...")
+            config_reload(duthost, safe_reload=True, check_intf_up_ports=True,
+                          wait=get_config_reload_wait(tbinfo), wait_for_bgp=True)
+            logger.info("Executing the config reload was done!")
 
-                if pdu_ctrl is None:
-                    logger.error("No PDU controller available for {}, cannot recover from database container test"
-                                 .format(duthost.hostname))
-                    pytest.fail("No PDU controller available for {}, cannot recover from database container test"
-                                .format(duthost.hostname))
+            ensure_all_critical_processes_running(duthost, containers_in_namespaces)
 
-                # Perform PDU reboot (power cycle)
-                logger.info("Starting PDU reboot...")
-                if not pdu_reboot(pdu_ctrl):
-                    logger.error("PDU reboot failed for {}".format(duthost.hostname))
-                    pytest.fail("PDU reboot failed for {}".format(duthost.hostname))
-
-                logger.info("PDU reboot completed, waiting for DUT to boot up...")
-            except Exception as e:
-                logger.error("Exception during PDU reboot: {}".format(str(e)))
-                raise
-
-        logger.info("Waiting for DUT to boot up after power cycle...")
-        # Wait for DUT to come back up after power cycle
-        # Get timeout values based on chassis type
-        timeout = 300
-        wait_time = 120
-        if duthost.facts.get("modular_chassis"):
-            wait_time = max(wait_time, 600)
-            timeout = max(timeout, 420)
-
-        # Wait for SSH to come back up
-        wait_for_startup(duthost, localhost, delay=10, timeout=timeout)
-        logger.info("SSH is up, waiting for critical processes to recover...")
-
-        # After a dirty reboot (SysRq/PDU), /var/run/redis/sonic-db/database_config.json
-        # (on tmpfs) may not exist yet -- even "config reload -h" crashes without it.
-        # The file appearing is necessary but NOT sufficient: it lands on tmpfs before
-        # redis-server is actually accepting connections, so "config reload" (which
-        # connects to redis even for "config reload -h") can still crash with
-        # "Unable to connect to redis - Connection refused".  Wait for both the config
-        # files AND redis connectivity before running config_reload, which also waits
-        # for BGP sessions to re-establish.
-        db_config_timeout = 120
-        if duthost.facts.get("modular_chassis"):
-            db_config_timeout = max(db_config_timeout, 600)
-
-        # Build list of database_config.json files to wait for.
-        # On multi-ASIC devices swsscommon.SonicDBConfig.load_sonic_global_db_config()
-        # loads both the global config (/var/run/redis/sonic-db/) and per-ASIC configs
-        # (/var/run/redis{N}/sonic-db/).  All of them must be present before
-        # "config reload" can run successfully.
-        db_config_files = ["/var/run/redis/sonic-db/database_config.json"]
-        num_asics = duthost.facts.get("num_asic", 1)
-        if num_asics > 1:
-            for asic_idx in range(num_asics):
-                db_config_files.append(
-                    "/var/run/redis{}/sonic-db/database_config.json".format(asic_idx)
-                )
-
-        logger.info("Waiting for database_config.json to be ready (files: {})...".format(db_config_files))
-
-        def _all_db_configs_ready():
-            for db_config_file in db_config_files:
-                if duthost.shell(
-                        "test -f {}".format(db_config_file),
-                        module_ignore_errors=True)["rc"] != 0:
-                    return False
-            # database_config.json on tmpfs can appear before redis-server is actually
-            # accepting connections.  Probe redis directly so the subsequent
-            # config_reload (which runs "config reload -h" against redis) does not crash
-            # with "Unable to connect to redis - Connection refused".
-            redis_ping = duthost.shell("sonic-db-cli PING", module_ignore_errors=True)
-            if redis_ping["rc"] != 0 or "PONG" not in redis_ping["stdout"]:
-                return False
-            return True
-
-        db_config_ready = wait_until(db_config_timeout, 5, 0, _all_db_configs_ready)
-        if not db_config_ready:
-            # Fail fast here to protect subsequent tests from a sick DUT.
-            pytest.fail("database_config.json / redis not ready after %ds -- DUT recovery incomplete"
-                        % db_config_timeout)
-
-        logger.info("Database config ready, performing config reload for clean recovery...")
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-
-        ensure_all_critical_processes_running(duthost, containers_in_namespaces)
-
-        logger.info("DUT recovered successfully after power cycle!")
-    else:
-        # Normal recovery for other containers
-        logger.info("Executing the config reload...")
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-        logger.info("Executing the config reload was done!")
-
-        ensure_all_critical_processes_running(duthost, containers_in_namespaces)
-
-    if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
-        pytest.fail("Post-check failed after testing the process monitoring!")
-    logger.info("Post-checking status of critical processes and BGP sessions was done!")
+        if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
+            pytest.fail("Post-check failed after testing the process monitoring!")
+        logger.info("Post-checking status of critical processes and BGP sessions was done!")
+    except (Exception, pytest.fail.Exception) as verification_error:
+        if dispatch_disconnect is not None:
+            if not authenticated_reboot_verified:
+                # Connectivity/boot recovery remains unverified: retain the
+                # original transport cause for normal unreachable handling.
+                raise verification_error from dispatch_disconnect
+            # Startup plus changed authenticated boot ID resolved the old
+            # transport event. Do not make a later functional failure's cause
+            # falsely report a still-unreachable testbed. Preserve safe evidence
+            # only; any NEW transport exception remains classified normally.
+            verification_error.reboot_dispatch_diagnostic = {
+                "submission_connection_lost": True,
+                "authenticated_changed_boot_verified": True,
+            }
+        raise
 
 
 def test_monitoring_critical_processes(
@@ -811,7 +976,7 @@ def test_monitoring_critical_processes(
     #     alive).  The fixture waits for that scheduled reboot.
     #   - Single-ASIC VS: SSH stays alive after killing global database, so
     #     the fixture issues a 2-second SysRq reboot directly.
-    #   - Physical: fixture uses PDU power-cycle.
+    #   - Physical: fixture issues 'sudo reboot' and waits for the DUT to go down.
     if database_containers:
         logger.info("Killing database container critical processes (DUT will become unstable)...")
 

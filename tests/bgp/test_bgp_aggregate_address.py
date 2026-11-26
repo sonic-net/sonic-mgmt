@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 # ---- Topology & device-type markers (register in pytest.ini to avoid warnings) ----
 pytestmark = [
-    pytest.mark.topology("m1"),
+    pytest.mark.topology("m1", "uma", "lma"),
 ]
 
 
