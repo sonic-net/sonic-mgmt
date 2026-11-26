@@ -123,6 +123,12 @@ class BgpDualAsn:
                 vlan_ipv4_entry["prefixlen"],
             )
         ).network
+        # Each half of the VLAN subnet must keep a host address between its network and broadcast addresses
+        if vlan_network.prefixlen > 29:
+            pytest.skip(
+                "VLAN subnet %s is too small to split into two BGP speaker subnets with usable host addresses"
+                % vlan_network
+            )
         peer_subnets = [
             list(vlan_network.subnets())[0],
             list(vlan_network.subnets())[1],
