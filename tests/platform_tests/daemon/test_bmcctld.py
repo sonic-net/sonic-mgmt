@@ -34,6 +34,8 @@ from tests.common.platform.bmc_utils import (
     CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC,
     CAUSE_POWER_DOWN_FROM_BMC,
     CAUSE_POWER_LOSS,
+    PSU_SYSTEM_POWER_CYCLE_HWSKUS,
+    check_power_cycle_via_psu,
     get_host_boot_id,
     get_host_uptime,
     get_switch_host_or_skip_test,
@@ -41,6 +43,7 @@ from tests.common.platform.bmc_utils import (
     make_bmc_loganalyzer,
     action_is_syslog_only,
     power_down_action_configured,
+    power_cycle_via_psu,
     pause_pmon_daemon,
     recover_switch_host_after_power_off,
     verify_bmc_initiated_reboot,
@@ -716,12 +719,27 @@ class TestBmcctldDaemon:
         Air-cooled hosts may already be ONLINE or power on immediately. Liquid-cooled
         hosts must dispatch power_on no earlier than the configured BMC boot delay.
         Both paths require fresh startup evidence and healthy, rebooted BMC/host.
+        Prefer a PDU; allowlisted SKUs may use the PSU system-cycle workaround.
         """
 
         test_delay = 30
         is_liquid_cooled = chassis.is_liquid_cooled(platform_api_conn)
         pytest_assert(isinstance(is_liquid_cooled, bool),
                       f"Chassis.is_liquid_cooled() must return a boolean, got {is_liquid_cooled!r}")
+
+        # The PDU connection graph belongs to the switch chassis, not its BMC.
+        switch_host = get_switch_host_or_skip_test(self.duthost)
+        try:
+            pdu_ctrl = get_pdu_controller(switch_host)
+        except Exception as error:
+            logger.warning("PDU controller lookup failed for %s: %s", switch_host.hostname, error)
+            pdu_ctrl = None
+        use_psu_power_cycle = pdu_ctrl is None
+        if use_psu_power_cycle:
+            if self.duthost.facts.get('hwsku') not in PSU_SYSTEM_POWER_CYCLE_HWSKUS:
+                pytest.skip(f"No PDU controller wired for switch chassis {switch_host.hostname} "
+                            "and BMC SKU is not allowlisted for the PSU system-cycle workaround")
+            check_power_cycle_via_psu(self.duthost)
 
         orig_delay = self.duthost.shell(
             "sonic-db-cli CONFIG_DB HGET 'CHASSIS_MODULE|SWITCH-HOST' power_on_delay"
@@ -753,28 +771,15 @@ class TestBmcctldDaemon:
             self.duthost.shell("sudo config save -y")
 
             # Chassis power loss: only liquid-cooled startup must apply the BMC boot delay.
-            # The PDU/PSU connection graph is defined for the switch chassis, not the BMC
-            # (the BMC has no power supply of its own), so resolve the PDU via the Switch-Host.
-            # Cutting the switch-chassis PDU outlet removes power from the whole chassis,
-            # including the BMC, which is what this power-loss scenario needs.
-            switch_host = get_switch_host_or_skip_test(self.duthost)
             bmc_boot_id = get_host_boot_id(self.duthost)
             switch_boot_id = get_host_boot_id(switch_host)
             pytest_assert(bmc_boot_id and switch_boot_id, "Unable to read pre-power-cycle boot IDs")
-            pdu_ctrl = None
-            try:
-                pdu_ctrl = get_pdu_controller(switch_host)
-            except Exception as e:
-                pytest.skip(f"PDU controller not available for switch chassis "
-                            f"{switch_host.hostname}: {e}")
-            if not pdu_ctrl:
-                pytest.skip(f"No PDU controller wired for switch chassis {switch_host.hostname}, "
-                            "skipping power-loss scenario")
-
             # PduManager.turn_{off,on}_outlet expects the full outlet dict from
             # get_outlet_status() (with psu_name/feed_name/outlet_id), not a bare ID.
-            outlets = pdu_ctrl.get_outlet_status()
-            pytest_assert(outlets, "PDU controller returned no outlets for switch chassis")
+            outlets = []
+            if not use_psu_power_cycle:
+                outlets = pdu_ctrl.get_outlet_status()
+                pytest_assert(outlets, "PDU controller returned no outlets for switch chassis")
 
             # Set marker in event.log BEFORE power cycle. event.log is persistent;
             # syslog is tmpfs and is wiped on power loss so cannot be used here.
@@ -808,14 +813,17 @@ class TestBmcctldDaemon:
             # Recover on success, timeout or exception before the outer configuration cleanup.
             # The guard reports recovery errors without replacing an earlier test failure.
             with _restore_on_exit(restore_power, "chassis power and BMC readiness"):
-                for outlet in outlets:
-                    pytest_assert(pdu_ctrl.turn_off_outlet(outlet), f"Failed to power off PDU outlet {outlet}")
-                # Probe locally: remote Ansible calls can raise despite module_ignore_errors.
-                stopped = localhost.wait_for(
-                    host=self.duthost.mgmt_ip, port=ssh_port, state='stopped',
-                    delay=10, timeout=120, module_ignore_errors=True)
-                pytest_assert(not stopped.get('failed', False),
-                              f"BMC remained reachable after removing chassis power: {stopped}")
+                if use_psu_power_cycle:
+                    power_cycle_via_psu(self.duthost, localhost, startup_timeout=1200)
+                else:
+                    for outlet in outlets:
+                        pytest_assert(pdu_ctrl.turn_off_outlet(outlet), f"Failed to power off PDU outlet {outlet}")
+                    # Probe locally: remote Ansible calls can raise despite module_ignore_errors.
+                    stopped = localhost.wait_for(
+                        host=self.duthost.mgmt_ip, port=ssh_port, state='stopped',
+                        delay=10, timeout=120, module_ignore_errors=True)
+                    pytest_assert(not stopped.get('failed', False),
+                                  f"BMC remained reachable after removing chassis power: {stopped}")
 
             bmc_boot_id_post = get_host_boot_id(self.duthost)
             pytest_assert(bmc_boot_id_post and bmc_boot_id_post != bmc_boot_id,

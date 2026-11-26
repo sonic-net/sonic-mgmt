@@ -12,6 +12,7 @@ import pytest
 
 
 MODULE_PATH = Path(__file__).resolve().parents[2] / "platform_tests" / "daemon" / "test_bmcctld.py"
+BMC_HELPER_PATH = Path(__file__).resolve().parents[1] / "platform" / "bmc_utils.py"
 ONLINE = "STARTUP: Switch-Host already ONLINE (daemon restart); skipping boot sequence"
 IMMEDIATE = "STARTUP: non-liquid-cooled system \u2014 immediate power_on, no additional checks"
 DELAYED = "STARTUP: Switch-Host OFFLINE \u2014 issuing power_on"
@@ -40,6 +41,12 @@ def startup_namespace():
     namespace = dict(json=json, re=re, pytest_assert=_assert, pytest=pytest,
                      sys=sys, contextmanager=contextmanager, ExitStack=ExitStack,
                      logger=Mock(), CAUSE_POWER_LOSS="power loss")
+    helper_tree = ast.parse(BMC_HELPER_PATH.read_text(encoding="utf-8"))
+    hwskus = next(node.value for node in helper_tree.body if isinstance(node, ast.Assign)
+                  and any(isinstance(target, ast.Name) and target.id == "PSU_SYSTEM_POWER_CYCLE_HWSKUS"
+                          for target in node.targets))
+    namespace.update(PSU_SYSTEM_POWER_CYCLE_HWSKUS=ast.literal_eval(hwskus),
+                     check_power_cycle_via_psu=Mock(), power_cycle_via_psu=Mock())
     exec(compile(ast.Module(body=helpers + methods, type_ignores=[]), str(MODULE_PATH), "exec"), namespace)
     return namespace
 
@@ -112,6 +119,7 @@ def test_liquid_delay_does_not_hide_invalid_evidence(startup_namespace, entry, e
 
 def _integration_context(namespace, cooling=False, startup=ONLINE):
     bmc, host, pdu, analyzer = Mock(), Mock(), Mock(), Mock()
+    bmc.facts = {"hwsku": "Arista-7060XE7-64PRS"}
 
     def shell(command, **kwargs):
         if command == "true":
@@ -154,9 +162,11 @@ def _run_power_cycle(namespace, instance, pdu, conn=None, localhost=None, ansibl
 
 
 @pytest.mark.parametrize("cooling,startup", [(False, ONLINE), (False, IMMEDIATE), (True, DELAYED)])
-def test_integration_keeps_reboot_and_health_checks(startup_namespace, cooling, startup):
+@pytest.mark.parametrize("hwsku", ["Arista-7060XE7-64PRS", "Nokia-IXR7220-H6-128"])
+def test_integration_keeps_reboot_and_health_checks(startup_namespace, cooling, startup, hwsku):
     """Execute each accepted path through the real test and require both reboot IDs and health."""
     instance, host, pdu = _integration_context(startup_namespace, cooling, startup)
+    instance.duthost.facts["hwsku"] = hwsku
     conn = Mock()
     _run_power_cycle(startup_namespace, instance, pdu, conn=conn)
     startup_namespace["chassis"].is_liquid_cooled.assert_called_once_with(conn)
@@ -165,6 +175,8 @@ def test_integration_keeps_reboot_and_health_checks(startup_namespace, cooling, 
     assert pdu.turn_on_outlet.call_count == 2
     assert instance.duthost.shell.call_args_list.count(call(JOURNAL_COMMAND)) == int(cooling)
     startup_namespace["logger"].warning.assert_not_called()
+    startup_namespace["check_power_cycle_via_psu"].assert_not_called()
+    startup_namespace["power_cycle_via_psu"].assert_not_called()
 
 
 @pytest.mark.parametrize("records", [
@@ -321,6 +333,106 @@ def test_cold_reboot_rejects_delay_in_nonempty_journal(startup_namespace):
     assert call("sudo zcat -f /var/log/syslog*") not in instance.duthost.shell.call_args_list
 
 
+@pytest.mark.parametrize("cooling,startup", [(False, ONLINE), (False, IMMEDIATE), (True, DELAYED)])
+@pytest.mark.parametrize("lookup_failure", [False, True])
+def test_allowlisted_psu_fallback_preserves_startup_checks(startup_namespace, cooling, startup, lookup_failure):
+    """Use the shared workaround without a PDU and keep delay, restart, and health assertions."""
+    instance, host, pdu = _integration_context(startup_namespace, cooling, startup)
+    startup_namespace["logger"] = Mock()
+    get_pdu = Mock(side_effect=RuntimeError("PDU unavailable")) if lookup_failure else Mock(return_value=None)
+    localhost = Mock()
+    analyzer = startup_namespace["make_bmc_loganalyzer"].return_value
+
+    def cycle(*args, **kwargs):
+        analyzer.init.assert_called_once_with()
+        assert call("sudo config save -y") in instance.duthost.shell.call_args_list
+
+    startup_namespace["power_cycle_via_psu"].side_effect = cycle
+    startup_namespace["test_bmcctld_power_on_delay"](instance, localhost, get_pdu, Mock(), Mock())
+    get_pdu.assert_called_once_with(host)
+    startup_namespace["check_power_cycle_via_psu"].assert_called_once_with(instance.duthost)
+    startup_namespace["power_cycle_via_psu"].assert_called_once_with(
+        instance.duthost, localhost, startup_timeout=1200)
+    pdu.turn_off_outlet.assert_not_called()
+    pdu.turn_on_outlet.assert_not_called()
+    assert startup_namespace["get_host_boot_id"].call_count == 4
+    startup_namespace["wait_critical_processes"].assert_called_once_with(instance.duthost, timeout=600)
+    startup_namespace["wait_host_on"].assert_called_once_with(host, timeout=600)
+    assert instance.duthost.shell.call_args_list[-2:] == [
+        call("config chassis modules power-on-delay SWITCH-HOST 30"),
+        call("sudo config save -y"),
+    ]
+    if lookup_failure:
+        startup_namespace["logger"].warning.assert_called_once()
+
+
+@pytest.mark.parametrize("hwsku", ["Nokia-IXR7220-H6-128", "Arista-7060X6-64PE", None])
+@pytest.mark.parametrize("lookup_failure", [False, True])
+def test_unlisted_sku_without_pdu_skips_before_mutation(startup_namespace, hwsku, lookup_failure):
+    """Unlisted SKUs retain the skip policy without invoking a vendor API or changing configuration."""
+    instance, _, _ = _integration_context(startup_namespace)
+    instance.duthost.facts = {"hwsku": hwsku} if hwsku else {}
+    startup_namespace["logger"] = Mock()
+    get_pdu = Mock(side_effect=RuntimeError("PDU unavailable")) if lookup_failure else Mock(return_value=None)
+    with pytest.raises(pytest.skip.Exception, match="not allowlisted"):
+        startup_namespace["test_bmcctld_power_on_delay"](instance, Mock(), get_pdu, Mock(), Mock())
+    instance.duthost.shell.assert_not_called()
+    startup_namespace["check_power_cycle_via_psu"].assert_not_called()
+    startup_namespace["power_cycle_via_psu"].assert_not_called()
+    startup_namespace["make_bmc_loganalyzer"].assert_not_called()
+
+
+def test_psu_capability_failure_aborts_before_mutation(startup_namespace):
+    """A listed SKU lacking the required API must fail before changing power-on delay."""
+    instance, _, _ = _integration_context(startup_namespace)
+    startup_namespace["check_power_cycle_via_psu"].side_effect = RuntimeError("unsupported API")
+    with pytest.raises(RuntimeError, match="unsupported API"):
+        startup_namespace["test_bmcctld_power_on_delay"](instance, Mock(), Mock(return_value=None), Mock(), Mock())
+    instance.duthost.shell.assert_not_called()
+    startup_namespace["power_cycle_via_psu"].assert_not_called()
+    startup_namespace["make_bmc_loganalyzer"].assert_not_called()
+
+
+@pytest.mark.parametrize("failure", [
+    "cycle", "bmc-id", "host-id", "health", "bmc-cause", "host-cause", "logs", "persistence", "early-delay",
+])
+def test_psu_fallback_does_not_mask_failure_and_restores_delay(startup_namespace, failure):
+    """The fallback must not relax restart, power-loss, persistence, or cooling evidence."""
+    instance, host, _ = _integration_context(startup_namespace, cooling=True, startup=DELAYED)
+    original_shell = instance.duthost.shell.side_effect
+    if failure == "cycle":
+        startup_namespace["power_cycle_via_psu"].side_effect = RuntimeError("cycle failed")
+    elif failure == "bmc-id":
+        startup_namespace["get_host_boot_id"].side_effect = ["bmc", "host", "bmc"]
+    elif failure == "host-id":
+        startup_namespace["get_host_boot_id"].side_effect = ["bmc", "host", "new-bmc", "host"]
+    elif failure == "health":
+        startup_namespace["wait_host_on"].return_value = False
+    elif failure == "bmc-cause":
+        instance.duthost.shell.side_effect = lambda command, **kwargs: (
+            {"stdout": "User issued reboot command"} if command == "show reboot-cause"
+            else original_shell(command, **kwargs))
+    elif failure == "host-cause":
+        host.shell.return_value = {"stdout": "Hardware - Other (rail, description: Rail fault - CPU)"}
+    elif failure == "logs":
+        startup_namespace["make_bmc_loganalyzer"].return_value.analyze.return_value = {"match_messages": {}}
+    elif failure == "persistence":
+        delays = iter(["30", "30", "0"])
+        instance.duthost.shell.side_effect = lambda command, **kwargs: (
+            {"stdout": next(delays)} if "HGET" in command else original_shell(command, **kwargs))
+    elif failure == "early-delay":
+        journal = json.dumps({"MESSAGE": DELAYED, "__MONOTONIC_TIMESTAMP": "29000000"})
+        instance.duthost.shell.side_effect = lambda command, **kwargs: (
+            {"stdout": journal} if command.startswith("journalctl") else original_shell(command, **kwargs))
+    with pytest.raises(RuntimeError if failure == "cycle" else AssertionError):
+        startup_namespace["test_bmcctld_power_on_delay"](instance, Mock(), Mock(return_value=None), Mock(), Mock())
+    assert instance.duthost.shell.call_args_list[-2:] == [
+        call("config chassis modules power-on-delay SWITCH-HOST 30"),
+        call("sudo config save -y"),
+    ]
+    startup_namespace["wait_critical_processes"].assert_called_once_with(instance.duthost, timeout=600)
+
+
 @pytest.mark.parametrize("failure", ["bmc-id", "host-id", "health", "cause", "logs", "cooling", "pdu", "pdu-on"])
 def test_integration_does_not_mask_failures(startup_namespace, failure):
     """Immediate startup is not a fallback for failed reboot evidence or host recovery."""
@@ -345,6 +457,7 @@ def test_integration_does_not_mask_failures(startup_namespace, failure):
         _run_power_cycle(startup_namespace, instance, pdu)
     if failure in ("pdu", "pdu-on"):
         assert pdu.turn_on_outlet.call_count == 2
+    startup_namespace["power_cycle_via_psu"].assert_not_called()
 
 
 @pytest.mark.parametrize("cooling", [True, False, "True", "False", None, 0, 1, [], {}])
@@ -1006,58 +1119,25 @@ def test_cleanup_preserves_skip_after_successful_restoration(production_assert_n
     namespace["logger"].exception.assert_not_called()
 
 
-@pytest.mark.parametrize("original", ["", "45"])
+@pytest.mark.parametrize("hwsku", ["Nokia-IXR7220-H6-128", None])
 @pytest.mark.parametrize("pdu_unavailable", [False, True])
-@pytest.mark.parametrize("cleanup_stage,cleanup_type", [
-    (None, None), ("restore", RuntimeError), ("save", pytest.fail.Exception),
-])
-def test_power_cycle_missing_pdu_reports_cleanup_failure(
-        production_assert_namespace, original, pdu_unavailable, cleanup_stage, cleanup_type):
-    """Missing-PDU skips must fail if restoring or saving the original delay fails."""
+def test_power_cycle_unlisted_missing_pdu_skips_before_mutation(
+        production_assert_namespace, hwsku, pdu_unavailable):
+    """Unlisted missing-PDU skips must not change configuration or invoke cleanup."""
     namespace = production_assert_namespace
     instance, host, pdu = _integration_context(namespace)
+    instance.duthost.facts = {"hwsku": hwsku} if hwsku else {}
     get_pdu = Mock(return_value=None)
     if pdu_unavailable:
         get_pdu.side_effect = RuntimeError("PDU unavailable")
-    restore_command = (
-        f"config chassis modules power-on-delay SWITCH-HOST {original}" if original else
-        "sonic-db-cli CONFIG_DB HDEL 'CHASSIS_MODULE|SWITCH-HOST' power_on_delay")
-    cleanup_error = cleanup_type("Cleanup failed") if cleanup_type else None
-    reads, saves = 0, 0
-
-    def shell(command, **kwargs):
-        nonlocal reads, saves
-        if "HGET" in command:
-            reads += 1
-            return {"stdout": original if reads == 1 else "30"}
-        if cleanup_stage == "restore" and command == restore_command:
-            raise cleanup_error
-        if command == "sudo config save -y":
-            saves += 1
-            if cleanup_stage == "save" and saves == 2:
-                raise cleanup_error
-        return {"stdout": ""}
-
-    instance.duthost.shell.side_effect = shell
-    with pytest.raises((cleanup_type or pytest.skip.Exception, pytest.skip.Exception)) as outcome:
+    with pytest.raises(pytest.skip.Exception, match="not allowlisted"):
         namespace["test_bmcctld_power_on_delay"](instance, Mock(), get_pdu, Mock(), Mock())
-    if cleanup_error:
-        assert outcome.value is cleanup_error
-        namespace["logger"].exception.assert_called_once()
-    else:
-        assert "PDU controller" in str(outcome.value)
-        namespace["logger"].exception.assert_not_called()
+    namespace["logger"].exception.assert_not_called()
     get_pdu.assert_called_once_with(host)
-    expected_commands = [
-        "sonic-db-cli CONFIG_DB HGET 'CHASSIS_MODULE|SWITCH-HOST' power_on_delay",
-        "config chassis modules power-on-delay SWITCH-HOST 30",
-        "sonic-db-cli CONFIG_DB HGET 'CHASSIS_MODULE|SWITCH-HOST' power_on_delay",
-        "sudo config save -y", restore_command,
-    ]
-    if cleanup_stage != "restore":
-        expected_commands.append("sudo config save -y")
-    assert [c.args[0] for c in instance.duthost.shell.call_args_list] == expected_commands
+    instance.duthost.shell.assert_not_called()
     pdu.turn_off_outlet.assert_not_called()
+    namespace["check_power_cycle_via_psu"].assert_not_called()
+    namespace["power_cycle_via_psu"].assert_not_called()
     namespace["wait_for_startup"].assert_not_called()
 
 

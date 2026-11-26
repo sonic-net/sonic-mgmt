@@ -11,6 +11,7 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.sonic_db import CONFIG_DB, STATE_DB, redis_hget, redis_hgetall, redis_hset
+from tests.common.reboot import wait_for_shutdown, wait_for_startup
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -31,6 +32,10 @@ BMC_INITIATED_REBOOT_CAUSES = (
 )
 
 MAX_BMC_CLOCK_SKEW_SECONDS = 60
+
+PSU_SYSTEM_POWER_CYCLE_HWSKUS = [
+    'Arista-7060XE7-64PRS',
+]
 
 
 def assert_bmc_clock_in_sync(duthost, max_skew_seconds=MAX_BMC_CLOCK_SKEW_SECONDS):
@@ -63,6 +68,70 @@ def pause_pmon_daemon(duthost, daemon_name):
     finally:
         logger.info("Restarting pmon daemon '%s'", daemon_name)
         duthost.start_pmon_daemon(daemon_name)
+
+
+def check_power_cycle_via_psu(bmc):
+    """Validate PSU system power-cycle support and return a non-disruptive probe.
+
+    Require an allowlisted SKU and a callable full-system power-cycle API
+    without invoking the operation.
+    """
+    pytest_assert(bmc.facts.get('hwsku') in PSU_SYSTEM_POWER_CYCLE_HWSKUS,
+                  "BMC system power-cycle workaround is restricted to allowlisted SKUs")
+    probe = (
+        'from sonic_platform.chassis import Chassis; '
+        'host = next(module for module in Chassis().get_all_modules() '
+        'if module.get_name() == "SWITCH-HOST"); '
+        'assert callable(getattr(host, "do_system_power_cycle", None)), '
+        '"Platform does not support system power cycle; configure a PDU"; '
+    )
+    bmc.shell("sudo -n python3 -c {}".format(shlex.quote(probe)))
+    return probe
+
+
+def power_cycle_via_psu(bmc, localhost, startup_timeout):
+    """Cycle the full system through the BMC and wait for both devices to return.
+
+    Args:
+        bmc: BMC DUT exposing get_bmc_host(), backed by testbed bmc_host metadata.
+        localhost: Ansible localhost handle used for SSH availability checks.
+        startup_timeout: Timeout in seconds for each device's startup wait.
+
+    This workaround is restricted to PSU_SYSTEM_POWER_CYCLE_HWSKUS and requires a SWITCH-HOST
+    module implementing the vendor-specific do_system_power_cycle() API.
+    The operation restarts both the BMC and switch CPU. Capability and inventory
+    resolution failures propagate before cycling; recovery failures also propagate.
+    """
+    switch_host = bmc.get_bmc_host()
+    probe = check_power_cycle_via_psu(bmc)
+    boot_id = bmc.shell("cat /proc/sys/kernel/random/boot_id")['stdout'].strip()
+    pytest_assert(boot_id, "Could not read boot ID from {}".format(bmc.hostname))
+    switch_boot_id = switch_host.shell("cat /proc/sys/kernel/random/boot_id")['stdout'].strip()
+    pytest_assert(switch_boot_id, "Could not read boot ID from {}".format(switch_host.hostname))
+    logger.warning("System power cycling %s via BMC API; both BMC and switch host will restart",
+                   bmc.hostname)
+    try:
+        bmc.shell("sudo -n python3 -u -c {}".format(
+            shlex.quote(probe + 'assert host.do_system_power_cycle() is True')))
+    except Exception as error:
+        logger.info("BMC power-cycle command interrupted; verifying restart: %s", error)
+
+    wait_for_shutdown(bmc, localhost, delay=0, timeout=180)
+    wait_for_startup(bmc, localhost, delay=10, timeout=startup_timeout)
+
+    def restarted(device, original_boot_id):
+        try:
+            current = device.shell("cat /proc/sys/kernel/random/boot_id")['stdout'].strip()
+            return bool(current) and current != original_boot_id
+        except Exception as error:
+            logger.info("Waiting for boot ID from %s: %s", device.hostname, error)
+            return False
+
+    pytest_assert(wait_until(120, 5, 0, lambda: restarted(bmc, boot_id)),
+                  "BMC {} boot ID did not change after system power cycle".format(bmc.hostname))
+    wait_for_startup(switch_host, localhost, delay=10, timeout=startup_timeout)
+    pytest_assert(wait_until(120, 5, 0, lambda: restarted(switch_host, switch_boot_id)),
+                  "Switch host {} boot ID did not change after system power cycle".format(switch_host.hostname))
 
 
 def get_switch_host_or_skip_test(duthost):

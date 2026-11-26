@@ -99,6 +99,13 @@ class DirectRebootControls(unittest.TestCase):
             'POST_CHECK_THRESHOLD_SECS': 600,
             'ThreadPool': self.make_pool, 'monotonic': lambda: 0,
         }
+        helper_path = SOURCE.parents[1] / 'common' / 'platform' / 'bmc_utils.py'
+        helper_tree = ast.parse(helper_path.read_text())
+        hwskus = next(node.value for node in helper_tree.body if isinstance(node, ast.Assign)
+                      and any(isinstance(target, ast.Name) and target.id == 'PSU_SYSTEM_POWER_CYCLE_HWSKUS'
+                              for target in node.targets))
+        self.ns.update(PSU_SYSTEM_POWER_CYCLE_HWSKUS=ast.literal_eval(hwskus),
+                       check_power_cycle_via_psu=Mock(), power_cycle_via_psu=Mock())
         tree = ast.parse(SOURCE.read_text())
         names = {'_read_boot_id', '_admit_database_recovery', '_boot_id_changed',
                  '_submit_os_reboot_and_wait_for_shutdown', 'recover_critical_processes'}
