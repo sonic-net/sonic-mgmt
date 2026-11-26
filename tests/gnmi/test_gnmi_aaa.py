@@ -214,8 +214,11 @@ def test_gnmi_audit_rate_limit(gnmi_tls):  # noqa: F811
         SET_METHOD,
         CLIENT_PRINCIPAL,
         expected_count=RATE_LIMIT_BURST + 1,
-        code="Unknown",
         path=AUDIT_SET_PATH,
+    )
+    pytest_assert(
+        all(record["code"] in ("PermissionDenied", "Unknown") for record in set_records),
+        "Expected role-denied Set records (Unknown on legacy servers), got: {}".format(set_records),
     )
     pytest_assert(
         all(record["suppressed"] == 0 for record in set_records),

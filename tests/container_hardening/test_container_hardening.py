@@ -38,11 +38,9 @@ def get_base_container_name(container_name):
     return container_name
 
 
-def test_container_block_device_mounted(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index,
-                                        enum_dut_feature, vendor_specific_privileged_containers):
-    """
-    Test only containers allowed have access to block devices such as /dev/vda*, /dev/sda*, /dev/nvme0n1*
-    """
+@pytest.fixture
+def block_device_test_container(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index,
+                                enum_dut_feature, vendor_specific_privileged_containers):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     asic = duthost.asic_instance(enum_rand_one_asic_index)
     container_name = asic.get_docker_name(enum_dut_feature)
@@ -55,7 +53,16 @@ def test_container_block_device_mounted(duthosts, enum_rand_one_per_hwsku_hostna
     pytest_require(feature_name not in skip_condition, "Skipping test for container {}".format(feature_name))
 
     is_running = is_container_running(duthost, container_name)
-    pytest_assert(is_running, "Container '{}' is not running. Exiting...".format(container_name))
+    pytest_assert(is_running, "Prerequisite failed: container '{}' is not running. "
+                  "Check DUT feature configuration and preceding test cleanup.".format(container_name))
+    return duthost, container_name
+
+
+def test_container_block_device_mounted(block_device_test_container):
+    """
+    Test only containers allowed have access to block devices such as /dev/vda*, /dev/sda*, /dev/nvme0n1*
+    """
+    duthost, container_name = block_device_test_container
 
     docker_exec_cmd = 'docker exec {} bash -c '.format(container_name)
     cmd = duthost.shell(docker_exec_cmd + "'mount | grep /etc/hosts' | awk '{print $1}'")

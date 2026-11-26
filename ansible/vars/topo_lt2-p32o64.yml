@@ -355,7 +355,9 @@ topology:
 
 configuration_properties:
   common:
-    dut_asn: 4200100000
+    dut_asn: 4200200000
+    dut_confed_asn: 4200100000
+    dut_confed_peers: "4200300000 4200400000"
     dut_type: LowerSpineRouter
     nhipv4: 10.10.246.254
     nhipv6: FC0A::FF
@@ -375,9 +377,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200100000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
+      asn: 4200300000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.0
           - fc00::1
     interfaces:
@@ -395,9 +399,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200100000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
+      asn: 4200300000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.2
           - fc00::5
     interfaces:
@@ -415,9 +421,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200100000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
+      asn: 4200300000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.4
           - fc00::9
     interfaces:
@@ -435,9 +443,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200100000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
+      asn: 4200300000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.6
           - fc00::d
     interfaces:
@@ -455,9 +465,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200100000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
+      asn: 4200300000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.8
           - fc00::11
     interfaces:
@@ -475,9 +487,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200100000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
+      asn: 4200300000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.10
           - fc00::15
     interfaces:
@@ -495,9 +509,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200100000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
+      asn: 4200300000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.12
           - fc00::19
     interfaces:
@@ -515,9 +531,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200100000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
+      asn: 4200300000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.14
           - fc00::1d
     interfaces:
@@ -535,9 +553,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200100000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
+      asn: 4200300000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.16
           - fc00::21
     interfaces:
@@ -555,9 +575,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200100000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
+      asn: 4200300000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.18
           - fc00::25
     interfaces:
@@ -575,9 +597,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200100000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
+      asn: 4200300000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.20
           - fc00::29
     interfaces:
@@ -595,9 +619,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200100000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
+      asn: 4200300000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.30
           - fc00::3d
     interfaces:
@@ -615,9 +641,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200100000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
+      asn: 4200300000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.32
           - fc00::41
     interfaces:
@@ -635,9 +663,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200100000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
+      asn: 4200300000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.34
           - fc00::45
     interfaces:
@@ -655,9 +685,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200100000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
+      asn: 4200300000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.36
           - fc00::49
     interfaces:
@@ -675,9 +707,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200100000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
+      asn: 4200300000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.38
           - fc00::4d
     interfaces:
@@ -695,9 +729,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200100000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
+      asn: 4200300000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.40
           - fc00::51
     interfaces:
@@ -715,9 +751,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200100000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
+      asn: 4200300000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.42
           - fc00::55
     interfaces:
@@ -735,9 +773,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200100000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
+      asn: 4200300000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.44
           - fc00::59
     interfaces:
@@ -755,9 +795,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200100000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
+      asn: 4200300000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.46
           - fc00::5d
     interfaces:
@@ -775,9 +817,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200100000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
+      asn: 4200300000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.48
           - fc00::61
     interfaces:
@@ -795,9 +839,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200100000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
+      asn: 4200300000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.50
           - fc00::65
     interfaces:
@@ -815,9 +861,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200100000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
+      asn: 4200300000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.52
           - fc00::69
     interfaces:
@@ -835,9 +883,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200100000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
+      asn: 4200300000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.62
           - fc00::7d
     interfaces:
@@ -856,6 +906,7 @@ configuration:
     - leaf
     tornum: 1
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -879,6 +930,7 @@ configuration:
     - leaf
     tornum: 2
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -902,6 +954,7 @@ configuration:
     - leaf
     tornum: 3
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -925,6 +978,7 @@ configuration:
     - leaf
     tornum: 4
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -948,6 +1002,7 @@ configuration:
     - leaf
     tornum: 5
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -971,6 +1026,7 @@ configuration:
     - leaf
     tornum: 6
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -994,6 +1050,7 @@ configuration:
     - leaf
     tornum: 7
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1017,6 +1074,7 @@ configuration:
     - leaf
     tornum: 8
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1040,6 +1098,7 @@ configuration:
     - leaf
     tornum: 9
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1063,6 +1122,7 @@ configuration:
     - leaf
     tornum: 10
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1086,6 +1146,7 @@ configuration:
     - leaf
     tornum: 11
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1109,6 +1170,7 @@ configuration:
     - leaf
     tornum: 12
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1132,6 +1194,7 @@ configuration:
     - leaf
     tornum: 13
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1155,6 +1218,7 @@ configuration:
     - leaf
     tornum: 14
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1178,6 +1242,7 @@ configuration:
     - leaf
     tornum: 15
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1201,6 +1266,7 @@ configuration:
     - leaf
     tornum: 16
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1224,6 +1290,7 @@ configuration:
     - leaf
     tornum: 17
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1247,6 +1314,7 @@ configuration:
     - leaf
     tornum: 18
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1270,6 +1338,7 @@ configuration:
     - leaf
     tornum: 19
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1293,6 +1362,7 @@ configuration:
     - leaf
     tornum: 20
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1316,6 +1386,7 @@ configuration:
     - leaf
     tornum: 21
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1339,6 +1410,7 @@ configuration:
     - leaf
     tornum: 22
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1362,6 +1434,7 @@ configuration:
     - leaf
     tornum: 23
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1385,6 +1458,7 @@ configuration:
     - leaf
     tornum: 24
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1408,6 +1482,7 @@ configuration:
     - leaf
     tornum: 25
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1431,6 +1506,7 @@ configuration:
     - leaf
     tornum: 26
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1453,9 +1529,11 @@ configuration:
     - common
     - spine
     bgp:
-      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200300000"
+      asn: 4200400000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.116
           - fc00::e9
     interfaces:
@@ -1473,9 +1551,11 @@ configuration:
     - common
     - spine
     bgp:
-      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200300000"
+      asn: 4200400000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.118
           - fc00::ed
     interfaces:
@@ -1493,9 +1573,11 @@ configuration:
     - common
     - spine
     bgp:
-      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200300000"
+      asn: 4200400000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.120
           - fc00::f1
     interfaces:
@@ -1513,9 +1595,11 @@ configuration:
     - common
     - spine
     bgp:
-      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200300000"
+      asn: 4200400000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.122
           - fc00::f5
     interfaces:
@@ -1534,6 +1618,7 @@ configuration:
     - leaf
     tornum: 27
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1557,6 +1642,7 @@ configuration:
     - leaf
     tornum: 28
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1580,6 +1666,7 @@ configuration:
     - leaf
     tornum: 29
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1603,6 +1690,7 @@ configuration:
     - leaf
     tornum: 30
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1625,9 +1713,11 @@ configuration:
     - common
     - spine
     bgp:
-      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200300000"
+      asn: 4200400000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.132
           - fc00::109
     interfaces:
@@ -1645,9 +1735,11 @@ configuration:
     - common
     - spine
     bgp:
-      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200300000"
+      asn: 4200400000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.134
           - fc00::10d
     interfaces:
@@ -1665,9 +1757,11 @@ configuration:
     - common
     - spine
     bgp:
-      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200300000"
+      asn: 4200400000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.136
           - fc00::111
     interfaces:
@@ -1685,9 +1779,11 @@ configuration:
     - common
     - spine
     bgp:
-      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200300000"
+      asn: 4200400000
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.138
           - fc00::115
     interfaces:
@@ -1706,6 +1802,7 @@ configuration:
     - leaf
     tornum: 31
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1729,6 +1826,7 @@ configuration:
     - leaf
     tornum: 32
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1752,6 +1850,7 @@ configuration:
     - leaf
     tornum: 33
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1775,6 +1874,7 @@ configuration:
     - leaf
     tornum: 34
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1798,6 +1898,7 @@ configuration:
     - leaf
     tornum: 35
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1821,6 +1922,7 @@ configuration:
     - leaf
     tornum: 36
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1844,6 +1946,7 @@ configuration:
     - leaf
     tornum: 37
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1867,6 +1970,7 @@ configuration:
     - leaf
     tornum: 38
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1890,6 +1994,7 @@ configuration:
     - leaf
     tornum: 39
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1913,6 +2018,7 @@ configuration:
     - leaf
     tornum: 40
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1936,6 +2042,7 @@ configuration:
     - leaf
     tornum: 41
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1959,6 +2066,7 @@ configuration:
     - leaf
     tornum: 42
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -1982,6 +2090,7 @@ configuration:
     - leaf
     tornum: 43
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -2005,6 +2114,7 @@ configuration:
     - leaf
     tornum: 44
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -2028,6 +2138,7 @@ configuration:
     - leaf
     tornum: 45
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -2051,6 +2162,7 @@ configuration:
     - leaf
     tornum: 46
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -2074,6 +2186,7 @@ configuration:
     - leaf
     tornum: 47
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -2097,6 +2210,7 @@ configuration:
     - leaf
     tornum: 48
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -2120,6 +2234,7 @@ configuration:
     - leaf
     tornum: 49
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -2143,6 +2258,7 @@ configuration:
     - leaf
     tornum: 50
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -2166,6 +2282,7 @@ configuration:
     - leaf
     tornum: 51
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -2189,6 +2306,7 @@ configuration:
     - leaf
     tornum: 52
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -2212,6 +2330,7 @@ configuration:
     - leaf
     tornum: 53
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -2235,6 +2354,7 @@ configuration:
     - leaf
     tornum: 54
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -2258,6 +2378,7 @@ configuration:
     - leaf
     tornum: 55
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:
@@ -2281,6 +2402,7 @@ configuration:
     - leaf
     tornum: 56
     bgp:
+      peer_in_bgp_confed: true
       asn: 4200000000
       peers:
         4200100000:

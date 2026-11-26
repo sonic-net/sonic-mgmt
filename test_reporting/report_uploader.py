@@ -1,4 +1,5 @@
 import argparse
+import glob
 import json
 import sys
 import uuid
@@ -27,6 +28,21 @@ def _parse_os_version(image_url):
             if "internal" in item:
                 os_version = item.split("-")[-1]
     return os_version if os_version else "UNKNOWN"
+
+
+def _warn_skipped_xml_files(directory_name, roots):
+    """Print a warning for the XML files under directory_name that are not in roots; return True if any."""
+    # Looks for every XML file in any case (regular files only, not directories named *.xml), while
+    # validate_junit_xml_archive only parses lower-case *.xml and skips invalid ones.
+    pattern = os.path.join(directory_name, "**", "*.[xX][mM][lL]")
+    xml_files = {path for path in glob.glob(pattern, recursive=True) if os.path.isfile(path)}
+    skipped = sorted(xml_files - {document for _, document in roots})
+    if skipped:
+        names = ", ".join(os.path.relpath(document, directory_name) for document in skipped[:20])
+        if len(skipped) > 20:
+            names += " ..."
+        print(f"WARNING: skipped {len(skipped)} of {len(xml_files)} XML file(s) under '{directory_name}': {names}")
+    return bool(skipped)
 
 
 def _run_script():
@@ -61,6 +77,12 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
         default="appKey",
         help="Authentication method for Kusto connection."
     )
+    parser.add_argument(
+        "--strict", action="store_true",
+        help="test_result only: exit 1 if any path fails to parse or queue, or yields no test results\n"
+             "(some data may already be queued); exit 3 if every path was queued but some XML files\n"
+             "under a folder were skipped. Without it, errors are printed and the exit code is 0."
+    )
     os_version = parser.add_mutually_exclusive_group(required=False)
     os_version.add_argument(
         "--image_url", "-i", type=str,
@@ -91,6 +113,8 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
             version = args.version
         else:
             version = "UNKNOWN"
+        failed_paths = []
+        skipped_paths = []
         for path_name in args.path_list:
             try:
                 reboot_data_regex = re.compile(
@@ -103,11 +127,23 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
                     else:
                         roots = validate_junit_xml_path(path_name)
                         test_result_json = parse_test_result(roots)
+                    if args.strict and not test_result_json:
+                        raise ValueError(f"no test results found in '{path_name}'")
                     kusto_db.upload_report(test_result_json, tracking_id, report_guid, testbed, version)
+                    if args.strict and not args.json and os.path.isdir(path_name):
+                        if _warn_skipped_xml_files(path_name, roots):
+                            skipped_paths.append(path_name)
             except Exception as e:
+                failed_paths.append(path_name)
                 print(f"Failed to upload report '{path_name}', exception: {repr(e)}")
                 import traceback
                 traceback.print_exc()
+        if args.strict:
+            if failed_paths:
+                print(f"ERROR: {len(failed_paths)} of {len(args.path_list)} path(s) failed: {', '.join(failed_paths)}")
+                sys.exit(1)
+            if skipped_paths:
+                sys.exit(3)
     elif args.category == "reachability":
         reachability_data = []
         for path_name in args.path_list:

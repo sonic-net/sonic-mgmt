@@ -1153,7 +1153,7 @@ class GenerateGoldenConfigDBModule(object):
         return json.dumps(ori_config_db, indent=4)
 
     def update_swss_zmq_config(self, config):
-        """Enable SWSS ZMQ on T2 and DRH topologies via SYSTEM_DEFAULTS|swss_zmq.
+        """Enable SWSS ZMQ on T1, T2 and DRH topologies via SYSTEM_DEFAULTS|swss_zmq.
 
         The knob drives both the northbound (fpmsyncd<->orchagent) and southbound
         (orchagent<->syncd) route ZMQ channels, which run per ASIC. On multi-ASIC
@@ -1162,18 +1162,25 @@ class GenerateGoldenConfigDBModule(object):
         config. The ASIC count is autodetected because the golden config module is
         not always invoked with a reliable ``num_asics`` value.
 
-        Applies to the T2 family (``t2``, ``ft2``, ``lt2``, ``t2_single_node``)
-        and the disaggregated Regional Hub family (``lrh``, ``urh``, ``drh``),
-        which are the route-scaling roles that rely on the ZMQ route datapath.
+        Applies to the T1 family (``t1``), the T2 family (``t2``, ``ft2``,
+        ``lt2``, ``t2_single_node``) and the disaggregated Regional Hub family
+        (``lrh``, ``urh``, ``drh``), which are the route-scaling roles that rely
+        on the ZMQ route datapath.
         Chassis supervisors are excluded: they hold no BGP sessions and run no
         per-ASIC route programming, so the ZMQ knob does not apply to them.
+        SmartSwitch NPUs (DEVICE_METADATA subtype ``SmartSwitch``) are excluded:
+        their orchagent binds the northbound ZMQ endpoint on the midplane
+        interface, while fpmsyncd connects on localhost.
         """
         topo = self.topo_name
-        if not any(t in topo for t in ("t2", "lrh", "urh", "drh")):
+        if not any(t in topo for t in ("t1", "t2", "lrh", "urh", "drh")):
             return config
         if device_info.is_supervisor():
             return config
         ori_config_db = json.loads(config)
+        subtype = ori_config_db.get("DEVICE_METADATA", {}).get("localhost", {}).get("subtype")
+        if subtype == "SmartSwitch":
+            return config
         zmq_value = {"swss_zmq": {"status": "enabled"}}
         if multi_asic.is_multi_asic():
             for asic in range(multi_asic.get_num_asics()):
@@ -1287,10 +1294,7 @@ class GenerateGoldenConfigDBModule(object):
 
         # Add BGP confederation config
         if self.bgp_confd_asn and self.bgp_confd_peers:
-            golden_config["BGP_DEVICE_GLOBAL"] = ori_config.get("BGP_DEVICE_GLOBAL", {})
-            # Replace space in confg_peers with ; to align with NDM
-            golden_config["BGP_DEVICE_GLOBAL"]["CONFED"] = \
-                {"asn": str(self.bgp_confd_asn), "peers": str(self.bgp_confd_peers).replace(' ', ';')}
+            self._set_bgp_confed_config(golden_config)
 
         return json.dumps(golden_config, indent=4)
 
@@ -1580,7 +1584,7 @@ class GenerateGoldenConfigDBModule(object):
         if self.is_bmc_device() or "bmc" in self.topo_name.lower():
             bmc_enabled_features = [
                 "database", "gnmi", "lldp", "pmon", "redfish", "sysmgr",
-                "telemetry", "acms"
+                "acms"
             ]
             config = self.apply_bmc_feature_allowlist(config, bmc_enabled_features)
 
