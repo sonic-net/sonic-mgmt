@@ -9,6 +9,7 @@ RANDOM_SEED = 'random_seed'
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
 DUT_CHECK_NAMESPACE = "dut_check_result"
 PTF_TIMEOUT = 60
+ERSPAN_GRE_TYPE = 0x8949
 
 # Canonical default config path for the PTF arp_responder helper
 # (ansible/roles/test/files/helpers/arp_responder.py and tests/scripts/arp_responder.py).
@@ -26,6 +27,10 @@ ARP_RESPONDER_DEFAULT_CONFIG = "/tmp/from_t1.json"
 # the file naming scheme ever changes; the PTF runner keeps a module-local mirror.
 ARP_RESPONDER_PER_SUFFIX_CONFIG_FMT = "/tmp/from_t1_%s.json"
 
+# Isolated T2 topologies (t2-isolated-*) have no T3 tier. Their PT1 peer-leaf neighbors
+# provide the default routes, so PT1 is treated as the upstream tier for every variant.
+ISOLATED_T2_TOPO_PREFIX = "t2-isolated"
+
 # Describe upstream neighbor of dut in different topos
 UPSTREAM_NEIGHBOR_MAP = {
     "t0": "t1",
@@ -34,6 +39,7 @@ UPSTREAM_NEIGHBOR_MAP = {
     "m0": "m1",
     "mx": "m0",
     "t2": "t3",
+    ISOLATED_T2_TOPO_PREFIX: "pt1",
     "m0_vlan": "m1",
     "m0_l3": "m1",
     "ft2": "lt2",
@@ -42,7 +48,11 @@ UPSTREAM_NEIGHBOR_MAP = {
     "t1-isolated-d32": "t0",
     "c0": "m1",
     "lrh": "urh",
-    "urh": "rwa"
+    "urh": "rwa",
+    # Neighbor names are matched by suffix, so use the full "uma"/"lma"/"rwa"
+    # strings here. A bare "ma" would also match the LMA neighbors on a UMA DUT.
+    "uma": "rwa",
+    "lma": "uma"
 }
 
 # Describe ALL upstream neighbor of dut in different topos
@@ -53,13 +63,16 @@ UPSTREAM_ALL_NEIGHBOR_MAP = {
     "m0": ["m1"],
     "mx": ["m0"],
     "t2": ["t3"],
+    ISOLATED_T2_TOPO_PREFIX: ["pt1"],
     "m0_vlan": ["m1"],
     "m0_l3": ["m1"],
     'lt2': ['ut2'],
     "c0": ["m1"],
     'ft2': ['lt2'],
     'lrh': ["urh", "frh"],
-    'urh': ["rwa"]
+    'urh': ["rwa"],
+    "uma": ["rwa"],
+    "lma": ["uma"]
 }
 
 # Describe downstream neighbor of dut in different topos
@@ -75,7 +88,11 @@ DOWNSTREAM_NEIGHBOR_MAP = {
     "ft2": "lt2",
     "lt2": "t1",
     "lrh": "t2",
-    "urh": "lrh"
+    "urh": "lrh",
+    "uma": "lma",
+    # LMA has both M2 and M3 downstream; this map holds a single value, so it
+    # names the first tier. See DOWNSTREAM_ALL_NEIGHBOR_MAP for the full set.
+    "lma": "m2"
 }
 
 # Describe downstream neighbor of dut in different topos
@@ -91,5 +108,7 @@ DOWNSTREAM_ALL_NEIGHBOR_MAP = {
     "ft2": ["lt2"],
     "lt2": ["t1"],
     "lrh": ["t2", "ut2"],
-    "urh": ["lrh"]
+    "urh": ["lrh"],
+    "uma": ["lma", "m1"],
+    "lma": ["m2", "m3"]
 }

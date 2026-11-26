@@ -1,0 +1,47 @@
+---
+# Reconcile OCS cross-connects on an L1 (FanoutL1Sonic) switch using the live CLI,
+# instead of building a JSON patch and reloading the config.
+#
+# All of the parsing and set math lives in the ocs_cross_connect Python module
+# (ansible/library/ocs_cross_connect.py); this task is a single declarative call.
+# The reconcile is idempotent. A "config save" step is run after successful changes
+# so cross-connect updates are explicitly written to config DB.
+#
+# Tunables (override with -e):
+#   l1_xconnect_dry_run     (default false): only compute the planned changes, do not apply.
+#   l1_xconnect_clear_stale (default true):  clear status-only entries that block a desired port.
+#   l1_xconnect_verify      (default true):  verify status is "tuned" after applying.
+#   l1_xconnect_save_config (default true):  run "config save -y" after applying changes.
+#   l1_xconnect_verify_retries / l1_xconnect_verify_delay: status polling controls.
+#   ocs_xconn_show_config_cmd / ocs_xconn_show_status_cmd: show command overrides.
+#   ocs_xconn_add_cmd / ocs_xconn_del_cmd: command templates with an "{id}" placeholder.
+
+- name: configure OCS cross-connects via live CLI
+  become: true
+  check_mode: "{{ l1_xconnect_dry_run | default(false) | bool }}"
+  ocs_cross_connect:
+    cross_connects: "{{ device_l1_cross_connects[inventory_hostname] | default({}) }}"
+    clear_stale: "{{ l1_xconnect_clear_stale | default(true) | bool }}"
+    verify: "{{ l1_xconnect_verify | default(true) | bool }}"
+    verify_retries: "{{ l1_xconnect_verify_retries | default(12) | int }}"
+    verify_delay: "{{ l1_xconnect_verify_delay | default(5) | int }}"
+  register: ocs_reconcile
+
+- name: show OCS cross-connect progress
+  debug:
+    msg:
+      - "desired={{ ocs_reconcile.desired | default([]) | length }}"
+      - "cleared_stale={{ ocs_reconcile.cleared_stale | default([]) | length }}"
+      - "removed={{ ocs_reconcile.removed | default([]) | length }}"
+      - "added={{ ocs_reconcile.added | default([]) | length }}"
+      - "cleared_stale_ids: {{ ocs_reconcile.cleared_stale | default([]) }}"
+      - "removed_ids: {{ ocs_reconcile.removed | default([]) }}"
+      - "added_ids: {{ ocs_reconcile.added | default([]) }}"
+
+- name: save config DB after OCS cross-connect apply
+  become: true
+  command: config save -y
+  when:
+    - ocs_reconcile is changed
+    - l1_xconnect_save_config | default(true) | bool
+    - not (l1_xconnect_dry_run | default(false) | bool)

@@ -10,7 +10,6 @@ from random import randint
 from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.platform_api import bmc
-from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa: F401
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError, get_bughandler_instance
 from tests.common.utilities import is_ipv6_only_topology, wait_until, check_msg_in_syslog
 from log_messages import LOG_EXPECT_ACL_RULE_CREATE_RE, LOG_EXPECT_ACL_RULE_REMOVE_RE, LOG_EXCEPT_MIRROR_SESSION_REMOVE
@@ -367,13 +366,13 @@ def validate_platform_dump_files(duthost, dump_folder_path, platform_dump_folder
 
 def gen_dump_file(duthost, since):
     logger.debug("Running show techsupport ... ")
-    wait_until(300, 20, 0, execute_command, duthost, str(since))
+    pytest_assert(wait_until(300, 20, 0, execute_command, duthost, str(since)),
+                  "show techsupport command failed to succeed within timeout")
     tar_file = [j for j in pytest.tar_stdout.split('\n') if j != ''][-1]
     return tar_file
 
 
-def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_hostname, skip_on_dpu,  # noqa F811
-                     platform_api_conn):     # noqa F811
+def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_hostname, skip_on_dpu):  # noqa F811
     """
     test the "show techsupport" command in a loop
     :param config: fixture to configure additional setups_list on dut.
@@ -384,12 +383,8 @@ def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_hostname
     loop_delay = request.config.getoption("--loop_delay") or DEFAULT_LOOP_DELAY
     since = request.config.getoption("--logs_since") or str(randint(1, 5)) + " minute ago"
     is_bmc_present = False
-    try:
-        if bmc.get_presence(platform_api_conn):
-            is_bmc_present = True
-    except Exception as e:
-        logger.warning("Failed to get BMC presence: {}".format(e))
-        is_bmc_present = False
+    if bmc.is_bmc_exists(duthost):
+        is_bmc_present = True
     logger.debug("Loop_range is {} and loop_delay is {}".format(loop_range, loop_delay))
 
     for i in range(loop_range):
@@ -566,7 +561,7 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_hostname):
                     add_asic_arg("{}", cmds.broadcom_cmd_misc, num),
             }
         )
-        if duthost.topo_type in ["mx", "m0", "m1"]:
+        if duthost.topo_type in ["mx", "m0", "m1", "uma", "lma"]:
             cmds_to_check.update(
                 {
                     "copy_config_cmds":

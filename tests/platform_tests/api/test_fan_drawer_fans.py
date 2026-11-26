@@ -5,7 +5,14 @@ import time
 import pytest
 
 from tests.common.helpers.platform_api import chassis, fan_drawer, fan_drawer_fan
+from tests.common.helpers.platform_api.fan_discrete_speed_helper import (
+    fan_drawer_speed_within_tolerance,
+    fan_speed_uses_platform_discrete_list,
+    get_chassis_fans_supported_speeds,
+    pick_initial_discrete_target_speed,
+)
 from tests.common.helpers.thermal_control_test_helper import start_thermal_control_daemon, stop_thermal_control_daemon
+from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa: F401
 from .platform_api_test_base import PlatformApiTestBase
 
@@ -243,6 +250,8 @@ class TestFanDrawerFans(PlatformApiTestBase):
                                    platform_api_conn, suspend_and_resume_hw_tc_on_mellanox_device):        # noqa: F811
 
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        use_discrete = fan_speed_uses_platform_discrete_list(duthost)
+        chassis_discrete_speeds = get_chassis_fans_supported_speeds(duthost) if use_discrete else None
         fan_drawers_skipped = 0
 
         for j in range(self.num_fan_drawers):
@@ -250,7 +259,21 @@ class TestFanDrawerFans(PlatformApiTestBase):
             fans_skipped = 0
 
             for i in range(num_fans):
-                speed_target_val = 25
+                if use_discrete:
+                    speed_target_val = pick_initial_discrete_target_speed(
+                        num_fans,
+                        chassis_discrete_speeds,
+                        lambda p: self.get_fan_facts(duthost, j, p, True, "speed", "controllable"),
+                        lambda p: self.get_fan_facts(duthost, j, p, 1, "speed", "minimum"),
+                        lambda p: self.get_fan_facts(duthost, j, p, 100, "speed", "maximum"),
+                    )
+                    if speed_target_val is None:
+                        pytest.fail(
+                            "Chassis fans: no controllable fan for discrete speed pick (platform {})".format(
+                                duthost.facts.get("platform"))
+                        )
+                else:
+                    speed_target_val = 25
                 speed_controllable = self.get_fan_facts(duthost, j, i, True, "speed", "controllable")
                 if not speed_controllable:
                     logger.info("test_get_fans_target_speed: Skipping fandrawer {} fan {} (speed not controllable)"
@@ -261,7 +284,8 @@ class TestFanDrawerFans(PlatformApiTestBase):
                 speed_minimum = self.get_fan_facts(duthost, j, i, 25, "speed", "minimum")
                 speed_maximum = self.get_fan_facts(duthost, j, i, 100, "speed", "maximum")
                 if speed_minimum > speed_target_val or speed_maximum < speed_target_val:
-                    speed_target_val = random.randint(speed_minimum, speed_maximum)
+                    speed_target_val = self.get_fan_facts(duthost, j, i, random.randint(speed_minimum, speed_maximum),
+                                                          "speed", "default")
 
                 speed_set = fan_drawer_fan.set_speed(platform_api_conn, j, i, speed_target_val)     # noqa F841
                 # For x3b platform fan, the corresponding kernel driver (Max31790) ramps up the duty cycle to new value
@@ -297,11 +321,33 @@ class TestFanDrawerFans(PlatformApiTestBase):
 
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         fan_drawers_skipped = 0
+        use_discrete = fan_speed_uses_platform_discrete_list(duthost)
+        chassis_discrete_speeds = get_chassis_fans_supported_speeds(duthost) if use_discrete else None
+        if use_discrete and not chassis_discrete_speeds:
+            pytest.fail(
+                "Discrete fan speed platforms require a `supported_speeds` field on an entry under "
+                "`chassis.fans` in platform.json (platform {})".format(duthost.facts.get("platform"))
+            )
 
         for j in range(self.num_fan_drawers):
-            target_speed = random.randint(1, 100)
             num_fans = fan_drawer.get_num_fans(platform_api_conn, j)
             fans_skipped = 0
+
+            if use_discrete:
+                target_speed = pick_initial_discrete_target_speed(
+                    num_fans,
+                    chassis_discrete_speeds,
+                    lambda p: self.get_fan_facts(duthost, j, p, True, "speed", "controllable"),
+                    lambda p: self.get_fan_facts(duthost, j, p, 1, "speed", "minimum"),
+                    lambda p: self.get_fan_facts(duthost, j, p, 100, "speed", "maximum"),
+                )
+                if target_speed is None:
+                    pytest.fail(
+                        "Fan drawer {}: no controllable fan for discrete speed pick (platform {})".format(
+                            j, duthost.facts.get("platform"))
+                    )
+            else:
+                target_speed = random.randint(1, 100)
 
             for i in range(num_fans):
                 speed_controllable = self.get_fan_facts(duthost, j, i, True, "speed", "controllable")
@@ -313,27 +359,52 @@ class TestFanDrawerFans(PlatformApiTestBase):
 
                 speed_minimum = self.get_fan_facts(duthost, j, i, 1, "speed", "minimum")
                 speed_maximum = self.get_fan_facts(duthost, j, i, 100, "speed", "maximum")
-                if speed_minimum > target_speed or speed_maximum < target_speed:
-                    target_speed = random.randint(speed_minimum, speed_maximum)
+                if use_discrete:
+                    in_range = [s for s in chassis_discrete_speeds if speed_minimum <= s <= speed_maximum]
+                    pick_from = in_range if in_range else chassis_discrete_speeds
+                    if target_speed not in pick_from:
+                        target_speed = random.choice(pick_from)
+                else:
+                    if speed_minimum > target_speed or speed_maximum < target_speed:
+                        target_speed = random.randint(speed_minimum, speed_maximum)
 
                 speed = fan_drawer_fan.get_speed(platform_api_conn, j, i)
                 speed_delta = abs(speed-target_speed)
 
                 speed_set = fan_drawer_fan.set_speed(platform_api_conn, j, i, target_speed)     # noqa: F841
-                time_wait = 10 if speed_delta > 40 else 5
-                time.sleep(self.get_fan_facts(duthost, j, i, time_wait, "speed", "delay"))
+                if use_discrete:
+                    # Large steps can take longer than a fixed sleep; poll tolerance.
+                    settled = wait_until(
+                        10, 2, 0,
+                        fan_drawer_speed_within_tolerance,
+                        platform_api_conn, j, i,
+                    )
+                    act_speed = fan_drawer_fan.get_speed(platform_api_conn, j, i)
+                    self.expect(
+                        settled,
+                        "Fan drawer {} fan {} speed change from {} to {} did not settle within tolerance "
+                        "within 10s (2s poll), actual speed {}".format(j, i, speed, target_speed, act_speed),
+                    )
+                else:
+                    time_wait = 10 if speed_delta > 40 else 5
+                    time.sleep(self.get_fan_facts(duthost, j, i, time_wait, "speed", "delay"))
 
-                act_speed = fan_drawer_fan.get_speed(platform_api_conn, j, i)
-                under_speed = fan_drawer_fan.is_under_speed(platform_api_conn, j, i)
-                over_speed = fan_drawer_fan.is_over_speed(platform_api_conn, j, i)
-                self.expect(not under_speed and not over_speed,
-                            "Fan drawer {} fan {} speed change from {} to {} is not within tolerance, actual speed {}"
-                            .format(j, i, speed, target_speed, act_speed))
+                    act_speed = fan_drawer_fan.get_speed(platform_api_conn, j, i)
+                    under_speed = fan_drawer_fan.is_under_speed(platform_api_conn, j, i)
+                    over_speed = fan_drawer_fan.is_over_speed(platform_api_conn, j, i)
+                    self.expect(not under_speed and not over_speed,
+                                "Fan drawer {} fan {} speed change from {} to {} is not within tolerance, "
+                                "actual speed {}".format(j, i, speed, target_speed, act_speed))
 
             if fans_skipped == num_fans:
                 fan_drawers_skipped += 1
 
         if fan_drawers_skipped == self.num_fan_drawers:
+            if use_discrete:
+                pytest.skip(
+                    "skipped as every fan drawer fan was skipped (not controllable, or no controllable fan "
+                    "in a drawer for discrete speed pick)"
+                )
             pytest.skip("skipped as all fandrawer fans' speed is not controllable")
 
         self.assert_expectations()

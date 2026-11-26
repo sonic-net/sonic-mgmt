@@ -413,6 +413,7 @@ def vlan_interface_tc1_remove(duthost, vlan_info):
         delete_tmpfile(duthost, tmpfile)
 
 
+@pytest.mark.enable_monit_refresh
 def test_vlan_interface_tc1_suite(rand_selected_dut, vlan_info, loganalyzer, tbinfo, duthost):
     if loganalyzer:
         if tbinfo["topo"]["name"] == "m0-2vlan":

@@ -3,6 +3,7 @@ import json
 import logging
 import pytest
 import re
+import shlex
 import yaml
 import random
 import os
@@ -17,8 +18,10 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.counterpoll_helper import ConterpollHelper
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
-from tests.common.cisco_data import is_cisco_device, copy_dshell_script_cisco_8000, run_dshell_command
-from tests.common.dualtor.dual_tor_common import active_standby_ports  # noqa: F401
+from tests.common.cisco_data import is_cisco_device, copy_dshell_script_cisco_8000, run_dshell_command, \
+    get_device_property
+from tests.common.dualtor.dual_tor_common import (ActiveActivePortID, active_active_ports,  # noqa: F401
+                                                  active_standby_ports)
 from tests.common.dualtor.dual_tor_utils import (upper_tor_host,  # noqa: F401
                                                  lower_tor_host, dualtor_ports, is_tunnel_qos_remap_enabled)
 from tests.common.dualtor.mux_simulator_control import (toggle_all_simulator_ports,  # noqa: F401
@@ -49,19 +52,20 @@ class QosBase:
     SUPPORTED_T0_TOPOS = [
         "t0", "t0-56", "t0-56-po2vlan", "t0-64", "t0-116", "t0-118", "t0-35", "t0-d18u8s4", "dualtor-56", "dualtor-64",
         "dualtor-120", "dualtor", "dualtor-64-breakout", "dualtor-aa", "dualtor-aa-56", "dualtor-aa-64-breakout",
+        "dualtor-aa-72",
         "t0-120", "t0-80", "t0-backend", "t0-56-o8v48", "t0-8-lag", "t0-standalone-32", "t0-standalone-64",
         "t0-standalone-128", "t0-standalone-256", "t0-28", "t0-isolated-d16u16s1", "t0-isolated-d16u16s2",
-        "t0-isolated-d96u32s2",  "t0-isolated-d32u32s2",
-        "t0-88-o8c80", "t0-f2-d40u8"
+        "t0-isolated-d96u32s2",  "t0-isolated-d32u32s2", "t0-isolated-d32u32s2-mix",
+        "t0-88-o8c80", "t0-f2-d40u8", "t0-f2-d40u8-po2vlan"
     ]
     SUPPORTED_T1_TOPOS = ["t1", "t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag", "t1-32-lag", "t1-48-lag",
-                          "t1-f2-d10u8",
+                          "t1-f2-d10u8", "t1-isolated-d32u1s2",
                           "t1-isolated-d28u1", "t1-isolated-v6-d28u1", "t1-isolated-d56u2", "t1-isolated-v6-d56u2",
                           "t1-isolated-d56u1-lag", "t1-isolated-v6-d56u1-lag", "t1-isolated-d128", "t1-isolated-d32",
-                          "t1-isolated-d448u15-lag", "t1-isolated-v6-d448u15-lag"]
+                          "t1-isolated-d448u15-lag", "t1-isolated-v6-d448u15-lag", 't1-d96u4']
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
-    SUPPORTED_ASIC_LIST = ["pac", "gr", "gr2", "gb", "p200", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "spc5",
-                           "td3", "th3", "j2c+", "jr2", "th5", "q3d"]
+    SUPPORTED_ASIC_LIST = ["pac", "gr", "gr2", "gr2x", "gb", "p200", "td2", "th", "th2", "spc1", "spc2", "spc3",
+                           "spc4", "spc5", "spc6", "td3", "th3", "j2c+", "jr2", "th5", "th6", "q3d"]
 
     BREAKOUT_SKUS = ['Arista-7050-QX-32S']
     LOW_SPEED_PORT_SKUS = ['Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32C-C28S4']
@@ -399,6 +403,7 @@ class QosSaiBase(QosBase):
                     "pool": "ingress_lossless_pool",
                     "xon": "0",
                     "xoff": "0",
+                    "xon_offset": "0",  # Required for Cisco 8000 gr2/gr2x/p200 ASICs
                     "size": "0",
                     "dynamic_th": "0",
                     "pg_q_alpha": "0",
@@ -1302,6 +1307,11 @@ class QosSaiBase(QosBase):
             pytest_assert(
                 not src_dut.sonichost.is_multi_asic, "Fixture not supported on T0 multi ASIC"
             )
+            # TH6 lt2 selects test ports from PortChannel members; detect via hwsku hostvars like dutAsic.
+            _vendor = src_dut.facts["asic_type"]
+            _hostvars = src_dut.host.options['variable_manager']._hostvars[src_dut.hostname]
+            _th6_hwskus = "{0}_th6_hwskus".format(_vendor)
+            isBroadcomTH6Device = _th6_hwskus in _hostvars and src_mgFacts["minigraph_hwsku"] in _hostvars[_th6_hwskus]
             dutLagInterfaces = []
             testPortIds[src_dut_index] = {}
             for _, lag in src_mgFacts["minigraph_portchannels"].items():
@@ -1331,7 +1341,8 @@ class QosSaiBase(QosBase):
                         testPortIds[src_dut_index][src_asic_index].union(set(dutLagInterfaces))
                 # The last port is used for up link from DUT switch
                 testPortIds[src_dut_index][src_asic_index] -= {len(src_mgFacts["minigraph_ptf_indices"]) - 1}
-
+            if isBroadcomTH6Device:
+                testPortIds[src_dut_index][src_asic_index] = set(dutLagInterfaces)
             testPortIds[src_dut_index][src_asic_index] = sorted(testPortIds[src_dut_index][src_asic_index])
             pytest_require(len(testPortIds[src_dut_index][src_asic_index]) != 0,
                            "Skip test since no ports are available for testing")
@@ -1343,6 +1354,8 @@ class QosSaiBase(QosBase):
             dualTorPortIndexes[src_dut_index][src_asic_index] = []
             if 'backend' in topo:
                 intf_map = src_mgFacts["minigraph_vlan_sub_interfaces"]
+            elif isBroadcomTH6Device:
+                intf_map = src_mgFacts["minigraph_portchannel_interfaces"]
             else:
                 intf_map = src_mgFacts["minigraph_interfaces"]
 
@@ -1351,6 +1364,9 @@ class QosSaiBase(QosBase):
                 intf = portConfig["attachto"].split(".")[0]
                 portIndex = src_mgFacts["minigraph_ptf_indices"][intf]
                 if ipaddress.ip_interface(portConfig['peer_addr']).ip.version == ip_version:
+                    if isBroadcomTH6Device:
+                        if intf in src_mgFacts["minigraph_portchannels"]:
+                            intf = src_mgFacts["minigraph_portchannels"][intf]['members'][0]
                     if portIndex in testPortIds[src_dut_index][src_asic_index]:
                         portIpMap = {'peer_addr': portConfig["peer_addr"]}
                         if 'vlan' in portConfig:
@@ -1481,6 +1497,9 @@ class QosSaiBase(QosBase):
             src_namespace_prefix = src_asic.namespace + '|' if src_asic.namespace else f'Asic{src_asic.asic_index}|'
             for iface, addr in active_ips.items():
                 if iface.startswith("Ethernet") and ("Ethernet-Rec" not in iface):
+                    # Skip ports that are not mapped to a PTF port on this DUT
+                    if iface not in src_mgFacts["minigraph_ptf_indices"]:
+                        continue
                     portIndex = src_mgFacts["minigraph_ptf_indices"][iface]
                     portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': iface}
                     dutPortIps[src_dut_index][src_asic_index].update({portIndex: portIpMap})
@@ -1497,6 +1516,9 @@ class QosSaiBase(QosBase):
                     portName = next(
                         iter(src_mgFacts["minigraph_portchannels"][iface]["members"])
                     )
+                    # Skip portchannels whose members are not mapped to PTF ports on this DUT
+                    if portName not in src_mgFacts["minigraph_ptf_indices"]:
+                        continue
                     portIndex = src_mgFacts["minigraph_ptf_indices"][portName]
                     portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': portName}
                     dutPortIps[src_dut_index][src_asic_index].update({portIndex: portIpMap})
@@ -1536,6 +1558,9 @@ class QosSaiBase(QosBase):
                 active_ips = dst_asic.get_active_ip_interfaces(tbinfo)
                 for iface, addr in active_ips.items():
                     if iface.startswith("Ethernet") and ("Ethernet-Rec" not in iface):
+                        # Skip ports that are not mapped to a PTF port on this DUT
+                        if iface not in dst_mgFacts["minigraph_ptf_indices"]:
+                            continue
                         portIndex = dst_mgFacts["minigraph_ptf_indices"][iface]
                         portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': iface}
                         dutPortIps[dst_dut_index][dst_asic_index].update({portIndex: portIpMap})
@@ -1552,6 +1577,9 @@ class QosSaiBase(QosBase):
                         portName = next(
                             iter(dst_mgFacts["minigraph_portchannels"][iface]["members"])
                         )
+                        # Skip portchannels whose members are not mapped to PTF ports on this DUT
+                        if portName not in dst_mgFacts["minigraph_ptf_indices"]:
+                            continue
                         portIndex = dst_mgFacts["minigraph_ptf_indices"][portName]
                         portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': portName}
                         dutPortIps[dst_dut_index][dst_asic_index].update({portIndex: portIpMap})
@@ -1615,7 +1643,8 @@ class QosSaiBase(QosBase):
                     get_src_dst_asic_and_duts['dst_asic']:
                 dutTopo = dutTopo + "any"
             else:
-                dutTopo = dutTopo + topo
+                # Any t2 variant for gb asic has to use the gb/t2 qos params only.
+                dutTopo = dutTopo + "t2"
         elif dutTopo + topo in qosConfigs['qos_params'].get(dutAsic, {}):
             dutTopo = dutTopo + topo
         else:
@@ -1719,6 +1748,9 @@ class QosSaiBase(QosBase):
             Returns:
                 None
         """
+        if get_src_dst_asic_and_duts['src_dut'].facts['asic_type'] == "cisco-8000":
+            yield
+            return
         all_asics = get_src_dst_asic_and_duts['all_asics']
 
         ipVersions = [{"ip_version": "ipv4"}, {"ip_version": "ipv6"}]
@@ -1737,11 +1769,198 @@ class QosSaiBase(QosBase):
                 a_asic.bgp_drop_rule(state="absent", **ipVersion)
 
     @pytest.fixture(scope='class')
+    def freeze_mux_for_qos(
+        self, duthosts, get_mux_status, tbinfo, upper_tor_host, lower_tor_host,  # noqa: F811
+        toggle_all_simulator_ports, active_active_ports, active_standby_ports,  # noqa: F811
+        mux_status_from_nic_simulator, nic_simulator_info  # noqa: F811
+    ):
+        """Keep dual-ToR mux ports stable during QoS tests.
+
+        Keep server traffic on the lower ToR and stop mux heartbeats while QoS
+        counters are measured. Restore automatic mux control after the tests.
+        """
+        is_dualtor = 'dualtor' in tbinfo['topo']['name']
+        if not is_dualtor:
+            yield
+            return
+
+        tor_hosts = (lower_tor_host, upper_tor_host)
+        mux_ports = set(active_standby_ports) | set(active_active_ports)
+        removed_session_ports = {tor_host.hostname: set() for tor_host in tor_hosts}
+        has_nic_simulator = nic_simulator_info[0] is not None
+        if active_active_ports and not has_nic_simulator:
+            logger.info('No NIC simulator on %s; verify active-active mux state on both ToRs',
+                        tbinfo['topo']['name'])
+
+        def linkmgrd_running(tor_host):
+            status = tor_host.shell(
+                'docker exec mux supervisorctl status linkmgrd',
+                module_ignore_errors=True)['stdout']
+            return 'RUNNING' in status
+
+        def start_linkmgrd(tor_host):
+            if not linkmgrd_running(tor_host):
+                tor_host.shell('docker exec mux supervisorctl start linkmgrd')
+            if not wait_until(30, 5, 0, linkmgrd_running, tor_host):
+                raise RuntimeError('linkmgrd did not start on {}'.format(tor_host.hostname))
+
+        def icmp_session_keys(tor_host, db):
+            keys = tor_host.shell(
+                "sonic-db-cli {} KEYS 'ICMP_ECHO_SESSION_TABLE:*'".format(db)
+            )['stdout_lines']
+            return [key.strip() for key in keys if key.strip()]
+
+        def mux_icmp_session_keys(tor_host, db):
+            # The ICMP offload key is table:vrf:interface:guid:type. Remove
+            # only sessions belonging to this testbed's mux interfaces.
+            return [key for key in icmp_session_keys(tor_host, db)
+                    if len(key.split(':')) == 5 and key.split(':')[2] in mux_ports]
+
+        def remove_mux_icmp_sessions(tor_host):
+            session_keys = mux_icmp_session_keys(tor_host, 'APPL_DB')
+            removed_session_ports[tor_host.hostname] = {
+                key.split(':')[2] for key in session_keys}
+            for key in session_keys:
+                # ProducerStateTable publishes a delete to icmporch. A plain
+                # Redis DEL would not reliably remove the ASIC session.
+                session_key = key.split(':', 1)[1]
+                script = ("import sys; "
+                          "from swsscommon.swsscommon import APPL_DB, DBConnector, ProducerStateTable; "
+                          "ProducerStateTable(DBConnector(APPL_DB, '/var/run/redis/redis.sock', True), "
+                          "'ICMP_ECHO_SESSION_TABLE')._del(sys.argv[1])")
+                tor_host.shell('docker exec swss python3 -c {} {}'.format(
+                    shlex.quote(script), shlex.quote(session_key)))
+            pytest_assert(
+                wait_until(30, 2, 0,
+                           lambda: not mux_icmp_session_keys(tor_host, 'APPL_DB')
+                           and not mux_icmp_session_keys(tor_host, 'STATE_DB')),
+                'ICMP offload sessions remain on {}'.format(tor_host.hostname))
+
+        def active_active_tor_status(tor_host, expected):
+            status = json.loads(tor_host.shell('show muxcable status --json')['stdout'])['MUX_CABLE']
+            return all(status.get(port, {}).get('STATUS') == expected
+                       and status[port].get('SERVER_STATUS') == expected
+                       for port in active_active_ports)
+
+        def active_active_ports_forward_only_on_lower():
+            if not has_nic_simulator:
+                # Some beds have active-active cables under a plain
+                # dualtor topology. The NIC simulator fixture returns no
+                # client there, so verify the state reported by both ToRs.
+                return (active_active_tor_status(lower_tor_host, 'active')
+                        and active_active_tor_status(upper_tor_host, 'standby'))
+            mux_status = mux_status_from_nic_simulator()
+            return len(mux_status) == len(active_active_ports) and all(
+                port_status.get(ActiveActivePortID.LOWER_TOR, False)
+                and not port_status.get(ActiveActivePortID.UPPER_TOR, True)
+                for port_status in mux_status.values())
+
+        def mux_status_recovered():
+            if active_standby_ports and not check_mux_status(duthosts, LOWER_TOR):
+                return False
+            if active_active_ports:
+                if has_nic_simulator:
+                    mux_status = mux_status_from_nic_simulator()
+                    if len(mux_status) != len(active_active_ports) or not all(
+                            port_status.get(ActiveActivePortID.UPPER_TOR, False)
+                            and port_status.get(ActiveActivePortID.LOWER_TOR, False)
+                            for port_status in mux_status.values()):
+                        return False
+                elif not (active_active_tor_status(lower_tor_host, 'active')
+                          and active_active_tor_status(upper_tor_host, 'active')):
+                    return False
+            for tor_host in tor_hosts:
+                status = json.loads(tor_host.shell('show muxcable status --json')['stdout'])['MUX_CABLE']
+                if not mux_ports.issubset(status) or any(
+                        status[port]['HEALTH'] != 'healthy'
+                        or status[port]['HWSTATUS'] != 'consistent'
+                        for port in mux_ports):
+                    return False
+                recovered_session_ports = {
+                    key.split(':')[2] for key in mux_icmp_session_keys(tor_host, 'APPL_DB')}
+                if not removed_session_ports[tor_host.hostname].issubset(recovered_session_ports):
+                    return False
+            return True
+
+        try:
+            # Recover from an interrupted run that left manual mode or a
+            # stopped linkmgrd behind.
+            for tor_host in tor_hosts:
+                tor_host.shell('sudo config muxcable mode auto all')
+            for tor_host in tor_hosts:
+                start_linkmgrd(tor_host)
+
+            if active_standby_ports:
+                toggle_all_simulator_ports(LOWER_TOR, retries=3)
+                check_result = wait_until(
+                    120, 10, 10, check_mux_status, duthosts, LOWER_TOR)
+                validate_check_result(check_result, duthosts, get_mux_status)
+
+            if active_active_ports:
+                active_commands = [
+                    'sudo config muxcable mode active {}'.format(port)
+                    for port in active_active_ports
+                ]
+                standby_commands = [
+                    'sudo config muxcable mode standby {}'.format(port)
+                    for port in active_active_ports
+                ]
+                lower_tor_host.shell_cmds(cmds=active_commands)
+                upper_tor_host.shell_cmds(cmds=standby_commands)
+
+                pytest_assert(
+                    wait_until(60, 5, 0, active_active_ports_forward_only_on_lower),
+                    'Active-active mux ports did not reach lower active / upper standby')
+
+            for tor_host in tor_hosts:
+                tor_host.shell('sudo config muxcable mode manual all')
+            if active_active_ports:
+                pytest_assert(active_active_ports_forward_only_on_lower(),
+                              'Active-active mux state changed after setting manual mode')
+            for tor_host in tor_hosts:
+                tor_host.shell('docker exec mux supervisorctl stop linkmgrd')
+                pytest_assert(not linkmgrd_running(tor_host),
+                              'linkmgrd is still running on {}'.format(tor_host.hostname))
+                remove_mux_icmp_sessions(tor_host)
+            logger.info('Frozen mux forwarding and stopped mux heartbeats for dual-ToR QoS tests')
+
+            yield
+        finally:
+            cleanup_errors = []
+            for tor_host in tor_hosts:
+                try:
+                    tor_host.shell('sudo config muxcable mode auto all')
+                except Exception as e:
+                    cleanup_errors.append(
+                        "failed to restore mux ports to auto mode on {}: {}".format(
+                            tor_host.hostname, e))
+            for tor_host in tor_hosts:
+                try:
+                    start_linkmgrd(tor_host)
+                except Exception as e:
+                    cleanup_errors.append(
+                        "failed to start linkmgrd on {}: {}".format(
+                            tor_host.hostname, e))
+
+            if not cleanup_errors:
+                try:
+                    if not wait_until(120, 10, 10, mux_status_recovered):
+                        raise RuntimeError('mux status did not recover after QoS tests')
+                except Exception as e:
+                    cleanup_errors.append(str(e))
+
+            if cleanup_errors:
+                raise RuntimeError("Dual-ToR QoS cleanup failed: {}".format(
+                    "; ".join(cleanup_errors)))
+
+            logger.info('Restored automatic mux control after dual-ToR QoS tests')
+
+    @pytest.fixture(scope='class')
     def stopServices(
         self, duthosts, get_src_dst_asic_and_duts, dut_disable_ipv6,
-        swapSyncd_on_selected_duts,
-        enable_container_autorestart, disable_container_autorestart, get_mux_status,  # noqa: F811
-        tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports, active_standby_ports  # noqa: F811
+        swapSyncd_on_selected_duts, freeze_mux_for_qos,
+        enable_container_autorestart, disable_container_autorestart,
+        tbinfo, upper_tor_host  # noqa: F811
     ):
         """
             Stop services and dockers(lldp, bgpd, etc.) on DUT host prior to test start
@@ -1803,28 +2022,6 @@ class QosSaiBase(QosBase):
             logger.info("Changed feature {} state to {}".format(feature, state))
 
         is_dualtor = 'dualtor' in tbinfo['topo']['name']
-        is_dualtor_active_standby = is_dualtor and active_standby_ports
-        """ Stop mux container for dual ToR Active-Standby """
-        if is_dualtor:
-            if is_dualtor_active_standby:
-                toggle_all_simulator_ports(LOWER_TOR, retries=3)
-                check_result = wait_until(
-                    120, 10, 10, check_mux_status, duthosts, LOWER_TOR)
-                validate_check_result(check_result, duthosts, get_mux_status)
-
-            file = "/usr/local/bin/write_standby.py"
-            backup_file = "/usr/local/bin/write_standby.py.bkup"
-            try:
-                lower_tor_host.shell("ls %s" % file)
-                lower_tor_host.shell("sudo cp {} {}".format(file, backup_file))
-                lower_tor_host.shell("sudo rm {}".format(file))
-                lower_tor_host.shell("sudo touch {}".format(file))
-                lower_tor_host.shell("sudo chmod +x {}".format(file))
-            except Exception as e:
-                pytest.skip('file {} not found. Exception {}'.format(file, str(e)))
-
-            updateFeatureState(upper_tor_host, "mux", "disabled")
-            updateFeatureState(lower_tor_host, "mux", "disabled")
 
         src_services = [
             {"docker": src_asic.get_docker_name("radv"), "service": "radvd"},
@@ -1868,26 +2065,12 @@ class QosSaiBase(QosBase):
 
         src_dut.shell("sudo config bgp start all")
         if src_asic != dst_asic:
-            updateFeatureState(dst_asic, "lldp", "enabled")
+            updateFeatureState(dst_dut, "lldp", "enabled")
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for service in dst_services:
                     executor.submit(updateDockerService, dst_dut, action="start", **service)
 
             dst_dut.shell("sudo config bgp start all")
-
-        """ Start mux conatiner for dual ToR """
-        if is_dualtor:
-            try:
-                lower_tor_host.shell("ls %s" % backup_file)
-                lower_tor_host.shell("sudo cp {} {}".format(backup_file, file))
-                lower_tor_host.shell("sudo chmod +x {}".format(file))
-                lower_tor_host.shell("sudo rm {}".format(backup_file))
-            except Exception as e:
-                pytest.skip('file {} not found. Exception {}'.format(backup_file, str(e)))
-
-            updateFeatureState(upper_tor_host, "mux", "enabled")
-            updateFeatureState(lower_tor_host, "mux", "enabled")
-            logger.info("Start mux container for dual ToR testbed")
 
         enable_container_autorestart(src_dut, testcase="test_qos_sai", feature_list=feature_list)
         if src_asic != dst_asic:
@@ -2068,8 +2251,8 @@ class QosSaiBase(QosBase):
             if 'platform_asic' in duthost.facts and duthost.facts['platform_asic'] == 'broadcom-dnx':
                 logger.info("THDI_BUFFER_CELL_LIMIT_SP is not valid for broadcom DNX - ignore dynamic buffer config")
                 qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
-            elif dutAsic == 'th5':
-                logger.info("Generator script not implemented for TH5")
+            elif dutAsic in ['th5', 'th6']:
+                logger.info("Generator script not implemented for TH5/6")
                 qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
             else:
                 bufferConfig = dutBufferConfig(duthost, dut_asic)
@@ -2132,13 +2315,44 @@ class QosSaiBase(QosBase):
             if dutTopo not in qosConfigs['qos_params'][dutAsic]:
                 qosConfigs['qos_params'][dutAsic][dutTopo] = {}
 
+            # On cross-asic (topo-t2) paths the 200G/1m backplane profile used to size egress
+            # memory lives on the egress ASIC (dst_asic) and the fabric/RP asic0, not src_asic.
+            # Only gb autogenerates egress memory on topo-t2; other asics use qos yaml values.
+            egr_mem_buffer_configs = None
+            if dutTopo == "topo-t2" and dutAsic == "gb":
+                dst_dut = get_src_dst_asic_and_duts['dst_dut']
+                dst_asic = get_src_dst_asic_and_duts['dst_asic']
+                pytest_assert(duthosts.supervisor_nodes,
+                              "No accessible supervisor node to read the fabric (RP asic0) "
+                              "backplane buffer config required to generate pkts_num_egr_mem")
+                rp_dut = duthosts.supervisor_nodes[0]
+                rp_asic = rp_dut.asics[0]
+
+                def _lossless_use_hbm(dut, asic):
+                    # When an ASIC offloads lossless to HBM, its backplane lossless PG lives in
+                    # HBM rather than SMS, so its PFC pause is not bounded by the SMS queue depth.
+                    asic_index = asic.asic_index if asic.get_asic_namespace() else None
+                    return get_device_property(dut, "lossless_use_hbm", asic_index) == "True"
+
+                egr_mem_buffer_configs = {
+                    "egress": {
+                        "bufferConfig": dutBufferConfig(dst_dut, dst_asic),
+                        "lossless_use_hbm": _lossless_use_hbm(dst_dut, dst_asic),
+                    },
+                    "fabric": {
+                        "bufferConfig": dutBufferConfig(rp_dut, rp_asic),
+                        "lossless_use_hbm": _lossless_use_hbm(rp_dut, rp_asic),
+                    },
+                }
+
             qpm = qos_param_generator.QosParamCisco(
                       qosConfigs['qos_params'][dutAsic][dutTopo],
                       duthost,
                       dutAsic,
                       dutTopo,
                       bufferConfig,
-                      portSpeedCableLength)
+                      portSpeedCableLength,
+                      egr_mem_buffer_configs)
 
             qosParams = qpm.run()
         elif dutAsic == 'vs':
@@ -2951,22 +3165,6 @@ class QosSaiBase(QosBase):
 
         return mapping
 
-    @pytest.fixture(autouse=False)
-    def skip_400g_longlink(
-            self,
-            get_src_dst_asic_and_duts,
-            dutQosConfig):
-        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
-        m = re.search("([0-9]+)_([0-9]+)m", portSpeedCableLength)
-        if not m:
-            raise RuntimeError(
-                "Format error in portSpeedCableLength:{}".
-                format(portSpeedCableLength))
-        speed = int(m.group(1))
-        cable_length = int(m.group(2))
-        if speed >= 400000 and cable_length >= 120000:
-            pytest.skip("PGDrop test is not supported for 400G longlink.")
-
     def select_port_ids_for_mellnaox_device(self, duthost, mgFacts, testPortIds, dualtor_dut_ports=None):
         """
         For Nvidia devices, the tested ports must have the same cable length and speed.
@@ -3065,13 +3263,17 @@ class QosSaiBase(QosBase):
                         saiQosTest = "sai_qos_tests.ARPpopulate"
 
         if saiQosTest:
-            testParams = dutTestParams["basicParams"]
+            testParams = dict(dutTestParams["basicParams"])
             testParams.update(dutConfig["testPorts"])
             testParams.update({
                 "testPortIds": dutConfig["testPortIds"],
                 "testPortIps": dutConfig["testPortIps"],
                 "testbed_type": dutTestParams["topo"],
-                "ip_type": ip_type
+                "ip_type": ip_type,
+                # On t2-family topologies ARPpopulate pings from the DUT and needs to know
+                # whether either side is multi-asic to pick the right network namespace.
+                "src_is_multi_asic": get_src_dst_asic_and_duts['src_dut'].sonichost.is_multi_asic,
+                "dst_is_multi_asic": get_src_dst_asic_and_duts['dst_dut'].sonichost.is_multi_asic
             })
             self.runPtfTest(
                 ptfhost, testCase=saiQosTest, testParams=testParams
@@ -3138,16 +3340,6 @@ class QosSaiBase(QosBase):
         yield combined_ips_map
         configRoutePrefix(False)
 
-    @pytest.fixture(scope="function", autouse=False)
-    def skip_longlink(self, dutQosConfig):
-        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
-        match = re.search("_([0-9]*)m", portSpeedCableLength)
-        if match and int(match.group(1)) > 2000:
-            pytest.skip(
-                "This test is skipped for longlink.")
-        yield
-        return
-
     @pytest.fixture(scope="class", autouse=False)
     def tc_to_dscp_count(self, get_src_dst_asic_and_duts):
         duthost = get_src_dst_asic_and_duts['src_dut']
@@ -3175,6 +3367,33 @@ class QosSaiBase(QosBase):
         return False
 
     @pytest.fixture(scope="function", autouse=False)
+    def disable_lldp_transmit_on_src_vm(self, duthosts, get_src_dst_asic_and_duts, tbinfo, nbrhosts, dutConfig,
+                                        dutTestParams, request):
+        if request.config.getoption("--neighbor_type") == "sonic":
+            yield
+            return
+
+        src_vm_host = None
+        if ('platform_asic' in dutTestParams["basicParams"] and
+                dutTestParams["basicParams"]["platform_asic"] in ["broadcom-dnx", "broadcom", "broadcom-legacy-th"]):
+            src_dut = get_src_dst_asic_and_duts['src_dut']
+            src_mgfacts = src_dut.get_extended_minigraph_facts(tbinfo)
+            src_intf = dutConfig['dutInterfaces'][dutConfig['testPorts']['src_port_id']]
+            src_vm_neighbor = src_mgfacts['minigraph_neighbors'][src_intf]
+            src_vm_host = nbrhosts[src_vm_neighbor['name']]['host']
+            if isinstance(src_vm_host, EosHost):
+                logger.info("Disabling LLDP Transmit for %s's peer on %s" % (src_intf, src_vm_neighbor['name']))
+                src_vm_host.disable_lldp_transmit(src_vm_neighbor['port'])
+
+        yield
+
+        if ('platform_asic' in dutTestParams["basicParams"] and
+                dutTestParams["basicParams"]["platform_asic"] in ["broadcom-dnx", "broadcom", "broadcom-legacy-th"]):
+            if isinstance(src_vm_host, EosHost):
+                logger.info("Re-enabling LLDP Transmit for %s's peer on %s" % (src_intf, src_vm_neighbor['name']))
+                src_vm_host.enable_lldp_transmit(src_vm_neighbor['port'])
+
+    @pytest.fixture(scope="function", autouse=False)
     def change_lag_lacp_timer(self, duthosts, get_src_dst_asic_and_duts, tbinfo, nbrhosts, dutConfig, dutTestParams,
                               request):
         if request.config.getoption("--neighbor_type") == "sonic":
@@ -3182,7 +3401,7 @@ class QosSaiBase(QosBase):
             return
 
         if ('platform_asic' in dutTestParams["basicParams"] and
-                dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
+                dutTestParams["basicParams"]["platform_asic"] in ["broadcom-dnx", "broadcom"]):
             dst_dut = get_src_dst_asic_and_duts['dst_dut']
             dst_mgfacts = dst_dut.get_extended_minigraph_facts(tbinfo)
             dst_interfaces = []
@@ -3206,7 +3425,14 @@ class QosSaiBase(QosBase):
                 neighbor_lag_intfs = [vm_neighbors[po_intf]['port'] for po_intf in po_interfaces]
                 neigh_intf = next(iter(po_interfaces.keys()))
                 peer_device = vm_neighbors[neigh_intf]['name']
-                vm_host = nbrhosts[peer_device]['host']
+                peer_info = nbrhosts[peer_device]
+                vm_host = peer_info['host']
+                if peer_info['is_multi_vrf_peer']:
+                    multi_vrf_data = nbrhosts[peer_device]['multi_vrf_data']
+                    orig_port = multi_vrf_data['orig_intf_map'][neighbor_lag_intfs[0]]
+                    logger.info("original port: {}".format(orig_port))
+                    neighbor_lag_intfs = []
+                    neighbor_lag_intfs.append(orig_port)
                 vm_host_neighbor_lag_members[vm_host] = []
                 num = 600
                 for neighbor_lag_member in neighbor_lag_intfs:
@@ -3218,7 +3444,7 @@ class QosSaiBase(QosBase):
 
         yield
         if ('platform_asic' in dutTestParams["basicParams"] and
-                dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
+                dutTestParams["basicParams"]["platform_asic"] in ["broadcom-dnx", "broadcom"]):
             for vm_host, neighbor_lag_intfs in vm_host_neighbor_lag_members.items():
                 for neighbor_lag_member in neighbor_lag_intfs:
                     logger.info(
@@ -3258,11 +3484,10 @@ class QosSaiBase(QosBase):
         operates on src_port LAGs for Broadcom TH (7060CX), so there is no
         overlap on the affected platform.
 
-        Note on broadcom-dnx port mismatch: ``testQosSaiHeadroomPoolSize`` /
-        ``testQosSaiHeadroomPoolWatermark`` override ``hdrm_pool_size`` at
-        runtime on broadcom-dnx (non-q3d) platforms with a slice of
-        ``testPortIds``. We pre-emptively include the ``testPortIds`` candidate
-        pool below to cover that case. See issue #24236.
+        Only configured source ports are filtered. Destination ports are never
+        filtered because they do not contribute to the checked ingress-drop
+        counters. If LACP cannot be paused safely, source LAG members are left
+        unfiltered rather than risking a forwarding outage.
         """
         # Skip when neighbors are SONiC: this fixture's LACP-multiplier path is
         # EOS-only, and physical fanout config does not apply to KVM/virtual
@@ -3275,42 +3500,23 @@ class QosSaiBase(QosBase):
         src_asic = get_src_dst_asic_and_duts['src_asic']
         src_mgfacts = src_dut.get_extended_minigraph_facts(tbinfo)
 
-        # Resolve which DUT ports actually need protection from PTF test config.
-        # PTF sends from `hdrm_pool_size.src_port_ids` and `dst_port_id` from
-        # qos params, not from `dutConfig.testPorts.src_port_id`. Get the real
-        # list from dutQosConfig.
+        # Only source ingress counters are checked for environmental drops.
+        # Filtering the destination is unnecessary and can break a
+        # single-member destination LAG by suppressing its LACP packets.
         protected_port_ids = set()
         try:
             qos_param = dutQosConfig['param'].get(dutQosConfig['portSpeedCableLength'], {})
             hdrm = qos_param.get('hdrm_pool_size', {}) or {}
             for pid in hdrm.get('src_port_ids', []) or []:
                 protected_port_ids.add(int(pid))
-            if hdrm.get('dst_port_id') is not None:
-                protected_port_ids.add(int(hdrm['dst_port_id']))
         except (KeyError, TypeError, AttributeError, ValueError) as e:
             logger.warning("permit_only_test_traffic_on_fanout: "
                            "failed to read hdrm_pool_size from dutQosConfig: %s", str(e))
 
-        # On broadcom-dnx (non-q3d), the test method overrides hdrm_pool_size
-        # at runtime with a slice of testPortIds. Pre-include the candidate
-        # pool so the optimization covers that path too.
-        try:
-            src_dut_index = get_src_dst_asic_and_duts.get('src_dut_index', 0)
-            src_asic_index = get_src_dst_asic_and_duts.get('src_asic_index', 0)
-            test_port_ids = dutConfig.get('testPortIds', {}) or {}
-            runtime_candidates = (
-                test_port_ids.get(src_dut_index, {}).get(src_asic_index, []) or [])
-            for pid in runtime_candidates:
-                protected_port_ids.add(int(pid))
-        except (KeyError, TypeError, AttributeError, ValueError) as e:
-            logger.debug("permit_only_test_traffic_on_fanout: "
-                         "could not augment with testPortIds: %s", str(e))
-
         if not protected_port_ids:
-            # Fallback: protect all dutInterfaces
-            logger.info("permit_only_test_traffic_on_fanout: hdrm_pool_size "
-                        "src_port_ids not available; falling back to all dutInterfaces")
-            protected_port_ids = set(dutConfig.get('dutInterfaces', {}).keys())
+            logger.info("permit_only_test_traffic_on_fanout: no source ports to protect")
+            yield
+            return
 
         src_interfaces = [dutConfig['dutInterfaces'][idx]
                           for idx in sorted(protected_port_ids)
@@ -3353,9 +3559,20 @@ class QosSaiBase(QosBase):
                     "docker exec {} supervisorctl stop lacpd".format(teamd_docker),
                     module_ignore_errors=True)
                 if result.get('failed', False) or result.get('rc', 0) != 0:
+                    lag_members = {
+                        member
+                        for lag_name in lag_names
+                        for member in portchannels[lag_name].get('members', [])
+                    }
+                    src_interfaces = [
+                        interface for interface in src_interfaces
+                        if interface not in lag_members
+                    ]
                     logger.warning(
-                        "permit_only_test_traffic_on_fanout: lacpd stop may have "
-                        "failed (rc=%s), proceeding anyway", result.get('rc', '?'))
+                        "permit_only_test_traffic_on_fanout: failed to stop lacpd "
+                        "(rc=%s); leaving LAG source ports unfiltered: %s",
+                        result.get('rc', '?'), sorted(lag_members))
+                    lag_names = []
                 else:
                     lacpd_stopped = True
                 # Brief wait for any in-flight LACP PDU to drain
@@ -3511,7 +3728,10 @@ class QosSaiBase(QosBase):
         out of scope for this PR.
 
         What this DOES cover:
-        - Fanout-self originated LLDP (stopped via container)
+        - Fanout-self originated LLDP, but only when the LLDP container is
+          running before the test. Fanouts where LLDP is already stopped
+          (e.g. Cisco 8101) are left untouched and are NOT restarted on
+          teardown, so the fixture never changes their LLDP state.
 
         What this does NOT cover (limitation, tracked in #24236):
         - VM-originated LLDP/LACP that transits through the SONiC fanout
@@ -3522,29 +3742,42 @@ class QosSaiBase(QosBase):
         - EOS neighbor LACP multiplier 600 (no EOS-side LAG flap)
         - DUT LLDP/BGP/radvd stopped by stopServices fixture
         """
-        # Stop LLDP container once per fanout (covers fanout-self LLDP).
-        # The 202511 fanout role only stops LLDP for marvell-teralynx;
-        # broadcom SONiC fanouts still run LLDP by default.
-        # Assumption: LLDP is running before the test; "docker stop" rc=0 does
-        # not distinguish "stopped now" from "was already stopped", so the
-        # teardown's symmetric "docker start" will start LLDP even on fanouts
-        # where it was previously off. This is acceptable for the testbeds
-        # in scope (#24236) where LLDP runs by default on Broadcom SONiC.
+        # Stop the LLDP container only when it is *currently running*, and
+        # only restart in teardown the fanouts we actually stopped (tracked
+        # via sonic_lldp_stopped). Rationale: on some SONiC fanouts (e.g.
+        # Cisco 8101) LLDP is intentionally kept stopped/disabled; a symmetric
+        # "docker start" in teardown would wrongly turn it back on. Gating on
+        # the live running state means we (a) never start a container that was
+        # already down, and (b) leave such fanouts untouched. On fanouts where
+        # LLDP runs by default (e.g. Broadcom SONiC) behaviour is unchanged:
+        # it is stopped for the test and restored afterwards.
         if fanout_name not in sonic_lldp_stopped:
             try:
-                result = fanout.host.command(
-                    "docker stop lldp", module_ignore_errors=True)
-                if result.get('failed', False) or result.get('rc', 0) != 0:
-                    logger.warning(
-                        "permit_only_test_traffic_on_fanout: "
-                        "docker stop lldp on SONiC %s returned rc=%s, "
-                        "output=%s", fanout_name, result.get('rc', '?'),
-                        result.get('stdout', result.get('stderr', '')))
-                else:
-                    sonic_lldp_stopped.add(fanout_name)
+                running = fanout.host.command(
+                    "docker ps -q --filter name=lldp --filter status=running",
+                    module_ignore_errors=True)
+                lldp_running = (not running.get('failed', False)
+                                and running.get('rc', 0) == 0
+                                and bool((running.get('stdout') or '').strip()))
+                if not lldp_running:
                     logger.info(
-                        "permit_only_test_traffic_on_fanout: stopped lldp "
-                        "container on SONiC %s", fanout_name)
+                        "permit_only_test_traffic_on_fanout: lldp already "
+                        "stopped on SONiC %s; leaving fanout untouched",
+                        fanout_name)
+                else:
+                    result = fanout.host.command(
+                        "docker stop lldp", module_ignore_errors=True)
+                    if result.get('failed', False) or result.get('rc', 0) != 0:
+                        logger.warning(
+                            "permit_only_test_traffic_on_fanout: "
+                            "docker stop lldp on SONiC %s returned rc=%s, "
+                            "output=%s", fanout_name, result.get('rc', '?'),
+                            result.get('stdout', result.get('stderr', '')))
+                    else:
+                        sonic_lldp_stopped.add(fanout_name)
+                        logger.info(
+                            "permit_only_test_traffic_on_fanout: stopped lldp "
+                            "container on SONiC %s", fanout_name)
             except Exception as e:
                 logger.warning(
                     "permit_only_test_traffic_on_fanout: "
@@ -3787,6 +4020,7 @@ def set_queue_pir(interface, queue, rate):
     @pytest.fixture(scope='class', autouse=True)
     def is_supported_per_dir(self, get_src_dst_asic_and_duts, tbinfo):  # noqa F811
         supported_per_dir_platform = ["Mellanox-SN5640-C448O16", "Mellanox-SN5640-C512S2",
+                                      "Mellanox-SN5640-C508O1X2", "Mellanox-SN5640-C512X2",
                                       "Mellanox-SN5600-C224O8", "Mellanox-SN5600-C256S1",
                                       "Arista-7060X6-16PE-384C-B-O128S2"]
         is_supported_per_dir = \
@@ -3921,7 +4155,7 @@ def clear_pg_watermark(interface):
         src_asic = get_src_dst_asic_and_duts['src_asic']
         src_index = src_asic.asic_index
 
-        if src_dut.facts['asic_type'] != "cisco-8000" or dutConfig["dutAsic"] != "gr2":
+        if src_dut.facts['asic_type'] != "cisco-8000" or dutConfig["dutAsic"] not in ["gr2", "gr2x"]:
             yield
             return
 
@@ -3970,6 +4204,9 @@ def clear_pg_watermark(interface):
         By default WRED_ECN_QUEUE and WRED_ECN_PORT are disabled for polling.
         Enable flexcounter groups WRED_ECN_QUEUE and WRED_ECN_PORT using counterpoll CLI
         """
+        if get_src_dst_asic_and_duts['all_duts'][0].facts["asic_type"] == 'cisco-8000':
+            yield
+            return
         for duthost in get_src_dst_asic_and_duts['all_duts']:
             for dut_asic in duthost.asics:
                 try:

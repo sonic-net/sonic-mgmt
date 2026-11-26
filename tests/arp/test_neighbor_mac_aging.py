@@ -2,7 +2,7 @@ import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
+from tests.common.utilities import is_ipv6_only_topology, wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -28,19 +28,19 @@ def shutdown_interface(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         duthost.no_shutdown_interface(intf_to_restore)
 
 
-def _pick_neighbor(asichost):
+def _pick_neighbor(asichost, ipv6_only=False):
     """Pick a routed interface with an IPv4 or IPv6 peer.
 
     Returns a tuple (dut_intf, neighbor_ip, is_ipv6) or (None, None, None) if no
-    suitable neighbor is found. IPv4 is preferred for backward compatibility; if
-    no IPv4 peer is present (e.g. IPv6-only topologies) we fall back to IPv6.
+    suitable neighbor is found. Honor IPv6-only topology selection from upstream;
+    otherwise prefer IPv4 for backward compatibility and fall back to IPv6.
     """
-    # Prefer IPv4 peers when available
-    ip_interfaces = asichost.show_ip_interface()["ansible_facts"]["ip_interfaces"]
-    for intf, attrs in ip_interfaces.items():
-        peer = attrs.get("peer_ipv4")
-        if peer and peer != "N/A":
-            return intf, peer, False
+    if not ipv6_only:
+        ip_interfaces = asichost.show_ip_interface()["ansible_facts"]["ip_interfaces"]
+        for intf, attrs in ip_interfaces.items():
+            peer = attrs.get("peer_ipv4")
+            if peer and peer != "N/A":
+                return intf, peer, False
 
     # Fall back to IPv6 peers
     ipv6_interfaces = asichost.show_ipv6_interface()["ansible_facts"]["ipv6_interfaces"]
@@ -53,14 +53,14 @@ def _pick_neighbor(asichost):
 
 class TestNeighborMacAging:
     def testNeighborMacAgingAfterIntfDown(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                          enum_rand_one_frontend_asic_index, shutdown_interface):
+                                          enum_rand_one_frontend_asic_index, shutdown_interface, tbinfo):
         """
             Test whether neighbor MAC is aged out after interface down
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
 
-        dut_intf, neighbor_ip, is_ipv6 = _pick_neighbor(asichost)
+        dut_intf, neighbor_ip, is_ipv6 = _pick_neighbor(asichost, is_ipv6_only_topology(tbinfo))
         if dut_intf is None:
             pytest.skip("No IPv4 or IPv6 routed neighbor found on DUT; nothing to age out")
         logger.info("DUT interface: %s, neighbor IP: %s (ipv6=%s)", dut_intf, neighbor_ip, is_ipv6)

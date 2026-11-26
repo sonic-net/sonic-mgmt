@@ -60,7 +60,7 @@ def get_leakage_status(dut):
     :param dut: DUT object representing a SONiC switch under test.
     :return: The leakage status of the DUT.
     """
-    return dut.show_and_parse("show platform leakage status")
+    return dut.show_and_parse("show platform leak status")
 
 
 def get_leakage_status_in_health_system(dut):
@@ -96,7 +96,7 @@ def verify_leakage_status(dut, leakage_index_list, expected_status):
     for index in leakage_index_list:
         for leak_status in leakage_status_list:
             if leak_status['name'] == f"leakage{index}":
-                if leak_status['leaking'].lower() != expected_status.lower():
+                if leak_status['leak'].lower() != expected_status.lower():
                     failed_leakage_list.append(index)
                     logging.info(f"Leakage status is not as expected: {leak_status}")
                 else:
@@ -148,7 +148,7 @@ def verify_leakage_status_in_state_db(dut, leakage_index_list, expected_status):
     failed_leakage_list = []
     success_leakage_list = []
     for index in leakage_index_list:
-        leak_status = state_db.get(f"LIQUID_COOLING_INFO|leakage{index}", {}).get("value", {}).get("leak_status")
+        leak_status = state_db.get(f"LIQUID_COOLING_INFO|leakage{index}", {}).get("value", {}).get("leaking")
         if leak_status != expected_status:
             failed_leakage_list.append(index)
             logging.info(f"Leakage status in state db is not as expected: {leak_status}")
@@ -191,9 +191,10 @@ def startmonitor_gnmi_event(duthost, ptfhost):
     """
     dut_mgmt_ip = duthost.mgmt_ip
     timeout = WAIT_GNMI_LD_EVENT_TIMEOUT
-    gnmi_subscribe_cmd = f"python /root/gnxi/gnmi_cli_py/py_gnmicli.py -g -t {dut_mgmt_ip} -p 50052 -m subscribe \
-    -x all[heartbeat=2] -xt EVENTS -o ndastreamingservertest --subscribe_mode 0 --submode 1 --interval 0 \
-    --update_count 0 --create_connections 1 --filter_event_regex sonic-events-host --timeout {timeout}"
+    gnmi_subscribe_cmd = (
+        f"python /root/gnxi/gnmi_cli_py/py_gnmicli.py -g -t {dut_mgmt_ip} -p 50052 -m subscribe "
+        "-x all[heartbeat=2] -xt EVENTS -o ndastreamingservertest --subscribe_mode 0 --submode 1 --interval 0 "
+        f"--update_count 0 --create_connections 1 --filter_event_regex sonic-events-host --timeout {timeout} -n")
     result = ptfhost.shell(gnmi_subscribe_cmd, module_ignore_errors=True)['stdout']
     logging.info(f"gnmi subscribe cmd: {gnmi_subscribe_cmd} \n gnmi event result: {result}")
     return result
@@ -241,7 +242,7 @@ def get_liquid_cooling_update_interval(dut):
 @pytest.fixture(scope="function")
 def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     '''
-    Setup GNMI server with client certificates
+    Setup GNMI server with client without authentication
     '''
     duthost = duthosts[rand_one_dut_hostname]
 
@@ -250,14 +251,6 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
         check_container_state(duthost, gnmi_container(duthost), should_be_running=True),
         "Test was not supported on devices which do not support GNMI!")
     duthost.shell("sonic-db-cli CONFIG_DB hset 'GNMI|gnmi' port 50052")
-    duthost.shell("sonic-db-cli CONFIG_DB hset 'GNMI|gnmi' client_auth true")
-
-    duthost.shell(
-        "sonic-db-cli CONFIG_DB hset 'GNMI|certs' ca_crt /etc/sonic/telemetry/dsmsroot.cer")
-    duthost.shell(
-        "sonic-db-cli CONFIG_DB hset 'GNMI|certs' server_crt /etc/sonic/telemetry/streamingtelemetryserver.cer")
-    duthost.shell(
-        "sonic-db-cli CONFIG_DB hset 'GNMI|certs' server_key /etc/sonic/telemetry/streamingtelemetryserver.key")
     duthost.shell('sonic-db-cli CONFIG_DB HSET "GNMI|gnmi" "client_auth" "false"')
     duthost.shell('sudo systemctl reset-failed gnmi')
     duthost.shell('sudo service gnmi restart')
@@ -271,6 +264,12 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
 @pytest.fixture(scope="module", autouse=True)
 def skip_when_no_liquid_cooling_system(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    # This test relies on hw-management sysfs and the switch-specific 'leakage<index>' sensor naming.
+    # Integrated BMC devices expose leak sensors through the platform API with different names and
+    # counts, and are covered by platform_tests/api/test_liquid_cooling_leakage.py instead.
+    if duthost.is_bmc():
+        pytest.skip("Liquid cooling leakage detection is switch-only; "
+                    "BMC is covered by platform_tests/api/test_liquid_cooling_leakage.py")
     if not is_liquid_cooling_system_supported(duthost):
         pytest.skip("No liquid cooling leakage sensors found on device")
 

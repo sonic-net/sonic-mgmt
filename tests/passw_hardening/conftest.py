@@ -3,22 +3,20 @@ from tests.common.utilities import skip_release
 from . import passw_hardening_utils
 
 
-def set_default_passw_hardening_policies(duthosts, enum_rand_one_per_hwsku_hostname):
+@pytest.fixture(scope="module")
+def passw_policies_snapshot(duthosts, enum_rand_one_per_hwsku_hostname, passw_version_required):
+    """Snapshot the DUT's current password hardening policies once per module.
+
+    The teardown of clean_passw_policies restores exactly these values. Previously it
+    reset the policies to hard-coded "default" values; whenever those drifted from the
+    real SONiC boot defaults (defined in init_cfg.json.j2), the module-scoped config
+    check detected a CONFIG_DB diff and ran config_reload, which restarted BGP and
+    produced spurious "bgpd memory increased" alarms on the next, unrelated test.
+    Capturing the actual values keeps the restore correct even if the image defaults
+    change.
+    """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-
-    passw_hardening_ob_dis = passw_hardening_utils.PasswHardening(state='disabled',
-                                                                  expiration='100',
-                                                                  expiration_warning='15',
-                                                                  history='12',
-                                                                  len_min='8',
-                                                                  reject_user_passw_match='true',
-                                                                  lower_class='true',
-                                                                  upper_class='true',
-                                                                  digit_class="true",
-                                                                  special_class='true')
-
-    passw_hardening_utils.config_and_review_policies(duthost, passw_hardening_ob_dis,
-                                                     passw_hardening_utils.PAM_PASSWORD_CONF_DEFAULT_EXPECTED)
+    return passw_hardening_utils.get_passw_policies(duthost)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -36,9 +34,10 @@ def passw_version_required(duthosts, enum_rand_one_per_hwsku_hostname):
 
 
 @pytest.fixture(scope="function")
-def clean_passw_policies(duthosts, enum_rand_one_per_hwsku_hostname):
+def clean_passw_policies(duthosts, enum_rand_one_per_hwsku_hostname, passw_policies_snapshot):
     yield
-    set_default_passw_hardening_policies(duthosts, enum_rand_one_per_hwsku_hostname)
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    passw_hardening_utils.restore_passw_policies(duthost, passw_policies_snapshot)
 
 
 @pytest.fixture(scope="function")

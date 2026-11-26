@@ -18,7 +18,7 @@ from tests.bgp.bgp_helpers import (
         check_routes_presence
 )
 from tests.common.helpers.bgp import BGPNeighbor
-from tests.common.utilities import wait_until, delete_running_config
+from tests.common.utilities import wait_until
 from tests.common.utilities import is_ipv6_only_topology
 
 from tests.common.helpers.assertions import pytest_assert
@@ -65,7 +65,7 @@ WAIT_TIMEOUT = 120
 
 def _apply_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespace=DEFAULT_NAMESPACE):
     """Apply an outbound route-map to ExaBGP neighbors so the DUT only
-    advertises the test prefixes (10.10.100.0/24 or fc00:10::/44) instead
+    advertises the test prefixes (10.10.100.0/24 or fc00:10::/28) instead
     of the full routing table.  Without this, ExaBGP sessions flap on
     topologies where the test neighbors share routed interfaces with real
     BGP peers (e.g. M0 L3 scenario).
@@ -73,8 +73,8 @@ def _apply_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespac
     See: https://github.com/sonic-net/sonic-mgmt/issues/22391
     """
     if is_v6:
-        # Cover fc00:10::/64 through fc00:14::/64 (and the whole fc00:10::/44 block)
-        prefix_match = "fc00:10::/44 le 64"
+        # Cover fc00:10::/64 through fc00:14::/64 (and the whole fc00:10::/28 block)
+        prefix_match = "fc00:10::/28 le 64"
     else:
         prefix_match = "10.10.100.0/24 le 32"
 
@@ -95,22 +95,24 @@ def _apply_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespac
     vtysh_cmds.append("exit")  # exit address-family
     vtysh_cmds.append("exit")  # exit router bgp
 
-    ns_option = "-n {}".format(namespace) if namespace != DEFAULT_NAMESPACE else ""
-    cmd = "vtysh {} {}".format(ns_option, " ".join("-c '{}'".format(c) for c in vtysh_cmds))
+    cmd = "vtysh {}".format(" ".join("-c '{}'".format(c) for c in vtysh_cmds))
+    cmd = duthost.get_vtysh_cmd_for_namespace(cmd, namespace)
     duthost.shell(cmd)
 
-    # Soft-reset outbound so the filter takes effect immediately
+    # Soft-reset outbound so the filter takes effect immediately.
+    # Note: FRR vtysh syntax differs between v4 and v6:
+    #   v4: clear ip bgp <neighbor> soft out
+    #   v6: clear bgp ipv6 <neighbor> soft out  (word order is 'bgp ipv6', not 'ipv6 bgp')
+    clear_af = "bgp ipv6" if is_v6 else "ip bgp"
     for ip in neighbor_ips:
-        duthost.shell("vtysh {} -c 'clear {} bgp {} soft out'".format(
-            ns_option, "ipv6" if is_v6 else "ip", ip
-        ))
+        cmd = "vtysh -c 'clear {} {} soft out'".format(clear_af, ip)
+        cmd = duthost.get_vtysh_cmd_for_namespace(cmd, namespace)
+        duthost.shell(cmd)
 
 
 def _remove_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespace=DEFAULT_NAMESPACE):
     """Remove the outbound route-map and prefix-list added by
     _apply_outbound_route_filter."""
-    ns_option = "-n {}".format(namespace) if namespace != DEFAULT_NAMESPACE else ""
-
     vtysh_cmds = [
         "configure terminal",
         "router bgp {}".format(dut_asn),
@@ -123,7 +125,8 @@ def _remove_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespa
     vtysh_cmds.append("no route-map {}".format(TEST_ROUTES_ROUTE_MAP))
     vtysh_cmds.append("no {} prefix-list {}".format("ipv6" if is_v6 else "ip", TEST_ROUTES_PREFIX_LIST))
 
-    cmd = "vtysh {} {}".format(ns_option, " ".join("-c '{}'".format(c) for c in vtysh_cmds))
+    cmd = "vtysh {}".format(" ".join("-c '{}'".format(c) for c in vtysh_cmds))
+    cmd = duthost.get_vtysh_cmd_for_namespace(cmd, namespace)
     duthost.shell(cmd, module_ignore_errors=True)
 
 
@@ -170,6 +173,7 @@ def common_setup_teardown(
     )
 
     dut_asn = mg_facts["minigraph_bgp_asn"]
+    is_v6_topo = is_ipv6_only_topology(tbinfo)
     confed_asn = duthost.get_bgp_confed_asn()
     use_vtysh = False
 
@@ -180,10 +184,31 @@ def common_setup_teardown(
 
     if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter", "LowerSpineRouter"]:
         neigh_type = "LeafRouter"
+    elif dut_type == "UpperSpineRouter" and confed_asn is not None:
+        # On confederation-based UT2 topologies the UpperSpineRouter peers with
+        # AZNGHub neighbors using the confederation ASN, not the per-DUT ASN.
+        neigh_type = "AZNGHub"
+        dut_asn = int(confed_asn)
     elif dut_type in ["UpperSpineRouter", "FabricSpineRouter"]:
         neigh_type = "LowerSpineRouter"
         if dut_type == "FabricSpineRouter" and confed_asn is not None:
             # For FT2, we need to use vtysh to configure an external BGP neighbor
+            use_vtysh = True
+    elif dut_type in ["LowerRegionalHub"]:
+        neigh_type = "SpineRouter"  # or "UpperSpineRouter"
+        if confed_asn is not None:
+            use_vtysh = True
+    elif dut_type in ["UpperRegionalHub"]:
+        neigh_type = "LowerRegionalHub"
+        if confed_asn is not None:
+            use_vtysh = True
+    elif dut_type in ["LowerMgmtAggregator"]:
+        neigh_type = "MgmtSpineRouter"
+        if confed_asn is not None:
+            use_vtysh = True
+    elif dut_type in ["UpperMgmtAggregator"]:
+        neigh_type = "LowerMgmtAggregator"
+        if confed_asn is not None:
             use_vtysh = True
     else:
         neigh_type = "ToRRouter"
@@ -220,6 +245,7 @@ def common_setup_teardown(
             conn0_ns,
             is_multihop=is_quagga or is_dualtor,
             is_passive=False,
+            is_ipv6_only=is_v6_topo,
             confed_asn=confed_asn,
             use_vtysh=use_vtysh
         ),
@@ -236,6 +262,7 @@ def common_setup_teardown(
             conn1_ns,
             is_multihop=is_quagga or is_dualtor,
             is_passive=False,
+            is_ipv6_only=is_v6_topo,
             confed_asn=confed_asn,
             use_vtysh=use_vtysh
         ),
@@ -257,12 +284,6 @@ def common_setup_teardown(
         )
 
     yield bgp_neighbors, use_vtysh
-
-    # Cleanup suppress-fib-pending config
-    delete_tacacs_json = [
-        {"DEVICE_METADATA": {"localhost": {"suppress-fib-pending": "disabled"}}}
-    ]
-    delete_running_config(delete_tacacs_json, duthost)
 
 
 @pytest.fixture
@@ -575,6 +596,7 @@ def test_bgp_update_timer_session_down(
                     "-c 'configure terminal' "
                     f"-c 'router bgp {dut_asn}' "
                     f"-c 'neighbor {neigh_ip} shutdown' ")
+                cmd = duthost.get_vtysh_cmd_for_namespace(cmd, n0.namespace)
             else:
                 cmd = "config bgp shutdown neighbor {}".format(n0.name)
 

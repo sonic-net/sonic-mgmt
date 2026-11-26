@@ -1,3 +1,5 @@
+import logging
+
 from tests.common.constants import CounterpollConstants
 
 
@@ -39,14 +41,67 @@ class ConterpollHelper:
                         counterpoll_before[counterpoll][CounterpollConstants.STATUS]))
 
     @staticmethod
+    def _run_command_ignore_errors(duthost, cmd):
+        """Run command handling both SonicHost and SonicAsic interfaces.
+
+        SonicAsic.command() does not support module_ignore_errors, so
+        we try that kwarg first and fall back to catching the exception.
+        """
+        try:
+            return duthost.command(cmd, module_ignore_errors=True)
+        except TypeError:
+            # SonicAsic.command() doesn't accept module_ignore_errors
+            try:
+                return duthost.command(cmd)
+            except Exception as e:
+                # Return a synthetic failed result
+                return {'rc': 1, 'stdout': str(e), 'stderr': str(e)}
+
+    @staticmethod
     def disable_counterpoll(duthost, counter_type_list):
         for counterpoll_type in counter_type_list:
-            duthost.command(CounterpollConstants.COUNTERPOLL_DISABLE.format(counterpoll_type))
+            result = ConterpollHelper._run_command_ignore_errors(
+                duthost,
+                CounterpollConstants.COUNTERPOLL_DISABLE.format(
+                    counterpoll_type))
+            if result.get('rc', 0) != 0:
+                stdout = result.get('stdout', '').lower()
+                stderr = result.get('stderr', '').lower()
+                if 'not supported' in stdout or \
+                        'not supported' in stderr:
+                    logging.warning(
+                        "Counterpoll type '%s' not supported "
+                        "on this platform, skipping",
+                        counterpoll_type)
+                else:
+                    raise Exception(
+                        "Failed to disable counterpoll "
+                        "'{}': rc={}".format(
+                            counterpoll_type,
+                            result.get('rc', -1)))
 
     @staticmethod
     def enable_counterpoll(duthost, counter_type_list):
         for counterpoll_type in counter_type_list:
-            duthost.command(CounterpollConstants.COUNTERPOLL_ENABLE.format(counterpoll_type))
+            result = ConterpollHelper._run_command_ignore_errors(
+                duthost,
+                CounterpollConstants.COUNTERPOLL_ENABLE.format(
+                    counterpoll_type))
+            if result.get('rc', 0) != 0:
+                stdout = result.get('stdout', '').lower()
+                stderr = result.get('stderr', '').lower()
+                if 'not supported' in stdout or \
+                        'not supported' in stderr:
+                    logging.warning(
+                        "Counterpoll type '%s' not supported "
+                        "on this platform, skipping",
+                        counterpoll_type)
+                else:
+                    raise Exception(
+                        "Failed to enable counterpoll "
+                        "'{}': rc={}".format(
+                            counterpoll_type,
+                            result.get('rc', -1)))
 
     @staticmethod
     def set_counterpoll_interval(duthost, counterpoll_type, interval):

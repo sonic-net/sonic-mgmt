@@ -16,6 +16,7 @@
   virt: name={{ dut_name }}
         command=undefine
         uri=qemu:///system
+        flags=nvram
   when: dut_name in vm_list_defined.list_vms
   become: yes
 

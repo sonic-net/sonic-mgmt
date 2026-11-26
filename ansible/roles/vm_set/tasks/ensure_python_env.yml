@@ -34,7 +34,7 @@
 - name: Check installed versions of pinned Python packages
   command: >-
     {{ sonic_testbed_venv }}/bin/python -c
-    "import requests, docker; print(requests.__version__); print(docker.__version__)"
+    "import requests, docker, telnetlib3; print(requests.__version__); print(docker.__version__); print(telnetlib3.__version__)"
   register: pkg_versions
   changed_when: false
   failed_when: false
@@ -43,8 +43,8 @@
   command: >-
     uv pip install
     --python {{ sonic_testbed_venv }}/bin/python
-    requests==2.33.1 docker==7.1.0
+    requests==2.33.1 docker==7.1.0 telnetlib3==4.0.2 six
   become: yes
   environment: "{{ proxy_env | default({}) }}"
   when: pkg_versions.rc != 0
-        or pkg_versions.stdout_lines != ['2.33.1', '7.1.0']
+        or pkg_versions.stdout_lines != ['2.33.1', '7.1.0', '4.0.2']

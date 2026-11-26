@@ -153,6 +153,13 @@ class ProbingBase(sai_base_test.ThriftInterfaceDataPlane):
         # No env var override — change testParams in PTF command to switch mode
         self.ingress_drop_counter_mode = getattr(self, 'ingress_drop_counter_mode', 'port_drop')
 
+        from ingress_drop_probing_executor import IngressDropProbingExecutor
+        if self.ingress_drop_counter_mode not in IngressDropProbingExecutor.VALID_COUNTER_MODES:
+            raise ValueError(
+                f"Invalid ingress_drop_counter_mode='{self.ingress_drop_counter_mode}'. "
+                f"Must be one of: {IngressDropProbingExecutor.VALID_COUNTER_MODES}"
+            )
+
         ProbingObserver.trace(
             f"[{self.__class__.__name__}] ingress_drop_counter_mode={self.ingress_drop_counter_mode}"
         )
@@ -175,9 +182,9 @@ class ProbingBase(sai_base_test.ThriftInterfaceDataPlane):
         3. Setup traffic streams (subclass)
         4. Initialize BufferOccupancyController
         5. Execute probing logic (subclass)
+        6. Restore TX on held ports, including on probing or validation failure
 
-        Note: Buffer hold/drain is managed by executor.prepare() in each algorithm phase,
-              not by this base class.
+        Note: Per-phase buffer hold/drain is managed by executor.prepare().
 
         Subclasses should NOT override this method.
         Instead, implement get_probe_config(), setup_traffic(), probe().
@@ -208,7 +215,10 @@ class ProbingBase(sai_base_test.ThriftInterfaceDataPlane):
         # Step 5: Execute probing logic (abstract method)
         # Note: Buffer hold/drain is managed by executor.prepare() in each algorithm phase
         # Step 6: Assert result against expected value (if provided)
-        self.assert_probing_result(self.probe(), self.get_expected_threshold())
+        try:
+            self.assert_probing_result(self.probe(), self.get_expected_threshold())
+        finally:
+            self.buffer_ctrl.drain_all_buffers()
 
     #
     # Abstract Methods - Must be implemented by subclasses
@@ -307,6 +317,13 @@ class ProbingBase(sai_base_test.ThriftInterfaceDataPlane):
         self.asic_type = self.sonic_asic_type
         self.counter_margin = 0
 
+        # Defaults for probe packet params — overridden by testParams if present
+        # (the for-loop above sets them from test_params when provided by ProbeParamsResolver)
+        if not hasattr(self, 'probe_packet_length'):
+            self.probe_packet_length = 64
+        if not hasattr(self, 'probe_cells_per_packet'):
+            self.probe_cells_per_packet = 1
+
     def get_rx_port(self, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, dst_port_id, src_vlan):
         """
         Resolve actual destination port (handles LAG scenarios).
@@ -349,7 +366,10 @@ class ProbingBase(sai_base_test.ThriftInterfaceDataPlane):
 
     def get_pool_size(self):
         """
-        Get ingress lossless pool size in cells.
+        Get buffer pool size in cells.
+
+        This returns the raw cell count. Callers convert to packet units
+        using self.probe_cells_per_packet (set by ProbeParamsResolver).
 
         Checks environment variable 'ipoolsz' first,
         falls back to self.ingress_lossless_pool_size / cell_size.

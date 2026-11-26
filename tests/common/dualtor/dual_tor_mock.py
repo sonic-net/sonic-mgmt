@@ -344,10 +344,10 @@ def apply_peer_switch_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mo
     Also adds the 'subtype' field in the device metadata table and sets it to 'DualToR'
     '''
     def check_config_applied():
-        out = dut.shell('redis-cli -n 4 HGETALL "DEVICE_METADATA|localhost"')['stdout_lines'][-1]
+        out = dut.shell('redis-cli -n 4 HGETALL "DEVICE_METADATA|localhost"')['stdout_lines']
         device_metadata_done = 'DualToR' in out
-        out = dut.shell('redis-cli -n 4 HGETALL "PEER_SWITCH|switch_hostname"')['stdout_lines'][0]
-        peerswitch_done = 'ipv4_address' in out
+        out = dut.shell('redis-cli -n 4 HGETALL "PEER_SWITCH|switch_hostname"')['stdout_lines']
+        peerswitch_done = out and 'address_ipv4' in out
         return device_metadata_done and peerswitch_done
     logger.info("Applying PEER_SWITCH table")
     dut = rand_selected_dut
@@ -366,16 +366,30 @@ def apply_peer_switch_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mo
         logger.info("Restarting swss service to regenerate config.bcm")
         dut.shell('systemctl reset-failed swss; systemctl restart swss')
         wait_critical_processes(dut)
-
     cmds = ['redis-cli -n 4 HSET "{}" "address_ipv4" "{}"'.format(peer_switch_key, mock_peer_switch_loopback_ip.ip),
             'redis-cli -n 4 HSET "{}" "{}" "{}"'.format(device_meta_key, 'peer_switch', peer_switch_hostname)]
     dut.shell_cmds(cmds=cmds)
-    if restart_swss:
+    logger.info("Wait for 120 seconds for complete update of configs after swss restart")
+    pytest_assert(
+        wait_until(120, 5, 5, check_config_applied),
+        "Timed out waiting for PEER_SWITCH and DEVICE_METADATA configuration to appear in CONFIG_DB"
+    )
+    if ((restart_swss) and (dut.get_asic_name() != 'gb')):
         # Restart swss on TH2 or TD3 platform to apply changes
         logger.info("Restarting swss service")
         dut.shell('systemctl reset-failed swss; systemctl restart swss')
         wait_critical_processes(dut)
-    wait_until(120, 5, 5, check_config_applied)
+    logger.info("Wait for 120 seconds for complete update of configs after swss restart")
+    pytest_assert(
+        wait_until(120, 5, 5, check_config_applied),
+        "Timed out waiting for PEER_SWITCH and DEVICE_METADATA configuration to remain applied after swss restart"
+    )
+    # neighsyncd reads the PEER_SWITCH config only in its constructor. Restart it so the new
+    # config takes effect, unless swss was already restarted above (th2/td3) after writing it.
+    if not ((restart_swss) and (dut.get_asic_name() != 'gb')):
+        logger.info("Restarting neighsyncd to pick up the PEER_SWITCH configuration")
+        dut.shell('docker exec swss supervisorctl restart neighsyncd')
+        wait_critical_processes(dut)
 
 
 @pytest.fixture(scope='module')
@@ -427,6 +441,14 @@ def apply_mux_cable_table_to_dut(cleanup_mocked_configs, rand_selected_dut,
         return out['stdout_lines'][0] == str(num_tor_mux_intfs)
     logger.info("Applying MUX_CABLE table")
     dut = rand_selected_dut
+    # Cisco 8000 Gibraltar host-route standby mixes a tunnel NH into an IP ECMP
+    # that SAI creates as L2, then rejects the tunnel member. Prefix-route
+    # avoids that sequence. Other ASICs keep the YANG default (host-route).
+    PREFIX_ROUTE_ASICS = {'cisco-8000'}
+    asic_type = dut.facts.get('asic_type')
+    use_prefix_route = asic_type in PREFIX_ROUTE_ASICS
+    if use_prefix_route:
+        logger.info("Using MUX_CABLE neighbor_mode=prefix-route for %s", asic_type)
 
     server_ipv4_base_addr, server_ipv6_base_addr = mock_server_base_ip_addr
 
@@ -434,14 +456,14 @@ def apply_mux_cable_table_to_dut(cleanup_mocked_configs, rand_selected_dut,
     for i, intf in enumerate(tor_mux_intfs):
         server_ipv4 = str(server_ipv4_base_addr + i)
         server_ipv6 = str(server_ipv6_base_addr + i)
-        mux_cable_params.update(
-            {
-                intf: {
-                    'server_ipv4': server_ipv4,
-                    'server_ipv6': server_ipv6,
-                    'state': 'auto'
-                }
-            })
+        mux_entry = {
+            'server_ipv4': server_ipv4,
+            'server_ipv6': server_ipv6,
+            'state': 'auto'
+        }
+        if use_prefix_route:
+            mux_entry['neighbor_mode'] = 'prefix-route'
+        mux_cable_params.update({intf: mux_entry})
 
     mux_cable_params = {'MUX_CABLE': mux_cable_params}
     dut.copy(content=json.dumps(mux_cable_params, indent=2), dest="/tmp/mux_cable_params.json")

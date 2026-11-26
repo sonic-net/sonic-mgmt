@@ -16,6 +16,7 @@ from six.moves import queue
 
 import pytest
 
+from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory  # noqa: F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses  # noqa: F401
 from tests.ptf_runner import ptf_runner
@@ -274,6 +275,10 @@ def setup_vrf_cfg(duthost, localhost, cfg_facts):
     duthost.shell("cp /tmp/config_db_vrf.json /etc/sonic/config_db.json")
 
     reboot(duthost, localhost)
+    pytest_assert(wait_until(180, 20, 0, duthost.critical_services_fully_started),
+                  ("Not all critical services started within the allotted time after reboot.\n"))
+    pytest_assert(wait_until(180, 20, 0, check_interface_status_of_up_ports, duthost),
+                  ("Not all admin-up ports are operationally up after reboot.\n"))
 
 
 def setup_vlan_peer(duthost, ptfhost, cfg_facts):
@@ -1729,6 +1734,18 @@ class TestVrfDeletion:
             for ver, ips in list(ip_facts.items()):
                 for ip in ips:
                     duthost.shell("config interface ip add {} {}".format(intf, ip))
+
+        time.sleep(5)
+
+        for intf, ip_facts in list(g_vars["vrf_intfs"]["Vrf1"].items()):
+            if 'Vlan' not in intf:
+                continue
+            for ver, ips in list(ip_facts.items()):
+                for ip in ips:
+                    neigh_ip = ip.ip + 1
+                    ping_cmd = 'ping' if ip.version == 4 else 'ping6'
+                    duthost.shell("{} -I Vrf1 {} -c 1 -f -W1".format(ping_cmd,
+                                  neigh_ip), module_ignore_errors=True)
 
     @pytest.fixture(scope="class", autouse=True)
     def setup_vrf_deletion(self, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, cfg_facts):

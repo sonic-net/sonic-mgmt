@@ -163,6 +163,13 @@ class TlsCertificateGenerator:
                 ),
                 critical=True,
             )
+            # SubjectKeyIdentifier matches what `openssl req -x509` adds by
+            # default. Required so the CRL flow (which sets
+            # authorityKeyIdentifier=keyid:always) can resolve.
+            .add_extension(
+                x509.SubjectKeyIdentifier.from_public_key(key.public_key()),
+                critical=False,
+            )
             .sign(key, hashes.SHA256())
         )
 

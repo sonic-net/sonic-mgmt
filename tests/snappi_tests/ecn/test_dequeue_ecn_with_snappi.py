@@ -17,8 +17,18 @@ from tests.common.snappi_tests.read_pcap import is_ecn_marked
 from tests.snappi_tests.files.helper import skip_ecn_tests
 from tests.common.snappi_tests.common_helpers import packet_capture
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.common.snappi_tests.snappi_helpers import fetch_snappi_flow_metrics
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
+
+
+# Per-ASIC ECN dequeue test parameters.
+# Broadcom devices have a different queue kmin and require more packets to be
+# sent to see the marked packets at the end of the flow.
+ECN_PARAMS_BY_ASIC = {
+    'default':  {'ecn_params': {'kmin': 50000, 'kmax': 51000, 'pmax': 100}, 'pkt_count': 101},
+    'broadcom': {'ecn_params': {'kmin': 40000, 'kmax': 168000, 'pmax': 100}, 'pkt_count': 301},
+}
 
 
 @pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
@@ -51,6 +61,9 @@ def test_dequeue_ecn(request,
     Returns:
         N/A
     """
+    def _get_ecn_test_params(duthost):
+        asic_type = duthost.facts['asic_type']
+        return ECN_PARAMS_BY_ASIC.get(asic_type, ECN_PARAMS_BY_ASIC['default'])
 
     skip_ecn_tests(duthosts[0])
     for testbed_subtype, rdma_ports in multidut_port_info.items():
@@ -86,9 +99,12 @@ def test_dequeue_ecn(request,
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
     snappi_extra_params.packet_capture_type = packet_capture.IP_CAPTURE
     snappi_extra_params.is_snappi_ingress_port_cap = True
-    snappi_extra_params.ecn_params = {'kmin': 50000, 'kmax': 51000, 'pmax': 100}
+
     data_flow_pkt_size = 1024
-    data_flow_pkt_count = 101
+    ecn_test_params = _get_ecn_test_params(duthosts[0])
+    snappi_extra_params.ecn_params = ecn_test_params['ecn_params']
+    data_flow_pkt_count = ecn_test_params['pkt_count']
+
     num_iterations = 1
     logger.info("Running ECN dequeue test with params: {}".format(snappi_extra_params.ecn_params))
 
@@ -107,6 +123,18 @@ def test_dequeue_ecn(request,
                            prio_dscp_map=prio_dscp_map,
                            iters=num_iterations,
                            snappi_extra_params=snappi_extra_params)[0]
+
+    flow_names = [flow.name for flow in testbed_config.flows]
+    try:
+        flow_metrics = fetch_snappi_flow_metrics(snappi_api, flow_names)
+    except Exception:
+        logger.exception("Unable to retrieve ECN dequeue flow metrics")
+        flow_metrics = []
+    for metric in flow_metrics:
+        logger.info(f"ECN dequeue flow {metric.name}: "
+                    f"TX packets={metric.frames_tx}, RX packets={metric.frames_rx}")
+    logger.info(f"ECN dequeue capture: captured IP packets={len(ip_pkts)}, "
+                f"expected packets={data_flow_pkt_count}")
 
     logger.info("Running verification for ECN dequeue test")
     # Check if all the packets are captured

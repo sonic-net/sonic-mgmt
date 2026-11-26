@@ -4,6 +4,7 @@ Platform Dependency Code (PD) - ECMP Hash Platform Handler
 This module contains all platform-specific logic for ECMP hash testing.
 """
 
+import json
 import logging
 import pytest
 from abc import ABC, abstractmethod
@@ -196,12 +197,110 @@ class MellanoxPlatformHandler(ECMPHashPlatformHandler):
         raise NotImplementedError("Mellanox platform support not implemented yet")
 
 
+class VPPPlatformHandler(ECMPHashPlatformHandler):
+    """Platform handler for sonic-vpp (VPP-backed virtual SONiC).
+
+    Reports basic ECMP test capability (5-tuple-based packet distribution)
+    on t0/t1 topologies, and drives the ECMP hash seed used by
+    ``test_udp_packets_ecmp`` through the standard SONiC config path:
+    the ``ecmp_hash_seed`` field of ``SWITCH_TABLE:switch`` (APPL_DB), which
+    orchagent maps to ``SAI_SWITCH_ATTR_ECMP_DEFAULT_HASH_SEED``. saivpp in
+    turn maps that onto VPP's global ECMP flow-hash router-id, so changing
+    the seed re-distributes ECMP path selection.
+
+    Unlike the Broadcom / Mellanox handlers, sonic-vpp's ECMP behaviour is
+    driven purely by VPP (SAI -> VPP wire-level), so the emulated DUT HWSKU
+    does not change behaviour. No SKU allow-list is enforced.
+    """
+
+    SUPPORTED_SKUS = []  # No SKU restriction: any sonic-vpp testbed works.
+
+    # ECMP hash seed values (SAI_SWITCH_ATTR_ECMP_DEFAULT_HASH_SEED is a u32).
+    # Two distinct seeds so test_udp_packets_ecmp can prove the seed actually
+    # changes path distribution.
+    DEFAULT_SEED = "0"
+    TEST_SEED = "10"
+
+    def get_supported_skus(self):
+        return self.SUPPORTED_SKUS
+
+    def is_supported(self, duthost=None, hwsku=None, asic_type=None, topology=None, topo_name=None):
+        """Return True when the testbed is a VPP-backed switch on t0/t1.
+
+        sonic-vpp supports basic 5-tuple ECMP balance verification on any
+        HWSKU. Dualtor topologies are skipped (downstream PTF ports go
+        through the mux cable, same constraint Mellanox handler applies).
+        """
+        if asic_type and asic_type.lower() != "vpp":
+            logger.debug(f"ASIC type '{asic_type}' not supported by VPP platform handler")
+            return False
+
+        if topology and not any(topo in topology.lower() for topo in ["t0", "t1"]):
+            logger.info(f"Topology '{topology}' not supported by VPP platform handler")
+            return False
+
+        if topo_name and "dualtor" in topo_name.lower():
+            logger.info(f"Topology '{topo_name}' (dualtor) not supported by VPP platform handler")
+            return False
+
+        return True
+
+    def get_hash_offset_command(self, action="get", value=None):
+        """Get the command to read or set the ECMP hash seed on sonic-vpp.
+
+        The seed is exchanged through ``SWITCH_TABLE:switch`` in APPL_DB
+        (orchagent -> ``SAI_SWITCH_ATTR_ECMP_DEFAULT_HASH_SEED`` -> saivpp ->
+        VPP). ``get`` reads the configured value back from APPL_DB; ``set``
+        pushes a new value via ``swssconfig`` so orchagent programs it.
+        """
+        if action == "get":
+            return 'redis-cli -n 0 hget "SWITCH_TABLE:switch" "ecmp_hash_seed"'
+        elif action == "set" and value is not None:
+            payload = json.dumps(
+                [{"SWITCH_TABLE:switch": {"ecmp_hash_seed": str(value)}, "OP": "SET"}]
+            )
+            # Embed the JSON inside a single-quoted `bash -c` script, escaping
+            # the JSON's double quotes for the inner `echo "..."`. swssconfig
+            # then feeds it to orchagent. (set_ecmp_offset runs this via the
+            # ansible command module, i.e. a single argv invocation.)
+            escaped = payload.replace('"', '\\"')
+            return (
+                "docker exec swss bash -c "
+                "'echo \"{}\" > /tmp/ecmp_hash_seed.json && "
+                "swssconfig /tmp/ecmp_hash_seed.json'".format(escaped)
+            )
+        else:
+            raise ValueError(f"Invalid action '{action}' or missing value for set operation")
+
+    def parse_hash_offset_output(self, output):
+        """Parse the ECMP hash seed value from the redis-cli output."""
+        if output.get("rc") != 0:
+            logger.warning("Command failed to read ECMP hash seed")
+            return None
+
+        for line in output.get("stdout_lines", []):
+            line = line.strip()
+            if line:
+                return line
+        # Empty result means the seed has not been configured yet.
+        return None
+
+    def get_default_offset_value(self):
+        """Default ECMP hash seed (used as the restore value)."""
+        return self.DEFAULT_SEED
+
+    def get_test_offset_value(self):
+        """Test ECMP hash seed: distinct from default so distribution changes."""
+        return self.TEST_SEED
+
+
 class PlatformHandlerFactory:
     """Factory class to create appropriate platform handlers."""
 
     _handlers = {
         "broadcom": BroadcomPlatformHandler,
         "mellanox": MellanoxPlatformHandler,
+        "vpp": VPPPlatformHandler,
     }
 
     @classmethod
@@ -241,7 +340,8 @@ class PlatformHandlerFactory:
         # Direct ASIC type to platform mapping for faster and more accurate detection
         asic_to_platform_map = {
             'broadcom': 'broadcom',
-            'mellanox': 'mellanox'
+            'mellanox': 'mellanox',
+            'vpp': 'vpp'
         }
 
         # Try direct ASIC type mapping first
@@ -359,11 +459,26 @@ class ECMPHashManager:
 
     def set_test_offset(self):
         """Set the ECMP hash offset to test value."""
-        if hasattr(self.handler, 'get_test_offset_value'):
-            test_value = self.handler.get_test_offset_value()
-            return self.set_offset(test_value)
-        else:
+        if not hasattr(self.handler, "get_test_offset_value"):
             raise NotImplementedError("Test offset value not defined for this platform")
+
+        test_value = self.handler.get_test_offset_value()
+        # A run that was interrupted between set_test_offset() and
+        # restore_original_offset() leaves the DUT sitting on the test value.
+        # Re-applying it would leave the packet distribution untouched, so the
+        # comparison against the baseline run fails -- and since
+        # restore_original_offset() then writes that same value back, every
+        # later run keeps failing too. Use the default value instead so the
+        # offset genuinely changes.
+        if self._original_value is not None and str(self._original_value) == str(test_value):
+            default_value = self.handler.get_default_offset_value()
+            logger.warning(
+                "Current ECMP hash offset already equals the test value {}; "
+                "using {} instead so the offset actually changes".format(
+                    self._original_value, default_value)
+            )
+            test_value = default_value
+        return self.set_offset(test_value)
 
     def get_support_info(self):
         """Get detailed support information for debugging.

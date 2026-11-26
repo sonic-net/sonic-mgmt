@@ -25,7 +25,7 @@ import ptf.packet as scapy
 
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
-from ptf.testutils import test_params_get, simple_icmp_packet, simple_icmpv6_packet, send_packet,\
+from ptf.testutils import test_params_get, simple_icmp_packet, simple_icmpv6_packet, send_packet, \
     simple_ip_packet, simple_tcpv6_packet, verify_packet_any_port
 import macsec  # noqa F401
 

@@ -3,12 +3,12 @@ import time
 import sys
 from tests.common.cisco_data import is_cisco_device
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
     fanout_graph_facts  # noqa: F401
-from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,\
-    get_lossless_buffer_size, get_pg_dropped_packets,\
-    disable_packet_aging, enable_packet_aging, sec_to_nanosec,\
-    get_pfc_frame_count, packet_capture, config_capture_pkt,\
+from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
+    get_lossless_buffer_size, get_pg_dropped_packets, \
+    disable_packet_aging, enable_packet_aging, sec_to_nanosec, \
+    get_pfc_frame_count, packet_capture, config_capture_pkt, \
     traffic_flow_mode, calc_pfc_pause_flow_rate, get_tx_frame_count      # noqa: F401
 from tests.common.snappi_tests.port import select_ports, select_tx_port  # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id, wait_for_arp  # noqa: F401
@@ -55,7 +55,9 @@ def run_pfc_test(api,
                  dut_port=None,
                  test_flow_is_lossless=True,
                  snappi_extra_params=None,
-                 flow_factor=1):
+                 flow_factor=1,
+                 validate_pfc_src_mac=False,
+                 data_flow_pkt_count=None):
     """
     Run a multidut PFC test
     Args:
@@ -73,6 +75,9 @@ def run_pfc_test(api,
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
         test_traffic_pause (bool): if test flows are expected to be paused
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+        validate_pfc_src_mac (bool): if the PFC pause frame source MAC address should be validated
+            against the peer port's gateway MAC (Cisco capture validation only)
+        data_flow_pkt_count (int): packets to send per data flow; use duration when unset
 
     Returns:
         N/A
@@ -98,11 +103,20 @@ def run_pfc_test(api,
 
         tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
         ingress_duthost = tx_port['duthost']
+    elif dut_port and duthost.facts.get('num_asic', 1) > 1:
+        # The single-DUT path does not populate tx_port from multi_dut_ports.
+        # Preserve the namespace needed for per-ASIC counter lookups.
+        tx_port = {
+            'asic_value': duthost.get_port_asic_instance(dut_port).namespace
+        }
 
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
     global DATA_FLOW_DURATION_SEC
     global data_flow_delay_sec
+    # Reset to initial values before any modification
+    DATA_FLOW_DURATION_SEC = 15
+    data_flow_delay_sec = 1
 
     # Port id of Rx port for traffic config
     port_id = 0
@@ -161,28 +175,30 @@ def run_pfc_test(api,
     if snappi_extra_params.traffic_flow_config.data_flow_config is None:
         snappi_extra_params.traffic_flow_config.data_flow_config = {
             "flow_name": TEST_FLOW_NAME,
-            "flow_dur_sec": DATA_FLOW_DURATION_SEC,
+            "flow_dur_sec": DATA_FLOW_DURATION_SEC if data_flow_pkt_count is None else None,
             "flow_rate_percent": test_flow_rate_percent,
             "flow_rate_pps": None,
             "flow_rate_bps": None,
             "flow_pkt_size": data_flow_pkt_size,
-            "flow_pkt_count": None,
+            "flow_pkt_count": data_flow_pkt_count,
             "flow_delay_sec": data_flow_delay_sec,
-            "flow_traffic_type": traffic_flow_mode.FIXED_DURATION
+            "flow_traffic_type": (traffic_flow_mode.FIXED_DURATION if data_flow_pkt_count is None
+                                  else traffic_flow_mode.FIXED_PACKETS)
         }
 
     if snappi_extra_params.traffic_flow_config.background_flow_config is None and \
        snappi_extra_params.gen_background_traffic:
         snappi_extra_params.traffic_flow_config.background_flow_config = {
             "flow_name": BG_FLOW_NAME,
-            "flow_dur_sec": DATA_FLOW_DURATION_SEC,
+            "flow_dur_sec": DATA_FLOW_DURATION_SEC if data_flow_pkt_count is None else None,
             "flow_rate_percent": bg_flow_rate_percent,
             "flow_rate_pps": None,
             "flow_rate_bps": None,
             "flow_pkt_size": data_flow_pkt_size,
-            "flow_pkt_count": None,
+            "flow_pkt_count": data_flow_pkt_count,
             "flow_delay_sec": data_flow_delay_sec,
-            "flow_traffic_type": traffic_flow_mode.FIXED_DURATION
+            "flow_traffic_type": (traffic_flow_mode.FIXED_DURATION if data_flow_pkt_count is None
+                                  else traffic_flow_mode.FIXED_PACKETS)
         }
 
     if snappi_extra_params.traffic_flow_config.pause_flow_config is None:
@@ -205,11 +221,12 @@ def run_pfc_test(api,
         # PFC pause frame capture is not requested
         valid_pfc_frame_test = False
 
-    if valid_pfc_frame_test and not is_cisco_device(egress_duthost):
-        snappi_extra_params.traffic_flow_config.pause_flow_config["flow_dur_sec"] = DATA_FLOW_DURATION_SEC + \
-            data_flow_delay_sec + SNAPPI_POLL_DELAY_SEC + PAUSE_FLOW_DUR_BASE_SEC
-        snappi_extra_params.traffic_flow_config.pause_flow_config["flow_traffic_type"] = \
-            traffic_flow_mode.FIXED_DURATION
+    # A continuous pause storm can prevent data flows from reaching 'stopped' on their
+    # own. This also applies to global-pause tests even though test_traffic_pause is False.
+    # Cisco's valid-PFC-frame path is excluded to keep its existing behavior unchanged.
+    if (test_traffic_pause or global_pause) and \
+            not (valid_pfc_frame_test and is_cisco_device(egress_duthost)):
+        snappi_extra_params.stop_data_flows_before_final_stats = True
 
     no_of_streams = 1
     if egress_duthost.facts['asic_type'] == "cisco-8000":
@@ -297,8 +314,13 @@ def run_pfc_test(api,
         verify_pause_flow_for_macsec(flow_metrics=tgen_flow_stats,
                                      pause_flow_tx_port_name=snappi_extra_params.base_flow_config["rx_port_name"])
 
-        # Verify basic test flows metrics from ixia
-        verify_test_flow_stats_for_macsec(flow_metrics=tgen_flow_stats,
+        test_flow_metrics = tgen_flow_stats
+        if test_traffic_pause:
+            pytest_assert(in_flight_flow_metrics,
+                          "In-flight MACsec statistics are required to verify paused test flows")
+            # Stopping the pause storm lets buffered frames drain into the final RX counters.
+            test_flow_metrics = in_flight_flow_metrics
+        verify_test_flow_stats_for_macsec(flow_metrics=test_flow_metrics,
                                           speed_gbps=speed_gbps,
                                           tolerance=TOLERANCE_THRESHOLD,
                                           test_flow_pause=test_traffic_pause,
@@ -314,10 +336,18 @@ def run_pfc_test(api,
     # Verify PFC pause frames
     if valid_pfc_frame_test:
         if not is_cisco_device(duthost):
-            is_valid_pfc_frame, error_msg = validate_pfc_frame(snappi_extra_params.packet_capture_file + ".pcapng")
+            # Buffer may wrap during capture,
+            # but at least 100 frames are reliably retained in the pcapng file.
+            pfc_sample_size = 100
+            is_valid_pfc_frame, error_msg = validate_pfc_frame(snappi_extra_params.packet_capture_file + ".pcapng",
+                                                               SAMPLE_SIZE=pfc_sample_size)
         else:
+            peer_mac_addr = None
+            if validate_pfc_src_mac:
+                peer_mac_addr = snappi_extra_params.base_flow_config["tx_port_config"].gateway_mac
             is_valid_pfc_frame, error_msg = validate_pfc_frame_cisco(
-                                                            snappi_extra_params.packet_capture_file + ".pcapng")
+                                                            snappi_extra_params.packet_capture_file + ".pcapng",
+                                                            peer_mac_addr=peer_mac_addr)
         pytest_assert(is_valid_pfc_frame, error_msg)
         return
 

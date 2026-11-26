@@ -78,6 +78,8 @@ class TestEgressDropProbingInstance:
         self.def_vlan_mac = None
         self.cell_size = 208
         self.packet_size = 64
+        self.probe_packet_length = 64
+        self.probe_cells_per_packet = 1
         self.egress_lossy_pool_size = 104000
 
         # Probing configuration
@@ -160,6 +162,18 @@ class TestEgressDropProbingConfiguration(unittest.TestCase):
         value, description = result
         assert value == 1500
         assert "Egress Drop threshold" in description
+
+    @pytest.mark.order(4025)
+    def test_get_expected_threshold_with_egr_mem(self):
+        """Test get_expected_threshold includes configured egress memory."""
+        instance = TestEgressDropProbingInstance()
+        instance.hwsku = "Arista-7060X6"
+        instance.pkts_num_trig_egr_drp = 115891
+        instance.pkts_num_egr_mem = 206
+
+        result = EgressDropProbing.get_expected_threshold(instance)
+
+        assert result == (instance.pkts_num_trig_egr_drp + instance.pkts_num_egr_mem, "Egress Drop threshold")
 
     @pytest.mark.order(4030)
     def test_get_expected_threshold_absent(self):

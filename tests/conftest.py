@@ -1,5 +1,6 @@
 from functools import lru_cache
 from typing import Optional
+import argparse
 import enum
 import os
 import json
@@ -8,6 +9,7 @@ import random
 import re
 import sys
 import shutil
+import tempfile
 
 import pytest
 import yaml
@@ -24,6 +26,7 @@ from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
 from tests.common.multi_servers_utils import MultiServersUtils
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa: F401
+from tests.common.fixtures.vlan_config_swap import parametrize_vlan_config_from_topo  # noqa: F401
 from tests.common.devices.local import Localhost
 from tests.common.devices.ptf import PTFHost
 from tests.common.devices.eos import EosHost
@@ -43,7 +46,6 @@ from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active 
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session                  # noqa: F401
 from tests.common.dualtor.dual_tor_utils import disable_timed_oscillation_active_standby    # noqa: F401
 from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor
-from tests.common.dualtor.dual_tor_common import active_active_ports                        # noqa: F401
 from tests.common.dualtor import mux_simulator_control                                      # noqa: F401
 
 from tests.common.helpers.constants import (
@@ -54,7 +56,9 @@ from tests.common.helpers.custom_msg_utils import add_custom_msg
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.helpers.dut_utils import encode_dut_and_container_name
 from tests.common.helpers.parallel_utils import ParallelCoordinator, ParallelStatus, ParallelRunContext
-from tests.common.helpers.pfcwd_helper import TrafficPorts, select_test_ports, set_pfc_timers
+from tests.common.helpers.pfcwd_helper import TrafficPorts, select_test_ports, set_pfc_timers, \
+    is_pfcwd_hw_recovery_enabled
+from tests.common import constants
 from tests.common.system_utils import docker
 from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files, wait_until
@@ -62,10 +66,14 @@ from tests.common.utilities import get_host_vars
 from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import get_test_server_host
 from tests.common.utilities import str2bool
+from tests.common.sonic_inventory import get_sonic_neighbor_vars
+from tests.common.sonic_inventory import register_neighbor_inventory_host
 from tests.common.utilities import safe_filename
+from tests.common.utilities import flush_permanent_neighbors
 from tests.common.utilities import get_duts_from_host_pattern
 from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type, file_exists_on_dut
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node, create_duthost_console, creds_on_dut, \
+    select_proxy_env, \
     is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus, is_macsec_capable_node, \
     get_supervisor_for_linecard, create_linecard_console
 from tests.common.cache import FactsCache
@@ -73,6 +81,13 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from pytest_ansible.errors import AnsibleConnectionFailure
 from tests.common.helpers.inventory_utils import trim_inventory
+from tests.common.helpers.host_failure_utils import (
+    is_testbed_unreachable_exception, stop_on_testbed_unreachable,
+)
+from tests.common.helpers.runtime_config import (
+    get_unrestored_runtime_managed_entries_by_context,
+    refresh_core_dump_inventory,
+)
 from tests.common.utilities import InterruptableThread
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
@@ -97,15 +112,31 @@ from tests.common.telemetry.fixtures import db_reporter, ts_reporter            
 from tests.common.helpers.yang_utils import run_yang_validation
 
 
+def _csonic_lacp_multiplier(value):
+    try:
+        multiplier = int(value)
+    except (TypeError, ValueError):
+        raise argparse.ArgumentTypeError("cSONiC LACP multiplier must be an integer from 1 to 255")
+    if not 1 <= multiplier <= 255:
+        raise argparse.ArgumentTypeError("cSONiC LACP multiplier must be from 1 to 255")
+    return multiplier
+
+
 logger = logging.getLogger(__name__)
 cache = FactsCache()
 
 HOST_FIXTURE_FAILED_RC = 15
+CONNECTION_FAILURE_TYPES = (
+    AnsibleConnectionFailure,
+)
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
-GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
-GOLDEN_CONFIG_DB_PATH_ORI = "/etc/sonic/golden_config_db.json.origin.backup"
+GOLDEN_CONFIG_DB_PATH = constants.GOLDEN_CONFIG_DB_PATH
+GOLDEN_CONFIG_DB_PATH_ORI = constants.GOLDEN_CONFIG_DB_PATH_ORI
+RUNTIME_MANAGED_CONFIG_RESTORE_TIMEOUT = 120
+RUNTIME_MANAGED_CONFIG_RESTORE_INTERVAL = 10
 
-pytest_plugins = ('tests.common.plugins.ptfadapter',
+pytest_plugins = ('tests.common.plugins.nasa_debug',
+                  'tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
                   'tests.common.plugins.dut_monitor',
                   'tests.common.plugins.loganalyzer',
@@ -122,8 +153,12 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.conditional_mark',
                   'tests.common.plugins.random_seed',
                   'tests.common.plugins.memory_utilization',
+                  'tests.common.plugins.proc_mem_cpu_monitor',
                   'tests.common.fixtures.duthost_utils',
-                  'tests.common.plugins.parallel_fixture')
+                  'tests.common.plugins.parallel_fixture',
+                  'tests.common.plugins.erspan_mirror',
+                  'tests.common.port_attributes.pytest_plugin',
+                  'tests.common.plugins.dualtor_enum_one_tor')
 
 
 # NOTE: This is to backport fix https://github.com/python/cpython/pull/126098
@@ -154,6 +189,10 @@ def pytest_addoption(parser):
     # qos_sai options
     parser.addoption("--ptf_portmap", action="store", default=None, type=str,
                      help="PTF port index to DUT port alias map")
+    parser.addoption("--hash-seed", action="store", default=None, type=int,
+                     help="Replay IPinIP hash packet generation with this integer seed")
+    parser.addoption("--hash-debug", action="store_true", default=False,
+                     help="Log IPinIP protocol distribution and ASIC_DB hash/ECMP diagnostics")
     parser.addoption("--qos_swap_syncd", action="store", type=str2bool, default=True,
                      help="Swap syncd container with syncd-rpc container")
 
@@ -166,9 +205,12 @@ def pytest_addoption(parser):
                      choices=["eos", "sonic", "cisco", "csonic", "vsonic", "ceos"],
                      help="Neighbor devices type")
 
-    # ceos neighbor lacp multiplier
+    # neighbor LACP receive multipliers used during advanced reboot
     parser.addoption("--ceos_neighbor_lacp_multiplier", action="store", default=3, type=int,
                      help="LACP multiplier for ceos neighbors")
+    parser.addoption("--csonic_neighbor_lacp_multiplier", action="store", default=3,
+                     type=_csonic_lacp_multiplier,
+                     help="LACP receive multiplier (1-255) for cSONiC userspace OVS neighbors")
 
     # FWUtil options
     parser.addoption('--fw-pkg', action='store', help='Firmware package file')
@@ -256,6 +298,11 @@ def pytest_addoption(parser):
                      help="collect show techsupport since <date>. <date> should be a string which can "
                           "be parsed by bash command 'date --d <date>'. Default value is yesterday. "
                           "To collect all time spans, please use '@0' as the value.")
+    ############################
+    #   weak server options    #
+    ############################
+    parser.addoption("--weak_server", action="store_true", default=False,
+                     help="Treat testbed as a weak server (reduces packet counts and adds delays in relevant tests)")
 
     ############################
     #  keysight ixanvl options #
@@ -290,6 +337,9 @@ def pytest_addoption(parser):
                      help="Enable macsec on some links of testbed")
     parser.addoption("--macsec_profile", action="store", default="all",
                      type=str, help="profile name list in macsec/profile.json")
+    parser.addoption("--per_interface_macsec", action="store_true", default=False,
+                     help="Layer per-interface MACsec profiles (unique CAK/CKN per port) "
+                          "on top of the base profile for testing")
 
     ############################
     #   QoS options         #
@@ -410,6 +460,18 @@ def pytest_addoption(parser):
     parser.addoption("--bgp_pc_config", action="store_true", default=False,
                      help="Use existing config from config_db for BGP RIB tests (skip duthost_bgp_config)")
 
+    ##########################################
+    #   Dualtor MUX_CABLE combo options      #
+    ##########################################
+    parser.addoption("--prober_type", action="store", default=None, type=str,
+                     choices=["hardware", "software"],
+                     help="MUX_CABLE prober_type value (hardware|software). "
+                          "Only applies to dualtor/dualtor_io suites.")
+    parser.addoption("--neighbor_mode", action="store", default=None, type=str,
+                     choices=["host-route", "prefix-route"],
+                     help="MUX_CABLE neighbor_mode value (host-route|prefix-route). "
+                          "Only applies to dualtor/dualtor_io suites.")
+
 
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
@@ -430,7 +492,7 @@ def _load_testbed_config(tbfile, tbname):
         if tb.get('conf-name') == tbname:
             return tb
 
-    logger.warning(f"Testbed '{tbname}' not found in '{tbfile}'")
+    logger.warning(f"Testbed '{tbname}' is not in '{tbfile}'")
     return
 
 
@@ -447,6 +509,80 @@ def converge_topo_if_needed(config):
         if not use_converged_peers:
             logger.info(f"use_converged_peers=False for testbed '{tbname}', skipping converge")
             return
+
+        # cSONiC has a separate T0-only converger. Keep the cEOS path below
+        # unchanged; the pytest option defaults to eos, so infer cSONiC from the
+        # testbed only when the command line did not explicitly select a backend.
+        requested_neighbor_type = config.getoption("--neighbor_type")
+        neighbor_type_overridden = any(
+            arg == "--neighbor_type" or arg.startswith("--neighbor_type=")
+            for arg in config.invocation_params.args
+        )
+        is_csonic = requested_neighbor_type == "csonic" or (
+            not neighbor_type_overridden and tb_config.get('vm_type') == "csonic"
+        )
+        if is_csonic:
+            topo_name = tb_config.get('topo', '').strip()
+            if topo_name != "t0":
+                logger.info(
+                    "cSONiC converged peers currently support topo=t0 only; "
+                    f"skipping topo='{topo_name}'")
+                return
+
+            logger.info(
+                f"use_converged_peers=True for cSONiC testbed '{tbname}', "
+                "starting converge...")
+            tests_dir = os.path.dirname(os.path.abspath(__file__))
+            ansible_dir = os.path.join(os.path.dirname(tests_dir), "ansible")
+            vars_dir = os.path.join(ansible_dir, "vars")
+            topo_file = os.path.join(vars_dir, f"topo_{topo_name}.yml")
+            backup_file = f"{topo_file}.bak"
+
+            if not os.path.exists(topo_file):
+                logger.warning(f"Topo file not found: {topo_file}")
+                return
+
+            original_stat = os.stat(topo_file)
+            original_mode = original_stat.st_mode
+            original_uid = original_stat.st_uid
+            original_gid = original_stat.st_gid
+
+            if os.path.exists(backup_file):
+                logger.info("Backup file exists, recovering original topo file")
+                shutil.copy(backup_file, topo_file)
+            else:
+                logger.info(f"Creating backup: {backup_file}")
+                shutil.copy(topo_file, backup_file)
+
+            converger_path = os.path.join(ansible_dir, "csonic_topo_converger.py")
+            spec = importlib.util.spec_from_file_location(
+                "csonic_topo_converger", converger_path)
+            csonic_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(csonic_module)
+
+            csonic_module.converge_testbed(backup_file, topo_file)
+            logger.info(f"cSONiC topology '{topo_name}' converged successfully")
+
+            os.chmod(topo_file, original_mode)
+            os.chown(topo_file, original_uid, original_gid)
+            logger.info(f"File permissions restored to {original_uid}:{original_gid}")
+
+            config.cache.set("converged_topo_file", topo_file)
+            config.cache.set("converged_topo_backup", backup_file)
+            return
+
+        # cSONiC T0 is handled by its dedicated branch above. Keep this existing
+        # cEOS path strict: SONiC-VS and cisco neighbors have no equivalent
+        # renderer, so changing tbinfo for them would disagree with the deployed
+        # unconverged peers.
+        neighbor_type = config.getoption("--neighbor_type")
+        if neighbor_type not in ("eos", "ceos"):
+            logger.info(
+                f"use_converged_peers=True for testbed '{tbname}' but neighbor_type="
+                f"'{neighbor_type}' is not eligible for the cEOS convergence path; "
+                "skipping converge")
+            return
+
         logger.info(f"use_converged_peers=True for testbed '{tbname}', starting converge...")
 
         topo_name = tb_config.get('topo', '').strip()
@@ -486,7 +622,7 @@ def converge_topo_if_needed(config):
 
         os.chmod(topo_file, original_mode)
         os.chown(topo_file, original_uid, original_gid)
-        logger.info(f"File permissions restored to {original_uid}:{original_gid}")
+        logger.info(f"File permissions restored to {original_uid}: {original_gid}")
 
         config.cache.set("converged_topo_file", topo_file)
         config.cache.set("converged_topo_backup", backup_file)
@@ -685,6 +821,11 @@ def pytest_sessionstart(session):
         logger.debug("reset existing key: {}".format(key))
         session.config.cache.set(key, None)
 
+    # A session killed before pytest_sessionfinish leaves these flags in the cache,
+    # reset them so that a later healthy run is not reported as a host failure.
+    session.config.cache.set("duthosts_fixture_failed", None)
+    session.config.cache.set("ptfhost_exception", None)
+
 
 def pytest_sessionfinish(session, exitstatus):
     if (session.config.cache.get("duthosts_fixture_failed", None) or
@@ -860,6 +1001,7 @@ def set_rand_one_dut_hostname(request):
             dut_hostnames = random.sample(dut_hostnames, 1)
         rand_one_dut_hostname_var = dut_hostnames[0]
         logger.info("Randomly select dut {} for testing".format(rand_one_dut_hostname_var))
+    return rand_one_dut_hostname_var
 
 
 @pytest.fixture(scope="module")
@@ -1012,7 +1154,7 @@ def ptfhosts(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
 
 
 @pytest.fixture(scope="module")
-def k8smasters(enhance_inventory, ansible_adhoc, request):
+def k8smasters(enhance_inventory, ansible_adhoc, request, ansible_root):
     """
     Shortcut fixture for getting Kubernetes master hosts
     """
@@ -1025,7 +1167,7 @@ def k8smasters(enhance_inventory, ansible_adhoc, request):
             k8s_inv_file = inv_file
     if not k8s_inv_file:
         pytest.skip("k8s inventory not found, skipping tests")
-    with open('../ansible/{}'.format(k8s_inv_file), 'r') as kinv:
+    with open(os.path.join(ansible_root, k8s_inv_file), 'r') as kinv:
         k8sinventory = yaml.safe_load(kinv)
         for hostname, attributes in list(k8sinventory[k8s_master_ansible_group]['hosts'].items()):
             if 'haproxy' in attributes:
@@ -1058,6 +1200,28 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
         return devices
 
     neighbor_type = request.config.getoption("--neighbor_type")
+    neighbor_type_overridden = any(
+        arg == "--neighbor_type" or arg.startswith("--neighbor_type=")
+        for arg in request.config.invocation_params.args
+    )
+    # Auto-derive the neighbor type from the testbed's ``vm_type`` field only
+    # when no ``--neighbor_type`` override was provided on the pytest command
+    # line. This lets non-EOS testbeds (e.g. cSONiC, vsonic) resolve the correct
+    # neighbor host class (CsonicHost/SonicHost) while preserving explicit CLI
+    # overrides.
+    if not neighbor_type_overridden:
+        tb_vm_type = tbinfo.get("vm_type")
+        valid_vm_types = ("eos", "sonic", "cisco", "csonic", "vsonic", "ceos")
+        if tb_vm_type and tb_vm_type in valid_vm_types:
+            if tb_vm_type != neighbor_type:
+                logger.info(
+                    "nbrhosts: deriving neighbor_type='%s' from testbed vm_type "
+                    "(--neighbor_type was not provided)", tb_vm_type)
+            neighbor_type = tb_vm_type
+        elif tb_vm_type:
+            logger.warning(
+                "nbrhosts: testbed vm_type='%s' is not a recognized neighbor type; "
+                "falling back to neighbor_type='%s'", tb_vm_type, neighbor_type)
     if 'VMs' not in tbinfo['topo']['properties']['topology']:
         logger.info("No VMs exist for this topology: {}".format(
             tbinfo['topo']['properties']['topology']))
@@ -1094,6 +1258,53 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                     'multi_vrf_data': multi_vrf_data if multi_vrf_peer else None,
                 }
             )
+            if multi_vrf_peer:
+                device['host'].bgp_vrf = multi_vrf_data['vrf']
+                device['host'].bgp_prime_asn = multi_vrf_data['primary_host_asn']
+                device['host'].intf_map = multi_vrf_data['orig_intf_map']
+        elif neighbor_type == "csonic":
+            # cSONiC neighbors are docker-sonic-vs containers accessed via
+            # "docker exec" (CsonicHost), not over SSH. Handle them before the
+            # generic "sonic in neighbor_type" branch below, which routes the
+            # SSH-based SONiC family (sonic, vsonic) to SonicHost.
+            vm_set_name = tbinfo.get('group-name', '')
+            container_name = "csonic_{}_{}".format(vm_set_name, vm_name)
+            if multi_vrf_peer:
+                data = tbinfo['topo']['properties']['convergence_data']
+                primary_data = data['converged_peers'][multi_vrf_primary_host]
+                primary_asn = tbinfo['topo']['properties']['configuration'][multi_vrf_primary_host]['bgp']['asn']
+                multi_vrf_data = {
+                    'vrf': data['vrf_name_mapping'][neighbor_name],
+                    'logical_peer': neighbor_name,
+                    'intf_config': copy.deepcopy(primary_data['vrf'][neighbor_name]),
+                    'intf_offset': primary_data['intf_mapping'][neighbor_name]["offset"],
+                    'orig_intf_map': primary_data['intf_mapping'][neighbor_name]["orig_intf_map"],
+                    'primary_host': multi_vrf_primary_host,
+                    'primary_host_asn': primary_asn,
+                    'intf_index_mapping': copy.deepcopy(data['interface_index_mapping'][neighbor_name]),
+                    'vm_offset_mapping': data['vm_offset_mapping'][neighbor_name],
+                    'ptf_bp_config': copy.deepcopy(data['ptf_backplane_addrs'][neighbor_name]),
+                }
+                device = NeighborDevice(
+                    {
+                        'host': CsonicHost(
+                            container_name,
+                            bgp_vrf=multi_vrf_data['vrf'],
+                            intf_map=multi_vrf_data['orig_intf_map'],
+                            bgp_prime_asn=multi_vrf_data['primary_host_asn'],
+                        ),
+                        'conf': tbinfo['topo']['properties']['configuration'][neighbor_name],
+                        'is_multi_vrf_peer': True,
+                        'multi_vrf_data': multi_vrf_data,
+                    }
+                )
+            else:
+                device = NeighborDevice(
+                    {
+                        'host': CsonicHost(container_name),
+                        'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
+                    }
+                )
         elif "sonic" in neighbor_type:
             device = NeighborDevice(
                 {
@@ -1118,18 +1329,13 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                     'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
                 }
             )
-        elif neighbor_type == "csonic":
-            vm_set_name = tbinfo.get('group-name', '')
-            container_name = "csonic_{}_{}".format(vm_set_name, vm_name)
-            device = NeighborDevice(
-                {
-                    'host': CsonicHost(container_name),
-                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
-                }
-            )
         else:
             raise ValueError("Unknown neighbor type %s" % (neighbor_type,))
-        devices[neighbor_name] = device
+        # Keep the real Ansible inventory hostname. For converged cSONiC,
+        # CsonicHost.hostname identifies the logical peer as container:VRF and
+        # therefore cannot be used for Ansible inventory variable lookup.
+        register_neighbor_inventory_host(
+            devices, neighbor_name, device, vm_name)
         logger.info(f"nbrhosts finished: {neighbor_name}_{vm_name}")
 
     servers = []
@@ -1267,6 +1473,10 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
         logging.info("Nut topology has no fanout")
         return fanout_hosts
 
+    if tbinfo['topo']['name'].startswith('smartswitch'):
+        logging.info("SmartSwitch topology has no fanout")
+        return fanout_hosts
+
     # Process Ethernet connections
 
     dev_conn = conn_graph_facts.get('device_conn', {})
@@ -1338,7 +1548,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
 
             logging.debug(
                 f"Added serial port mapping: {dut_name} Console{host_port} -> "
-                f"{fanout_host}:{fanout_port} (baud={link_info.get('baud_rate', '9600')})"
+                f"{fanout_host}: {fanout_port} (baud={link_info.get('baud_rate', '9600')})"
             )
 
     logging.info(f"fanouthosts fixture initialized with {len(fanout_hosts)} fanout devices")
@@ -1383,28 +1593,35 @@ def eos():
 
 
 @pytest.fixture(scope='session')
-def sonic():
-    """ read and yield sonic configuration """
-    with open('sonic/sonic.yml') as stream:
-        eos = yaml.safe_load(stream)
-        return eos
+def sonic(request):
+    """Return SONiC settings visible to a specific neighbor inventory host."""
+    inv_files = get_inventory_files(request)
+
+    def _neighbor_vars(nbrhosts, neighbor_name):
+        try:
+            return get_sonic_neighbor_vars(
+                inv_files, nbrhosts, neighbor_name, get_host_visible_vars)
+        except ValueError as error:
+            pytest.fail(str(error))
+
+    return _neighbor_vars
 
 
 @pytest.fixture(scope='session')
-def pdu():
+def pdu(ansible_root):
     """ read and yield pdu configuration """
-    with open('../ansible/group_vars/pdu/pdu.yml') as stream:
+    with open(ansible_root.joinpath("group_vars/pdu/pdu.yml")) as stream:
         pdu = yaml.safe_load(stream)
         return pdu
 
 
 @pytest.fixture(scope="session")
-def creds(duthost):
-    return creds_on_dut(duthost)
+def creds(duthost, ipv6_only_mgmt_enabled):
+    return select_proxy_env(creds_on_dut(duthost), ipv6_only_mgmt_enabled)
 
 
 @pytest.fixture(scope="session")
-def topo_bgp_routes(localhost, ptfhosts, tbinfo):
+def topo_bgp_routes(localhost, ptfhosts, tbinfo, ansible_root):
     bgp_routes = {}
     topo_name = tbinfo['topo']['name']
     servers_dut_interfaces = None
@@ -1421,7 +1638,7 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo):
             topo_name=topo_name,
             ptf_ip=ptf_ip,
             action='generate',
-            path="../ansible/",
+            path=str(ansible_root),
             log_path=log_path,
             dut_interfaces=servers_dut_interfaces.get(ptf_ip, '') if servers_dut_interfaces else '',
             verbose=False
@@ -1437,10 +1654,13 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo):
 
 
 @pytest.fixture(scope='module')
-def creds_all_duts(duthosts):
+def creds_all_duts(duthosts, ipv6_only_mgmt_enabled):
     creds_all_duts = dict()
     for duthost in duthosts.nodes:
-        creds_all_duts[duthost.hostname] = creds_on_dut(duthost)
+        creds_all_duts[duthost.hostname] = select_proxy_env(
+            creds_on_dut(duthost),
+            ipv6_only_mgmt_enabled
+        )
     return creds_all_duts
 
 
@@ -1477,17 +1697,75 @@ def log_custom_msg(item):
         item.user_properties.append(('CustomMsg', json.dumps(custom_msg)))
 
 
+@pytest.hookimpl(trylast=True, wrapper=True)
+def pytest_runtest_teardown(item, nextitem):
+    """Finish retained fixtures before reporting a teardown-first host failure."""
+    try:
+        from builtins import BaseExceptionGroup
+    except ImportError:
+        from exceptiongroup import BaseExceptionGroup
+    cleanup_exceptions = (Exception, pytest.fail.Exception, pytest.skip.Exception, BaseExceptionGroup)
+
+    # Native wrapper propagation keeps control-flow exceptions unchanged and
+    # preserves the original failure as their context during remaining cleanup.
+    try:
+        return (yield)
+    except pytest.exit.Exception:
+        raise
+    except cleanup_exceptions as original_error:
+        if nextitem is None or not is_testbed_unreachable_exception(original_error, CONNECTION_FAILURE_TYPES):
+            raise
+
+        # pytest chose nextitem before this failure, so shared fixtures may remain.
+        # Drain only the fixture stack, without running other teardown hooks twice.
+        # trylast keeps this inside pytest's teardown log/capture wrappers.
+        cleanup_errors = [original_error]
+        setup_state = item.session._setupstate
+        while setup_state.stack:
+            # Match pytest's LIFO stack drain, but retain sibling finalizers
+            # and earlier errors when a mixed BaseExceptionGroup is raised.
+            _, (finalizers, _) = setup_state.stack.popitem()
+            while finalizers:
+                finalizer = finalizers.pop()
+                try:
+                    finalizer()
+                except pytest.exit.Exception:
+                    raise
+                except cleanup_exceptions as cleanup_error:
+                    cleanup_errors.append(cleanup_error)
+        if len(cleanup_errors) > 1:
+            raise BaseExceptionGroup(
+                "Testbed unreachable and remaining fixture cleanup failed",
+                cleanup_errors,
+            ) from None
+        raise
+
+
 # This function is a pytest hook implementation that is called to create a test report.
 # By placing the call to log_custom_msg in the 'teardown' phase, we ensure that it is executed
 # at the end of each test, after all other fixture teardowns. This guarantees that any custom
 # messages are logged at the latest possible stage in the test lifecycle.
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
+    # Check the raw exception here instead of pytest_exception_interact,
+    # which pytest skips for expected failures (xfail).
+    try:
+        stop_on_testbed_unreachable(
+            item,
+            call,
+            CONNECTION_FAILURE_TYPES,
+        )
+    except Exception as e:
+        # This hook runs for every test phase, a failure here would abort the
+        # whole session with an INTERNALERROR instead of reporting the test.
+        logger.exception("Failed to check testbed connectivity failure: {}".format(repr(e)))
 
     if call.when == 'setup':
         item.user_properties.append(('start', str(datetime.fromtimestamp(call.start))))
     elif call.when == 'teardown':
-        if item.nodeid == item.session.items[-1].nodeid:
+        # The remaining items never run once the session is stopped early, so this
+        # is the last chance to attach the custom messages to the test report.
+        if item.nodeid == item.session.items[-1].nodeid or item.session.shouldstop:
             log_custom_msg(item)
         item.user_properties.append(('end', str(datetime.fromtimestamp(call.stop))))
 
@@ -1587,7 +1865,7 @@ def clear_neigh_entries(duthosts, tbinfo):
 
     if 'dualtor' in tbinfo['topo']['name']:
         for dut in duthosts:
-            dut.command("sudo ip neigh flush nud permanent")
+            flush_permanent_neighbors(dut)
 
 
 @pytest.fixture(scope="module")
@@ -1956,6 +2234,14 @@ def generate_port_lists(request, port_scope, with_completeness_level=False):
         if 'intf_status' not in val:
             continue
         for intf, status in list(val['intf_status'].items()):
+            # Skip internal ports (recirculation / inband / backplane). They
+            # match the 'Ethernet' scope (e.g. 'Ethernet-Rec0', 'Ethernet-IB0',
+            # 'Ethernet-BP0') and can be oper/admin up, but they are not
+            # front-panel test ports and have no fanout/TGEN mapping, so tests
+            # that pick one (e.g. via rand_one_dut_portname_oper_up) fail to
+            # resolve a port id.
+            if intf.startswith(("Ethernet-Rec", "Ethernet-IB", "Ethernet-BP")):
+                continue
             if scope in intf and (not state or status[state] == 'up'):
                 dut_port_pairs.append(encode_dut_port_name(dut, intf))
         dut_port_map[dut] = dut_port_pairs
@@ -2041,14 +2327,16 @@ def generate_dut_feature_list(request, duts_selected, asics_selected):
                 # Create tuple of dut and asic index
                 if "features" in meta[a_dut]:
                     for a_feature in list(meta[a_dut]["features"].keys()):
-                        if a_feature not in skip_feature_list:
+                        if a_feature not in skip_feature_list \
+                                and "disabled" not in meta[a_dut]["features"][a_feature]:
                             tuple_list.append((a_dut, a_asic, a_feature))
                 else:
                     tuple_list.append((a_dut, a_asic, None))
         else:
             if "features" in meta[a_dut]:
                 for a_feature in list(meta[a_dut]["features"].keys()):
-                    if a_feature not in skip_feature_list:
+                    if a_feature not in skip_feature_list \
+                            and "disabled" not in meta[a_dut]["features"][a_feature]:
                         tuple_list.append((a_dut, None, a_feature))
             else:
                 tuple_list.append((a_dut, None, None))
@@ -2157,7 +2445,26 @@ _hosts_per_hwsku_per_module = {}
 _rand_one_asic_per_module = {}
 _rand_one_frontend_asic_per_module = {}
 _macsec_frontend_hosts_per_hwsku_per_module = {}
-def pytest_generate_tests(metafunc):        # noqa: E302
+
+
+def pytest_generate_tests(metafunc):
+    # Auto-parametrize over topo DUT.vlan_configs keys (see vlan_config_swap.py).
+    if "parametrize_vlan_config_from_topo" in metafunc.fixturenames:
+        already_explicit = any(
+            m.name == "parametrize"
+            and m.args
+            and m.args[0] == "parametrize_vlan_config_from_topo"
+            for m in metafunc.definition.iter_markers()
+        )
+        if not already_explicit:
+            _, _tbinfo = get_tbinfo(metafunc)
+            _topo_dut = _tbinfo.get("topo", {}).get("properties", {}).get("topology", {}).get("DUT", {})
+            _vcs = _topo_dut.get("vlan_configs") or {}
+            _variants = sorted(k for k in _vcs.keys() if k != "default_vlan_config")
+            metafunc.parametrize(
+                "parametrize_vlan_config_from_topo",
+                _variants, indirect=True, ids=_variants,
+            )
     # The topology always has atleast 1 dut
     dut_fixture_name = None
     duts_selected = None
@@ -2896,7 +3203,7 @@ def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
     yield rtn_dict
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='session')
 def duts_minigraph_facts(duthosts, tbinfo):
     """Return minigraph facts for all DUT hosts
 
@@ -3030,7 +3337,7 @@ def restore_config_db_and_config_reload(duts_data, duthosts, request):
 
 
 def compare_running_config(pre_running_config, cur_running_config):
-    if type(pre_running_config) != type(cur_running_config):
+    if type(pre_running_config) is not type(cur_running_config):
         return False
     if pre_running_config == cur_running_config:
         return True
@@ -3099,6 +3406,8 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
         for m in request.node.iter_markers():
             if m.name == "skip_check_dut_health":
                 check_flag = False
+        use_running_config_baseline = request.node.get_closest_marker(
+            "use_running_config_baseline") is not None
 
         module_name = request.node.name
 
@@ -3122,26 +3431,37 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
 
                 logger.info("Collecting running config before test on {}".format(dut.hostname))
                 duts_data[dut.hostname]["pre_running_config"] = {}
-                if not dut.stat(path="/etc/sonic/running_golden_config.json")['stat']['exists']:
-                    logger.info("Collecting running golden config before test on {}".format(dut.hostname))
-                    dut.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")
-                duts_data[dut.hostname]["pre_running_config"][None] = \
-                    json.loads(dut.shell("cat /etc/sonic/running_golden_config.json", verbose=False)['stdout'])
+                if use_running_config_baseline:
+                    duts_data[dut.hostname]["pre_running_config"][None] = \
+                        json.loads(dut.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
+                else:
+                    if not dut.stat(path="/etc/sonic/running_golden_config.json")['stat']['exists']:
+                        logger.info("Collecting running golden config before test on {}".format(dut.hostname))
+                        dut.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")
+                    duts_data[dut.hostname]["pre_running_config"][None] = \
+                        json.loads(dut.shell("cat /etc/sonic/running_golden_config.json", verbose=False)['stdout'])
 
                 if dut.is_multi_asic:
                     for asic_index in range(0, dut.facts.get('num_asic')):
                         asic_ns = "asic{}".format(asic_index)
-                        if not dut.stat(
-                                path="/etc/sonic/running_golden_config{}.json".format(asic_index))['stat']['exists']:
-                            dut.shell(
-                                "sonic-cfggen -n {} -d --print-data > /etc/sonic/running_golden_config{}.json".format(
-                                    asic_ns,
-                                    asic_index,
+                        if use_running_config_baseline:
+                            duts_data[dut.hostname]['pre_running_config'][asic_ns] = \
+                                json.loads(dut.shell("sonic-cfggen -n {} -d --print-data".format(asic_ns),
+                                                     verbose=False)['stdout'])
+                        else:
+                            if not dut.stat(
+                                    path="/etc/sonic/running_golden_config{}.json".format(asic_index)
+                            )['stat']['exists']:
+                                dut.shell(
+                                    "sonic-cfggen -n {} -d --print-data > "
+                                    "/etc/sonic/running_golden_config{}.json".format(
+                                        asic_ns,
+                                        asic_index,
+                                    )
                                 )
-                            )
-                        duts_data[dut.hostname]['pre_running_config'][asic_ns] = \
-                            json.loads(dut.shell("cat /etc/sonic/running_golden_config{}.json".format(asic_index),
-                                                 verbose=False)['stdout'])
+                            duts_data[dut.hostname]['pre_running_config'][asic_ns] = \
+                                json.loads(dut.shell("cat /etc/sonic/running_golden_config{}.json".format(asic_index),
+                                                     verbose=False)['stdout'])
 
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts:
@@ -3183,6 +3503,37 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
 
         if check_flag:
 
+            def collect_running_config(dut):
+                running_config = {
+                    None: json.loads(dut.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
+                }
+                if dut.is_multi_asic:
+                    for asic_index in range(0, dut.facts.get('num_asic')):
+                        asic_ns = "asic{}".format(asic_index)
+                        running_config[asic_ns] = json.loads(
+                            dut.shell(
+                                "sonic-cfggen -n {} -d --print-data".format(asic_ns),
+                                verbose=False,
+                            )['stdout']
+                        )
+                return running_config
+
+            def collect_core_dumps(dut):
+                if "20191130" in dut.os_version:
+                    return dut.shell(
+                        'ls /var/core/ | grep -v python || true'
+                    )['stdout'].split()
+                return dut.shell('ls /var/core/')['stdout'].split()
+
+            def update_core_dump_inventory(dut):
+                cur_cores, detected_cores = refresh_core_dump_inventory(
+                    duts_data[dut.hostname]["pre_core_dumps"],
+                    lambda: collect_core_dumps(dut),
+                    new_core_dumps.get(dut.hostname),
+                )
+                duts_data[dut.hostname]["cur_core_dumps"] = cur_cores
+                new_core_dumps[dut.hostname] = detected_cores
+
             def collect_after_test(dut):
                 inconsistent_config[dut.hostname] = {}
                 pre_only_config[dut.hostname] = {}
@@ -3194,31 +3545,64 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
                 dut.shell("df -h")
 
                 logger.info("Collecting core dumps after test on {}".format(dut.hostname))
-                if "20191130" in dut.os_version:
-                    cur_cores = dut.shell('ls /var/core/ | grep -v python || true')['stdout'].split()
-                else:
-                    cur_cores = dut.shell('ls /var/core/')['stdout'].split()
-                duts_data[dut.hostname]["cur_core_dumps"] = cur_cores
-
-                cur_core_dumps_set = set(duts_data[dut.hostname]["cur_core_dumps"])
-                pre_core_dumps_set = set(duts_data[dut.hostname]["pre_core_dumps"])
-                new_core_dumps[dut.hostname] = list(cur_core_dumps_set - pre_core_dumps_set)
+                update_core_dump_inventory(dut)
 
                 logger.info("Collecting running config after test on {}".format(dut.hostname))
-                # get running config after running
-                duts_data[dut.hostname]["cur_running_config"] = {}
-                duts_data[dut.hostname]["cur_running_config"][None] = \
-                    json.loads(dut.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
-                if dut.is_multi_asic:
-                    for asic_index in range(0, dut.facts.get('num_asic')):
-                        asic_ns = "asic{}".format(asic_index)
-                        duts_data[dut.hostname]["cur_running_config"][asic_ns] = \
-                            json.loads(dut.shell("sonic-cfggen -n {} -d --print-data".format(asic_ns),
-                                                 verbose=False)['stdout'])
+                duts_data[dut.hostname]["cur_running_config"] = collect_running_config(dut)
 
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts:
                     executor.submit(collect_after_test, duthost)
+
+            def wait_for_runtime_managed_config(dut):
+                pre_running_config = duts_data[dut.hostname]["pre_running_config"]
+                cur_running_config = duts_data[dut.hostname]["cur_running_config"]
+                unrestored = get_unrestored_runtime_managed_entries_by_context(
+                    pre_running_config,
+                    cur_running_config,
+                )
+                if not unrestored:
+                    return
+
+                logger.info(
+                    "Waiting for runtime-managed config entries to be restored on {}: {}".format(
+                        dut.hostname,
+                        json.dumps(unrestored),
+                    )
+                )
+
+                def runtime_managed_config_restored():
+                    current = collect_running_config(dut)
+                    duts_data[dut.hostname]["cur_running_config"] = current
+                    return not get_unrestored_runtime_managed_entries_by_context(
+                        pre_running_config,
+                        current,
+                    )
+
+                if not wait_until(
+                        RUNTIME_MANAGED_CONFIG_RESTORE_TIMEOUT,
+                        RUNTIME_MANAGED_CONFIG_RESTORE_INTERVAL,
+                        0,
+                        runtime_managed_config_restored):
+                    logger.warning(
+                        "Runtime-managed config entries were not restored on {}: {}".format(
+                            dut.hostname,
+                            json.dumps(
+                                get_unrestored_runtime_managed_entries_by_context(
+                                    pre_running_config,
+                                    duts_data[dut.hostname]["cur_running_config"],
+                                )
+                            ),
+                        )
+                    )
+
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for duthost in duthosts:
+                    executor.submit(wait_for_runtime_managed_config, duthost)
+
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for duthost in duthosts:
+                    executor.submit(update_core_dump_inventory, duthost)
 
             for duthost in duthosts:
                 if new_core_dumps[duthost.hostname]:
@@ -3702,12 +4086,24 @@ def setup_pfc_test(
 
     tp_handle = TrafficPorts(mg_facts, neighbors, vlan_nw, topo, config_facts, ip_version_num)
     test_ports = tp_handle.build_port_list()
+    if not test_ports:
+        pytest.skip(
+            "setup_pfc_test: no test ports could be built on {} (topology {}, {}): the DUT needs "
+            "at least two routed interfaces, two Port-Channels, or two VLAN sub-interfaces "
+            "carrying an {} address".format(
+                duthost.hostname, topo, ip_version, ip_version))
 
     # In T1 topology update test ports by removing inactive ports
     if topo in SUPPORTED_T1_TOPOS:
         test_ports = update_t1_test_ports(
             duthost, mg_facts, test_ports, tbinfo
         )
+        if not test_ports:
+            pytest.fail(
+                "setup_pfc_test: no active IP interfaces remain on {} after filtering "
+                "inactive ports (topology {}, {}). Check link/BGP state.".format(
+                    duthost.hostname, topo, ip_version))
+
     # select a subset of ports from the generated port list
     selected_ports = select_test_ports(test_ports)
 
@@ -3732,8 +4128,13 @@ def setup_pfc_test(
     logger.info("--- Stopping Pfcwd ---")
     duthost.command("pfcwd stop")
 
-    # set poll interval
-    duthost.command("pfcwd interval {}".format(setup_info['pfc_timers']['pfc_wd_poll_time']))
+    # set poll interval (only for software recovery mechanism; HW PFCwd doesn't
+    # support 'pfcwd interval' since the poll runs in silicon)
+    if is_pfcwd_hw_recovery_enabled(duthost):
+        logger.info("--- Hardware recovery mechanism detected - poll interval not supported ---")
+    else:
+        logger.info("--- Setting poll interval for software recovery mechanism ---")
+        duthost.command("pfcwd interval {}".format(setup_info['pfc_timers']['pfc_wd_poll_time']))
 
     # set bulk counter chunk size
     logger.info("--- Setting bulk counter polling chunk size ---")
@@ -3769,7 +4170,7 @@ def build_gnmi_stubs(request):
             text=True,
             check=False  # Do not raise an exception automatically on non-zero exit
         )
-        logger.info(f"Output of {script_path}:\n{result.stdout}")
+        logger.info(f"Output of {script_path}: \n{result.stdout}")
 
         if result.returncode != 0:
             logger.error(f"{script_path} failed with exit code {result.returncode}")
@@ -3849,6 +4250,41 @@ def setup_connection(request, setup_gnmi_server):
         channel.close()
 
 
+def backup_golden_config(duthost, backup_path="/tmp/golden_config_db_backup.json"):
+    duthost.shell("cp {} {}".format(GOLDEN_CONFIG_DB_PATH, backup_path))
+
+
+def restore_golden_config(duthost, backup_path="/tmp/golden_config_db_backup.json"):
+    duthost.shell("cp {} {}".format(backup_path, GOLDEN_CONFIG_DB_PATH))
+
+
+def update_golden_config_tsa_enabled(duthost, tsa_enabled=True):
+    """
+    @summary: Update golden_config_db.json on the DUT to set tsa_enabled in BGP_DEVICE_GLOBAL.
+    Handles both multi-asic and single-asic cases.
+    """
+    golden_config_db = json.loads(duthost.shell("cat {}".format(GOLDEN_CONFIG_DB_PATH))['stdout'])
+    tsa_enabled_str = "true" if tsa_enabled else "false"
+
+    if duthost.sonichost.is_multi_asic:
+        for asic in duthost.asics:
+            golden_config_db.setdefault(asic.namespace, {}) \
+                            .setdefault("BGP_DEVICE_GLOBAL", {}) \
+                            .setdefault("STATE", {})["tsa_enabled"] = tsa_enabled_str
+    else:
+        golden_config_db.setdefault("BGP_DEVICE_GLOBAL", {}) \
+                        .setdefault("STATE", {})["tsa_enabled"] = tsa_enabled_str
+
+    tmp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
+    try:
+        json.dump(golden_config_db, tmp_file, indent=4)
+        tmp_file.flush()
+        tmp_file.close()
+        duthost.copy(src=tmp_file.name, dest=GOLDEN_CONFIG_DB_PATH)
+    finally:
+        os.unlink(tmp_file.name)
+
+
 @pytest.fixture(scope="module", autouse=True)
 def restore_golden_config_db(duthost):
     if file_exists_on_dut(duthost, GOLDEN_CONFIG_DB_PATH_ORI):
@@ -3861,6 +4297,17 @@ def restore_golden_config_db(duthost):
 def gnmi_connection(request, setup_connection):
     connection = setup_connection
     yield connection
+
+
+@pytest.fixture(scope="session")
+def weak_server(request, duthosts):
+    """
+    Returns True if the testbed should be treated as a weak server.
+    Can be forced via --weak_server CLI flag.
+    """
+    if request.config.getoption("--weak_server"):
+        return True
+    return False
 
 
 class DualtorMuxPortSetupConfig(enum.Flag):
@@ -3904,7 +4351,7 @@ class DualtorMuxPortSetupConfig(enum.Flag):
 
 
 @pytest.fixture(autouse=True)
-def setup_dualtor_mux_ports(active_active_ports, duthost, duthosts, tbinfo, request, mux_server_url):       # noqa:F811
+def setup_dualtor_mux_ports(duthost, duthosts, tbinfo, request, mux_server_url, vmhost):       # noqa:F811
     """Setup dualtor mux ports."""
     def _get_enumerated_dut_hostname(request):
         for k, v in request.node.callspec.params.items():
@@ -3999,7 +4446,7 @@ def setup_dualtor_mux_ports(active_active_ports, duthost, duthosts, tbinfo, requ
             config_active_active_dualtor(
                 duthosts[active_dut_hostname],
                 duthosts[standby_dut_hostname],
-                active_active_ports,
+                "all",
                 dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_SETUP_MUX_PORT_MANUAL_MODE
             )
         else:
@@ -4061,7 +4508,8 @@ def setup_dualtor_mux_ports(active_active_ports, duthost, duthosts, tbinfo, requ
         mux_simulator_control._toggle_all_simulator_ports_to_target_dut(target_dut_hostname,
                                                                         duthosts,
                                                                         mux_server_url,
-                                                                        tbinfo)
+                                                                        tbinfo,
+                                                                        vmhost)
 
     if dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_SETUP_MUX_PORT_MANUAL_MODE:
         logger.info("Set all mux ports to manual mode on all ToRs")
@@ -4098,6 +4546,14 @@ def yang_validation_check(request, duthosts):
         yield
         logger.info("Skipping YANG validation post-check due to --skip_yang flag")
         return
+
+    for m in request.node.iter_markers():
+        if m.name == "skip_check_dut_health":
+            logger.info(
+                "Skipping YANG validation: module marked skip_check_dut_health"
+            )
+            yield
+            return
 
     def run_yang_validation_all(stage):
         """Run YANG validation on all DUTs and return results"""
@@ -4145,3 +4601,16 @@ def restore_counter_poll(rand_selected_dut):
         parsed_counterpoll_before,
         parsed_counterpoll_after
     )
+
+
+@pytest.fixture(scope="session")
+def ansible_root(request):
+    """
+    Returns the ansible directory.
+    """
+    ansible_config_path = os.getenv("ANSIBLE_CONFIG", None)
+    if ansible_config_path:
+        return pathlib.Path(ansible_config_path)
+    else:
+        tbfile = request.config.getoption("testbed_file")
+        return pathlib.Path(tbfile).parent

@@ -132,6 +132,75 @@ class TestBufferOccupancyControllerHoldBuffer(unittest.TestCase):
 
 
 @pytest.mark.order(6030)
+class TestBufferOccupancyControllerCleanup:
+    @pytest.mark.parametrize("port_ids", [[], [5], [5, 1], [5, 1, 5]])
+    def test_drain_all_buffers_restores_actual_members(self, port_ids):
+        drain_buf_fn = MagicMock()
+        ctrl = BufferOccupancyController(
+            hold_buf_fn=MagicMock(), drain_buf_fn=drain_buf_fn,
+            stream_mgr=MagicMock(), send_packet_fn=MagicMock(),
+            ptftest_ref=MagicMock(), thrift_client=MagicMock(), asic_type="broadcom"
+        )
+        if port_ids:
+            ctrl.hold_buffer(port_ids)
+
+        ctrl.drain_all_buffers()
+        ctrl.drain_all_buffers()
+
+        if port_ids:
+            drain_buf_fn.assert_called_once_with(
+                ctrl._thrift_client, "broadcom", sorted(set(port_ids)), last_port=True
+            )
+        else:
+            drain_buf_fn.assert_not_called()
+        assert not ctrl._tx_disabled_ports
+
+    def test_drain_all_buffers_skips_released_ports(self):
+        drain_buf_fn = MagicMock()
+        ctrl = BufferOccupancyController(
+            hold_buf_fn=MagicMock(), drain_buf_fn=drain_buf_fn,
+            stream_mgr=MagicMock(), send_packet_fn=MagicMock(),
+            ptftest_ref=MagicMock(), thrift_client=MagicMock(), asic_type="broadcom"
+        )
+        ctrl.hold_buffer([1, 5])
+        ctrl.drain_buffer([1])
+        drain_buf_fn.reset_mock()
+
+        ctrl.drain_all_buffers()
+
+        drain_buf_fn.assert_called_once_with(ctrl._thrift_client, "broadcom", [5], last_port=True)
+        assert not ctrl._tx_disabled_ports
+
+    def test_drain_all_buffers_propagates_restore_failure(self):
+        ctrl = BufferOccupancyController(
+            hold_buf_fn=MagicMock(), drain_buf_fn=MagicMock(side_effect=RuntimeError("TX restore failed")),
+            stream_mgr=MagicMock(), send_packet_fn=MagicMock(),
+            ptftest_ref=MagicMock(), thrift_client=MagicMock(), asic_type="broadcom"
+        )
+        ctrl.hold_buffer([5])
+
+        with pytest.raises(RuntimeError, match="TX restore failed"):
+            ctrl.drain_all_buffers()
+
+        assert ctrl.is_buffer_held(5)
+
+    def test_hold_buffer_tracks_ports_if_disable_fails(self):
+        drain_buf_fn = MagicMock()
+        ctrl = BufferOccupancyController(
+            hold_buf_fn=MagicMock(side_effect=RuntimeError("partial TX disable")), drain_buf_fn=drain_buf_fn,
+            stream_mgr=MagicMock(), send_packet_fn=MagicMock(),
+            ptftest_ref=MagicMock(), thrift_client=MagicMock(), asic_type="broadcom"
+        )
+
+        with pytest.raises(RuntimeError, match="partial TX disable"):
+            ctrl.hold_buffer([1, 5])
+
+        assert ctrl._tx_disabled_ports == {1, 5}
+        ctrl.drain_all_buffers()
+        drain_buf_fn.assert_called_once_with(ctrl._thrift_client, "broadcom", [1, 5], last_port=True)
+
+
+@pytest.mark.order(6030)
 class TestBufferOccupancyControllerDrainBuffer(unittest.TestCase):
     """Test drain_buffer functionality."""
 
@@ -751,6 +820,109 @@ class TestBufferOccupancyControllerIntegration(unittest.TestCase):
 
         # Should restore 500 packets + send 10 new
         assert send_packet_fn.call_count == 2  # Restore call + traffic call
+
+
+@pytest.mark.order(6090)
+class TestDrainBufferIdempotency(unittest.TestCase):
+    """
+    Test drain_buffer idempotency — the fix for Mellanox KeyError.
+
+    On Mellanox, calling TX-enable on a port that was never TX-disabled
+    raises KeyError (no saved scheduler). The idempotency fix filters
+    out unheld ports so drain_buf_fn is only called with truly held ports.
+    """
+
+    def _make_ctrl(self):
+        """Create a controller with trackable mocks."""
+        self.drain_buf_fn = MagicMock()
+        return BufferOccupancyController(
+            hold_buf_fn=MagicMock(),
+            drain_buf_fn=self.drain_buf_fn,
+            stream_mgr=MagicMock(),
+            send_packet_fn=MagicMock(),
+            ptftest_ref=MagicMock(),
+            thrift_client=MagicMock(),
+            asic_type="mellanox"
+        )
+
+    @pytest.mark.order(6091)
+    def test_drain_unheld_ports_is_noop(self):
+        """Drain on ports never held → drain_buf_fn NOT called."""
+        ctrl = self._make_ctrl()
+
+        ctrl.drain_buffer([100, 200])
+
+        self.drain_buf_fn.assert_not_called()
+
+    @pytest.mark.order(6092)
+    def test_drain_mix_held_and_unheld(self):
+        """Drain with mix of held/unheld → only held ports passed."""
+        ctrl = self._make_ctrl()
+
+        ctrl.hold_buffer([10])  # hold port 10 only
+
+        ctrl.drain_buffer([10, 20, 30])  # 20 and 30 never held
+
+        self.drain_buf_fn.assert_called_once()
+        called_ports = self.drain_buf_fn.call_args[0][2]  # 3rd positional arg
+        assert called_ports == [10]
+
+    @pytest.mark.order(6093)
+    def test_double_drain_is_noop(self):
+        """Drain same port twice → second call is no-op."""
+        ctrl = self._make_ctrl()
+
+        ctrl.hold_buffer([10])
+        ctrl.drain_buffer([10])  # first drain
+        assert self.drain_buf_fn.call_count == 1
+
+        ctrl.drain_buffer([10])  # second drain — should be no-op
+        assert self.drain_buf_fn.call_count == 1  # still 1
+
+    @pytest.mark.order(6094)
+    def test_drain_empty_list_is_noop(self):
+        """Drain with empty port list → drain_buf_fn NOT called."""
+        ctrl = self._make_ctrl()
+
+        ctrl.drain_buffer([])
+
+        self.drain_buf_fn.assert_not_called()
+
+    @pytest.mark.order(6095)
+    def test_drain_passes_last_port_flag(self):
+        """Drain passes last_port kwarg to drain_buf_fn."""
+        ctrl = self._make_ctrl()
+
+        ctrl.hold_buffer([10])
+        ctrl.drain_buffer([10], last_port=True)
+
+        self.drain_buf_fn.assert_called_once()
+        assert self.drain_buf_fn.call_args[1]['last_port'] is True
+
+    @pytest.mark.order(6096)
+    def test_state_tracking_after_idempotent_drain(self):
+        """State is correct after various idempotent drain sequences."""
+        ctrl = self._make_ctrl()
+
+        ctrl.hold_buffer([10, 20, 30])
+        assert ctrl.is_buffer_held(10)
+        assert ctrl.is_buffer_held(20)
+        assert ctrl.is_buffer_held(30)
+
+        # Drain 10 + unheld 40
+        ctrl.drain_buffer([10, 40])
+        assert not ctrl.is_buffer_held(10)
+        assert ctrl.is_buffer_held(20)
+        assert ctrl.is_buffer_held(30)
+
+        # Double-drain 10 (already drained) + drain 20
+        ctrl.drain_buffer([10, 20])
+        assert not ctrl.is_buffer_held(10)
+        assert not ctrl.is_buffer_held(20)
+        assert ctrl.is_buffer_held(30)
+
+        # Only 2 actual drain calls (skip no-ops)
+        assert self.drain_buf_fn.call_count == 2
 
 
 if __name__ == "__main__":

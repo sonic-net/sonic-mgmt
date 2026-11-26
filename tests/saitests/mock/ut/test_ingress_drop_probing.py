@@ -75,6 +75,8 @@ class TestIngressDropProbingInstance:
         self.def_vlan_mac = None
         self.cell_size = 208
         self.packet_size = 64
+        self.probe_packet_length = 64
+        self.probe_cells_per_packet = 1
         self.ingress_drop_counter_mode = 'port_drop'
 
         # Probing configuration
@@ -148,6 +150,18 @@ class TestIngressDropProbingConfiguration(unittest.TestCase):
         value, description = result
         assert value == 1500
         assert "Ingress Drop threshold" in description
+
+    @pytest.mark.order(3025)
+    def test_get_expected_threshold_with_egr_mem(self):
+        """Test get_expected_threshold includes configured egress memory."""
+        instance = TestIngressDropProbingInstance()
+        instance.hwsku = "Arista-7060X6"
+        instance.pkts_num_trig_ingr_drp = 117679
+        instance.pkts_num_egr_mem = 206
+
+        result = IngressDropProbing.get_expected_threshold(instance)
+
+        assert result == (instance.pkts_num_trig_ingr_drp + instance.pkts_num_egr_mem, "Ingress Drop threshold")
 
     @pytest.mark.order(3030)
     def test_get_expected_threshold_absent(self):
@@ -325,7 +339,7 @@ class TestIngressDropProbingAlgorithmExecution(unittest.TestCase):
         )
 
         # Verify all phases executed
-        mock_upper.run.assert_called_once_with(24, 28, 5000, pg=3)
+        mock_upper.run.assert_called_once_with(24, 28, 5000, pool_size=5000, pg=3)
         mock_lower.run.assert_called_once_with(24, 28, 2000, pg=3)
         mock_range.run.assert_called_once_with(24, 28, 1000, 2000, pg=3)
 
@@ -555,7 +569,7 @@ class TestIngressDropProbingAlgorithmExecution(unittest.TestCase):
         )
 
         # Verify all algorithms receive traffic_keys
-        mock_upper.run.assert_called_once_with(24, 28, 5000, pg=3, queue=5, custom="value")
+        mock_upper.run.assert_called_once_with(24, 28, 5000, pool_size=5000, pg=3, queue=5, custom="value")
         mock_lower.run.assert_called_once_with(24, 28, 2000, pg=3, queue=5, custom="value")
         mock_range.run.assert_called_once_with(24, 28, 1000, 2000, pg=3, queue=5, custom="value")
 
@@ -766,6 +780,41 @@ class TestIngressDropProbingProbeMethod(unittest.TestCase):
             # Should still create result from (None, None)
             mock_result_class.from_bounds.assert_called_once_with(None, None)
             assert result == mock_result
+
+    @pytest.mark.order(3250)
+    @patch('ingress_drop_probing.ThresholdResult')
+    @patch('ingress_drop_probing.ProbingObserver')
+    def test_probe_pool_size_conversion_multi_cell(self, mock_observer_class, mock_result_class):
+        """Test probe converts pool_size from cells to packets when cells_per_packet > 1."""
+        instance = TestIngressDropProbingInstance()
+        instance.probe_cells_per_packet = 4  # Cisco: 1350B / 384B = 4 cells/pkt
+
+        mock_stream_mgr = MagicMock()
+        mock_stream_mgr.get_port_ids.return_value = [28]
+        instance.stream_mgr = mock_stream_mgr
+
+        # Pool size in cells
+        instance.get_pool_size = MagicMock(return_value=10000)
+
+        mock_algorithms = {
+            "upper_bound": MagicMock(),
+            "lower_bound": MagicMock(),
+            "threshold_range": MagicMock()
+        }
+        instance._create_algorithms = MagicMock(return_value=mock_algorithms)
+        instance._run_algorithms = MagicMock(return_value=(600, 650))
+
+        mock_result = MagicMock()
+        mock_result_class.from_bounds.return_value = mock_result
+        mock_observer_class.console = MagicMock()
+        mock_observer_class.report_probing_result = MagicMock()
+
+        IngressDropProbing.probe(instance)
+
+        # pool_size passed to _run_algorithms should be 10000 // 4 = 2500
+        instance._run_algorithms.assert_called_once_with(
+            mock_algorithms, 24, 28, 2500, pg=3
+        )
 
 
 if __name__ == "__main__":

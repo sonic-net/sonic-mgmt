@@ -167,7 +167,7 @@ def makeMain(data, outfile):
         }
     }
     with open(outfile, "w") as toWrite:
-        toWrite.write("supported_vm_types: [ 'veos', 'ceos', 'vsonic' ]\n"),
+        toWrite.write("supported_vm_types: [ 'veos', 'ceos', 'vsonic', 'csonic' ]\n"),
         yaml.dump(dictData, stream=toWrite, default_flow_style=False)
         toWrite.write("# proxy\n")
         yaml.dump(proxy, stream=toWrite, default_flow_style=False)
@@ -262,7 +262,7 @@ def makeSonicLabConsoleLinks(data, outfile):
     devices = data
     csv_file = outfile
     # folding this line inserts unwanted spaces
-    csv_columns = "StartDevice,StartPort,EndDevice,Console_type,Console_menu_type,Proxy,BaudRate"
+    csv_columns = "StartDevice,StartPort,EndDevice,Console_type,Console_menu_type,Proxy,BaudRate,DirectSSHPort"
     console_info_template = OrderedDict({
         "start_device": "",
         "start_port": "",
@@ -270,7 +270,8 @@ def makeSonicLabConsoleLinks(data, outfile):
         "console_type": "",
         "console_menu_type": "",
         "proxy": "",
-        "baud_rate": ""})
+        "baud_rate": "",
+        "direct_ssh_port": ""})
     try:
         with open(csv_file, "w") as f:
             f.write(csv_columns + "\n")

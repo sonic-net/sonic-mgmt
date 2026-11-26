@@ -6,9 +6,9 @@
 graph TB
     subgraph "Input Files"
         A[dut_info.json]
-        B[eeprom.json]
-        C[system.json]
-        D[Other category files...]
+        B["eeprom/ shards"]
+        C["system/ shards"]
+        D[Other category shards...]
     end
 
     subgraph "Framework Processing"
@@ -90,7 +90,7 @@ sequenceDiagram
     participant AM as AttributeManager
     participant PP as Port Processor
     participant CP as Config Parser
-    participant CF as Category Files
+    participant CF as Category Shards
     participant PR as Priority Resolver
     participant PD as port_attributes_dict
     participant V as Validator
@@ -108,9 +108,9 @@ sequenceDiagram
     AM->>PD: Seed BASE_ATTRIBUTES per port
 
     loop For each category
-        TC->>CF: Load category JSON file
-        CF-->>TC: Raw category attributes
-        TC->>PR: Resolve via 8-level priority hierarchy
+        TC->>CF: Load all shards in <category>/ (category + vendor + per-PN), deep-merge
+        CF-->>TC: Raw category attributes (merged tree)
+        TC->>PR: Resolve via 9-level priority hierarchy
         PR-->>TC: Merged CATEGORY_ATTRIBUTES
         TC->>PD: Store CATEGORY_ATTRIBUTES
         opt Attribute Completeness Validation
@@ -201,8 +201,8 @@ port_attributes_dict = {
 ## Key Benefits
 
 1. **Separation of Concerns**: Base hardware data vs. test-specific attributes
-2. **Modular Design**: Each category file is independent
-3. **Flexible Overrides**: 8-level priority system handles all scenarios
+2. **Modular Design**: Each category is sharded by ownership level (category / vendor / per-PN), so vendor onboarding and PN-specific tuning happen in isolated files
+3. **Flexible Overrides**: 9-level priority system handles all scenarios (including per-firmware-version overrides via the reserved `firmware_overrides.<FW_VERSION>` slot)
 4. **Efficient Grouping**: Port ranges reduce configuration overhead
 5. **Deployment Patterns**: Shared attributes for similar deployments
 6. **Extensible**: Easy to add new categories and attributes

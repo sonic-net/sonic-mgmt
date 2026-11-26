@@ -7,6 +7,7 @@ import ipaddress
 from jinja2 import Template
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.bgp import get_asic_config_facts, map_bgp_neighbor_to_interfaces
 from tests.common.utilities import wait_until, wait_tcp_connection, get_upstream_neigh_type
 from tests.common.config_reload import config_reload
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGP_MONITOR_NAME
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('t0', 't1', "m0", "mx", 'm1', 'lt2', 'ft2', 'c0')
+    pytest.mark.topology('t0', 't1', "m0", "mx", 'm1', 'lt2', 'ft2', 'c0', 'lma', 'uma')
 ]
 
 stop_tasks = False
@@ -55,14 +56,14 @@ CONFIG_DB_PATH = "/etc/sonic/config_db.json"
 
 
 @pytest.fixture(scope="module")
-def backup_and_restore_config_db(duthosts, rand_one_dut_hostname):
+def backup_and_restore_config_db(duthosts, enum_frontend_dut_hostname):
     """
     Module-level fixture to backup config_db.json before tests and restore it after tests.
     Explicitly requested by tests that modify config (sentinel/monitor variants).
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_frontend_dut_hostname]
 
-    # Save current running config and backup config_db.json before tests
+    # Save current running config and backup config_db.json before tests.
     logger.info("Saving running config on {} before test".format(duthost.hostname))
     duthost.command("sudo config save -y")
     logger.info("Backing up {} to {} on {}".format(CONFIG_DB_PATH, CONFIG_DB_BACKUP_PATH, duthost.hostname))
@@ -78,7 +79,7 @@ def backup_and_restore_config_db(duthosts, rand_one_dut_hostname):
 
 
 def get_dut_listen_range(tbinfo):
-    """Get the DUT listen range for BGP configuration
+    """Get the DUT listen range for BGP configuration.
 
     This function finds the backplane interface subnet for BGP Sentinel/Monitor configuration.
     It looks for any neighbor VM that has a backplane interface (bp_interface) defined.
@@ -137,16 +138,77 @@ def get_dut_listen_range(tbinfo):
     return ipv4_subnet, ipv6_subnet, spine_bp_addr
 
 
-def add_route_to_dut_lo(ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr):
-    """Add routes on PTF to reach DUT loopback addresses via spine backplane"""
+def get_bgp_monitor_backplane(tbinfo):
+    """Return PTF monitor addresses and reachable neighbor next hops.
+
+    Ordinary topologies keep the historical shared backplane addresses.  A
+    converged cSONiC topology instead gives every logical peer an isolated
+    point-to-point backplane; the shared addresses and the original per-VM
+    ``bp_interface`` next hops are not reachable from those VRFs.  Select one
+    logical peer and use both ends of its converged backplane link.
+    """
+    properties = tbinfo['topo']['properties']
+    common = properties['configuration_properties']['common']
+    ptf_bp_v4 = common.get('nhipv4', '')
+    ptf_bp_v6 = common.get('nhipv6', '').lower()
+    _, _, spine_bp_addr = get_dut_listen_range(tbinfo)
+
+    convergence_data = properties.get('convergence_data', {})
+    if not (properties.get('topo_is_multi_vrf')
+            and convergence_data.get('vrf_name_mapping')):
+        return ptf_bp_v4, ptf_bp_v6, spine_bp_addr, False
+
+    ptf_backplanes = convergence_data.get('ptf_backplane_addrs', {})
+    if not ptf_backplanes:
+        return ptf_bp_v4, ptf_bp_v6, spine_bp_addr, False
+
+    logical_peer = sorted(ptf_backplanes)[0]
+    selected = ptf_backplanes[logical_peer]
+
+    def _link_endpoints(prefix):
+        interface = ipaddress.ip_interface(prefix)
+        peers = [address for address in interface.network.hosts()
+                 if address != interface.ip]
+        if len(peers) != 1:
+            raise ValueError("Expected a point-to-point backplane, got {}".format(prefix))
+        return str(interface.ip), str(peers[0])
+
+    ptf_bp_v4, neighbor_bp_v4 = _link_endpoints(selected['ipv4'])
+    ptf_bp_v6, neighbor_bp_v6 = _link_endpoints(selected['ipv6'])
+    spine_bp_addr = {
+        logical_peer: {'ipv4': neighbor_bp_v4, 'ipv6': neighbor_bp_v6}
+    }
+    logger.info(
+        "Using converged BGP Monitor backplane for %s: PTF %s/%s via %s/%s",
+        logical_peer, ptf_bp_v4, ptf_bp_v6, neighbor_bp_v4, neighbor_bp_v6)
+    return ptf_bp_v4, ptf_bp_v6, spine_bp_addr, True
+
+
+def add_route_to_dut_lo(ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr,
+                        ptf_bp_v4=None, ptf_bp_v6=None,
+                        use_converged_backplane=False):
+    """Add routes on PTF to reach DUT loopbacks via a backplane peer.
+
+    For a converged backplane, bind each reachability probe to the address
+    ExaBGP will use. Binding to the parent ``backplane`` device forces untagged
+    traffic and bypasses the VLAN subinterface selected by a converged next
+    hop. Preserve the historical commands for ordinary topologies.
+    """
     logger.info("Adding routes on PTF to reach DUT loopback addresses")
     ipv4_nh, ipv6_nh = None, None
     for spine_name, v in spine_bp_addr.items():
         # Add ptf route to dut lo address (IPv4)
         if ipv4_nh is None:
-            ptfhost.shell("ip route add {} via {}".format(lo_ipv4_addr, v['ipv4']), module_ignore_errors=True)
+            if use_converged_backplane:
+                route_cmd = "ip route replace {} via {} src {}".format(
+                    lo_ipv4_addr, v['ipv4'], ptf_bp_v4)
+                probe_cmd = "ping {} -c 3 -I {}".format(lo_ipv4_addr, ptf_bp_v4)
+            else:
+                route_cmd = "ip route add {} via {}".format(lo_ipv4_addr, v['ipv4'])
+                probe_cmd = "ping {} -c 3 -I backplane".format(lo_ipv4_addr)
+            ptfhost.shell(route_cmd, module_ignore_errors=True)
             time.sleep(5)
-            ipv4_res = ptfhost.shell("ping {} -c 3 -I backplane".format(lo_ipv4_addr), module_ignore_errors=True)
+            ipv4_res = ptfhost.shell(probe_cmd, module_ignore_errors=True)
             if ipv4_res['rc'] != 0:
                 ptfhost.shell("ip route del {} via {}".format(lo_ipv4_addr, v['ipv4']), module_ignore_errors=True)
             else:
@@ -155,11 +217,18 @@ def add_route_to_dut_lo(ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr):
 
         # Add ptf route to dut lo address (IPv6)
         if ipv6_nh is None:
-            ptfhost.shell("ip route add {} via {}".format(lo_ipv6_addr, v['ipv6']), module_ignore_errors=True)
+            if use_converged_backplane:
+                route_cmd = "ip -6 route replace {} via {} src {}".format(
+                    lo_ipv6_addr, v['ipv6'], ptf_bp_v6)
+                probe_cmd = "ping {} -c 3 -I {}".format(lo_ipv6_addr, ptf_bp_v6)
+            else:
+                route_cmd = "ip route add {} via {}".format(lo_ipv6_addr, v['ipv6'])
+                probe_cmd = "ping {} -c 3 -I backplane".format(lo_ipv6_addr)
+            ptfhost.shell(route_cmd, module_ignore_errors=True)
             time.sleep(5)
-            ipv6_res = ptfhost.shell("ping {} -c 3 -I backplane".format(lo_ipv6_addr), module_ignore_errors=True)
+            ipv6_res = ptfhost.shell(probe_cmd, module_ignore_errors=True)
             if ipv6_res['rc'] != 0:
-                ptfhost.shell("ip route del {} via {}".format(lo_ipv6_addr, v['ipv6']), module_ignore_errors=True)
+                ptfhost.shell("ip -6 route del {} via {}".format(lo_ipv6_addr, v['ipv6']), module_ignore_errors=True)
             else:
                 ipv6_nh = v['ipv6']
                 logger.info("Added route to DUT loopback IPv6 {} via {}".format(lo_ipv6_addr, ipv6_nh))
@@ -201,7 +270,7 @@ def setup_bgp_sentinel(duthost, ipv4_subnet, ipv6_subnet, lo_ipv4_addr, lo_ipv6_
         ptf_bp_v6: PTF backplane IPv6 address (to be included in listen range)
     """
     logger.info("Applying BGPSentinel configuration (IPv4 + IPv6)")
-    # Follow the same behavior with test_bgp_sentinel.py
+    # Follow the same behavior with test_bgp_sentinel.py.
     sentinel_args = {
         'v4_listen_range': json.dumps([ipv4_subnet, ptf_bp_v4 + '/32']),
         'v6_listen_range': json.dumps([ipv6_subnet, ptf_bp_v6 + '/128']),
@@ -346,79 +415,82 @@ def cleanup_bgp_monitor(duthost, ptfhost, bgp_monitor_ips=None, bgp_monitor_rout
     logger.info("BGP Monitor cleanup completed")
 
 
-@pytest.fixture(scope='module')
-def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts, show_ip_interface_cmd):
-    duthost = duthosts[rand_one_dut_hostname]
+def _external_eth_nbrs(dev_nbrs, nbrhosts):
+    """Return DEVICE_NEIGHBOR entries for external testbed neighbors only."""
+    return {
+        ifname: nbr_info for ifname, nbr_info in dev_nbrs.items()
+        if nbr_info.get('name') in nbrhosts
+    }
 
-    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
-    portchannels = config_facts.get('PORTCHANNEL_MEMBER', {})
+
+@pytest.fixture(scope='module')
+def setup(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_index,
+          nbrhosts, fanouthosts):
+    duthost = duthosts[enum_frontend_dut_hostname]
+    asic_index = enum_rand_one_frontend_asic_index
+    asichost = duthost.asic_instance(asic_index)
+
+    config_facts = get_asic_config_facts(duthost, asic_index)
+    all_bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    if duthost.get_frr_mgmt_framework_config():
+        all_bgp_neighbors = all_bgp_neighbors.get('default', {})
+    bgp_neighbors = {
+        ip: details for ip, details in all_bgp_neighbors.items()
+        if details.get('name') in nbrhosts
+    }
+    if not bgp_neighbors:
+        pytest.skip(
+            "No external BGP neighbors on ASIC {} of DUT {}".format(asic_index, duthost.hostname)
+        )
+
     dev_nbrs = config_facts.get('DEVICE_NEIGHBOR', {})
-    bgp_neighbor = list(bgp_neighbors.keys())[0]
+    eth_nbrs = _external_eth_nbrs(dev_nbrs, nbrhosts)
+    if not eth_nbrs:
+        pytest.skip(
+            "No external neighbor interfaces on ASIC {} of DUT {}".format(asic_index, duthost.hostname)
+        )
 
     logger.debug("setup config_facts {}".format(config_facts))
     logger.debug("setup nbrhosts {}".format(nbrhosts))
     logger.debug("setup bgp_neighbors {}".format(bgp_neighbors))
-    logger.debug("setup dev_nbrs {}".format(dev_nbrs))
-    logger.debug("setup portchannels {}".format(portchannels))
-    logger.debug("setup test_neighbor {}".format(bgp_neighbor))
+    logger.debug("setup eth_nbrs {}".format(eth_nbrs))
 
-    interface_list = dev_nbrs.keys()
+    interface_list = list(eth_nbrs.keys())
     logger.debug('interface_list: {}'.format(interface_list))
 
-    # verify sessions are established
-    pytest_assert(wait_until(30, 5, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
-                  "Not all BGP sessions are established on DUT")
+    neigh_ips = list(bgp_neighbors.keys())
+    # verify sessions are established on the selected ASIC
+    pytest_assert(wait_until(30, 5, 0, asichost.check_bgp_session_state, neigh_ips),
+                  "Not all BGP sessions are established on DUT ASIC {}".format(asic_index))
 
-    ip_intfs = duthost.show_and_parse(show_ip_interface_cmd)
-    logger.debug("setup ip_intfs {}".format(ip_intfs))
-
-    # Create a mapping of neighbor IP to interfaces and their details
-    neighbor_ip_to_interfaces = {}
-
-    # Loop through the ip_intfs list to populate the mapping
-    for ip_intf in ip_intfs:
-        neighbor_ip = ip_intf['neighbor ip']
-        interface_name = ip_intf['interface']
-        if neighbor_ip not in neighbor_ip_to_interfaces:
-            neighbor_ip_to_interfaces[neighbor_ip] = {}
-
-        # Check if the interface is in portchannels and get the relevant devices
-        if interface_name in portchannels:
-            for dev_name in portchannels[interface_name]:
-                if dev_name in dev_nbrs and dev_nbrs[dev_name]['name'] == ip_intf['bgp neighbor']:
-                    neighbor_ip_to_interfaces[neighbor_ip][dev_name] = dev_nbrs[dev_name]
-        # If not in portchannels, check directly in dev_nbrs
-        elif interface_name in dev_nbrs and dev_nbrs[interface_name]['name'] == ip_intf['bgp neighbor']:
-            neighbor_ip_to_interfaces[neighbor_ip][interface_name] = dev_nbrs[interface_name]
-
-    # Update bgp_neighbors with the new 'interface' key
     for ip, details in bgp_neighbors.items():
-        if ip in neighbor_ip_to_interfaces:
-            details['interface'] = neighbor_ip_to_interfaces[ip]
+        interfaces = map_bgp_neighbor_to_interfaces(details['name'], dev_nbrs)
+        if interfaces:
+            details['interface'] = interfaces
 
     setup_info = {
         'neighhosts': bgp_neighbors,
-        "eth_nbrs": dev_nbrs
+        "eth_nbrs": eth_nbrs,
+        "asic_index": asic_index,
     }
 
     logger.debug('Setup_info: {}'.format(setup_info))
 
     yield setup_info
 
-    # verify sessions are established after test
-    if not duthost.check_bgp_session_state(bgp_neighbors):
+    # verify sessions are established after test on the selected ASIC
+    if not asichost.check_bgp_session_state(neigh_ips):
         for port in interface_list:
             logger.info("no shutdown dut interface {} port {}".format(duthost, port))
-            duthost.no_shutdown(port)
+            duthost.no_shutdown_interface(port)
 
             fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname, port)
             if fanout and fanout_port:
                 logger.info("no shutdown fanout interface, fanout {} port {}".format(fanout, fanout_port))
                 fanout.no_shutdown(fanout_port)
 
-            neighbor = dev_nbrs[port]["name"]
-            neighbor_port = dev_nbrs[port]["port"]
+            neighbor = eth_nbrs[port]["name"]
+            neighbor_port = eth_nbrs[port]["port"]
             neighbor_host = nbrhosts.get(neighbor, {}).get('host', None)
             if neighbor_host:
                 neighbor_host.no_shutdown(neighbor_port)
@@ -428,8 +500,8 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts, show_ip_interf
 
             time.sleep(1)
 
-    pytest_assert(wait_until(600, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
-                  "Not all BGP sessions are established on DUT")
+    pytest_assert(wait_until(600, 10, 0, asichost.check_bgp_session_state, neigh_ips),
+                  "Not all BGP sessions are established on DUT ASIC {}".format(asic_index))
 
 
 async def flap_dut_interface(duthost, port, sleep_duration, test_run_duration):
@@ -439,9 +511,9 @@ async def flap_dut_interface(duthost, port, sleep_duration, test_run_duration):
 
     start_time = time.time()  # Record the start time
     while not stop_tasks and time.time() - start_time < test_run_duration:
-        duthost.shutdown(port)
+        duthost.shutdown_interface(port)
         await asyncio.sleep(sleep_duration)
-        duthost.no_shutdown(port)
+        duthost.no_shutdown_interface(port)
         await asyncio.sleep(sleep_duration)
         dut_flap_count += 1
         if stop_tasks:
@@ -559,14 +631,16 @@ def _run_stress_link_flap_test(duthost, setup, nbrhosts, fanouthosts, test_type,
     test_run_duration = LOOP_TIMES_LEVEL_MAP[normalized_level]
     logger.debug('normalized_level {}, set test run duration {}'.format(normalized_level, test_run_duration))
 
-    # Skip the test on Virtual Switch due to fanout switch dependency and warm reboot
-    asic_type = duthost.facts['asic_type']
-    platform = duthost.facts['platform']
-    if (asic_type == "vs" or asic_type == "vpp") and (platform == "x86_64-kvm_x86_64-r0") \
-            and (test_type == "fanout" or test_type == "all"):
-        pytest.skip("Stress link flap test is not supported on Virtual Switch")
+    # Fanout flap requires physical fanout switches; skip when unavailable (e.g. VS T1)
+    if test_type in ("fanout", "all") and not fanouthosts:
+        pytest.skip("Fanout hosts not available; fanout flap test requires fanout switches")
 
-    if asic_type != "vs" and asic_type != "vpp":
+    # Skip fanout/all flap on Virtual Switch
+    asic_type = duthost.facts['asic_type']
+    if asic_type in ("vs", "vpp") and test_type in ("fanout", "all"):
+        pytest.skip("Stress link flap fanout test is not supported on Virtual Switch")
+
+    if asic_type not in ("vs", "vpp"):
         delay_time = SLEEP_DURATION
     else:
         delay_time = SLEEP_DURATION * 100
@@ -647,13 +721,13 @@ def _run_stress_link_flap_test(duthost, setup, nbrhosts, fanouthosts, test_type,
 
 
 @pytest.mark.parametrize("test_type", ["dut", "fanout", "neighbor", "all"])
-def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, fanouthosts, test_type,
+def test_bgp_stress_link_flap(duthosts, enum_frontend_dut_hostname, setup, nbrhosts, fanouthosts, test_type,
                               get_function_completeness_level):
     """
     Test BGP stress link flap without any additional features (Sentinel/Monitor).
     This is the basic stress test that flaps interfaces on DUT, fanout, or neighbor.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_frontend_dut_hostname]
 
     normalized_level = get_function_completeness_level
     if normalized_level is None:
@@ -663,7 +737,7 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
 
 
 @pytest.mark.parametrize("test_type", ["dut"])
-def test_bgp_stress_link_flap_with_sentinel(duthosts, rand_one_dut_hostname, setup, nbrhosts, fanouthosts,
+def test_bgp_stress_link_flap_with_sentinel(duthosts, enum_frontend_dut_hostname, setup, nbrhosts, fanouthosts,
                                             ptfhost, tbinfo, test_type, get_function_completeness_level,
                                             backup_and_restore_config_db):
     """
@@ -672,7 +746,10 @@ def test_bgp_stress_link_flap_with_sentinel(duthosts, rand_one_dut_hostname, set
     Only 'dut' flap type is tested since the goal is to verify BGP Sentinel stability
     under interface flaps, not to exhaustively cover all flap types in longevity scope.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_frontend_dut_hostname]
+
+    if duthost.is_multi_asic:
+        pytest.skip("BGP Sentinel stress variant requires additional multi-ASIC support")
 
     normalized_level = get_function_completeness_level
     if normalized_level is None:
@@ -724,7 +801,7 @@ def test_bgp_stress_link_flap_with_sentinel(duthosts, rand_one_dut_hostname, set
 
 
 @pytest.mark.parametrize("test_type", ["dut"])
-def test_bgp_stress_link_flap_with_monitor(duthosts, rand_one_dut_hostname, setup, nbrhosts, fanouthosts,
+def test_bgp_stress_link_flap_with_monitor(duthosts, enum_frontend_dut_hostname, setup, nbrhosts, fanouthosts,
                                            ptfhost, tbinfo, test_type, get_function_completeness_level,
                                            backup_and_restore_config_db):
     """
@@ -733,25 +810,26 @@ def test_bgp_stress_link_flap_with_monitor(duthosts, rand_one_dut_hostname, setu
     Only 'dut' flap type is tested since the goal is to verify BGP Monitor stability
     under interface flaps, not to exhaustively cover all flap types in longevity scope.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_frontend_dut_hostname]
+
+    if duthost.is_multi_asic:
+        pytest.skip("BGP Monitor stress variant requires additional multi-ASIC support")
 
     normalized_level = get_function_completeness_level
     if normalized_level is None:
         normalized_level = 'debug'
 
     # Get required topology information with safe key access
+    use_converged_backplane = False
     try:
         common_config = tbinfo['topo']['properties']['configuration_properties']['common']
         dut_asn = common_config.get('dut_asn')
-        ptf_bp_v4 = common_config.get('nhipv4', '')
-        ptf_bp_v6 = common_config.get('nhipv6', '').lower()
+        ptf_bp_v4, ptf_bp_v6, spine_bp_addr, use_converged_backplane = get_bgp_monitor_backplane(tbinfo)
     except KeyError as e:
         pytest.skip("BGP Monitor test requires topology configuration_properties: missing {}".format(e))
 
     if not dut_asn or not ptf_bp_v4 or not ptf_bp_v6:
         pytest.skip("BGP Monitor test requires dut_asn and PTF backplane addresses (nhipv4/nhipv6)")
-
-    _, _, spine_bp_addr = get_dut_listen_range(tbinfo)
 
     if not spine_bp_addr:
         pytest.skip("BGP Monitor test requires spine topology with backplane interfaces")
@@ -774,7 +852,9 @@ def test_bgp_stress_link_flap_with_monitor(duthosts, rand_one_dut_hostname, setu
 
     try:
         # Add routes on PTF to reach DUT loopback addresses
-        ipv4_nh, ipv6_nh = add_route_to_dut_lo(ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr)
+        ipv4_nh, ipv6_nh = add_route_to_dut_lo(
+            ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr,
+            ptf_bp_v4, ptf_bp_v6, use_converged_backplane)
         bgp_monitor_routes = {'ipv4_nh': ipv4_nh, 'ipv6_nh': ipv6_nh}
 
         # Setup BGP Monitor
@@ -810,7 +890,7 @@ def test_bgp_stress_link_flap_with_monitor(duthosts, rand_one_dut_hostname, setu
 
 
 @pytest.mark.parametrize("test_type", ["dut"])
-def test_bgp_stress_link_flap_with_sentinel_and_monitor(duthosts, rand_one_dut_hostname, setup, nbrhosts,
+def test_bgp_stress_link_flap_with_sentinel_and_monitor(duthosts, enum_frontend_dut_hostname, setup, nbrhosts,
                                                         fanouthosts, ptfhost, tbinfo, test_type,
                                                         get_function_completeness_level,
                                                         backup_and_restore_config_db):
@@ -820,25 +900,28 @@ def test_bgp_stress_link_flap_with_sentinel_and_monitor(duthosts, rand_one_dut_h
     Only 'dut' flap type is tested since the goal is to verify feature stability
     under interface flaps, not to exhaustively cover all flap types in longevity scope.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_frontend_dut_hostname]
+
+    if duthost.is_multi_asic:
+        pytest.skip("BGP Sentinel and Monitor stress variant requires additional multi-ASIC support")
 
     normalized_level = get_function_completeness_level
     if normalized_level is None:
         normalized_level = 'debug'
 
     # Get required topology information with safe key access
+    use_converged_backplane = False
     try:
         common_config = tbinfo['topo']['properties']['configuration_properties']['common']
         dut_asn = common_config.get('dut_asn')
-        ptf_bp_v4 = common_config.get('nhipv4', '')
-        ptf_bp_v6 = common_config.get('nhipv6', '').lower()
+        ptf_bp_v4, ptf_bp_v6, spine_bp_addr, use_converged_backplane = get_bgp_monitor_backplane(tbinfo)
     except KeyError as e:
         pytest.skip("BGP Sentinel and Monitor test requires topology configuration_properties: missing {}".format(e))
 
     if not dut_asn or not ptf_bp_v4 or not ptf_bp_v6:
         pytest.skip("BGP Sentinel and Monitor test requires dut_asn and PTF backplane addresses (nhipv4/nhipv6)")
 
-    ipv4_subnet, ipv6_subnet, spine_bp_addr = get_dut_listen_range(tbinfo)
+    ipv4_subnet, ipv6_subnet, _ = get_dut_listen_range(tbinfo)
 
     if not ipv4_subnet or not ipv6_subnet or not spine_bp_addr:
         pytest.skip("BGP Sentinel and Monitor test requires spine topology with backplane interfaces")
@@ -864,7 +947,9 @@ def test_bgp_stress_link_flap_with_sentinel_and_monitor(duthosts, rand_one_dut_h
         setup_bgp_sentinel(duthost, ipv4_subnet, ipv6_subnet, lo_ipv4_addr, lo_ipv6_addr, ptf_bp_v4, ptf_bp_v6)
 
         # Add routes on PTF to reach DUT loopback addresses
-        ipv4_nh, ipv6_nh = add_route_to_dut_lo(ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr)
+        ipv4_nh, ipv6_nh = add_route_to_dut_lo(
+            ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr,
+            ptf_bp_v4, ptf_bp_v6, use_converged_backplane)
         bgp_monitor_routes = {'ipv4_nh': ipv4_nh, 'ipv6_nh': ipv6_nh}
 
         # Setup BGP Monitor

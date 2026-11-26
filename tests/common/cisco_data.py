@@ -2,10 +2,26 @@ import json
 import re
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
+from tests.common.cisco_s1_cli import CiscoS1Cli
+
+
+# =============================================================================
+# Cisco 8000 Constants
+# =============================================================================
+CISCO_ASIC_TYPE = "cisco-8000"
+
+# Platform prefixes for conditional_mark and other test infrastructure.
+CISCO_8122_PREFIX = "x86_64-8122"        # Matches both GR2 (x86_64-8122_*) and GR2X (x86_64-8122x*)
+CISCO_8122_GR2_PREFIX = "x86_64-8122_"   # GR2 only (note trailing underscore)
+CISCO_8122_GR2X_PREFIX = "x86_64-8122x"  # GR2X only (note 'x' suffix)
+
+# Legacy aliases (kept for backward compatibility)
+GR2X_PLATFORM_PREFIX = CISCO_8122_GR2X_PREFIX
+GR2X_HWSKU_PREFIX = "Cisco-8122X"
 
 
 def is_cisco_device(dut):
-    return dut.facts["asic_type"] == "cisco-8000"
+    return dut.facts["asic_type"] == CISCO_ASIC_TYPE
 
 
 def is_model_json_format(duthost):
@@ -17,7 +33,7 @@ def get_markings_config_file(duthost):
     """
         Get the config file where the ECN markings are enabled or disabled.
     """
-    if duthost.facts["asic_type"] != "cisco-8000":
+    if duthost.facts["asic_type"] != CISCO_ASIC_TYPE:
         raise RuntimeError("This is applicable only to cisco platforms.")
     platform = duthost.facts['platform']
     hwsku = duthost.facts['hwsku']
@@ -74,7 +90,7 @@ def setup_markings_dut(duthost, localhost, **kwargs):
 
 
 def copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name):
-    if dut.facts['asic_type'] != "cisco-8000":
+    if dut.facts['asic_type'] != CISCO_ASIC_TYPE:
         raise RuntimeError("This function should have been called only for cisco-8000.")
 
     script_path = "/tmp/{}".format(script_name)
@@ -83,10 +99,7 @@ def copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name):
         dest = f"syncd{asic}"
     else:
         dest = "syncd"
-    dut.docker_copy_to_all_asics(
-        container_name=dest,
-        src=script_path,
-        dst="/")
+    dut.shell(f"docker cp {script_path} {dest}:/")  # noqa: E231
 
 
 def copy_set_voq_watchdog_script_cisco_8000(dut, asic="", enable=True):
@@ -100,9 +113,11 @@ set_voq_watchdog({})
     copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name="set_voq_watchdog.py")
 
 
-def check_dshell_ready(duthost):
-    show_command = "sudo show platform npu rx cgm_global"
-    err_msg = "debug shell server for asic 0 is not running"
+def check_dshell_ready(duthost, asic=None):
+    asic_arg = f" -n asic{asic}" if asic is not None else ""
+    asic_index = asic if asic is not None else 0
+    show_command = f"sudo show platform npu rx cgm_global{asic_arg}"
+    err_msg = f"debug shell server for asic {asic_index} is not running"
     output = duthost.command(show_command)['stdout']
     if err_msg in output:
         return False
@@ -113,3 +128,118 @@ def run_dshell_command(duthost, command):
     if not wait_until(300, 20, 0, check_dshell_ready, duthost):
         raise RuntimeError("Debug shell is not ready on {}".format(duthost.hostname))
     return duthost.shell(command)
+
+
+def get_voq_quant_thresholds_cisco(duthost, interface, traffic_class, asic_index=None):
+    """
+        Return the quantized queue watermark thresholds (in bytes) for a given
+        interface and traffic class on a Cisco-8000 device.
+
+        Args:
+            duthost: The DUT host handle.
+            interface (str): The egress interface name.
+            traffic_class (int): The traffic class / queue index.
+            asic_index (int, optional): ASIC index for multi-ASIC platforms.
+                Ignored on single-ASIC platforms.
+
+        Returns:
+            list[int]: The congestion-level thresholds in bytes, ordered from
+                lowest to highest.
+    """
+    s1cli = CiscoS1Cli(duthost, asic_index=asic_index)
+    port_oid = s1cli.get_port_oid(interface)
+    queue_oid = s1cli.get_queue_oid(port_oid, traffic_class)
+    return s1cli.get_queue_watermark_thresholds(queue_oid)
+
+
+def parse_voq_eviction_threshold(output):
+    """
+    Parse the VoQ eviction threshold (in bytes) from the JSON output of
+    "show platform npu voq cgm_profile ... -d".
+
+    The eviction probability is a per-region grid indexed by VoQ occupancy
+    (rows) and age (columns). Occupancy row 0 maps to 0 bytes and rows 1..N
+    map to "bq_list". The threshold is the lowest occupancy at which the
+    eviction probability first becomes non-zero. Region 0 is inspected since
+    all regions share the same occupancy scale.
+
+    Returns the threshold as an int, or None if it cannot be determined.
+    """
+    data = json.loads(output[output.index("{"):output.rindex("}") + 1])
+    occupancy = [0] + data["bq_list"]
+    region = data["voq_evict_prob_g"][0]
+    for row_index, probabilities in enumerate(region):
+        if any(prob > 0 for prob in probabilities):
+            return occupancy[row_index]
+    return None
+
+
+def get_voq_eviction_threshold_cisco(duthost, interface, traffic_class, asic_index=None):
+    """
+        Return the VoQ eviction threshold (in bytes) for a given interface and
+        traffic class on a Cisco-8000 device. This is the VoQ occupancy at which
+        the queue starts being evicted from SMS to HBM.
+
+        Args:
+            duthost: The DUT host handle.
+            interface (str): The egress interface name.
+            traffic_class (int): The traffic class / queue index.
+            asic_index (int, optional): ASIC index for multi-ASIC platforms.
+                Ignored on single-ASIC platforms.
+
+        Returns:
+            int: The eviction threshold in bytes.
+    """
+    if asic_index is None:
+        # Derive the ASIC from the port; namespace is set only on multi-asic platforms.
+        asic = duthost.get_port_asic_instance(interface)
+        asic_index = asic.asic_index if asic.get_asic_namespace() else None
+    namespace_option = ""
+    if asic_index is not None:
+        namespace_option = " -n asic{}".format(asic_index)
+    show_command = "sudo show platform npu voq cgm_profile -t {} -i {} -d{}".format(
+        traffic_class, interface, namespace_option)
+    output = run_dshell_command(duthost, show_command)["stdout"]
+    threshold = parse_voq_eviction_threshold(output)
+    if threshold is None:
+        raise RuntimeError(
+            "Could not determine VoQ eviction threshold for interface {} tc {} on {}.".format(
+                interface, traffic_class, duthost.hostname))
+    return threshold
+
+
+def parse_device_property(output, property_name):
+    """
+    Parse a single property value from "show platform npu global" output.
+
+    Returns the raw string value, or None if the property is not present.
+    """
+    match = re.search(r"{}\s*:\s*(\S+)".format(re.escape(property_name)), output)
+    return match.group(1) if match else None
+
+
+def get_device_property(duthost, property_name, asic_index=None):
+    """
+    Retrieve a device property from "show platform npu global" on a Cisco 8000 DUT.
+
+    asic_index adds a "-n asic<index>" namespace option for multi-asic platforms.
+    Returns the raw string value, or None if the property is not present.
+    """
+    namespace_option = ""
+    if asic_index is not None:
+        namespace_option = " -n asic{}".format(asic_index)
+    show_command = "show platform npu global{}".format(namespace_option)
+    output = run_dshell_command(duthost, show_command)["stdout"]
+    return parse_device_property(output, property_name)
+
+
+def get_dram_max_pds_in_a_pack(duthost, asic_index=None):
+    """
+    Return the "DRAM max packet descriptors in a pack" value from
+    "show platform npu global" on a Cisco 8000 DUT.
+
+    This is the maximum number of packet descriptors a single HBM DRAM block
+    can hold. Returns the value as an int, or None if not present.
+    """
+    value = get_device_property(duthost, "DRAM max packet descriptors in a pack", asic_index)
+    return int(value) if value is not None else None

@@ -7,6 +7,7 @@ import os
 import sys
 
 import yaml
+from natsort import natsorted
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, ".."))
@@ -114,6 +115,12 @@ def get_duts_version(sonichosts, output=None):
                 dut_info["Docker images"].append(image)
 
             ret[dut] = dut_info
+
+        # Sort keys so that each NPU is followed by its DPUs in natural order
+        # (e.g. dpu-0, dpu-1, ..., dpu-10 instead of dpu-0, dpu-1, dpu-10, dpu-2).
+        # NPU hostnames are a strict prefix of their DPU hostnames, so natural
+        # sort groups each NPU with its DPUs automatically.
+        ret = {hostname: ret[hostname] for hostname in natsorted(ret)}
 
         # ---- Output handling ----
         if output:

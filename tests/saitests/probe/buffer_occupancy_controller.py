@@ -102,13 +102,14 @@ class BufferOccupancyController:
         Args:
             port_ids: List of port IDs to hold buffer on
         """
-        self._hold_buf_fn(self._thrift_client, self._asic_type, port_ids)
-        # Track state: add to disabled set
+        # Track ports before the RPC so cleanup can recover a partial disable.
         self._tx_disabled_ports.update(port_ids)
+        self._hold_buf_fn(self._thrift_client, self._asic_type, port_ids)
 
     def drain_buffer(self, port_ids: list, last_port: bool = False) -> None:
         """
-        Drain buffer on ports by enabling TX.
+        Drain buffer on ports by enabling TX.  Idempotent: ports that are
+        not currently held (TX already enabled) are silently skipped.
 
         Note: Currently implemented via port TX enable. Future implementations
         may use more granular drain APIs (schedule/pg/queue level).
@@ -117,13 +118,23 @@ class BufferOccupancyController:
             port_ids: List of port IDs to drain buffer on
             last_port: Whether this is the last port (passed to drain_buf_fn)
         """
-        self._drain_buf_fn(self._thrift_client, self._asic_type, port_ids, last_port=last_port)
+        held = [p for p in port_ids if p in self._tx_disabled_ports]
+        if not held:
+            return
+        self._drain_buf_fn(self._thrift_client, self._asic_type, held, last_port=last_port)
         # Track state: remove from disabled set
-        self._tx_disabled_ports.difference_update(port_ids)
+        self._tx_disabled_ports.difference_update(held)
         # Reset actual cached count: when TX enabled, buffer is drained
         for key in list(self._actual_cached_packets.keys()):
             if key[1] in port_ids:  # key[1] is dst_port
                 self._actual_cached_packets[key] = 0
+
+    def drain_all_buffers(self) -> None:
+        """Restore TX on all ports held by this controller."""
+        port_ids = sorted(self._tx_disabled_ports)
+        if port_ids:
+            self.drain_buffer(port_ids, last_port=True)
+            log_message(f"Restored TX on held probe ports: {port_ids}", to_stderr=True)
 
     def is_buffer_held(self, port_id: int) -> bool:
         """

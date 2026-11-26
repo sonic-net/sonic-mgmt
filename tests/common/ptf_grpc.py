@@ -69,7 +69,7 @@ class PtfGrpc:
             # Auto-configuration from GNMIEnvironment
             if duthost is None:
                 raise ValueError("duthost is required when using GNMIEnvironment auto-configuration")
-            self.target = f"{duthost.mgmt_ip}:{target_or_env.gnmi_port}"
+            self.target = f"[{duthost.mgmt_ip}]:{target_or_env.gnmi_port}"
             self.plaintext = not target_or_env.use_tls if plaintext is None else plaintext
             self.env = target_or_env
 

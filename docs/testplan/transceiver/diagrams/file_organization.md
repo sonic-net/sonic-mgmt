@@ -11,16 +11,43 @@ ansible/files/transceiver/inventory/
 │   ├── sonic-device-02.json                # DUT 2 port configurations
 │   └── ...                                 # Additional DUT files
 │
-├── attributes/                             # Test category attribute files
-│   ├── eeprom.json                         # EEPROM test attributes
-│   ├── system.json                         # System test attributes
-│   ├── physical_oir.json                   # Physical OIR attributes
-│   ├── remote_reseat.json                  # Remote reseat attributes
-│   ├── cdb_fw_upgrade.json                 # CDB FW upgrade attributes
-│   ├── dom.json                            # DOM test attributes
-│   ├── vdm.json                            # VDM test attributes
-│   ├── pm.json                             # PM test attributes
-│   └── port_config.json                    # Port configuration test attributes
+├── attributes/                             # Test category attribute files (sharded)
+│   ├── eeprom/                             # EEPROM category
+│   │   ├── eeprom.json                     # Category-level shard (mandatory/defaults/dut/deployment_configurations)
+│   │   ├── platforms/                       # Platform/HWSKU shards (optional)
+│   │   │   └── <PLATFORM>/                 # One directory per platform
+│   │   │       ├── eeprom.json             # Platform-level shard (platform.<PLATFORM> only)
+│   │   │       └── hwskus/
+│   │   │           └── <HWSKU>.json        # HWSKU-level shard (hwsku.<HWSKU> only)
+│   │   └── transceivers/
+│   │       └── vendors/
+│   │           ├── ACME_CORP/                  # One directory per normalized vendor name
+│   │           │   ├── eeprom.json             # Vendor-level shard (vendors.<V>.defaults only)
+│   │           │   └── part_numbers/
+│   │           │       └── QSFP-2X100G-AOC-GENERIC_2_ENDM/   # One directory per normalized PN
+│   │           │           └── eeprom.json     # Per-PN shard
+│   │           └── NORTHSTAR_OPTICS/
+│   │               ├── eeprom.json
+│   │               └── part_numbers/
+│   │                   └── QSFP-200G-LR4/
+│   │                       └── eeprom.json
+│   ├── system/                             # Same shape as eeprom/
+│   ├── physical_oir/
+│   ├── remote_reseat/
+│   ├── cdb_firmware_upgrade/               # Same shape as eeprom/; per-PN dirs also contain manifest
+│   │   ├── cdb_firmware_upgrade.json       # Category-level shard
+│   │   ├── cdb_firmware_upgrade_url.json   # Optional; presence selects download vs pre-staged mode
+│   │   └── transceivers/
+│   │       └── vendors/
+│   │           └── <NORMALIZED_VENDOR_NAME>/
+│   │               └── part_numbers/
+│   │                   └── <NORMALIZED_VENDOR_PN>/
+│   │                       ├── cdb_firmware_upgrade.json           # Per-PN attribute shard
+│   │                       └── cdb_firmware_upgrade_manifest.json  # Per-PN firmware binary metadata
+│   ├── dom/
+│   ├── vdm/
+│   ├── pm/
+│   └── port_config/
 │
 └── templates/                              # Validation templates (optional)
     └── deployment_templates.json           # Attribute completeness validation
@@ -32,10 +59,10 @@ ansible/files/transceiver/inventory/
 graph TD
     NM[normalization_mappings.json] --> B[Framework Parser]
     A["dut_info/&lt;dut_hostname&gt;.json"] --> B
-    C[eeprom.json] --> B
-    D[system.json] --> B
-    E[physical_oir.json] --> B
-    F[other category files...] --> B
+    C["eeprom/ shards (category + vendor + per-PN)"] --> B
+    D["system/ shards"] --> B
+    E["physical_oir/ shards"] --> B
+    F[other category shards...] --> B
 
     B --> H[BASE_ATTRIBUTES]
     B --> I[EEPROM_ATTRIBUTES]
@@ -63,7 +90,7 @@ graph TD
 
 - **normalization_mappings.json**: Shared normalization rules for vendor names and part numbers across all DUTs
 - **dut_info/<dut_hostname>.json**: Per-DUT port-specific transceiver configurations; improves scalability and independent management
-- **Category files**: Modular test-specific attribute definitions for each type of transceiver
+- **Category shards**: Modular test-specific attribute definitions, sharded by ownership level (category / platform / platform+HWSKU / vendor / per-PN) inside each `<category>/` directory. The loader deep-merges all shards in a category into one in-memory tree before priority resolution. DUT-scope overrides remain a `dut.<DUT_NAME>` map in the category-level shard.
 - **Templates**: Optional validation templates for attribute completeness checking
 - **port_attributes_dict**: Final merged data structure used by test cases
 - **BASE_ATTRIBUTES**: Core transceiver info parsed from per-DUT files
@@ -95,14 +122,24 @@ tests/transceiver/
 │
 ├── common/                                  # Shared modules across all transceiver test categories
 │   ├── __init__.py
+│   ├── attribute_helpers.py                 # Shared attribute constants and breakout lane resolution
 │   ├── health_checks.py                     # Per-test health: PID baseline/verify, log baseline/scan, core file check
 │   ├── prerequisites.py                     # Cross-category prerequisite logic: presence check, gold FW check,
 │   │                                        #   link-up check — called by conftest.py session fixtures
 │   │                                        #   AND by the owning test category's reportable test cases
 │   ├── verification.py                      # Standard Port Recovery and Verification Procedure
 │   ├── state_management.py                  # State Preservation and Restoration helpers
+│   ├── scenario_ops.py                      # perform_<op> operation helpers (cold/warm/fast reboot, config_reload,
+│   │                                        #   daemon_restart, sfputil_reset, lpm_toggle) wrapping the existing
+│   │                                        #   repo helpers (tests/common/reboot.py, config_reload) — never inlined
 │   ├── db_helpers.py                        # CONFIG_DB, STATE_DB, APPL_DB query wrappers
-│   └── cli_helpers.py                       # CLI command wrappers (sfputil, config interface)
+│   ├── dmesg_helpers.py                     # dmesg watermark + cumulative error scan (caller passes grep pattern)
+│   ├── cli_helpers.py                       # CLI command wrappers (sfputil, config interface)
+│   ├── cli_parser_helper.py                 # CLI output parsers: presence / hexdump / read-eeprom (+ RC_FAILURE);
+│   │                                        #   baseline parse_eeprom remains in utils/cli_parser_helper.py
+│   ├── cmis_helper.py                       # CMIS page decode: page 11h DataPath state, page 01h CDB capability
+│   ├── eeprom_decode.py                     # SFF-8024 family classify + per-family vendor-field offsets + stem/DAC helpers
+│   └── topology.py                          # ASIC-scoped same-DUT/cross-DUT peer resolution
 │
 ├── eeprom/
 │   ├── __init__.py
@@ -151,10 +188,8 @@ tests/transceiver/
 │   ├── process_restart/
 │   │   ├── __init__.py
 │   │   ├── conftest.py                      # Overrides per-test health check: expects PID changes
-│   │   ├── test_xcvrd_restart.py            # TC 1-3: xcvrd restart tests
-│   │   ├── test_pmon_restart.py             # TC 4: pmon docker restart
-│   │   ├── test_swss_restart.py             # TC 5: swss docker restart
-│   │   └── test_syncd_restart.py            # TC 6: syncd process restart
+│   │   └── test_processes_restart.py        # TC 1-6: xcvrd/pmon/swss/syncd
+│   │                                        #   restart + xcvrd crash tests
 │   │
 │   ├── recovery/
 │   │   ├── __init__.py
@@ -186,13 +221,24 @@ tests/transceiver/
 │       ├── test_link_stability.py           # TC 6: Link stability monitoring
 │       └── test_power_cycle_stress.py       # TC 7: Power cycle stress test
 │
-├── cdb_fw_upgrade/
+├── oir/
 │   ├── __init__.py
-│   ├── conftest.py                          # CDB FW upgrade-specific fixtures; autouse fixture requests
+│   ├── conftest.py                          # OIR fixtures; autouse fixture requests presence_verified and
+│   │                                        #   links_verified from top-level conftest.py. Physical OIR and
+│   │                                        #   remote reseat fixtures (ports under test, teardown restoration)
+│   │                                        #   are opted into by their test module.
+│   ├── oir_helpers.py                       # Physical OIR and remote reseat operations, and the OIR
+│   │                                        #   verification primitives both halves share
+│   ├── test_physical_oir.py                 # Physical OIR TC 1-6
+│   └── test_remote_reseat.py                # Remote reseat TC 1-2 (also requests gold_fw_verified)
+│
+├── cdb_firmware_upgrade/
+│   ├── __init__.py
+│   ├── conftest.py                          # CDB firmware upgrade-specific fixtures; autouse fixture requests
 │   │                                        #   presence_verified, links_verified from top-level conftest.py
-│   │                                        #   (gold FW is CDB FW's own reportable test, so that gate is
+│   │                                        #   (gold FW is CDB firmware upgrade's own reportable test, so that gate is
 │   │                                        #    intentionally not consumed.)
-│   └── test_fw_upgrade.py                   # CDB FW upgrade test cases; includes gold FW check
+│   └── test_fw_upgrade.py                   # CDB firmware upgrade test cases; includes gold FW check
 │                                            #   (reportable test case; calls common/prerequisites.py::check_gold_firmware)
 │
 ├── port_config/
@@ -202,8 +248,16 @@ tests/transceiver/
 │
 ├── vdm/
 │   ├── __init__.py
-│   ├── conftest.py                          # VDM-specific fixtures
-│   └── test_vdm.py                          # VDM specific test cases
+│   ├── conftest.py                          # VDM-capable primary/non-primary port selection; autouse fixture
+│   │                                        #   requests presence_verified, gold_fw_verified, links_verified
+│   │                                        #   from top-level conftest.py and checks DOM/VDM polling
+│   ├── vdm_helpers.py                       # VDM field plans, table-specific readers, availability/range checks,
+│   │                                        #   and four-table threshold hierarchy/value validation
+│   ├── test_vdm_availability.py             # Basic TC 1: VDM data availability and primary-only publication
+│   ├── test_vdm_operational_range.py        # Basic TC 2: Inclusive operational ranges and freshness
+│   ├── test_vdm_threshold.py                # Basic TC 3: Threshold hierarchy and optional exact values
+│   └── test_vdm_data_consistency.py         # Basic TC 4: Samples consistency_check_poll_count times; checks
+│                                            #   timestamp advance, freshness/range, and statistic coherence
 │
 └── pm/
     ├── __init__.py
@@ -226,13 +280,13 @@ tests/transceiver/
 │  health_checks.py         │  │  eeprom/conftest.py  — requests links_   │
 │  prerequisites.py         │  │                        verified only     │
 │  verification.py          │  │                        (TC 1-2 own       │
-│                           │  │                        presence/gold_fw) │
-│  state_management.py      │  │  dom/conftest.py     — requests presence,│
-│  db_helpers.py            │  │                        gold_fw, links    │
+│  state_management.py      │  │                        presence/gold_fw) │
+│  db_helpers.py            │  │  dom/conftest.py     — requests presence,│
+│  dmesg_helpers.py         │  │                        gold_fw, links    │
 │  cli_helpers.py           │  │  system/conftest.py  — requests presence,│
-│                           │  │                        gold_fw, links    │
-│                           │  │  cdb_fw/conftest.py  — requests presence,│
-│                           │  │                        links             │
+│  cli_parser_helper.py     │  │                        gold_fw, links    │
+│  cmis_helper.py           │  │  cdb_fw/conftest.py  — requests presence,│
+│  eeprom_decode.py         │  │                        links             │
 └──────────┬────────────────┘  └──────────────────┬───────────────────────┘
            │ uses                                 │ uses
            ▼                                      ▼
@@ -257,6 +311,6 @@ tests/transceiver/
 │   ansible/files/transceiver/inventory/                                 │
 │   ├── normalization_mappings.json                                      │
 │   ├── dut_info/<hostname>.json                                         │
-│   └── attributes/{eeprom,dom,system,port_config, etc}.json             │
+│   └── attributes/<category>/{<category>.json, <VENDOR>/{<category>.json,<PN>.json}}
 └────────────────────────────────────────────────────────────────────────┘
 ```

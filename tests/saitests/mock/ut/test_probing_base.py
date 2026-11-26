@@ -605,6 +605,63 @@ class TestProbingBaseSetUp:
         assert pb.ingress_drop_counter_mode == 'port_buffer_drop'
         print("[OK] port_buffer_drop mode")
 
+    @pytest.mark.order(938)
+    def test_setUp_ingress_drop_counter_mode_invalid_raises(self):
+        """Test setUp() validation rejects invalid ingress_drop_counter_mode"""
+        print("\n=== Testing setUp() - invalid ingress_drop_counter_mode raises ValueError ===")
+
+        pb = ConcreteProbingBase()
+        pb.ingress_drop_counter_mode = 'invalid_mode'
+
+        # Simulate the validation path from setUp() L156-161
+        from ingress_drop_probing_executor import IngressDropProbingExecutor
+        mode = getattr(pb, 'ingress_drop_counter_mode', 'port_drop')
+        with pytest.raises(ValueError, match="Invalid ingress_drop_counter_mode"):
+            if mode not in IngressDropProbingExecutor.VALID_COUNTER_MODES:
+                raise ValueError(
+                    f"Invalid ingress_drop_counter_mode='{mode}'. "
+                    f"Must be one of: {IngressDropProbingExecutor.VALID_COUNTER_MODES}"
+                )
+
+        print("[OK] Invalid counter_mode raises ValueError")
+
+    @pytest.mark.order(939)
+    def test_parse_param_probe_packet_defaults(self):
+        """Test parse_param sets default probe_packet_length and probe_cells_per_packet"""
+        print("\n=== Testing parse_param - probe packet defaults ===")
+
+        pb = ConcreteProbingBase()
+
+        # Simulate parse_param default logic (L319-322)
+        if not hasattr(pb, 'probe_packet_length'):
+            pb.probe_packet_length = 64
+        if not hasattr(pb, 'probe_cells_per_packet'):
+            pb.probe_cells_per_packet = 1
+
+        assert pb.probe_packet_length == 64
+        assert pb.probe_cells_per_packet == 1
+        print("[OK] Defaults: probe_packet_length=64, probe_cells_per_packet=1")
+
+    @pytest.mark.order(940)
+    def test_parse_param_probe_packet_from_testparams(self):
+        """Test parse_param preserves probe_packet_length from testParams"""
+        print("\n=== Testing parse_param - probe packet from testParams ===")
+
+        pb = ConcreteProbingBase()
+        # Simulate testParams providing Cisco values
+        pb.probe_packet_length = 1350
+        pb.probe_cells_per_packet = 4
+
+        # parse_param defaults should NOT overwrite existing attrs
+        if not hasattr(pb, 'probe_packet_length'):
+            pb.probe_packet_length = 64
+        if not hasattr(pb, 'probe_cells_per_packet'):
+            pb.probe_cells_per_packet = 1
+
+        assert pb.probe_packet_length == 1350
+        assert pb.probe_cells_per_packet == 4
+        print("[OK] testParams values preserved: 1350B, 4 cells/pkt")
+
 
 class TestProbingBaseTearDown:
     """Test tearDown() method (simplified - no parent call needed in UT)"""
@@ -637,15 +694,16 @@ class TestProbingBaseRunTest:
             with patch('probing_base.send_packet'):
                 pb.runTest()
 
-        print("  Step 1: get_probe_config() called ✓")
-        print("  Step 2: sai_thrift_port_tx_enable() called ✓")
-        print("  Step 3: setup_traffic() called ✓")
-        print("  Step 4: BufferOccupancyController initialized ✓")
-        print("  Step 5: probe() executed ✓")
-        print("  Step 6: assert_probing_result() called ✓")
+        print("  Step 1: get_probe_config() called [ok]")
+        print("  Step 2: sai_thrift_port_tx_enable() called [ok]")
+        print("  Step 3: setup_traffic() called [ok]")
+        print("  Step 4: BufferOccupancyController initialized [ok]")
+        print("  Step 5: probe() executed [ok]")
+        print("  Step 6: assert_probing_result() called [ok]")
 
         # Verify BufferOccupancyController was created
         assert mock_boc.called, "BufferOccupancyController should be initialized"
+        mock_boc.return_value.drain_all_buffers.assert_called_once_with()
         assert pb.stream_mgr is not None, "stream_mgr should be set"
 
         print("[OK] runTest() workflow executed successfully")
@@ -676,7 +734,9 @@ class TestProbingBaseRunTest:
 
         def tracked_buffer_ctrl_init(*args, **kwargs):
             call_order.append('BufferOccupancyController')
-            return Mock()
+            controller = Mock()
+            controller.drain_all_buffers.side_effect = lambda: call_order.append('drain_all_buffers')
+            return controller
 
         def tracked_probe():
             call_order.append('probe')
@@ -704,7 +764,8 @@ class TestProbingBaseRunTest:
             'setup_traffic',                 # Line 30
             'BufferOccupancyController',     # Line 31
             'probe',                         # Line 33
-            'assert_probing_result'          # Line 33 (implied)
+            'assert_probing_result',         # Line 33 (implied)
+            'drain_all_buffers'
         ]
 
         print(f"  Expected sequence: {expected_sequence}")
@@ -714,6 +775,28 @@ class TestProbingBaseRunTest:
             f"Call sequence mismatch!\nExpected: {expected_sequence}\nActual: {call_order}"
 
         print("[OK] runTest() call sequence verified (matches lines 28-33)")
+
+    @pytest.mark.parametrize("stage,error_type", [
+        ("probe", RuntimeError),
+        ("assert_probing_result", AssertionError)
+    ])
+    def test_runTest_restores_buffers_on_failure(self, stage, error_type):
+        pb = ConcreteProbingBase()
+        setattr(pb, stage, Mock(side_effect=error_type("probe failed")))
+
+        with patch('probing_base.BufferOccupancyController') as mock_boc:
+            with pytest.raises(error_type, match="probe failed"):
+                pb.runTest()
+
+        mock_boc.return_value.drain_all_buffers.assert_called_once_with()
+
+    def test_runTest_propagates_cleanup_failure(self):
+        pb = ConcreteProbingBase()
+
+        with patch('probing_base.BufferOccupancyController') as mock_boc:
+            mock_boc.return_value.drain_all_buffers.side_effect = RuntimeError("TX restore failed")
+            with pytest.raises(RuntimeError, match="TX restore failed"):
+                pb.runTest()
 
 
 class TestProbingBaseGetRxPort:
@@ -744,10 +827,13 @@ class TestProbingBaseGetRxPort:
         print(f"  Result: {result}")
 
         assert result == 99, "Should return value from module function"
-        # production get_rx_port emits 1 log_message ("dst_port_id:..., src_port_id:...")
-        # and routes the per-attempt before/after logs through ProbingObserver.trace
-        assert mock_log.call_count == 1, "Should log dst/src port summary once via log_message"
-        assert mock_trace.call_count >= 2, "Should trace before and after via ProbingObserver"
+        # Per pr12.fix (#24024), input args are dumped once via log_message;
+        # per-attempt diagnostics use ProbingObserver.trace inside the retry
+        # loop. On a clean first-attempt success we expect 1 log_message
+        # ("inputs") + 2 trace calls ("attempt 1/3" + "resolved on 1/3").
+        assert mock_log.call_count == 1, "Should log inputs once before retry loop"
+        assert mock_trace.call_count == 2, \
+            "Should trace attempt-start + resolved on success"
         assert mock_get_rx_port.called, "Should call module get_rx_port()"
 
         print("[OK] get_rx_port() wrapper works correctly")

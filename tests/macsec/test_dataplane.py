@@ -5,10 +5,11 @@ import re
 import scapy.all as scapy
 import ptf.testutils as testutils
 from collections import Counter
+from contextlib import ExitStack
 
 from tests.common.utilities import wait_until, ping_ip
 from tests.common.devices.eos import EosHost
-from tests.common.macsec.macsec_helper import create_pkt, create_exp_pkt, check_macsec_pkt,\
+from tests.common.macsec.macsec_helper import create_pkt, create_exp_pkt, check_macsec_pkt, \
                            get_ipnetns_prefix, clear_macsec_counters, get_macsec_counters
 from tests.common.macsec.macsec_platform_helper import get_portchannel, find_portchannel_from_member
 
@@ -26,6 +27,9 @@ class TestDataPlane():
     def test_server_to_neighbor(self, duthost, ctrl_links, downstream_links,
                                 upstream_links, ptfadapter, wait_mka_establish):
         ptfadapter.dataplane.set_qlen(TestDataPlane.BATCH_COUNT * 100)
+
+        if len(downstream_links) == 0:
+            pytest.skip("No downstream links")
 
         down_link = list(downstream_links.values())[0]
         dut_macaddress = duthost.get_dut_iface_mac(list(ctrl_links.keys())[0])
@@ -84,47 +88,56 @@ class TestDataPlane():
             ), "Ping from DUT to upstream neighbor {} on port {} failed after retries".format(dst_ip, up_port)
 
     def test_neighbor_to_neighbor(self, duthost, ctrl_links, upstream_links, wait_mka_establish):
-        portchannels = list(get_portchannel(duthost).values())
-        for i in range(len(portchannels)):
-            assert portchannels[i]["members"]
-            if portchannels[i]["members"][0] not in upstream_links:
-                continue
-            requester = upstream_links[portchannels[i]["members"][0]]
-            # Set DUT as the gateway of requester
-            if isinstance(requester["host"], EosHost):
-                requester["host"].eos_config(lines=["ip route 0.0.0.0/0 {}".format(
-                    requester["peer_ipv4_addr"])], module_ignore_errors=True)
+        all_portchannels = list(get_portchannel(duthost).values())
+        # Keep all upstream ctrl_links portchannels and at most one non-ctrl_links portchannel.
+        upstream_portchannels = [portchannel for portchannel in all_portchannels
+                                 if portchannel["members"]
+                                 and portchannel["members"][0] in upstream_links]
+        non_ctrl_upstream_portchannels = [portchannel for portchannel in upstream_portchannels
+                                          if portchannel["members"][0] not in ctrl_links]
+        ctrl_upstream_portchannels = [portchannel for portchannel in upstream_portchannels
+                                      if portchannel["members"][0] in ctrl_links]
+        ring_portchannels = ctrl_upstream_portchannels + non_ctrl_upstream_portchannels[:1]
+        if len(ring_portchannels) <= 1:
+            pytest.skip("Not enough eligible upstream port-channels")
+
+        def _configure_route(neigh):
+            if isinstance(neigh["host"], EosHost):
+                neigh["host"].eos_config(lines=["ip route 0.0.0.0/0 {}".format(
+                    neigh["peer_ipv4_addr"])], module_ignore_errors=True)
             else:
-                requester["host"].shell("ip route add 0.0.0.0/0 via {}".format(
-                    requester["peer_ipv4_addr"]), module_ignore_errors=True)
-            for j in range(i + 1, len(portchannels)):
-                if portchannels[i]["members"][0] not in ctrl_links and portchannels[j]["members"][0] not in ctrl_links:
-                    continue
-                if portchannels[j]["members"][0] not in upstream_links:
-                    continue
-                responser = upstream_links[portchannels[j]["members"][0]]
-                # Set DUT as the gateway of responser
-                if isinstance(responser["host"], EosHost):
-                    responser["host"].eos_config(lines=["ip route 0.0.0.0/0 {}".format(
-                        responser["peer_ipv4_addr"])], module_ignore_errors=True)
-                else:
-                    responser["host"].shell("ip route add 0.0.0.0/0 via {}".format(
-                        responser["peer_ipv4_addr"]), module_ignore_errors=True)
-                # Ping from requester to responser
+                neigh["host"].shell("ip route add 0.0.0.0/0 via {}".format(
+                    neigh["peer_ipv4_addr"]), module_ignore_errors=True)
+
+        def _unconfigure_route(neigh):
+            if isinstance(neigh["host"], EosHost):
+                neigh["host"].eos_config(lines=["no ip route 0.0.0.0/0 {}".format(
+                    neigh["peer_ipv4_addr"])], module_ignore_errors=True)
+            else:
+                neigh["host"].shell("ip route del 0.0.0.0/0 via {}".format(
+                    neigh["peer_ipv4_addr"]), module_ignore_errors=True)
+
+        ring_neighbors = [upstream_links[portchannel["members"][0]]
+                          for portchannel in ring_portchannels]
+        route_cleanup = ExitStack()
+        try:
+            for neighbor in ring_neighbors:
+                route_cleanup.callback(_unconfigure_route, neighbor)
+                _configure_route(neighbor)
+
+            # Ping from 0->1, 1->2, ..., N->0.
+            for i, requester in enumerate(ring_neighbors):
+                # With two neighbors, the first ping already exercises both directions.
+                if len(ring_neighbors) == 2 and i == 1:
+                    break
+                responser = ring_neighbors[(i + 1) % len(ring_neighbors)]
                 assert not requester["host"].shell(
-                    "ping -c 6 -v {}".format(responser["local_ipv4_addr"]))["failed"]
-                if isinstance(responser["host"], EosHost):
-                    responser["host"].eos_config(lines=["no ip route 0.0.0.0/0 {}".format(
-                        responser["peer_ipv4_addr"])], module_ignore_errors=True)
-                else:
-                    responser["host"].shell("ip route del 0.0.0.0/0 via {}".format(
-                        responser["peer_ipv4_addr"]), module_ignore_errors=True)
-            if isinstance(requester["host"], EosHost):
-                requester["host"].eos_config(lines=["no ip route 0.0.0.0/0 {}".format(
-                    requester["peer_ipv4_addr"])], module_ignore_errors=True)
-            else:
-                requester["host"].shell("ip route del 0.0.0.0/0 via {}".format(
-                    requester["peer_ipv4_addr"]), module_ignore_errors=True)
+                    "ping -c 6 -v {}".format(responser["local_ipv4_addr"]))["failed"], \
+                    "Ping from neighbor {} ({}) to neighbor {} ({}) failed".format(
+                        requester["name"], requester["local_ipv4_addr"],
+                        responser["name"], responser["local_ipv4_addr"])
+        finally:
+            route_cleanup.close()
 
     def _get_counters(self, duthost, up_ports):
         egress_counters = Counter()

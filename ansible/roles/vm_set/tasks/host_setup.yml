@@ -18,7 +18,6 @@
       - apt-transport-https
       - ca-certificates
       - curl
-      - software-properties-common
       - libvirt-clients
       - python3-libvirt
       - python3-lxml

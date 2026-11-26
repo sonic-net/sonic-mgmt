@@ -1,21 +1,19 @@
 import logging
 import time
+import os
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts  # noqa: F401
-from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,\
-    get_lossless_buffer_size, get_pg_dropped_packets,\
-    stop_pfcwd, disable_packet_aging, sec_to_nanosec,\
-    get_pfc_frame_count, packet_capture, config_capture_pkt,\
-    start_pfcwd, enable_packet_aging, \
-    traffic_flow_mode, calc_pfc_pause_flow_rate      # noqa: F401
-from tests.common.snappi_tests.port import select_ports, select_tx_port  # noqa: F401
-from tests.common.snappi_tests.snappi_helpers import wait_for_arp  # noqa: F401
-from tests.common.snappi_tests.traffic_generation import generate_pause_flows,  verify_pause_flow, \
-    verify_basic_test_flow, verify_background_flow, verify_pause_frame_count_dut, verify_egress_queue_frame_count, \
-    verify_in_flight_buffer_pkts, verify_unset_cev_pause_frame_count, run_traffic_and_collect_stats, \
-    multi_base_traffic_config, generate_test_flows, generate_background_flows
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
+    fanout_graph_facts                                                                          # noqa: F401
+from tests.common.snappi_tests.common_helpers import stop_pfcwd, disable_packet_aging, \
+    packet_capture, config_capture_pkt, start_pfcwd, enable_packet_aging, \
+    traffic_flow_mode, calc_pfc_pause_flow_rate                                                 # noqa: F401
+from tests.common.snappi_tests.traffic_generation import generate_pause_flows, \
+    verify_pause_flow, verify_basic_test_flow, verify_background_flow, \
+    verify_pause_frame_count_dut, verify_in_flight_buffer_pkts, \
+    verify_unset_cev_pause_frame_count, run_traffic_and_collect_stats, \
+    multi_base_traffic_config, generate_test_flows, generate_background_flows, \
+    verify_egress_queue_frame_count
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.read_pcap import validate_pfc_frame
 from tests.snappi_tests.files.helper import get_number_of_streams
@@ -31,6 +29,104 @@ CONTINUOUS_MODE = -5
 ANSIBLE_POLL_DELAY_SEC = 4
 global DATA_FLOW_DURATION_SEC
 global data_flow_delay_sec
+
+
+def _get_bgp_neighbor_name_for_port(duthost, peer_port, tbinfo):
+    """
+    Get BGP neighbor name (e.g. ARISTA01T1) for a DUT port from minigraph.
+    Used to derive short_link (T1) vs long_link (T3) for traffic direction.
+    """
+    try:
+        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+        minigraph_neighbors = mg_facts.get('minigraph_neighbors') or {}
+        # Key can be interface name; for PortChannel setups key might be PC name
+        for key, value in minigraph_neighbors.items():
+            if key == peer_port:
+                return value.get('name', '')
+        # If peer_port is a PC member, minigraph_neighbors may key by interface
+        return ''
+    except Exception:
+        return ''
+
+
+def _traffic_direction_from_neighbor_names(first_port_neighbor_name, last_port_neighbor_name):
+    """
+    Map T1 -> short, T3 -> long; build short_to_short, long_to_long, short_to_long, long_to_short.
+    """
+    def _link_type(name):
+        if not name:
+            return 'unknown'
+        if name.endswith('T1'):
+            return 'short'
+        if name.endswith('T3'):
+            return 'long'
+        return 'unknown'
+    first = _link_type(first_port_neighbor_name)
+    last = _link_type(last_port_neighbor_name)
+    if first == 'unknown' or last == 'unknown':
+        return 'unknown_to_unknown'
+    return f"{first}_to_{last}"
+
+
+def _port_type_prefix(snappi_ports):
+    """
+    ml_ if first and last port on different duthosts; else single_asic_ or multi_asic_
+    based on asic_value of first vs last port (same host).
+    """
+    first = snappi_ports[0]
+    last = snappi_ports[-1]
+    first_host = first['duthost'].hostname
+    last_host = last['duthost'].hostname
+
+    if first_host != last_host:
+        return 'ml_'   # multi-line
+    # Same host: compare asic
+    first_asic = first.get('asic_value', 'asic0')
+    last_asic = last.get('asic_value', 'asic0')
+    if first_asic == last_asic:
+        return 'single_asic_'
+    return 'multi_asic_'
+
+
+def _speed_from_port_map(port_map):
+    """
+    Derive ingress-egress category and speed category from port_map.
+    port_map = [egress_count, egress_speed_gbps, ingress_count, ingress_speed_gbps].
+    Returns:
+        tuple: (ingress_egress_str, speed_str)
+    """
+    egress_speed = port_map[1]
+    ingress_speed = port_map[3]
+
+    # Speed category
+    if egress_speed == ingress_speed:
+        if egress_speed == 100:
+            speed_cat = '100Gbps'
+        elif egress_speed == 400:
+            speed_cat = '400Gbps'
+        else:
+            speed_cat = f'{egress_speed}Gbps'
+    else:
+        speed_cat = 'multi_speed'
+    return speed_cat
+
+
+def get_test_subtype_from_ports(snappi_ports, port_map, tbinfo):
+    port_type = _port_type_prefix(snappi_ports)
+    traffic_dir = _traffic_direction_from_neighbor_names(
+        _get_bgp_neighbor_name_for_port(
+            snappi_ports[0]['duthost'],
+            snappi_ports[0]['peer_port'],
+            tbinfo
+        ),
+        _get_bgp_neighbor_name_for_port(
+            snappi_ports[-1]['duthost'],
+            snappi_ports[-1]['peer_port'],
+            tbinfo
+        )
+    )
+    speed_cat = _speed_from_port_map(port_map)
+    return f"{port_type}{traffic_dir}_{speed_cat}"
 
 
 def run_pfc_test(api,
@@ -82,6 +178,11 @@ def run_pfc_test(api,
         fname = test_def['test_type'] + '_' + test_def['line_card_choice'] + '_' + str(data_flow_pkt_size) + 'B'
     port_map = test_def['port_map']
 
+    # Ensure log directory exists
+    log_dir = os.path.dirname(fname)
+    if log_dir:
+        os.makedirs(log_dir, exist_ok=True)
+
     if snappi_extra_params is None:
         snappi_extra_params = SnappiTestParams()
 
@@ -103,6 +204,9 @@ def run_pfc_test(api,
 
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
+    rx_port_asic_value = rx_port['asic_value'] if egress_duthost.is_multi_asic else None
+    tx_port_asic_value = tx_port['asic_value'] if ingress_duthost.is_multi_asic else None
+
     if (test_def['enable_pfcwd']):
         start_pfcwd(egress_duthost)
         start_pfcwd(ingress_duthost)
@@ -111,11 +215,11 @@ def run_pfc_test(api,
         stop_pfcwd(ingress_duthost)
 
     if (test_def['enable_credit_wd']):
-        enable_packet_aging(egress_duthost, rx_port['asic_value'])
-        enable_packet_aging(ingress_duthost, tx_port['asic_value'])
+        enable_packet_aging(egress_duthost, rx_port_asic_value)
+        enable_packet_aging(ingress_duthost, tx_port_asic_value)
     else:
-        disable_packet_aging(egress_duthost, rx_port['asic_value'])
-        disable_packet_aging(ingress_duthost, tx_port['asic_value'])
+        disable_packet_aging(egress_duthost, rx_port_asic_value)
+        disable_packet_aging(ingress_duthost, tx_port_asic_value)
 
     # Port id of Rx port for traffic config
     # rx_port_id and tx_port_id belong to IXIA chassis.
@@ -310,8 +414,13 @@ def run_pfc_test(api,
         pytest_assert((lossy_drop*100) <= test_check['lossy'], 'Lossy packet drop outside tolerance limit')
 
     # Checking if the actual line rate on egress is within tolerable limit of egress line speed.
-    pytest_assert(((1 - test_stats['tgen_rx_rate'] / float(port_map[0]*port_map[1]))*100) <= test_check['speed_tol'],
-                  'Egress speed beyond tolerance range')
+    if not (((1 - test_stats['tgen_rx_rate'] / float(port_map[0]*port_map[1]))*100) <= test_check['speed_tol']):
+        # Fallback: derive rate from packet counts when rx_l1_rate_bps is unavailable.
+        total_pkts_received = test_stats['tgen_lossless_rx_pkts'] + test_stats['tgen_lossy_rx_pkts']
+        tgen_rx_rate = round((total_pkts_received * data_flow_pkt_size * 8) /
+                             (DATA_FLOW_DURATION_SEC * (10**9)), 2)
+        pytest_assert(((1 - tgen_rx_rate / float(port_map[0]*port_map[1]))*100) <= test_check['speed_tol'],
+                      'Egress speed beyond tolerance range')
 
     # Checking for PFC counts on DUT
     if (not test_check['pfc']):

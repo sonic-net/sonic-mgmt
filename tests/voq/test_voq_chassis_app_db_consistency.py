@@ -247,7 +247,8 @@ def test_voq_chassis_app_db_consistency(duthosts, enum_rand_one_per_hwsku_fronte
         # Recover all states
         if test_case == "config_reload_with_config_save":
             logger.info("Restore config from minigraph.")
-            config_reload(duthost, config_source='minigraph', safe_reload=True, check_intf_up_ports=True)
+            config_reload(duthost, config_source='minigraph', safe_reload=True,
+                          check_intf_up_ports=True, override_config=True)
             wait_critical_processes(duthost)
             pytest_assert(wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost),
                           "Not all ports that are admin up on are operationally up")

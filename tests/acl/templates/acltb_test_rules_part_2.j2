@@ -31,7 +31,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "192.168.0.252/32"
+                                        "destination-ip-address": "{{ vlan2_allow_ipv4 | default('192.168.0.252') }}/32"
                                     }
                                 }
                             },
@@ -228,7 +228,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "192.168.0.251/32"
+                                        "destination-ip-address": "{{ vlan2_block_ipv4 | default('192.168.0.251') }}/32"
                                     }
                                 }
                             },

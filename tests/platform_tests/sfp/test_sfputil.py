@@ -307,8 +307,14 @@ def get_phy_intfs_to_test_per_asic(duthost,
                                      conn_graph_facts,
                                      enum_frontend_asic_index)
     if limited_ports and len(portmap) > PARTIAL_INTERFACES_MAX_COUNT:
-        # Take first PARTIAL_INTERFACES_MAX_COUNT interfaces from portmap if there are more
-        partial_interfaces = list(portmap.keys())[:PARTIAL_INTERFACES_MAX_COUNT]
+        # Take first PARTIAL_INTERFACES_MAX_COUNT interfaces (natsorted so cut is sequential).
+        # At most the last physical port is incomplete truncated; drop it using the same phy index
+        partial_interfaces = natsorted(portmap.keys())[:PARTIAL_INTERFACES_MAX_COUNT]
+        physical_port_idx_map = get_physical_port_indices(duthost, logical_intfs=list(portmap.keys()))
+        last_phy = physical_port_idx_map[partial_interfaces[-1]]
+        last_phy_logicals = [lintf for lintf, phy in physical_port_idx_map.items() if phy == last_phy]
+        if not set(last_phy_logicals).issubset(partial_interfaces):
+            partial_interfaces = [lintf for lintf in partial_interfaces if lintf not in last_phy_logicals]
         dev_conn = {k: dev_conn[k] for k in partial_interfaces if k in dev_conn}
     physical_port_idx_map = get_physical_port_indices(duthost, logical_intfs=dev_conn)
     phy_intfs_to_test_per_asic = {}
@@ -567,7 +573,7 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
 
 def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                       enum_frontend_asic_index, conn_graph_facts,
-                                      tbinfo, xcvr_skip_list, shutdown_ebgp):   # noqa: F811
+                                      tbinfo, xcvr_skip_list, shutdown_ebgp, port_list_with_flat_memory):   # noqa: F811
     """
     @summary: Check SFP low power mode
 
@@ -622,11 +628,8 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
             sfp_type_docker_cmd = asichost.get_docker_cmd(sfp_type_cmd, "database")
             sfp_type = duthost.command(sfp_type_docker_cmd)["stdout"]
 
-            power_class_cmd = 'redis-cli -n 6 hget "TRANSCEIVER_INFO|{}" ext_identifier'.format(intf)
-            power_class_docker_cmd = asichost.get_docker_cmd(power_class_cmd, "database")
-            power_class = duthost.command(power_class_docker_cmd)["stdout"]
-
-            if ("QSFP" not in sfp_type and "OSFP" not in sfp_type) or "Power Class 1" in power_class:
+            if ("QSFP" not in sfp_type and "OSFP" not in sfp_type) or \
+                    (intf in port_list_with_flat_memory[duthost.hostname]):
                 logging.info("skip testing port {} which doesn't support LPM".format(intf))
                 not_supporting_lpm_physical_ports.add(phy_intf)
                 continue
@@ -724,11 +727,12 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
 
     namespace = duthost.get_namespace_from_asic_id(enum_frontend_asic_index)
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    admin_up_ports = set(duthost.get_admin_up_ports())
     # TODO Remove this logic when minigraph facts supports namespace in multi_asic
-    up_ports = mg_facts["minigraph_ports"]
+    up_ports = {k: v for k, v in mg_facts["minigraph_ports"].items() if k in admin_up_ports}
     if enum_frontend_asic_index is not None:
         # Check if the interfaces of this AISC is present in conn_graph_facts
-        up_ports = {k: v for k, v in list(portmap.items()) if k in mg_facts["minigraph_ports"]}
+        up_ports = {k: v for k, v in up_ports.items() if k in portmap}
     all_intf_up = wait_until(100, 10, 0, check_interfaces_up, duthost, namespace, up_ports)
     if not all_intf_up:
         intf_facts = duthost.interface_facts(namespace=namespace, up_ports=up_ports)["ansible_facts"]
