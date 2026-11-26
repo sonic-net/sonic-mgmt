@@ -47,7 +47,7 @@ def _log_hosts_mount_diagnostics(duthost, container_name):
         ("container ID", r"timeout -k 1 5 docker inspect --format \{\{.Id\}\} " + container),
     )
     for label, command in probes:
-        result = duthost.shell(command, module_ignore_errors=True)
+        result = duthost.shell(command, module_ignore_errors=True, verbose=False)
         logger.error("Container %s %s: rc=%s stdout=%r stderr=%r",
                      container_name, label, result.get('rc'),
                      (result.get('stdout') or '')[:2048], (result.get('stderr') or '')[:2048])
@@ -80,9 +80,13 @@ def test_container_block_device_mounted(block_device_test_container):
     duthost, container_name = block_device_test_container
 
     docker_exec_cmd = 'docker exec {} '.format(shlex.quote(container_name))
-    mount_result = duthost.shell(docker_exec_cmd + 'mount', module_ignore_errors=True)
+    mount_result = duthost.shell(docker_exec_cmd + 'mount', module_ignore_errors=True, verbose=False)
     mount_ok = not mount_result.get('failed') and mount_result.get('rc') == 0
-    devices = re.findall(r'^(\S+) on /etc/hosts type ', mount_result.get('stdout') or '', re.MULTILINE)
+    devices = []
+    for line in (mount_result.get('stdout') or '').splitlines():
+        fields = line.split(None, 3)
+        if fields[1:3] == ['on', '/etc/hosts']:
+            devices.append(fields[0])
     device_ok = len(devices) == 1 and devices[0].startswith('/dev/')
     if not mount_ok or not device_ok:
         _log_hosts_mount_diagnostics(duthost, container_name)
