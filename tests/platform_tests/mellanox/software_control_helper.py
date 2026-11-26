@@ -206,7 +206,7 @@ def is_mlxlink_sc_cable_dump_no_cable(output):
     @return: True when 'No plugged cable detected' is in the Errors section
     """
     errors = get_mlxlink_tool_errors(output)
-    return sc_const.MLXLINK_SC_CABLE_DUMP_NO_CABLE in errors
+    return sc_const.MLXLINK_SC_NO_CABLE_ERROR in errors
 
 
 def is_mlxlink_sc_cable_dump_expected_fail(output, module_present=False):
@@ -219,17 +219,16 @@ def is_mlxlink_sc_cable_dump_expected_fail(output, module_present=False):
     errors = get_mlxlink_tool_errors(output)
     if any(pattern in errors for pattern in sc_const.MLXLINK_SC_CABLE_DUMP_ACCESS_BLOCK_ERRORS):
         return True
-    return bool(module_present) and sc_const.MLXLINK_SC_CABLE_DUMP_NO_CABLE in errors
+    return bool(module_present) and sc_const.MLXLINK_SC_NO_CABLE_ERROR in errors
 
 
 def is_mlxlink_sc_module_state_expected_fail(output):
     """
     @summary: True when mlxlink --module_state failed as the SC coverage table requires
     @param output: mlxlink --module_state stdout
-    @return: True for a PMAOS or register-not-supported error
+    @return: True for a 'No plugged cable detected' error
     """
-    errors = get_mlxlink_tool_errors(output)
-    return any(pattern in errors for pattern in sc_const.MLXLINK_SC_MODULE_STATE_EXPECTED_ERRORS)
+    return sc_const.MLXLINK_SC_NO_CABLE_ERROR in get_mlxlink_tool_errors(output)
 
 
 def get_mlxlink_operational_fec(output):

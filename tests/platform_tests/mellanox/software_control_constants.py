@@ -96,21 +96,17 @@ MLXLINK_FEC_RS_FEC = "rs-fec"
 MLXLINK_FEC_FC_FEC = "fc-fec"
 MLXLINK_OPERATIONAL_INFO = "Operational Info"
 MLXLINK_CABLE_DUMP_PAGE_MARKER = "Page: 0x"
-MLXLINK_SC_CABLE_DUMP_NO_CABLE = "No plugged cable detected"
+MLXLINK_SC_NO_CABLE_ERROR = "No plugged cable detected"
 MLXLINK_SC_CABLE_DUMP_ACCESS_BLOCK_ERRORS = (
     "Showing Module Info via PDDR raised the following exception",
     "Failed to send access register: Register not supported",
     "Dumping EEPROM pages raised the following exception",
 )
-MLXLINK_SC_MODULE_STATE_EXPECTED_ERRORS = (
-    "Sending PMAOS raised the following exception",
-    "Failed to send access register: Register not supported",
-)
 MLXLINK_RX_FEC_HISTOGRAM_SECTION = "Histogram of FEC Errors"
 MLXLINK_RX_FEC_HISTOGRAM_HEADER_RE = re.compile(
     r'^\s*Header\s*:\s*Range\s+Occurrences\s*$', re.MULTILINE)
 MLXLINK_RX_FEC_HISTOGRAM_BIN_RE = re.compile(
-    r'^\s*Bin\s+(\d+)\s*:\s*(\[\d+(?:\s*<=\s*X)?\])\s+(\d+)\s*$', re.MULTILINE)
+    r'^\s*Bin\s+(\d+)\s*:\s*(\[\d+(?::\d+)?(?:\s*<=\s*X)?\])\s+(\d+)\s*$', re.MULTILINE)
 MLXLINK_SERDES_TX_SECTION = "Serdes Tuning Transmitter Info"
 MLXLINK_SERDES_TX_PARAMETERS_RE = re.compile(
     r'^\s*Serdes TX parameters\s*:\s*(.+?)\s*$', re.MULTILINE)

@@ -298,7 +298,7 @@ class TestSoftwareControlFunctional:
         """
         @summary: On software control, mlxlink --module_state DN/UP is expected to Fail.
 
-        Coverage table: Sending PMAOS / Register not supported.
+        FW refuses with 'No plugged cable detected' on SPC3-SPC6 (including CPO),
         A successful DN would unplug the module and violate that requirement.
         Only one port is used, chosen at random each run, so an unexpected
         success cannot unplug every software-control module. UP is always sent
@@ -307,18 +307,16 @@ class TestSoftwareControlFunctional:
         if not self.sc_port_list:
             pytest.skip("No software-control ports available for module state test")
         port = random.choice(self.sc_port_list)
-        # CPO has no pluggable module, so FW reports 'No plugged cable detected' instead of PMAOS error
-        is_cpo = helpers.is_cpo_switch(self.duthost)
         with allure.step(f"Verify module state expected Fail for port {port}"):
             try:
                 for state, action in (('DN', 'plug out'), ('UP', 'plug in')):
                     with allure.step(f"Set module state to {state} ({action}) for port {port}"):
                         output = helpers.set_mlxlink_module_state_all_interfaces(self.duthost, [port], state)[port]
                         assert output, f"No output received for module state {state} on port {port}"
-                        assert helpers.is_mlxlink_sc_module_state_expected_fail(output) or (
-                            is_cpo and helpers.is_mlxlink_sc_cable_dump_no_cable(output)), (
-                            f"Expected SC mlxlink --module_state {state} to fail with PMAOS/register-not-supported "
-                            f"(or 'No plugged cable detected' on CPO) for port {port}, got: {output}"
+                        assert helpers.is_mlxlink_sc_module_state_expected_fail(output), (
+                            f"Expected SC mlxlink --module_state {state} on port {port} to be refused with "
+                            f"'{sc_const.MLXLINK_SC_NO_CABLE_ERROR}', got mlxlink errors: "
+                            f"{helpers.get_mlxlink_tool_errors(output)}"
                         )
                         logger.info(f"SC module state {state} failed as expected for port {port}")
             finally:
