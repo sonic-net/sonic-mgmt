@@ -7,7 +7,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.utilities import wait_until
-from tests.layer1.conftest import TestMACFaultMellanox
+from tests.layer1.conftest import TestMACFaultGeneral, TestMACFaultMellanox
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
@@ -24,8 +24,7 @@ cmd_sfp_presence = "sudo sfpshow presence"
 def vendor_specific_obj(duthost):
     if is_mellanox_device(duthost):
         return TestMACFaultMellanox()
-    else:
-        pytest.skip("Test is not implemented for this specific vendor")
+    return TestMACFaultGeneral()
 
 
 class TestMACFault(object):
