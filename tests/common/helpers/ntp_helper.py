@@ -240,14 +240,11 @@ def run_ntp(duthost, ntp_daemon_in_use):
         duthost.command("timeout 20 ntpd -gq -u {}".format(ntp_uid))
         duthost.service(name='ntp', state='restarted')
     elif ntp_daemon_in_use == NtpDaemon.CHRONY:
-        # ConfigDB updates restart Chrony asynchronously. Its ExecStartPre
-        # generates chrony.conf, so wait for a native service restart to finish
-        # before stopping it for one-shot synchronization.
-        duthost.service(name='chrony', state='restarted')
-        duthost.service(name='chrony', state='stopped')
-        try:
-            duthost.command("timeout 20 chronyd -q -F 1")
-        finally:
-            duthost.service(name='chrony', state='restarted')
+        # In theory, we shouldn't need this once all NTP infra changes are in, and the
+        # PTF container is always running a NTP server that the DUT can use, since the
+        # time will always be synchronized. Until then, have an opportunistic makestep
+        # (after a fixed 10-second sleep to let Chrony start and get the current time).
+        time.sleep(10)
+        duthost.command("sudo chronyc makestep", module_ignore_errors=True)
     pytest_assert(wait_until(720, 10, 0, check_ntp_status, duthost, ntp_daemon_in_use),
                   "NTP not in sync")
