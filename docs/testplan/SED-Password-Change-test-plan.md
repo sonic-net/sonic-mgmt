@@ -50,7 +50,7 @@ The tests change the disk password and corrupt a TPM bank on purpose. Run them o
 
 ### 3.2 CLI (as used in automation)
 
-1. **Change password:** `sudo config sed change-password`. The CLI prompts twice and hides the input. The automation waits for each prompt before it sends the password, and treats the change as successful only when the CLI prints `SED password change process completed successfully`.
+1. **Change password:** `sudo config sed change-password`. The CLI prompts twice and hides the input. The automation waits for each prompt before it sends the password. A change is successful when both prompts were shown and the CLI output contains no `error` (case-insensitive).
 2. **Reset to default:** `sudo config sed reset-password`
 
 ```
@@ -96,10 +96,10 @@ SED password reset process completed successfully
 - **Verify password on disk:** `verify_sed_pass_works(duthost, password)` — `sedutil-cli --listLockingRanges`
 - **CLI wrappers:** `change_sed_pass_via_cli`, `reset_sed_pass_via_cli` (reset then runs `verify_default_pass`)
 - **Default password check:** `verify_default_pass(duthost)` — one DUT-side script reads the default password, compares it with banks A and B, and runs `sedutil-cli --listLockingRanges`. Only the exit status comes back, so the default password never reaches the test host, the logs or the report. On a mismatch it starts `sed-pw-tpm-recovery.service` and fails.
-- **TPM read/write helpers:** `get_sed_pass_from_tpm_bank`, `set_sed_pass_in_tpm_bank` — use the TPM auth and unseal flow of `/usr/local/bin/sed_pw_utils.sh`. A bank write creates and loads the new object first, then evicts and persists in the same DUT-side command.
+- **TPM read/write helpers:** `get_sed_pass_from_tpm_bank`, `set_sed_pass_in_tpm_bank` — use `tpm2_unseal` / `tpm2_create` as root in one DUT-side command, so a TPM authorization supplied by the vendor is expanded inside the root shell. A bank write creates and loads the new object first, then evicts and persists in the same command.
 - **Consistency checks:** `is_pass_saved(duthost, expected_pass)` returns whether both banks hold the password; `verify_pass_saved` asserts it
 
-**Vendor subclass must implement:** `get_default_sed_pass_cmd()` — a DUT-side command that prints the default password. The NVIDIA implementation unseals TPM handle `0x81010003`.
+**Vendor subclass must implement:** `get_default_sed_pass_cmd()` — a DUT-side command that prints the default password. The NVIDIA implementation unseals TPM handle `0x81010003`. Vendors that need TPM authorization also override `get_tpm_auth_pass()` and pass it to the TPM helpers.
 
 **Test selection:** Module-scoped fixture `vendor_sed_class` returns an instance of the vendor class for the DUT or skips if no implementation is registered for that device.
 

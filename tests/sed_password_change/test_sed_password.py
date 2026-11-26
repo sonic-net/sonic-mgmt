@@ -53,7 +53,7 @@ def test_set_default_pass(duthosts, enum_rand_one_per_hwsku_hostname, vendor_sed
     Steps:
         1. Set a SED with random password with config password command.
         2. Set a SED with default password with reset password command.
-        3. Verify on the DUT that the default password unlocks the disk and both TPM banks hold it.
+        3. Verify on the DUT that the default password works and both TPM banks have it.
         4. Verify the random password no longer works.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -67,8 +67,9 @@ def test_set_default_pass(duthosts, enum_rand_one_per_hwsku_hostname, vendor_sed
             "SED password verification failed for the random password"
         )
 
-    with allure.step("Resetting SED password and verifying the default password"):
+    with allure.step("Resetting SED password"):
         vendor_sed_class.reset_sed_pass_via_cli(duthost)
+        logger.info("Password was set to default")
 
     with allure.step("Verifying the random password no longer works"):
         pytest_assert(
@@ -116,8 +117,8 @@ def test_reboot_recovery_password(duthosts, enum_rand_one_per_hwsku_hostname, lo
         1. Set a new SED password.
         2. Change primary TPM bank to new negative password.
         3. Reboot the system.
-        4. Check that the recovery service repaired the primary bank.
-        5. Check that tpm primary and secondary bank have the new SED password and it unlocks the disk.
+        4. Check that the recovery service repaired the primary TPM bank.
+        5. Check that tpm primary and secondary bank have old SED password and it still works.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     min_len, max_len = vendor_sed_class.get_min_and_max_pass_len(duthost)
@@ -163,7 +164,7 @@ def test_reboot_recovery_password(duthosts, enum_rand_one_per_hwsku_hostname, lo
     with allure.step("Verifying TPM banks have recovered to the new SED password"):
         vendor_sed_class.verify_pass_saved(duthost, new_sed_pass)
 
-    with allure.step("Verifying the new SED password still unlocks the disk after the reboot"):
+    with allure.step("Verifying the new SED password still works after the reboot"):
         pytest_assert(
             vendor_sed_class.verify_sed_pass_works(duthost, new_sed_pass),
             "SED password verification failed for the new password after the reboot"
@@ -172,7 +173,7 @@ def test_reboot_recovery_password(duthosts, enum_rand_one_per_hwsku_hostname, lo
 
 def test_recovery_service_configured(duthosts, enum_rand_one_per_hwsku_hostname, vendor_sed_class):
     """
-    Test that the TPM recovery service is installed and enabled, and that its config points at existing TPM banks.
+    Test that the TPM recovery service is enabled, and that its config points at existing TPM banks.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 

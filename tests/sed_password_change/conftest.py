@@ -10,9 +10,10 @@ logger = logging.getLogger(__name__)
 @pytest.fixture(scope='module')
 def vendor_sed_class(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if not is_mellanox_device(duthost):
+    if is_mellanox_device(duthost):
+        return SED_Change_Password_Mellanox()
+    else:
         pytest.skip("SED password change tests are only supported for Mellanox devices")
-    return SED_Change_Password_Mellanox()
 
 
 @pytest.fixture(scope='module', autouse=True)

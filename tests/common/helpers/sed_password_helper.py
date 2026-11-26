@@ -11,56 +11,11 @@ logger = logging.getLogger(__name__)
 
 REDACTED = '<redacted>'
 SED_CONFIG_PATH = '/etc/sonic/sed_config.conf'
-SED_PW_UTILS = '/usr/local/bin/sed_pw_utils.sh'
 SED_RECOVERY_SERVICE = 'sed-pw-tpm-recovery.service'
 CLI_TIMEOUT = 120
 
-# Sourcing sed_pw_utils.sh gives the TPM auth in $tpm_sed_auth and the same unseal flow the platform scripts use.
-# The auth value is expanded inside the root shell, so it never reaches the sudo command line or the Ansible log.
-TPM_SCRIPT_PREAMBLE = """
-source %s || exit 10
-get_tpm_sed_auth
-unseal() {
-    if [ -n "$tpm_sed_auth" ]; then
-        tpm2_unseal -c "$1" -p "$tpm_sed_auth" 2>/dev/null
-    else
-        tpm2_unseal -c "$1" 2>/dev/null
-    fi
-}
-""" % SED_PW_UTILS
-
-VERIFY_DEFAULT_PASS_SCRIPT = """
-default_pass=$(%(default_pass_cmd)s)
-[ -n "$default_pass" ] || exit 11
-[ "$(unseal %(bank_a)s)" = "$default_pass" ] || exit 12
-[ "$(unseal %(bank_b)s)" = "$default_pass" ] || exit 13
-sedutil-cli --listLockingRanges "$default_pass" %(disk)s > /dev/null 2>&1 || exit 14
-exit 0
-"""
-
-SET_TPM_BANK_SCRIPT = """
-set -e
-work_dir=$(mktemp -d)
-trap 'rm -rf "$work_dir"' EXIT
-cd "$work_dir"
-password=%(password)s
-tpm2_createprimary -C o --key-algorithm=rsa --key-context=prim.ctx > /dev/null 2>&1
-if [ -n "$tpm_sed_auth" ]; then
-    echo "$password" | tpm2_create -g sha256 -u seal.pub -r seal.priv -C prim.ctx -p "$tpm_sed_auth" \
-        -i - > /dev/null 2>&1
-else
-    echo "$password" | tpm2_create -g sha256 -u seal.pub -r seal.priv -C prim.ctx -i - > /dev/null 2>&1
-fi
-tpm2_load -C prim.ctx -u seal.pub -r seal.priv -n seal.name -c seal.ctx > /dev/null 2>&1
-if tpm2_getcap handles-persistent | grep -qi %(bank)s; then
-    tpm2_evictcontrol -C o -c %(bank)s > /dev/null 2>&1
-fi
-tpm2_evictcontrol -C o -c seal.ctx %(bank)s > /dev/null 2>&1
-"""
-
 # Exit codes of the DUT-side default password check
 DEFAULT_PASS_CHECK_ERRORS = {
-    10: f"cannot source {SED_PW_UTILS}",
     11: "the default SED password cannot be read",
     12: "the primary TPM bank does not hold the default SED password",
     13: "the secondary TPM bank does not hold the default SED password",
@@ -82,7 +37,6 @@ except (pexpect.EOF, pexpect.TIMEOUT):
     print(child.before)
     sys.exit(2)
 print(child.before)
-sys.exit(0 if "completed successfully" in child.before else 1)
 """
 
 
@@ -95,13 +49,13 @@ def redact(text, *secrets):
     return text
 
 
-def run_as_root(duthost, script, module_ignore_errors=True):
+def run_as_root(duthost, script):
     """
     Run a bash script as root in a single DUT-side command.
-    Variables that the script expands stay inside the root shell. The output is not logged.
+    Command substitutions in the script are expanded inside the root shell, so their values do not reach the
+    sudo command line. The output is not logged.
     """
-    return duthost.shell(f"sudo bash -c {shlex.quote(script)}",
-                         module_ignore_errors=module_ignore_errors, verbose=False)
+    return duthost.shell(f"sudo bash -c {shlex.quote(script)}", module_ignore_errors=True, verbose=False)
 
 
 class SED_Change_Password_General:
@@ -133,26 +87,6 @@ class SED_Change_Password_General:
                 pytest_assert(config.get(key), f"{key} is missing in {SED_CONFIG_PATH}")
             self._sed_config = config
         return self._sed_config
-
-    def get_primary_sed_tpm_bank(self, duthost):
-        return self.get_sed_config(duthost)['tpm_bank_a']
-
-    def get_secondary_sed_tpm_bank(self, duthost):
-        return self.get_sed_config(duthost)['tpm_bank_b']
-
-    def get_min_and_max_pass_len(self, duthost):
-        """
-        Get the minimal and maximum password length from the platform SedMgmt object.
-        """
-        if self._pass_len_limits is None:
-            cmd = ("sudo python3 -c 'from sonic_platform import platform; "
-                   "sed_mgmt = platform.Platform().get_chassis().get_sed_mgmt(); "
-                   "print(sed_mgmt.get_min_sed_password_len(), sed_mgmt.get_max_sed_password_len())'")
-            result = duthost.shell(cmd, module_ignore_errors=True)
-            pytest_assert(result['rc'] == 0, f"Failed to read the SED password length limits: {result['stderr']}")
-            min_len, max_len = (int(value) for value in result['stdout'].split())
-            self._pass_len_limits = (min_len, max_len)
-        return self._pass_len_limits
 
     def get_disk_name(self, duthost):
         """
@@ -194,7 +128,6 @@ class SED_Change_Password_General:
     def change_sed_pass_via_cli(self, duthost, new_pass, expect_success=True):
         """
         Change the SED password using the SONiC CLI command.
-        Each password line is sent only after its prompt is shown.
 
         Args:
             duthost: DUT host object
@@ -203,9 +136,10 @@ class SED_Change_Password_General:
         logger.info(f"Changing SED password to a {len(new_pass)}-character password")
         script = CHANGE_PASS_SCRIPT.format(password=new_pass, timeout=CLI_TIMEOUT)
         result = duthost.shell(f"sudo python3 -c {shlex.quote(script)}", module_ignore_errors=True, verbose=False)
-        success = result['rc'] == 0
+        output = ((result.get("stdout") or "") + (result.get("stderr") or "")).lower()
+        success = result.get("rc") == 0 and "error" not in output
         if expect_success:
-            pytest_assert(success, f"Failed to change SED password: {redact(result['stdout'], new_pass)}")
+            pytest_assert(success, f"Failed to change SED password: {redact(result.get('stdout'), new_pass)}")
 
         return success
 
@@ -229,31 +163,30 @@ class SED_Change_Password_General:
             if new_pass not in exclude_passwords:
                 return new_pass
 
-    def get_default_sed_pass_cmd(self):
-        """
-        Return a shell command that prints the default SED password on the DUT.
-        It runs inside the TPM script, so it can use the unseal() function.
-        """
-        pytest.skip("TODO: Implement for each vendor")
-
     def verify_default_pass(self, duthost):
         """
-        Verify on the DUT that both TPM banks hold the default SED password and that it unlocks the disk.
-        The default password stays on the DUT, only the exit status comes back.
-        On a mismatch, run the TPM recovery service to repair the banks, then fail.
+        Verify that the default SED password is set correctly.
+        The check runs on the DUT and returns only its exit status, so the default password never leaves the DUT.
+        On a TPM bank or SED mismatch, run the TPM recovery service to repair the banks, then fail.
         """
-        script = TPM_SCRIPT_PREAMBLE + VERIFY_DEFAULT_PASS_SCRIPT % {
-            'default_pass_cmd': self.get_default_sed_pass_cmd(),
-            'bank_a': shlex.quote(self.get_primary_sed_tpm_bank(duthost)),
-            'bank_b': shlex.quote(self.get_secondary_sed_tpm_bank(duthost)),
-            'disk': shlex.quote(self.get_disk_name(duthost)),
-        }
+        auth_pass = self.get_tpm_auth_pass()
+        unseal_primary = self.get_tpm_unseal_cmd(self.get_primary_sed_tpm_bank(duthost), auth_pass)
+        unseal_secondary = self.get_tpm_unseal_cmd(self.get_secondary_sed_tpm_bank(duthost), auth_pass)
+        script = "\n".join([
+            f"default_pass=$({self.get_default_sed_pass_cmd()} 2>/dev/null)",
+            '[ -n "$default_pass" ] || exit 11',
+            'test "$(' + unseal_primary + ' 2>/dev/null)" = "$default_pass" || exit 12',
+            'test "$(' + unseal_secondary + ' 2>/dev/null)" = "$default_pass" || exit 13',
+            f"sedutil-cli --listLockingRanges \"$default_pass\" '{self.get_disk_name(duthost)}' > /dev/null 2>&1 "
+            "|| exit 14",
+        ])
         result = run_as_root(duthost, script)
         if result['rc'] != 0:
             reason = DEFAULT_PASS_CHECK_ERRORS.get(result['rc'], f"the check exited with {result['rc']}")
-            logger.warning(f"Default SED password check failed: {reason}. Running {SED_RECOVERY_SERVICE} to recover.")
+            logger.warning(f"TPM banks/SED password mismatch with the default SED password: {reason}. "
+                           f"Running {SED_RECOVERY_SERVICE} to recover.")
             duthost.shell(f"sudo systemctl start {SED_RECOVERY_SERVICE}", module_ignore_errors=True)
-            pytest_assert(False, f"Default SED password check failed: {reason}")
+            raise Exception(f"TPM banks/SED password mismatch with the default SED password: {reason}")
 
     def verify_sed_pass_change_feature_enabled(self, duthost):
         """
@@ -279,14 +212,16 @@ class SED_Change_Password_General:
         if primary_bank not in tpm['stdout'] or secondary_bank not in tpm['stdout']:
             pytest.skip("Required TPM banks not configured")
 
-    def get_sed_pass_from_tpm_bank(self, duthost, tpm_bank):
+    def get_sed_pass_from_tpm_bank(self, duthost, tpm_bank, tpm_auth_pass=None):
         """
         Retrieve the SED password from the specified TPM bank.
         """
-        result = run_as_root(duthost, TPM_SCRIPT_PREAMBLE + f"unseal {tpm_bank}")
+        result = run_as_root(duthost, self.get_tpm_unseal_cmd(tpm_bank, tpm_auth_pass))
         if result['rc'] == 0:
             return result['stdout'].strip()
-        logger.warning(f"Failed to get SED password from TPM bank {tpm_bank}")
+        logger.warning(
+            f"Failed to get SED password from TPM bank {tpm_bank}: {result['stderr']}"
+        )
         return None
 
     def is_pass_saved(self, duthost, expected_pass):
@@ -316,20 +251,67 @@ class SED_Change_Password_General:
             "TPM primary/secondary bank does not hold the expected SED password, see the warnings above"
         )
 
-    def set_sed_pass_in_tpm_bank(self, duthost, tpm_bank, password):
+    def set_sed_pass_in_tpm_bank(self, duthost, tpm_bank, password, tpm_auth_pass=None):
         """
         Store a new SED password in the specified TPM bank.
         The new sealed object is created and loaded first. The old object is then evicted and the new one
         persisted in the same DUT-side command, so a failure in between cannot leave the bank undefined.
         """
+        tpm_auth_arg = f'-p "{tpm_auth_pass}"' if tpm_auth_pass else ""
         logger.info(f"Setting SED password in TPM bank {tpm_bank}")
-        script = TPM_SCRIPT_PREAMBLE + SET_TPM_BANK_SCRIPT % {
-            'password': shlex.quote(password),
-            'bank': shlex.quote(tpm_bank),
-        }
-        result = run_as_root(duthost, script)
-        pytest_assert(result['rc'] == 0,
-                      f"Failed to store a SED password in TPM bank {tpm_bank}: {redact(result['stderr'], password)}")
+        tpm_create_cmd = (
+            f'echo "{password}" | tpm2_create -g sha256 -u seal.pub -r seal.priv '
+            f'-C prim.ctx {tpm_auth_arg} -i - > /dev/null 2>&1'
+        )
+        commands = [
+            'set -e',
+            'rm -f seal.* prim.ctx',
+            'tpm2_createprimary -C o --key-algorithm=rsa --key-context=prim.ctx > /dev/null 2>&1',
+            tpm_create_cmd,
+            'tpm2_load -C prim.ctx -u seal.pub -r seal.priv -n seal.name -c seal.ctx',
+            f'tpm2_evictcontrol -C o -c "{tpm_bank}" > /dev/null 2>&1',
+            f'tpm2_evictcontrol -C o -c seal.ctx "{tpm_bank}"',
+            'rm -f seal.* prim.ctx',
+        ]
+        result = run_as_root(duthost, "\n".join(commands))
+        pytest_assert(
+            result['rc'] == 0,
+            f"Failed to store the SED password in TPM bank {tpm_bank}\n"
+            f"Error: {redact(result['stderr'], password)}"
+        )
+
+    def get_tpm_unseal_cmd(self, tpm_bank, tpm_auth_pass=None):
+        tpm_auth_arg = f'-p "{tpm_auth_pass}"' if tpm_auth_pass else ""
+        return f"tpm2_unseal -c '{tpm_bank}' {tpm_auth_arg}"
+
+    def get_tpm_auth_pass(self):
+        return None
+
+    def get_default_sed_pass_cmd(self):
+        """
+        Get a DUT-side shell command that prints the default SED password.
+        """
+        pytest.skip("TODO: Implement for each vendor")
+
+    def get_primary_sed_tpm_bank(self, duthost):
+        return self.get_sed_config(duthost)['tpm_bank_a']
+
+    def get_secondary_sed_tpm_bank(self, duthost):
+        return self.get_sed_config(duthost)['tpm_bank_b']
+
+    def get_min_and_max_pass_len(self, duthost):
+        """
+        Get the minimal and maximum password length from the platform SedMgmt object.
+        """
+        if self._pass_len_limits is None:
+            cmd = ("sudo python3 -c 'from sonic_platform import platform; "
+                   "sed_mgmt = platform.Platform().get_chassis().get_sed_mgmt(); "
+                   "print(sed_mgmt.get_min_sed_password_len(), sed_mgmt.get_max_sed_password_len())'")
+            result = duthost.shell(cmd, module_ignore_errors=True)
+            pytest_assert(result['rc'] == 0, f"Failed to read the SED password length limits: {result['stderr']}")
+            min_len, max_len = (int(value) for value in result['stdout'].split())
+            self._pass_len_limits = (min_len, max_len)
+        return self._pass_len_limits
 
     def get_syslog_line_count(self, duthost):
         return int(duthost.shell("sudo wc -l < /var/log/syslog")['stdout'].strip())
@@ -362,16 +344,38 @@ class SED_Change_Password_General:
 
 
 class SED_Change_Password_Mellanox(SED_Change_Password_General):
-    DEFAULT_SED_TPM_BANK = '0x81010003'
+    THIRD_SED_TPM_BANK = '0x81010003'
+    TPM_AUTH_PASS = (
+        "$(dd if=/sys/firmware/efi/efivars/TpmSealCtx-36bfcbde-d710-4903-ba2e-c03ec245dcee "
+        "bs=1 skip=4 2>/dev/null | base64 -d)"
+    )
+
+    def set_sed_pass_in_tpm_bank(self, duthost, tpm_bank, password, tpm_auth_pass=None):
+        """
+        Store a new SED password in the specified TPM bank.
+        """
+        super().set_sed_pass_in_tpm_bank(duthost, tpm_bank, password, self.TPM_AUTH_PASS)
+
+    def get_third_sed_tpm_bank(self):
+        return self.THIRD_SED_TPM_BANK
+
+    def get_sed_pass_from_tpm_bank(self, duthost, tpm_bank, tpm_auth_pass=None):
+        return super().get_sed_pass_from_tpm_bank(duthost, tpm_bank, self.TPM_AUTH_PASS)
+
+    def get_tpm_auth_pass(self):
+        return self.TPM_AUTH_PASS
 
     def get_default_sed_pass_cmd(self):
-        return f"unseal {self.DEFAULT_SED_TPM_BANK}"
+        """
+        Get a DUT-side shell command that prints the default SED password.
+        """
+        return self.get_tpm_unseal_cmd(self.THIRD_SED_TPM_BANK, self.TPM_AUTH_PASS)
 
     def verify_sed_pass_change_feature_enabled(self, duthost):
         """Verify SED password change feature is enabled.
             1. Check SED-enabled NVME disk exists
             2. Check LockingEnabled=Y
-            3. Check default TPM bank is configured
+            3. Check third TPM bank is configured
             Skips test if not.
         """
         logger.info("Check SED-enabled NVME disk exists")
@@ -381,10 +385,10 @@ class SED_Change_Password_Mellanox(SED_Change_Password_General):
 
         super().verify_sed_pass_change_feature_enabled(duthost)
 
-        logger.info("Check default TPM bank configured")
+        logger.info("Check third TPM bank configured")
         tpm = duthost.shell("tpm2_getcap handles-persistent", module_ignore_errors=True)
         if tpm['rc'] != 0:
             pytest.skip("Failed to query TPM handles")
 
-        if self.DEFAULT_SED_TPM_BANK not in tpm['stdout']:
-            pytest.skip("Required default TPM bank not configured")
+        if self.THIRD_SED_TPM_BANK not in tpm['stdout']:
+            pytest.skip("Required third TPM bank not configured")
