@@ -22,9 +22,10 @@ cmd_sfp_presence = "sudo sfpshow presence"
 
 @pytest.fixture(scope="session")
 def vendor_specific_obj(duthost):
-    if not is_mellanox_device(duthost):
+    if is_mellanox_device(duthost):
+        return TestMACFaultMellanox()
+    else:
         pytest.skip("Test is not implemented for this specific vendor")
-    return TestMACFaultMellanox()
 
 
 class TestMACFault(object):
