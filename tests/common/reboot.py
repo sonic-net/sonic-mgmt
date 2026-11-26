@@ -25,6 +25,7 @@ power_on_event = threading.Event()
 # SSH defines
 SONIC_SSH_PORT = 22
 SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
+SSH_WAIT_RETRY_DELAY = 5
 ANSIBLE_READY_INTERVAL = 10
 
 REBOOT_TYPE_WARM = "warm"
@@ -624,7 +625,24 @@ def get_reboot_cause(dut):
             if re.search(ctrl['cause'], cause):
                 return type
 
+    # On Arista-7260CX3 platforms, power-loss detection hardware occasionally
+    # reports "CPU (cpu-s3, description: gpi 2 detailed fault - CPU state S3" instead of "Power Loss".
+    # This is a confirmed hardware limitation. See https://github.com/sonic-net/sonic-mgmt/issues/24475
+    if is_7260cx3_cpu_s3_power_loss(dut, cause):
+        return REBOOT_TYPE_POWEROFF
+
     return REBOOT_TYPE_UNKNOWN
+
+
+def is_7260cx3_cpu_s3_power_loss(dut, cause):
+    """
+    @summary: Check whether a reboot cause string is the 7260CX3 "cpu-s3" report of a power loss.
+    @param dut: The AnsibleHost object of DUT.
+    @param cause: The reboot cause string from 'show reboot-cause [history]'.
+    """
+    # The platform string is lowercase (e.g. x86_64-arista_7260cx3_64), so compare case-insensitively.
+    return "7260cx3" in dut.facts.get("platform", "").lower() and \
+        bool(re.search(r"CPU.*cpu-s3.*gpi 2 detailed fault", cause))
 
 
 def check_reboot_cause(dut, reboot_cause_expected):
@@ -770,11 +788,12 @@ def check_reboot_cause_history(dut, reboot_type_history_queue):
             logger.info("index:  %d, reboot cause: %s, reboot cause from DUT: %s" %
                         (index, reboot_ctrl_dict[reboot_type]["cause"],
                          reboot_cause_history_got[reboot_type_history_len - index - 1]["cause"]))
-            if not re.search(reboot_ctrl_dict[reboot_type]["cause"],
-                             reboot_cause_history_got[reboot_type_history_len - index - 1]["cause"]):
+            actual_cause = reboot_cause_history_got[reboot_type_history_len - index - 1]["cause"]
+            if not re.search(reboot_ctrl_dict[reboot_type]["cause"], actual_cause):
+                if reboot_type == REBOOT_TYPE_POWEROFF and is_7260cx3_cpu_s3_power_loss(dut, actual_cause):
+                    continue
                 logger.error("The {} reboot-cause not match. expected_reboot type={}, actual_reboot_cause={}".format(
-                    index, reboot_ctrl_dict[reboot_type]["cause"],
-                    reboot_cause_history_got[reboot_type_history_len - index - 1]["cause"]))
+                    index, reboot_ctrl_dict[reboot_type]["cause"], actual_cause))
                 return False
         return True
     logger.error("The number of expected reboot-cause:{} is more than that of actual reboot-cuase:{}".format(
@@ -842,15 +861,31 @@ def collect_console_log(duthost, localhost, cancel_event=None):
 
 
 def check_ssh_connection(localhost, host_ip, port, delay, timeout, search_regex):
-    res = localhost.wait_for(host=host_ip,
-                             port=port,
-                             state='started',
-                             search_regex=search_regex,
-                             delay=delay,
-                             timeout=timeout,
-                             module_ignore_errors=True)
-    is_connected = not (res.is_failed or ('msg' in res and 'Timeout' in res['msg']))
-    return is_connected, res
+    # wait_for ignores only the errors of the TCP connect. A socket error after the port accepts
+    # the connection (for example "[Errno 113] No route to host" while the DUT is still booting)
+    # fails the module long before its timeout, so keep waiting until the timeout in that case.
+    deadline = time.monotonic() + timeout
+    while True:
+        res = localhost.wait_for(host=host_ip,
+                                 port=port,
+                                 state='started',
+                                 search_regex=search_regex,
+                                 delay=delay,
+                                 timeout=timeout,
+                                 module_ignore_errors=True)
+        msg = str(res['msg']) if 'msg' in res else ''
+        is_connected = not (res.is_failed or 'Timeout' in msg)
+        if is_connected or 'Timeout when waiting' in msg:
+            return is_connected, res
+        # Pause between tries, but leave at least one second for the last one.
+        pause = min(SSH_WAIT_RETRY_DELAY, deadline - time.monotonic() - 1)
+        if pause <= 0:
+            return is_connected, res
+        logger.warning("Waiting for {}:{} failed before the timeout: {}. Waiting {}s more".format(
+            host_ip, port, msg or res, int(deadline - time.monotonic())))
+        time.sleep(pause)
+        delay = 0
+        timeout = max(int(deadline - time.monotonic()), 1)
 
 
 def ssh_connection_with_retry(localhost, host_ip, port, delay, timeout):

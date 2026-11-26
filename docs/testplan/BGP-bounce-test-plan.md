@@ -19,6 +19,11 @@ The test will run on the following testbeds:
 ## Setup configuration
 This test requires to change default BGP configuration. We need to enable or disable sending learned routes to the peers of outside AS.
 
+Before each intentional BGP restart, clear the systemd start-limit counters for
+all BGP instances. Earlier config reloads or SWSS restarts can otherwise exhaust
+the start budget and prevent the test configuration from being applied. Keep the
+BGP/SWSS readiness checks and no-export route assertions unchanged.
+
 ## Test
 On BGP container of DUT would be applied no-export BGP community configuration. After that ToR VM gets no export routes.
 

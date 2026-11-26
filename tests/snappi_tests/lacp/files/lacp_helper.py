@@ -319,7 +319,7 @@ def __tgen_bgp_config(snappi_api,
     # Source
     config.devices.device(name='Tx')
     eth_1 = config.devices[0].ethernets.add()
-    eth_1.connection.port_name = lag0.name
+    eth_1.connection.lag_name = lag0.name
     eth_1.name = 'Ethernet 1'
     eth_1.mac = "00:14:0a:00:00:01"
     ipv4_1 = eth_1.ipv4_addresses.add()
@@ -336,7 +336,7 @@ def __tgen_bgp_config(snappi_api,
     # Destination
     config.devices.device(name="Rx")
     eth_2 = config.devices[1].ethernets.add()
-    eth_2.connection.port_name = lag1.name
+    eth_2.connection.lag_name = lag1.name
     eth_2.name = 'Ethernet 2'
     eth_2.mac = "00:14:01:00:00:01"
     ipv4_2 = eth_2.ipv4_addresses.add()
@@ -610,7 +610,7 @@ def get_lacp_add_remove_link_from_dut(snappi_api,
             flows = get_flow_stats(snappi_api)
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
-                rx_frate.append(flow.frames_tx_rate)
+                rx_frate.append(flow.frames_rx_rate)
                 delta_frames = int(flow.frames_tx) - int(flow.frames_rx)
                 delta_frames_list.append(delta_frames)
                 convergence_time = 1000 * (delta_frames) / (flow.frames_tx_rate)

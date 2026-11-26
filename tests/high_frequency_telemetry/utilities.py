@@ -18,17 +18,17 @@ from _pytest.outcomes import OutcomeException
 from natsort import natsorted
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.sai_ids import (
-    get_sai_object_type_id,
-    get_sai_stat_id,
-)
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
+# countersyncd names every OTEL gauge after the canonical SAI stat and tags each
+# data point with object_name / sai_type / sai_stat. The InfluxDB exporter turns
+# the gauge name into the measurement and the attributes into tags, so a series
+# is identified by the SAI names rather than by numeric SAI ids.
 HftSeries = namedtuple(
     "HftSeries",
-    ["measurement", "object_name", "type_id", "stat_id", "counter_name"],
+    ["measurement", "object_name", "sai_type", "sai_stat", "counter_name"],
 )
 
 
@@ -290,8 +290,15 @@ def setup_hft_stream_state(duthost, profile_name, stream_state):
     )
 
 
-def cleanup_hft_config(duthost, profile_name, group_names=None):
-    """Stop the stream, delete its groups, then delete the profile."""
+def cleanup_hft_config(duthost, profile_name=None, group_names=None):
+    """Stop streams and remove their groups and profiles; no name means reset the dedicated DUT."""
+    if profile_name is None:
+        profiles, groups = _get_hft_config_keys(duthost)
+        for name in sorted({key.split("|", 2)[1] for key in profiles + groups}):
+            cleanup_hft_config(duthost, name)
+        if profiles or groups:
+            pytest_assert(not any(_get_hft_config_keys(duthost)), "Could not clear all HFT profiles and groups")
+        return
     original_error = sys.exc_info()[1]
     first_cleanup_error = None
 
@@ -452,47 +459,18 @@ def cleanup_hft_config(duthost, profile_name, group_names=None):
 
 
 def ensure_countersyncd_daemon(duthost):
-    """Verify the supervisor-owned countersyncd daemon is OTEL-enabled."""
-    status = duthost.shell(
-        "docker exec swss supervisorctl status countersyncd",
-        module_ignore_errors=True,
-    )
-    pytest_assert(
-        status.get("rc") == 0 and "RUNNING" in status.get("stdout", ""),
-        "Expected supervisor-owned countersyncd to be RUNNING, got: "
-        f"{status.get('stdout', '')} {status.get('stderr', '')}",
-    )
-    command = duthost.shell(
-        "docker exec swss sh -c 'pid=$(supervisorctl pid countersyncd) && "
-        "xargs -0 echo < /proc/$pid/cmdline'",
-        module_ignore_errors=True,
-    )
-    pytest_assert(
-        command.get("rc") == 0 and "--enable-otel" in command.get("stdout", ""),
-        "The supervisor countersyncd must use --enable-otel, got: "
-        f"{command.get('stdout', '')} {command.get('stderr', '')}",
-    )
+    """Supervisor checks liveness; the native HFT cases verify the OTEL data path."""
+    pytest_assert(_get_running_countersyncd_pid(duthost) is not None, "countersyncd is not running in hft")
     return True
 
 
 def _get_running_countersyncd_pid(duthost):
-    status = duthost.shell(
-        "docker exec swss supervisorctl status countersyncd",
+    status = duthost.command(
+        argv=["docker", "exec", "hft", "supervisorctl", "status", "countersyncd"],
         module_ignore_errors=True,
     )
-    fields = status.get("stdout", "").split()
-    if status.get("rc") != 0 or len(fields) < 2 \
-            or fields[0] != "countersyncd" or fields[1] != "RUNNING":
-        return None
-    pid = duthost.shell(
-        "docker exec swss supervisorctl pid countersyncd",
-        module_ignore_errors=True,
-    )
-    try:
-        value = int(pid.get("stdout", "").strip())
-    except (TypeError, ValueError):
-        return None
-    return value if pid.get("rc") == 0 and value > 0 else None
+    match = re.match(r"countersyncd\s+RUNNING\s+pid ([1-9]\d*),", status.get("stdout", "").strip())
+    return int(match.group(1)) if status.get("rc") == 0 and match else None
 
 
 def restart_countersyncd_daemon(duthost, timeout=30):
@@ -502,8 +480,8 @@ def restart_countersyncd_daemon(duthost, timeout=30):
         old_pid is not None,
         "Unable to determine the running countersyncd PID before restart",
     )
-    result = duthost.shell(
-        "docker exec swss supervisorctl restart countersyncd",
+    result = duthost.command(
+        argv=["docker", "exec", "hft", "supervisorctl", "restart", "countersyncd"],
         module_ignore_errors=True,
     )
     pytest_assert(
@@ -520,7 +498,6 @@ def restart_countersyncd_daemon(duthost, timeout=30):
         f"countersyncd did not restart from PID {old_pid}",
     )
     new_pid = _get_running_countersyncd_pid(duthost)
-    ensure_countersyncd_daemon(duthost)
     logger.info("Restarted countersyncd from PID %d to PID %d", old_pid, new_pid)
     return old_pid, new_pid
 
@@ -656,11 +633,10 @@ def start_influxdb(ptfhost, port=8181, timeout=30,
         socket_tool.get("rc") == 0,
         "ss is not installed on the PTF host",
     )
-    listener = ptfhost.shell(
-        f"ss -ltn | grep -q ':{int(port)} '", module_ignore_errors=True
-    )
+    stop_influxdb(ptfhost)
+    listener = ptfhost.shell(f"ss -H -lnt 'sport = :{int(port)}'")
     pytest_assert(
-        listener.get("rc") != 0,
+        not listener["stdout"].strip(),
         f"TCP port {port} is already in use on the PTF host",
     )
     result = ptfhost.shell(
@@ -737,27 +713,36 @@ def query_influxdb(ptfhost, influxql_query, port=8181, db="home"):
     return ptfhost.shell(command, module_ignore_errors=True)
 
 
-def stop_influxdb(ptfhost, pid):
-    """Stop only the InfluxDB process owned by this test."""
+def stop_influxdb(ptfhost, pid=None):
+    """Stop the sink by PID, or find the interrupted run's servers on the dedicated PTF host."""
+    if pid is None:
+        stale = ptfhost.shell("ps -ww -C influxdb3 -o pid=,args=", module_ignore_errors=True)
+        pytest_assert(stale["rc"] in (0, 1), f"Cannot check for a stale HFT InfluxDB: {stale}")
+        for line in stale["stdout_lines"]:
+            process_id, args = line.split(None, 1)
+            if re.match(r"(?:\S*/)?influxdb3\s+serve(?:\s|$)", args):
+                stop_influxdb(ptfhost, int(process_id))
+        return
     process = ptfhost.shell(
         f"ps -p {int(pid)} -o args=", module_ignore_errors=True
     )
-    if process.get("rc") != 0:
+    if process.get("rc") == 1 and not process.get("stdout", "").strip():
         return
     pytest_assert(
-        "influxdb3 serve" in process.get("stdout", ""),
+        process.get("rc") == 0 and "influxdb3 serve" in process.get("stdout", ""),
         f"Refusing to terminate unexpected PID {pid}: {process.get('stdout', '')}",
     )
-    ptfhost.shell(f"kill {int(pid)}", module_ignore_errors=True)
-    end_time = time.time() + 10
-    while time.time() < end_time:
+
+    def stopped():
         status = ptfhost.shell(
             f"ps -p {int(pid)} -o stat=", module_ignore_errors=True
         )
-        if status.get("rc") != 0 or status.get("stdout", "").lstrip().startswith("Z"):
-            return
-        time.sleep(1)
-    ptfhost.shell(f"kill -9 {int(pid)}", module_ignore_errors=True)
+        return status.get("rc") == 1 or status.get("stdout", "").lstrip().startswith("Z")
+
+    ptfhost.shell(f"kill {int(pid)}", module_ignore_errors=True)
+    if not wait_until(10, 1, 0, stopped):
+        ptfhost.shell(f"kill -9 {int(pid)}", module_ignore_errors=True)
+        pytest_assert(wait_until(5, 1, 0, stopped), f"InfluxDB PID {pid} did not stop")
 
 
 def parse_influxdb_json(json_text):
@@ -779,15 +764,13 @@ def parse_influxdb_json(json_text):
 def build_expected_series(counter_type, object_names, counter_names):
     """Build exact InfluxDB series expected for an HFT group."""
     sai_type_name = counter_type.name
-    type_id = get_sai_object_type_id(f"SAI_OBJECT_TYPE_{sai_type_name}")
+    sai_type = f"SAI_OBJECT_TYPE_{sai_type_name}"
     expected = []
     for counter_name in counter_names:
-        stat_id = get_sai_stat_id(
-            f"SAI_{sai_type_name}_STAT_{counter_name}"
-        )
-        measurement = f"sai_counter_type_{type_id}_stat_{stat_id}"
+        sai_stat = f"SAI_{sai_type_name}_STAT_{counter_name}"
+        # The measurement is the gauge name, which countersyncd sets to the stat name.
         expected.extend(
-            HftSeries(measurement, object_name, type_id, stat_id, counter_name)
+            HftSeries(sai_stat, object_name, sai_type, sai_stat, counter_name)
             for object_name in object_names
         )
     return expected
@@ -849,6 +832,43 @@ class InfluxDbSink:
             if row.get("name")
         }
 
+    def wait_until_drained(self, quiet_period=15, timeout=300):
+        """Wait until no new sample reaches this database for quiet_period seconds.
+
+        Removing an HFT session does not discard samples that countersyncd has
+        already queued for export, and a failed export is retried after up to
+        10s, so wait for the database to settle before moving the collector.
+        """
+        start = time.time()
+        state = {"total": None, "changed": start}
+
+        def drained():
+            measurements = sorted(self.measurements())
+            total = 0
+            if measurements:
+                body = self._query(";".join(
+                    f'SELECT COUNT("gauge") AS "sample_count" FROM "{name}"'
+                    for name in measurements
+                ))
+                total = sum(
+                    int(row.get("sample_count") or 0)
+                    for rows in parse_influxdb_json(json.dumps(body)).values()
+                    for row in rows
+                )
+            if total != state["total"]:
+                state.update(total=total, changed=time.time())
+            return time.time() - state["changed"] >= quiet_period
+
+        pytest_assert(
+            wait_until(timeout, 1, 0, drained),
+            f"HFT export into InfluxDB database {self.bucket} did not drain "
+            f"within {timeout}s",
+        )
+        logger.info(
+            "HFT export drained into InfluxDB database %s: %d samples in %.1fs",
+            self.bucket, state["total"], time.time() - start,
+        )
+
     def drop(self):
         """Hard-delete this sink's database."""
         result = _influxdb_database_command(
@@ -869,8 +889,8 @@ class InfluxDbSink:
             (
                 series.measurement,
                 series.object_name,
-                str(series.type_id),
-                str(series.stat_id),
+                series.sai_type,
+                series.sai_stat,
             ): series
             for series in expected_series
         }
@@ -888,21 +908,21 @@ class InfluxDbSink:
                 row = dict(zip(columns, raw_values))
                 row.update(tags)
                 object_name = row.get("object_name")
-                type_id = row.get("sai_type_id")
-                stat_id = row.get("sai_stat_id")
-                if object_name is None or type_id is None or stat_id is None:
+                sai_type = row.get("sai_type")
+                sai_stat = row.get("sai_stat")
+                if object_name is None or sai_type is None or sai_stat is None:
                     continue
                 key = (
                     measurement,
                     object_name,
-                    str(type_id),
-                    str(stat_id),
+                    sai_type,
+                    sai_stat,
                 )
                 values[key] = {
                     "time": row.get("time"),
                     "value": row.get(value_column),
-                    "type_id": str(type_id),
-                    "stat_id": str(stat_id),
+                    "sai_type": sai_type,
+                    "sai_stat": sai_stat,
                 }
         return values
 
@@ -914,7 +934,7 @@ class InfluxDbSink:
             (
                 f'SELECT {expression} AS "{value_column}" '
                 f'FROM "{measurement}"{where} '
-                'GROUP BY "object_name", "sai_type_id", "sai_stat_id"'
+                'GROUP BY "object_name", "sai_type", "sai_stat"'
             )
             for measurement in measurements
         ]
@@ -942,7 +962,7 @@ class InfluxDbSink:
                 statements.append(
                     f'SELECT {expression} AS "{value_column}" '
                     f'FROM "{measurement}"{where} '
-                    'GROUP BY "object_name", "sai_type_id", "sai_stat_id"'
+                    'GROUP BY "object_name", "sai_type", "sai_stat"'
                 )
                 statement_specs.append((measurement, value_column))
         body = self._query(";".join(statements))
@@ -1082,12 +1102,12 @@ class InfluxDbSink:
                     f"last={last_value}, minimum={minimum_value}"
                 )
                 continue
-            if counts[key]["type_id"] != str(series.type_id) \
-                    or counts[key]["stat_id"] != str(series.stat_id):
+            if counts[key]["sai_type"] != series.sai_type \
+                    or counts[key]["sai_stat"] != series.sai_stat:
                 violations.append(
                     f"{key}: type/stat tags are "
-                    f"{counts[key]['type_id']}/{counts[key]['stat_id']}, expected "
-                    f"{series.type_id}/{series.stat_id}"
+                    f"{counts[key]['sai_type']}/{counts[key]['sai_stat']}, expected "
+                    f"{series.sai_type}/{series.sai_stat}"
                 )
             try:
                 first_time = _parse_rfc3339_timestamp(first[key]["time"])

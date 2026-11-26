@@ -41,6 +41,11 @@ pytestmark = [
 ]
 
 
+@pytest.fixture(scope="module")
+def rand_selected_dut(duthosts, enum_rand_one_per_hwsku_hostname):
+    return duthosts[enum_rand_one_per_hwsku_hostname]
+
+
 @pytest.fixture(scope="class")
 def setup(request, duthosts, enum_rand_one_per_hwsku_hostname,
           xcvr_skip_list, conn_graph_facts, shutdown_ebgp):     # noqa: F811
@@ -308,6 +313,7 @@ class TestSfpApi(PlatformApiTestBase):
     LPMODE_SKIP_LIST = [
         {'manufacturer': 'Cloud Light', 'model': '7123-G37-01'},
         {'manufacturer': 'Cloud Light', 'model': '7123-G37-02'},
+        {'manufacturer': 'Cloud Light', 'model': '7123-G37-03'},
         {'manufacturer': 'Cloud Light', 'model': '7123-G37-05'},
         {'manufacturer': 'Cloud Light', 'model': '7123-G37-0X'},
         {'manufacturer': 'Cloud Light', 'model': '7123-G37-10'},
@@ -411,15 +417,22 @@ class TestSfpApi(PlatformApiTestBase):
         if ("QSFP" not in xcvr_type and "OSFP" not in xcvr_type):
             return False
 
-        # Temporarily add this logic to skip lpmode test for some transceivers with known issue
+        return True
+
+    def is_xcvr_in_lpmode_skip_list(self, xcvr_info_dict):
+        """Returns True if the lpmode test must skip the transceiver due to a known set_lpmode issue.
+
+        Only test_lpmode uses this list. These transceivers still support low power mode, e.g. they
+        come back in low power mode after a reset, so is_xcvr_support_lpmode() does not check it.
+        """
         for xcvr_to_skip in self.LPMODE_SKIP_LIST:
             if (xcvr_info_dict["manufacturer"].strip() == xcvr_to_skip["manufacturer"] and
                     xcvr_info_dict["model"].strip() == xcvr_to_skip["model"]):
                 logger.info("Temporarily skipping {} - {} due to known issue".format(
                     xcvr_info_dict["manufacturer"], xcvr_info_dict["model"]))
-                return False
+                return True
 
-        return True
+        return False
 
     def is_xcvr_support_power_override(self, xcvr_info_dict):
         """Returns True if transceiver supports power override, False if not supported"""
@@ -462,7 +475,7 @@ class TestSfpApi(PlatformApiTestBase):
         except Exception as e:
             logger.error("Failed to shutdown interfaces: {}".format(e))
 
-        shutdown_wait_scale_factor = max(1, len(intf_list)*0.01)
+        shutdown_wait_scale_factor = max(1, len(intf_list)*0.1)
         time.sleep(WAIT_TIME_AFTER_INTF_SHUTDOWN*shutdown_wait_scale_factor)
         try:
             if duthost.is_multi_asic:
@@ -871,14 +884,13 @@ class TestSfpApi(PlatformApiTestBase):
             logger.info("No interfaces to flap after SFP reset")
         self.assert_expectations()
 
-    def test_tx_disable(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
+    def test_tx_disable(self, rand_selected_dut, localhost,
                         platform_api_conn, is_sw_control_feature_enabled):    # noqa: F811
         """This function tests both the get_tx_disable() and tx_disable() APIs"""
-        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
-        if is_mellanox_device(duthost):
+        skip_release_for_platform(rand_selected_dut, ["202012"], ["arista", "mlnx"])
+        if is_mellanox_device(rand_selected_dut):
             port_indices_to_tested = self.get_port_indices_to_tested_for_mellanox_device(
-                duthost, is_sw_control_feature_enabled)
+                rand_selected_dut, is_sw_control_feature_enabled)
         else:
             port_indices_to_tested = self.sfp_setup["sfp_test_port_indices"]
 
@@ -904,14 +916,13 @@ class TestSfpApi(PlatformApiTestBase):
                                     "Transceiver {} TX disable data is incorrect".format(i))
         self.assert_expectations()
 
-    def test_tx_disable_channel(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
+    def test_tx_disable_channel(self, rand_selected_dut, localhost,
                                 platform_api_conn, is_sw_control_feature_enabled):     # noqa: F811
         """This function tests both the get_tx_disable_channel() and tx_disable_channel() APIs"""
-        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx", "nokia"])
-        if is_mellanox_device(duthost):
+        skip_release_for_platform(rand_selected_dut, ["202012"], ["arista", "mlnx", "nokia"])
+        if is_mellanox_device(rand_selected_dut):
             port_indices_to_tested = self.get_port_indices_to_tested_for_mellanox_device(
-                duthost, is_sw_control_feature_enabled)
+                rand_selected_dut, is_sw_control_feature_enabled)
         else:
             port_indices_to_tested = self.sfp_setup["sfp_test_port_indices"]
 
@@ -980,6 +991,10 @@ class TestSfpApi(PlatformApiTestBase):
                     .format(i))
                 continue
 
+            # Temporarily skip transceivers with a known set_lpmode issue
+            if self.is_xcvr_in_lpmode_skip_list(info_dict):
+                continue
+
             lpmode_state_pretest = sfp.get_lpmode(platform_api_conn, i)
             if lpmode_state_pretest is None:
                 logger.warning("test_lpmode: Skipping transceiver {} (not supported on this platform)".format(i))
@@ -1005,11 +1020,10 @@ class TestSfpApi(PlatformApiTestBase):
                             .format(i, "enable" if state is True else "disable"))
         self.assert_expectations()
 
-    def test_power_override(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                            platform_api_conn):    # noqa: F811
+    def test_power_override(self, rand_selected_dut, localhost,
+                            platform_api_conn, is_sw_control_feature_enabled):    # noqa: F811
         """This function tests both the get_power_override() and set_power_override() APIs"""
-        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx", "nokia"])
+        skip_release_for_platform(rand_selected_dut, ["202012"], ["arista", "mlnx", "nokia"])
 
         for i in self.sfp_setup["sfp_test_port_indices"]:
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
@@ -1026,6 +1040,13 @@ class TestSfpApi(PlatformApiTestBase):
                 platform_api_conn, i)
             self.expect(power_override_bit_value_pretest is not None,
                         "Unable to retrieve transceiver {} power override data".format(i))
+
+            if is_mellanox_device(rand_selected_dut) and (
+                    not is_sw_control_feature_enabled or not is_sw_control_enabled(rand_selected_dut, i)):
+                logger.warning(
+                    "test_power_override: Skipping set_power_override for Mellanox transceiver {} "
+                    "(software control is not enabled for the device or port)".format(i))
+                continue
 
             # Enable power override in both low-power and high-power modes
             for state in [True, False]:

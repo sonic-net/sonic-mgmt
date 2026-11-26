@@ -1,3 +1,5 @@
+from contextlib import ExitStack
+from functools import partial
 from typing import Dict, List
 
 import paramiko
@@ -6,9 +8,9 @@ import logging
 import itertools
 import collections
 import ipaddress
-import time
 import json
 
+from _pytest.outcomes import OutcomeException
 from pytest_ansible.errors import AnsibleConnectionFailure
 from paramiko.ssh_exception import AuthenticationException
 
@@ -260,19 +262,25 @@ def ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo):
 
 def check_orch_cpu_utilization(dut, orch_cpu_threshold):
     """
-    Compare orchagent CPU utilization 5 times, with 1 second interval in between and make sure all 5 readings are
-    less than threshold
+    Check five DUT-local, one-second orchagent CPU samples against the threshold.
 
     Args:
         dut: DUT host object
         orch_cpu_threshold: orch cpu threshold
     """
-    for i in range(5):
-        orch_cpu = dut.shell("COLUMNS=512 show processes cpu | grep orchagent | awk '{print $9}'")["stdout_lines"]
-        for line in orch_cpu:
-            if int(float(line)) > orch_cpu_threshold:
-                return False
-        time.sleep(1)
+    samples = dut.monit_process(delay_interval=1, iterations=5, verbose=False)["monit_results"]
+    if len(samples) != 5:
+        logger.warning("Expected 5 CPU samples on %s, received %s", dut.hostname, len(samples))
+        return False
+
+    for index, (processes, _) in enumerate(samples, 1):
+        orch_cpu = {proc["pid"]: proc["cpu_percent"] for proc in processes if proc["name"] == "orchagent"}
+        logger.info("Orchagent CPU sample %s on %s: %s", index, dut.hostname, orch_cpu)
+        if not orch_cpu:
+            logger.warning("No orchagent process in CPU sample %s on %s", index, dut.hostname)
+            return False
+        if any(int(float(cpu)) > orch_cpu_threshold for cpu in orch_cpu.values()):
+            return False
     return True
 
 
@@ -292,6 +300,7 @@ def check_ebgp_routes(num_v4_routes, num_v6_routes, duthost):
 
 
 def duthost_shutdown_ebgp(duthost):
+    """Restore eBGP if shutdown or a readiness check fails."""
     orch_cpu_threshold = 10
 
     orch_cpu_timeout = 60
@@ -302,16 +311,27 @@ def duthost_shutdown_ebgp(duthost):
     if v4_routes_count > 10000 or v6_routes_count > 10000:
         orch_cpu_timeout = 120
 
-    # Shutdown all eBGP neighbors
-    duthost.command("sudo config bgp shutdown all")
+    # Fixture teardown is unavailable when setup fails before yield, so this
+    # helper must restore its own partially applied shutdown.
+    shutdown_complete = False
+    try:
+        # Shutdown all eBGP neighbors
+        duthost.command("sudo config bgp shutdown all")
 
-    # Verify that the total eBGP routes are 0.
-    pt_assert(wait_until(60, 2, 5, check_ebgp_routes, 0, 0, duthost),
-              "eBGP routes are not 0 after shutting down all neighbors on {}".format(duthost))
-    pt_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
-              "Orch CPU utilization {} > orch cpu threshold {} after shutdown all eBGP"
-              .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
-                      orch_cpu_threshold))
+        # Verify that the total eBGP routes are 0.
+        pt_assert(wait_until(60, 2, 5, check_ebgp_routes, 0, 0, duthost),
+                  "eBGP routes are not 0 after shutting down all neighbors on {}".format(duthost))
+        pt_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+                  "Orchagent CPU readiness check failed after shutdown all eBGP on {}; "
+                  "threshold {}. See CPU samples in the log.".format(duthost.hostname, orch_cpu_threshold))
+        shutdown_complete = True
+    finally:
+        if not shutdown_complete:
+            logger.exception("Failed to quiesce eBGP on %s; restoring the original route state", duthost.hostname)
+            try:
+                duthost_startup_ebgp(duthost, v4_routes_count, v6_routes_count)
+            except (Exception, OutcomeException):
+                logger.exception("Failed to restore eBGP on %s after shutdown setup failed", duthost.hostname)
 
     return v4_routes_count, v6_routes_count
 
@@ -328,23 +348,31 @@ def duthost_startup_ebgp(duthost, v4_routes_count, v6_routes_count):
               "eBGP v4 routes are {}, and v6 route are {}, and not what they were originally after enabling "
               "all neighbors on {}".format(v4_routes_count, v6_routes_count, duthost))
     pt_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
-              "Orch CPU utilization {} > orch cpu threshold {} after startup all eBGP"
-              .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
-                      orch_cpu_threshold))
+              "Orchagent CPU readiness check failed after startup all eBGP on {}; "
+              "threshold {}. See CPU samples in the log.".format(duthost.hostname, orch_cpu_threshold))
+
+
+def restore_ebgp_on_exit(duthost, v4_routes_count, v6_routes_count, exc_type, exc, traceback):
+    """Restore eBGP without replacing an exception that is already in flight."""
+    try:
+        duthost_startup_ebgp(duthost, v4_routes_count, v6_routes_count)
+    except (Exception, OutcomeException):
+        if exc_type is None:
+            raise
+        logger.exception("Failed to restore eBGP on %s while handling %s", duthost.hostname, exc_type.__name__)
+    return False
 
 
 @pytest.fixture(scope="module")
 def shutdown_ebgp(duthosts, rand_one_dut_hostname):
-    # To store the original number of eBGP v4 and v6 routes.
-    v4ebgps = {}
-    v6ebgps = {}
-    for duthost in duthosts.frontend_nodes:
-        v4ebgps[duthost.hostname], v6ebgps[duthost.hostname] = duthost_shutdown_ebgp(duthost)
+    """Restore every quiesced DUT even if a later DUT fails during setup."""
+    # ExitStack also unwinds setup failures that occur before the fixture yields.
+    with ExitStack() as cleanup:
+        for duthost in duthosts.frontend_nodes:
+            v4_routes_count, v6_routes_count = duthost_shutdown_ebgp(duthost)
+            cleanup.push(partial(restore_ebgp_on_exit, duthost, v4_routes_count, v6_routes_count))
 
-    yield
-
-    for duthost in duthosts.frontend_nodes:
-        duthost_startup_ebgp(duthost, v4ebgps[duthost.hostname], v6ebgps[duthost.hostname])
+        yield
 
 
 @pytest.fixture(scope="module")

@@ -24,6 +24,8 @@ Bulk/once-per-test accessors read many rows in one shot:
 :func:`get_config_db_port_table` and :func:`get_config_db_port_names` return
 their values directly, while :func:`get_state_db_table` keeps the ``(value,
 err)`` tuple so a dump failure can be surfaced as a clean per-test failure.
+:func:`read_state_db_table_for_ports` batches selected ports by namespace and
+returns per-port rows plus aggregated read errors.
 """
 import ast
 import json
@@ -37,6 +39,7 @@ from tests.transceiver.common.cli_parser_helper import RC_FAILURE
 logger = logging.getLogger(__name__)
 
 
+TRANSCEIVER_STATUS_TABLE = "TRANSCEIVER_STATUS"
 STATE_DB_UPDATE_TIME_FIELD = "last_update_time"
 STATE_DB_UPDATE_TIME_FUTURE_TOLERANCE_MIN = 0.1
 XCVRD_UPDATE_TIME_FORMAT = "%a %b %d %H:%M:%S %Y"
@@ -108,6 +111,20 @@ def resolve_port_namespace(duthost, port):
     if not duthost.is_multi_asic:
         return None
     return duthost.get_port_asic_instance(port).namespace
+
+
+def group_ports_by_namespace(duthost, ports, namespaces=None):
+    """Group logical ports by ASIC namespace."""
+    namespaces = namespaces or {}
+    grouped = {}
+    for port in ports:
+        namespace = (
+            namespaces[port]
+            if port in namespaces
+            else resolve_port_namespace(duthost, port)
+        )
+        grouped.setdefault(namespace, []).append(port)
+    return grouped
 
 
 def _entry_field_age_minutes(entry, now_utc):
@@ -385,6 +402,27 @@ def get_db_table(duthost, db, table, namespace=None, sep="|"):
     }, None
 
 
+def get_appl_db_port_table_entries(duthost, ports, namespaces=None):
+    """Read APPL_DB PORT_TABLE entries once per ASIC namespace.
+
+    Reuse the optional ``{port: namespace}`` map when already resolved.
+    Read failures are logged and returned as empty entries for affected ports.
+    """
+    entries = {}
+    for namespace, namespace_ports in group_ports_by_namespace(
+        duthost, ports, namespaces
+    ).items():
+        port_table, err = get_db_table(
+            duthost, "APPL_DB", "PORT_TABLE", namespace=namespace, sep=":"
+        )
+        if err:
+            logger.warning("Failed to read APPL_DB PORT_TABLE: %s", err)
+            port_table = {}
+        for port in namespace_ports:
+            entries[port] = port_table.get(port, {})
+    return entries
+
+
 def get_state_db_table(duthost, table, namespace=None):
     """Thin wrapper over :func:`get_db_table` pinned to ``STATE_DB`` (``|`` separator).
 
@@ -392,6 +430,44 @@ def get_state_db_table(duthost, table, namespace=None):
     preserves the existing STATE_DB call sites unchanged.
     """
     return get_db_table(duthost, "STATE_DB", table, namespace=namespace, sep="|")
+
+
+def read_state_db_table_for_ports(duthost, ports, table_name):
+    """Read a table once per namespace and return ``(rows_by_port, errors)``.
+
+    A port row is ``None`` when its namespace read fails, or ``{}`` when the
+    read succeeds but that port has no published row.
+    """
+    ports = list(ports)
+    rows_by_port = {port: {} for port in ports}
+    errors = []
+    ports_by_namespace = group_ports_by_namespace(duthost, ports)
+
+    for namespace, namespace_ports in ports_by_namespace.items():
+        table_data, error = get_state_db_table(duthost, table_name, namespace=namespace)
+        if error:
+            errors.append(
+                "{} namespace {} ({} port(s) under test): {}".format(
+                    table_name, namespace or "default", len(namespace_ports), error,
+                )
+            )
+            logger.warning(
+                "Failed to read %s namespace %s for %d port(s): %s",
+                table_name, namespace or "default", len(namespace_ports), error,
+            )
+            for port in namespace_ports:
+                rows_by_port[port] = None
+            continue
+
+        for port in namespace_ports:
+            rows_by_port[port] = table_data.get(port, {}) or {}
+
+    logger.debug(
+        "Read %s data for %d port(s) across %d namespace(s); %d port(s) returned data",
+        table_name, len(ports), len(ports_by_namespace),
+        sum(1 for row in rows_by_port.values() if row),
+    )
+    return rows_by_port, errors
 
 
 def get_config_db_port_table(duthost):

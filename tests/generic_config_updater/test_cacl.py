@@ -25,7 +25,7 @@ from tests.common.config_reload import (
 # SSH_ONLY    CTRLPLANE  SSH              SSH_ONLY       ingress
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx', 'm1', 't1', 't2', 'lrh', 'urh', 'lt2', 'ft2', 'bmc'),
+    pytest.mark.topology('t0', 'm0', 'mx', 'm1', 'uma', 'lma', 't1', 't2', 'lrh', 'urh', 'lt2', 'ft2', 'bmc'),
 ]
 
 logger = logging.getLogger(__name__)

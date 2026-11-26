@@ -1,21 +1,59 @@
+import json
 import logging
 import pytest
+import re
+import shlex
+from tests.common.helpers.constants import DEFAULT_ASIC_ID
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
+from tests.common.utilities import get_downstream_neigh_type, wait_until
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.config_reload import config_reload
 from tests.common.gu_utils import delete_tmpfile, expect_op_success, generate_tmpfile
 from tests.common.gu_utils import apply_patch
 from tests.generic_config_updater.add_cluster.helpers import add_static_route, \
-    clear_static_route, get_active_interfaces, get_cfg_info_from_dut, \
+    clear_static_route, clear_traffic_counters, get_active_interfaces, get_cfg_info_from_dut, \
+    get_external_portchannel_members, get_portchannel_member_value, get_portchannel_min_links, \
+    get_portchannel_status_map, \
     get_exabgp_port_for_neighbor, remove_dataacl_table_single_dut, remove_static_route, \
     send_and_verify_traffic, verify_routev4_existence, format_sonic_interface_dict, \
     format_sonic_buffer_pg_dict
 
+from tests.generic_config_updater.add_cluster.constants import (
+    ASIC_DB_WAIT_INTERVAL,
+    ASIC_DB_WAIT_TIME,
+    EXABGP_BASE_PORT,
+    LAG_STATE_WAIT_INTERVAL,
+    LAG_STATE_WAIT_TIME,
+    NHIPV4,
+    PORTCHANNEL_HASH_ATTEMPTS,
+    PORTCHANNEL_TRAFFIC_COUNT,
+    PORT_COUNTER_WAIT_INTERVAL,
+    PORT_COUNTER_WAIT_TIME,
+)
+from tests.generic_config_updater.add_cluster.portchannel_helpers import (
+    add_static_route_no_proxy as _add_static_route_no_proxy,
+    db_hget as _db_hget,
+    db_hgetall as _db_hgetall,
+    db_keys as _db_keys,
+    escape_json_pointer_key,
+    format_sonic_queue_dict as _format_sonic_queue_dict,
+    get_counters_db_counter_value as _get_counters_db_counter_value,
+    get_interface_neighbor_and_intfs as _get_interface_neighbor_and_intfs,
+    get_member_counter_snapshot as _get_member_counter_snapshot,
+    get_portstat_counter as _get_portstat_counter,
+    normalize_acl_ports as _normalize_acl_ports,
+    queue_key_matches_port as _queue_key_matches_port,
+    remove_static_route_no_proxy as _remove_static_route_no_proxy,
+    runner_member_selected as _runner_member_selected,
+    select_ptf_source_port as _select_ptf_source_port,
+    select_unused_portchannel_traffic_dst_ip,
+    wait_for_portchannel_up_or_log as _wait_for_portchannel_up_or_log,
+)
+
 pytestmark = [
-        pytest.mark.topology("t2", "lrh", "urh")
-        ]
+    pytest.mark.topology("t2", "lrh", "urh")
+]
 
 logger = logging.getLogger(__name__)
 allure.logger = logger
@@ -25,8 +63,6 @@ allure.logger = logger
 # Attributes used by test for static route, acl config
 # -----------------------------
 
-EXABGP_BASE_PORT = 5000
-NHIPV4 = '10.10.246.254'
 STATIC_DST_IP = '1.1.1.1'
 
 ACL_TABLE_NAME = "L3_TRANSPORT_TEST"
@@ -35,10 +71,1174 @@ ACL_TABLE_TYPE_L3 = "L3"
 ACL_RULE_FILE_PATH = "generic_config_updater/add_cluster/acl/acl_rule_src_dst_port.json"
 ACL_RULE_DST_FILE = "/tmp/test_add_cluster_acl_rule.json"
 ACL_RULE_SKIP_VERIFICATION_LIST = [""]
+PORTCHANNEL_TRAFFIC_DST_IPS = (
+    "198.18.252.251",
+    "198.18.252.252",
+    "198.18.252.253",
+    "198.18.252.254",
+)
+LOGANALYZER_IGNORE_REGEX = [
+    ".*createEntry: Failed to start PFC Watchdog on port.*",
+]
 
 # -----------------------------
 # Helper functions that validate apply-patch changes
 # -----------------------------
+
+
+def _get_downstream_neighbor_types(tbinfo):
+    """
+    Return downstream neighbor type strings for the topology.
+    """
+    try:
+        downstream_neigh_types = get_downstream_neigh_type(tbinfo, is_upper=True)
+    except TypeError:
+        downstream_neigh_types = None
+        for topo_attr in (tbinfo["topo"]["name"], tbinfo["topo"]["type"]):
+            downstream_neigh_types = get_downstream_neigh_type(topo_attr, is_upper=True)
+            if downstream_neigh_types:
+                break
+
+    if downstream_neigh_types:
+        if isinstance(downstream_neigh_types, (list, tuple, set)):
+            return [
+                str(item).strip() for item in downstream_neigh_types if str(item).strip()
+            ]
+        return [
+            item.strip() for item in downstream_neigh_types.split(',') if item.strip()
+        ]
+    return ["T1"]
+
+
+def _pick_primary_downstream_hostname(duthosts, tbinfo):
+    """
+    Pick a frontend DUT that has downstream neighbors in the minigraph.
+    """
+    downstream_nbr_type = _get_downstream_neighbor_types(tbinfo)
+    for dut in duthosts.frontend_nodes:
+        minigraph_neighbors = dut.get_extended_minigraph_facts(tbinfo)['minigraph_neighbors']
+        for neighbor in minigraph_neighbors.values():
+            if any(downstream_type in neighbor['name'] for downstream_type in downstream_nbr_type):
+                return dut.hostname
+
+    pytest.fail(
+        "Did not find a dut in duthosts for topo type {} that has downstream nbr type {}".format(
+            tbinfo["topo"]["type"], downstream_nbr_type
+        )
+    )
+
+
+def _ordered_frontend_asic_indices(duthost, preferred_asic_index):
+    """
+    Return frontend ASIC IDs with the enum-selected ASIC first.
+    """
+    if duthost.is_multi_asic:
+        asic_indices = duthost.get_frontend_asic_ids()
+    else:
+        asic_indices = [DEFAULT_ASIC_ID]
+
+    if preferred_asic_index in asic_indices:
+        return [preferred_asic_index] + [
+            asic_index for asic_index in asic_indices if asic_index != preferred_asic_index
+        ]
+    return asic_indices
+
+
+def _get_namespace_prefixes(duthost, asic_index):
+    """
+    Return namespace, CLI prefix, and ip-netns prefix for an ASIC ID.
+    """
+    asic_namespace = duthost.get_namespace_from_asic_id(asic_index)
+    if asic_namespace is None:
+        return None, '', ''
+    return asic_namespace, '-n {}'.format(asic_namespace), 'sudo ip netns exec {}'.format(asic_namespace)
+
+
+def _select_staged_portchannel(config_facts, portchannel_status_map=None):
+    """
+    Select one external PortChannel where a member can be staged back later.
+
+    The staged flow needs an original min_links value greater than one so the
+    first add-cluster patch can withhold one member and reduce min_links by one.
+    """
+    for portchannel in sorted(config_facts.get("PORTCHANNEL", {})):
+        members = get_external_portchannel_members(config_facts, portchannel)
+        portchannel_members = config_facts.get("PORTCHANNEL_MEMBER", {}).get(portchannel, {})
+        if len(members) != len(portchannel_members):
+            logger.info("Skipping PortChannel %s: contains internal members", portchannel)
+            continue
+        if len(members) < 2:
+            continue
+        if (
+            portchannel_status_map is not None and
+            portchannel_status_map.get(portchannel) != "up"
+        ):
+            logger.info(
+                "Skipping PortChannel %s: status is %s, expected up",
+                portchannel,
+                portchannel_status_map.get(portchannel),
+            )
+            continue
+
+        original_min_links = get_portchannel_min_links(config_facts, portchannel)
+        if original_min_links is None:
+            logger.info("Skipping PortChannel %s: min_links is not configured", portchannel)
+            continue
+        try:
+            original_min_links_int = int(original_min_links)
+        except (TypeError, ValueError):
+            logger.info("Skipping PortChannel %s: min_links=%s is not an integer",
+                        portchannel, original_min_links)
+            continue
+        if original_min_links_int <= 1:
+            logger.info("Skipping PortChannel %s: min_links=%s cannot be reduced by one",
+                        portchannel, original_min_links)
+            continue
+
+        withheld_member = members[-1]
+        return {
+            "portchannel": portchannel,
+            "withheld_member": withheld_member,
+            "remaining_members": [member for member in members if member != withheld_member],
+            "original_min_links": str(original_min_links),
+            "staged_min_links": str(original_min_links_int - 1),
+        }
+    return None
+
+
+def _stage_portchannel_config(pc_dict, staged_portchannel):
+    """
+    Return PortChannel config with selected PortChannel min_links reduced.
+    """
+    if not staged_portchannel:
+        return pc_dict
+
+    portchannel = staged_portchannel["portchannel"]
+    if portchannel not in pc_dict:
+        return pc_dict
+
+    pc_dict = pc_dict.copy()
+    pc_dict[portchannel] = pc_dict[portchannel].copy()
+    pc_dict[portchannel]["min_links"] = staged_portchannel["staged_min_links"]
+    return pc_dict
+
+
+def _filter_staged_portchannel_member_dict(portchannel_member_dict, staged_portchannel):
+    """
+    Return PortChannel member dict without the member staged for later add.
+    """
+    if not staged_portchannel:
+        return portchannel_member_dict
+
+    withheld_key = "{}|{}".format(
+        staged_portchannel["portchannel"],
+        staged_portchannel["withheld_member"]
+    )
+    return {
+        key: value
+        for key, value in portchannel_member_dict.items()
+        if key != withheld_key
+    }
+
+
+def _is_port_scoped_key(key, port):
+    """
+    Return True if a table key is scoped to the selected physical port.
+    """
+    return key.split('|', 1)[0] == port
+
+
+def _filter_port_scoped_entries(table_dict, port):
+    """
+    Return a table dictionary without entries scoped to a physical port.
+    """
+    return {
+        key: value
+        for key, value in table_dict.items()
+        if not _is_port_scoped_key(key, port)
+    }
+
+
+def _filter_queue_port_entries(queue_dict, port):
+    """
+    Return QUEUE entries without entries scoped to a physical port.
+    """
+    return {
+        key: value
+        for key, value in _format_sonic_queue_dict(queue_dict).items()
+        if not _queue_key_matches_port(key, port)
+    }
+
+
+def _is_queue_for_internal_port(queue_key):
+    """
+    Return True if a QUEUE key belongs to an internal chassis port.
+    """
+    return any(
+        key_part.startswith(("Ethernet-IB", "Ethernet-Rec", "Ethernet-BP"))
+        for key_part in queue_key.split('|')
+    )
+
+
+def _filter_staged_raw_portchannel_members(portchannel_members, staged_portchannel):
+    """
+    Return raw PORTCHANNEL_MEMBER config without the staged member.
+    """
+    if not staged_portchannel:
+        return portchannel_members
+
+    portchannel = staged_portchannel["portchannel"]
+    withheld_member = staged_portchannel["withheld_member"]
+    filtered_members = {}
+    for key, value in portchannel_members.items():
+        if '|' in key:
+            if key == "{}|{}".format(portchannel, withheld_member):
+                continue
+            filtered_members[key] = value
+            continue
+
+        if key == portchannel and isinstance(value, dict):
+            remaining_members = {
+                member: member_value
+                for member, member_value in value.items()
+                if member != withheld_member
+            }
+            if remaining_members:
+                filtered_members[key] = remaining_members
+            continue
+
+        filtered_members[key] = value
+    return filtered_members
+
+
+def _get_member_neighbor_name(config_facts, mg_facts, member):
+    """
+    Return the minigraph neighbor name for a physical member port.
+    """
+    device_neighbor = config_facts.get("DEVICE_NEIGHBOR", {}).get(member, {})
+    if isinstance(device_neighbor, dict) and device_neighbor.get("name"):
+        return device_neighbor["name"]
+
+    minigraph_neighbor = mg_facts.get("minigraph_neighbors", {}).get(member, {})
+    if isinstance(minigraph_neighbor, dict):
+        return minigraph_neighbor.get("name")
+    return None
+
+
+def _is_neighbor_metadata_used_by_other_port(config_facts, neighbor_name, member):
+    """
+    Return True if another physical port still references the neighbor metadata.
+    """
+    if not neighbor_name:
+        return False
+    for port, neighbor_info in config_facts.get("DEVICE_NEIGHBOR", {}).items():
+        if port == member or not isinstance(neighbor_info, dict):
+            continue
+        if neighbor_info.get("name") == neighbor_name:
+            return True
+    return False
+
+
+def _filter_staged_member_restore_config(config_facts, mg_facts, staged_portchannel):
+    """
+    Return config_facts for first-stage restore without the withheld member port.
+    """
+    if not staged_portchannel:
+        return config_facts
+
+    member = staged_portchannel["withheld_member"]
+    filtered_config = dict(config_facts)
+    for table_name in ["INTERFACE", "BUFFER_PG", "PORT_QOS_MAP", "PFC_WD"]:
+        if table_name in filtered_config:
+            filtered_config[table_name] = _filter_port_scoped_entries(
+                filtered_config[table_name],
+                member
+            )
+
+    if "QUEUE" in filtered_config:
+        filtered_config["QUEUE"] = _filter_queue_port_entries(
+            filtered_config["QUEUE"],
+            member
+        )
+
+    if "PORTCHANNEL_MEMBER" in filtered_config:
+        filtered_config["PORTCHANNEL_MEMBER"] = _filter_staged_raw_portchannel_members(
+            filtered_config["PORTCHANNEL_MEMBER"],
+            staged_portchannel
+        )
+
+    if "CABLE_LENGTH" in filtered_config:
+        filtered_cable_length = {}
+        for cable_length_group, cable_length_ports in filtered_config["CABLE_LENGTH"].items():
+            if isinstance(cable_length_ports, dict):
+                filtered_cable_length[cable_length_group] = _filter_port_scoped_entries(
+                    cable_length_ports,
+                    member
+                )
+            else:
+                filtered_cable_length[cable_length_group] = cable_length_ports
+        filtered_config["CABLE_LENGTH"] = filtered_cable_length
+
+    if "DEVICE_NEIGHBOR" in filtered_config:
+        filtered_config["DEVICE_NEIGHBOR"] = {
+            key: value
+            for key, value in filtered_config["DEVICE_NEIGHBOR"].items()
+            if key != member
+        }
+
+    neighbor_name = _get_member_neighbor_name(config_facts, mg_facts, member)
+    if (neighbor_name and
+            not _is_neighbor_metadata_used_by_other_port(config_facts, neighbor_name, member) and
+            "DEVICE_NEIGHBOR_METADATA" in filtered_config):
+        filtered_config["DEVICE_NEIGHBOR_METADATA"] = {
+            key: value
+            for key, value in filtered_config["DEVICE_NEIGHBOR_METADATA"].items()
+            if key != neighbor_name
+        }
+
+    return filtered_config
+
+
+def _apply_json_patch(duthost, json_patch, description):
+    """
+    Apply a JSON patch through GCU and assert success.
+    """
+    tmpfile = generate_tmpfile(duthost)
+    try:
+        logger.info("Applying patch: %s", description)
+        _log_json_patch_content(description, json_patch)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+
+def _log_json_patch_content(description, json_patch):
+    """
+    Log JSON patch content in a PR-friendly format for test evidence.
+    """
+    logger.info(
+        "Patch content for %s:\n%s",
+        description,
+        json.dumps(json_patch, indent=2, sort_keys=True)
+    )
+
+
+def _portchannel_member_exists(duthost, cli_namespace_prefix, portchannel, member):
+    """
+    Return True if a PortChannel member key exists in CONFIG_DB.
+    """
+    cmd = "sonic-db-cli {} CONFIG_DB EXISTS 'PORTCHANNEL_MEMBER|{}|{}'".format(
+        cli_namespace_prefix, portchannel, member
+    )
+    output = duthost.shell(cmd, module_ignore_errors=True)
+    return output["stdout"].strip() == "1"
+
+
+def _get_portchannel_min_links_from_dut(duthost, cli_namespace_prefix, portchannel):
+    """
+    Read PortChannel min_links from running CONFIG_DB.
+    """
+    cmd = "sonic-db-cli {} CONFIG_DB HGET 'PORTCHANNEL|{}' min_links".format(
+        cli_namespace_prefix, portchannel
+    )
+    return duthost.shell(cmd, module_ignore_errors=True)["stdout"].strip()
+
+
+def _get_config_db_keys(duthost, cli_namespace_prefix, pattern):
+    """
+    Return CONFIG_DB keys matching a sonic-db-cli KEYS pattern.
+    """
+    cmd = "sonic-db-cli {} CONFIG_DB KEYS '{}'".format(cli_namespace_prefix, pattern)
+    output = duthost.shell(cmd, module_ignore_errors=True)
+    return [
+        key.strip()
+        for key in output["stdout"].splitlines()
+        if key.strip()
+    ]
+
+
+def _get_port_admin_status_from_dut(duthost, cli_namespace_prefix, port):
+    """
+    Read a port's admin_status from running CONFIG_DB.
+    """
+    cmd = "sonic-db-cli {} CONFIG_DB HGET 'PORT|{}' admin_status".format(
+        cli_namespace_prefix,
+        port
+    )
+    return duthost.shell(cmd, module_ignore_errors=True)["stdout"].strip()
+
+
+def verify_staged_portchannel_member_state(duthost,
+                                           cli_namespace_prefix,
+                                           staged_portchannel,
+                                           member_should_exist,
+                                           expected_min_links):
+    """
+    Verify staged PortChannel member presence and PortChannel min_links.
+    """
+    portchannel = staged_portchannel["portchannel"]
+    member = staged_portchannel["withheld_member"]
+    member_exists = _portchannel_member_exists(
+        duthost, cli_namespace_prefix, portchannel, member
+    )
+    pytest_assert(
+        member_exists == member_should_exist,
+        "PortChannel member {}|{} existence mismatch. Expected {} found {}".format(
+            portchannel, member, member_should_exist, member_exists
+        )
+    )
+
+    actual_min_links = _get_portchannel_min_links_from_dut(
+        duthost, cli_namespace_prefix, portchannel
+    )
+    pytest_assert(
+        actual_min_links == str(expected_min_links),
+        "PortChannel {} min_links mismatch. Expected {} found {}".format(
+            portchannel, expected_min_links, actual_min_links
+        )
+    )
+
+
+def verify_staged_member_default_state(duthost, cli_namespace_prefix, staged_portchannel):
+    """
+    Verify the staged physical member remains in removed/default admin-down state.
+    """
+    portchannel = staged_portchannel["portchannel"]
+    member = staged_portchannel["withheld_member"]
+    expected_empty_patterns = [
+        "PORTCHANNEL_MEMBER|{}|{}".format(portchannel, member),
+        "INTERFACE|{}".format(member),
+        "INTERFACE|{}|*".format(member),
+        "PORT_QOS_MAP|{}".format(member),
+        "QUEUE|{}|*".format(member),
+        "QUEUE|*|{}|*".format(member),
+    ]
+    for pattern in expected_empty_patterns:
+        keys = _get_config_db_keys(duthost, cli_namespace_prefix, pattern)
+        pytest_assert(
+            not keys,
+            "Expected no CONFIG_DB keys for staged member pattern {}, found {}".format(
+                pattern,
+                keys
+            )
+        )
+        logger.info("Verified no CONFIG_DB keys for staged member pattern %s", pattern)
+
+    actual_admin_status = _get_port_admin_status_from_dut(
+        duthost,
+        cli_namespace_prefix,
+        member
+    )
+    pytest_assert(
+        actual_admin_status == "down",
+        "Expected staged member {} admin_status down before final restore, found {}".format(
+            member,
+            actual_admin_status
+        )
+    )
+    logger.info(
+        "Verified staged member %s remains admin_status down before final restore",
+        member
+    )
+
+
+def wait_for_portchannel_up_or_log(duthost, asic_namespace, portchannel):
+    """Log a non-fatal timeout after the staged add-cluster restore."""
+    return _wait_for_portchannel_up_or_log(
+        duthost, asic_namespace, portchannel,
+        operation_description="staged add-cluster restore",
+    )
+
+
+def _db_key_exists(duthost, cli_namespace_prefix, db_name, key):
+    """
+    Return True when a Redis DB key exists.
+    """
+    cmd = "sonic-db-cli {} {} EXISTS {}".format(
+        cli_namespace_prefix,
+        db_name,
+        shlex.quote(key),
+    )
+    output = duthost.shell(cmd, module_ignore_errors=True)
+    if output["rc"]:
+        logger.info(
+            "Failed to query %s key %s: rc=%s stdout=%s stderr=%s",
+            db_name,
+            key,
+            output.get("rc"),
+            output.get("stdout", ""),
+            output.get("stderr", ""),
+        )
+        return False
+    return output.get("stdout", "").strip().lower() in ("1", "true")
+
+
+def _expected_staged_portchannel_members(staged_portchannel):
+    """
+    Return all PortChannel members expected after staged restore.
+    """
+    return sorted(
+        staged_portchannel["remaining_members"] +
+        [staged_portchannel["withheld_member"]]
+    )
+
+
+def verify_staged_teamd_lag_member_state(duthost, staged_portchannel):
+    """
+    Verify teamdctl/lag_facts reports the staged member selected.
+    """
+    portchannel = staged_portchannel["portchannel"]
+    member = staged_portchannel["withheld_member"]
+    expected_members = _expected_staged_portchannel_members(staged_portchannel)
+    last_summary = {}
+
+    def _lag_state_matches():
+        nonlocal last_summary
+        lag_facts = duthost.lag_facts(
+            host=duthost.hostname,
+        )['ansible_facts']['lag_facts']
+        lag_info = lag_facts.get("lags", {}).get(portchannel)
+        if not lag_info:
+            last_summary = {"missing_portchannel": portchannel}
+            return False
+
+        po_config = lag_info.get("po_config", {})
+        po_stats = lag_info.get("po_stats", {})
+        configured_ports = set(po_config.get("ports", {}).keys())
+        member_stats = po_stats.get("ports", {})
+        missing_members = sorted(set(expected_members) - configured_ports)
+        min_ports = po_config.get("runner", {}).get("min_ports")
+        member_state = member_stats.get(member, {})
+
+        last_summary = {
+            "po_intf_stat": lag_info.get("po_intf_stat"),
+            "configured_ports": sorted(configured_ports),
+            "missing_members": missing_members,
+            "min_ports": min_ports,
+            "withheld_member_state": member_state,
+        }
+        logger.info("teamd/lag_facts summary for %s: %s", portchannel, last_summary)
+        return (
+            lag_info.get("po_intf_stat") == "Up" and
+            not missing_members and
+            member in member_stats and
+            _runner_member_selected(member_state)
+        )
+
+    pytest_assert(
+        wait_until(
+            LAG_STATE_WAIT_TIME,
+            LAG_STATE_WAIT_INTERVAL,
+            0,
+            _lag_state_matches,
+        ),
+        "teamd/lag_facts did not report staged member {} restored in {}; "
+        "last_state={}".format(member, portchannel, last_summary),
+    )
+    if str(last_summary.get("min_ports")) != str(staged_portchannel["original_min_links"]):
+        logger.error(
+            "teamd/lag_facts runner min_ports for %s is %s after CONFIG_DB "
+            "min_links restore; expected %s. Continuing because CONFIG_DB "
+            "min_links is verified directly.",
+            portchannel,
+            last_summary.get("min_ports"),
+            staged_portchannel["original_min_links"],
+        )
+
+
+def verify_staged_asic_db_lag_member_state(duthost, cli_namespace_prefix,
+                                           staged_portchannel):
+    """
+    Verify ASIC_DB has enabled SAI LAG_MEMBER objects for staged LAG members.
+    """
+    portchannel = staged_portchannel["portchannel"]
+    member = staged_portchannel["withheld_member"]
+    expected_members = _expected_staged_portchannel_members(staged_portchannel)
+    last_summary = {}
+
+    def _lag_members_ready():
+        nonlocal last_summary
+        member_port_oids = {
+            member_name: _db_hget(
+                duthost,
+                cli_namespace_prefix,
+                "COUNTERS_DB",
+                "COUNTERS_PORT_NAME_MAP",
+                member_name,
+            )
+            for member_name in expected_members
+        }
+        missing_oids = sorted(
+            member_name
+            for member_name, port_oid in member_port_oids.items()
+            if not port_oid
+        )
+        if missing_oids:
+            last_summary = {"missing_counter_oids": missing_oids}
+            return False
+
+        lag_member_keys = _db_keys(
+            duthost,
+            cli_namespace_prefix,
+            "ASIC_DB",
+            "ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER:*",
+        )
+        if lag_member_keys is None:
+            last_summary = {"lag_member_keys": None}
+            return False
+
+        lag_members_by_port = {}
+        for lag_member_key in lag_member_keys:
+            port_oid = _db_hget(
+                duthost,
+                cli_namespace_prefix,
+                "ASIC_DB",
+                lag_member_key,
+                "SAI_LAG_MEMBER_ATTR_PORT_ID",
+            )
+            if port_oid not in member_port_oids.values():
+                continue
+
+            matching_member = [
+                member_name
+                for member_name, member_oid in member_port_oids.items()
+                if member_oid == port_oid
+            ][0]
+            lag_members_by_port[matching_member] = {
+                "key": lag_member_key,
+                "lag_id": _db_hget(
+                    duthost,
+                    cli_namespace_prefix,
+                    "ASIC_DB",
+                    lag_member_key,
+                    "SAI_LAG_MEMBER_ATTR_LAG_ID",
+                ),
+                "egress_disable": _db_hget(
+                    duthost,
+                    cli_namespace_prefix,
+                    "ASIC_DB",
+                    lag_member_key,
+                    "SAI_LAG_MEMBER_ATTR_EGRESS_DISABLE",
+                ),
+            }
+
+        missing_members = sorted(
+            set(expected_members) - set(lag_members_by_port.keys())
+        )
+        disabled_members = sorted(
+            member_name
+            for member_name, member_info in lag_members_by_port.items()
+            if str(member_info.get("egress_disable", "")).lower() == "true"
+        )
+        lag_ids = {
+            member_info["lag_id"]
+            for member_info in lag_members_by_port.values()
+            if member_info.get("lag_id")
+        }
+        lag_key_exists = False
+        if len(lag_ids) == 1:
+            lag_key_exists = _db_key_exists(
+                duthost,
+                cli_namespace_prefix,
+                "ASIC_DB",
+                "ASIC_STATE:SAI_OBJECT_TYPE_LAG:{}".format(list(lag_ids)[0]),
+            )
+
+        last_summary = {
+            "portchannel": portchannel,
+            "member_port_oids": member_port_oids,
+            "lag_members_by_port": lag_members_by_port,
+            "missing_members": missing_members,
+            "disabled_members": disabled_members,
+            "lag_ids": sorted(lag_ids),
+            "lag_key_exists": lag_key_exists,
+        }
+        logger.info("ASIC_DB LAG summary for %s: %s", portchannel, last_summary)
+        return (
+            not missing_members and
+            not disabled_members and
+            member in lag_members_by_port and
+            len(lag_ids) == 1 and
+            lag_key_exists
+        )
+
+    pytest_assert(
+        wait_until(
+            ASIC_DB_WAIT_TIME,
+            ASIC_DB_WAIT_INTERVAL,
+            0,
+            _lag_members_ready,
+        ),
+        "ASIC_DB did not expose enabled SAI LAG_MEMBER objects for {}; "
+        "last_state={}".format(portchannel, last_summary),
+    )
+
+
+def verify_staged_counters_db_readable(duthost, cli_namespace_prefix,
+                                       staged_portchannel):
+    """
+    Verify COUNTERS_DB exposes the staged member and, when present, LAG counters.
+    """
+    portchannel = staged_portchannel["portchannel"]
+    member = staged_portchannel["withheld_member"]
+    member_field, member_counter = _get_counters_db_counter_value(
+        duthost,
+        cli_namespace_prefix,
+        member,
+    )
+    logger.info(
+        "COUNTERS_DB staged member %s counter %s=%s",
+        member,
+        member_field,
+        member_counter,
+    )
+
+    lag_oid = _db_hget(
+        duthost,
+        cli_namespace_prefix,
+        "COUNTERS_DB",
+        "COUNTERS_LAG_NAME_MAP",
+        portchannel,
+    )
+    if not lag_oid:
+        logger.info(
+            "COUNTERS_DB has no COUNTERS_LAG_NAME_MAP entry for %s; "
+            "validated member counters only",
+            portchannel,
+        )
+        return
+
+    lag_counter_hash = _db_hgetall(
+        duthost,
+        cli_namespace_prefix,
+        "COUNTERS_DB",
+        "COUNTERS:{}".format(lag_oid),
+    )
+    pytest_assert(
+        lag_counter_hash is not None,
+        "Failed to read COUNTERS_DB LAG hash for {} ({})".format(
+            portchannel,
+            lag_oid,
+        ),
+    )
+    logger.info(
+        "COUNTERS_DB PortChannel %s counter fields: %s",
+        portchannel,
+        sorted(lag_counter_hash.keys()),
+    )
+
+
+def _wait_for_staged_member_counters(duthost, cli_namespace_prefix,
+                                     member, counter_baseline,
+                                     min_tx_packets):
+    """
+    Wait for show/COUNTERS_DB TX counters on the staged member.
+    """
+    last_summary = {}
+
+    def _counters_match():
+        nonlocal last_summary
+        portstat_tx_ok = _get_portstat_counter(duthost, member, "TX_OK")
+        counters_db_field, counters_db_value = _get_counters_db_counter_value(
+            duthost,
+            cli_namespace_prefix,
+            member,
+        )
+        portstat_delta = None
+        counters_db_delta = None
+        if portstat_tx_ok is not None:
+            portstat_delta = (
+                portstat_tx_ok - counter_baseline["portstat_TX_OK"]
+            )
+        if counters_db_value is not None:
+            counters_db_delta = (
+                counters_db_value - counter_baseline["counters_db_value"]
+            )
+        last_summary = {
+            "baseline": counter_baseline,
+            "portstat_TX_OK": portstat_tx_ok,
+            "portstat_TX_OK_delta": portstat_delta,
+            "counters_db_field": counters_db_field,
+            "counters_db_value": counters_db_value,
+            "counters_db_delta": counters_db_delta,
+            "expected_min_packets": min_tx_packets,
+        }
+        logger.info("Staged member counter summary for %s: %s", member, last_summary)
+        return (
+            portstat_delta is not None and
+            counters_db_delta is not None and
+            portstat_delta >= min_tx_packets and
+            counters_db_delta >= min_tx_packets
+        )
+
+    pytest_assert(
+        wait_until(
+            PORT_COUNTER_WAIT_TIME,
+            PORT_COUNTER_WAIT_INTERVAL,
+            0,
+            _counters_match,
+        ),
+        "Staged member {} counters did not increase as expected; "
+        "last_state={}".format(member, last_summary),
+    )
+
+
+def _select_unused_portchannel_traffic_dst_ip(duthost, asic_index):
+    """Select an unused destination from this test's reserved route prefixes."""
+    return select_unused_portchannel_traffic_dst_ip(
+        duthost, asic_index, PORTCHANNEL_TRAFFIC_DST_IPS
+    )
+
+
+def _clear_static_route_no_proxy(tbinfo, duthost, route_ip):
+    """
+    Withdraw an existing ExaBGP route without relying on proxy env settings.
+    """
+    config_facts_localhost = duthost.config_facts(
+        host=duthost.hostname,
+        source='running',
+        verbose=False,
+        namespace=None,
+    )['ansible_facts']
+    for asic_index in range(duthost.facts.get('num_asic')):
+        output = duthost.shell(
+            "sudo ip netns exec asic{} show ip route | grep {}".format(
+                asic_index,
+                route_ip,
+            ),
+            module_ignore_errors=True,
+        )['stdout']
+        ip_address = re.search(r'via (\d+\.\d+\.\d+\.\d+)', output)
+        if not ip_address:
+            continue
+        neighbor_ip = ip_address.group(1)
+        if neighbor_ip not in config_facts_localhost['BGP_NEIGHBOR']:
+            logger.warning(
+                "Next-hop %s is not a direct BGP neighbor. "
+                "Skipping route withdrawal for %s",
+                neighbor_ip,
+                route_ip,
+            )
+            continue
+        neighbor_name = config_facts_localhost['BGP_NEIGHBOR'][neighbor_ip]['name']
+        exabgp_port = get_exabgp_port_for_neighbor(
+            tbinfo,
+            neighbor_name,
+            EXABGP_BASE_PORT,
+        )
+        _remove_static_route_no_proxy(
+            tbinfo,
+            neighbor_ip,
+            exabgp_port,
+            route_ip,
+        )
+        wait_until(
+            10,
+            1,
+            0,
+            verify_routev4_existence,
+            duthost,
+            asic_index,
+            route_ip,
+            should_exist=False,
+        )
+
+
+def verify_staged_portchannel_member_dataplane(duthost, tbinfo, ptfadapter,
+                                               asic_index, asic_namespace,
+                                               cli_namespace_prefix,
+                                               mg_facts,
+                                               staged_portchannel):
+    """
+    Verify PTF traffic can hash to the staged-restored LAG member.
+    """
+    portchannel = staged_portchannel["portchannel"]
+    member = staged_portchannel["withheld_member"]
+    expected_members = _expected_staged_portchannel_members(staged_portchannel)
+    ptf_indices = mg_facts.get("minigraph_ptf_indices", {})
+    pytest_assert(
+        member in ptf_indices,
+        "No PTF index found for staged member {}".format(member),
+    )
+    member_ptf_index = ptf_indices[member]
+    source_interface, source_ptf_index = _select_ptf_source_port(
+        duthost,
+        asic_namespace,
+        mg_facts,
+        set(expected_members),
+    )
+    neighbor_name, _neighbor_addrs, neighbor_ipv4, _neighbor_ipv6 = (
+        _get_interface_neighbor_and_intfs(mg_facts, member)
+    )
+    pytest_assert(
+        neighbor_ipv4,
+        "No IPv4 BGP neighbor found for staged member {}".format(member),
+    )
+    exabgp_port = get_exabgp_port_for_neighbor(
+        tbinfo,
+        neighbor_name,
+        EXABGP_BASE_PORT,
+    )
+    traffic_dst_ip = _select_unused_portchannel_traffic_dst_ip(
+        duthost,
+        asic_index,
+    )
+    route_added = False
+
+    try:
+        _add_static_route_no_proxy(
+            tbinfo,
+            neighbor_ipv4,
+            exabgp_port,
+            traffic_dst_ip,
+        )
+        route_added = True
+        pytest_assert(
+            wait_until(
+                30,
+                3,
+                0,
+                verify_routev4_existence,
+                duthost,
+                asic_index,
+                traffic_dst_ip,
+                should_exist=True,
+            ),
+            "Static route {} did not appear on {} asic {}".format(
+                traffic_dst_ip,
+                duthost.hostname,
+                asic_index,
+            ),
+        )
+
+        logger.info(
+            "Sending PTF traffic from %s(ptf=%s) to %s member %s(ptf=%s)",
+            source_interface,
+            source_ptf_index,
+            portchannel,
+            member,
+            member_ptf_index,
+        )
+        clear_traffic_counters(duthost, asic_index)
+        counter_baseline = _get_member_counter_snapshot(
+            duthost,
+            cli_namespace_prefix,
+            member,
+        )
+        logger.info(
+            "Staged member counter baseline for %s: %s",
+            member,
+            counter_baseline,
+        )
+        last_error = None
+        matched_member = False
+        for attempt in range(PORTCHANNEL_HASH_ATTEMPTS):
+            src_ip = "30.0.0.{}".format(10 + attempt)
+            sport = 5000
+            dport = 0x50 + attempt
+            try:
+                send_and_verify_traffic(
+                    tbinfo,
+                    duthost,
+                    duthost,
+                    asic_index,
+                    asic_index,
+                    ptfadapter,
+                    ptf_sport=source_ptf_index,
+                    ptf_dst_ports=[member_ptf_index],
+                    ptf_dst_interfaces=[member],
+                    src_ip=src_ip,
+                    dst_ip=traffic_dst_ip,
+                    count=PORTCHANNEL_TRAFFIC_COUNT,
+                    sport=sport,
+                    dport=dport,
+                    verify=True,
+                    expect_error=False,
+                    clear_stats=False,
+                )
+                logger.info(
+                    "PTF traffic selected staged LAG member %s on hash "
+                    "attempt %s using src_ip=%s tcp_sport=%s tcp_dport=%s",
+                    member,
+                    attempt + 1,
+                    src_ip,
+                    sport,
+                    dport,
+                )
+                matched_member = True
+                break
+            except AssertionError as exc:
+                last_error = str(exc)
+                logger.info(
+                    "PTF traffic did not select staged member %s on hash "
+                    "attempt %s using src_ip=%s tcp_sport=%s tcp_dport=%s: %s",
+                    member,
+                    attempt + 1,
+                    src_ip,
+                    sport,
+                    dport,
+                    last_error,
+                )
+
+        pytest_assert(
+            matched_member,
+            "PTF traffic did not hash to staged member {} of {} after {} "
+            "attempts while varying src_ip/tcp_dport. Last error={}".format(
+                member,
+                portchannel,
+                PORTCHANNEL_HASH_ATTEMPTS,
+                last_error,
+            ),
+        )
+        _wait_for_staged_member_counters(
+            duthost,
+            cli_namespace_prefix,
+            member,
+            counter_baseline,
+            PORTCHANNEL_TRAFFIC_COUNT,
+        )
+    finally:
+        if route_added:
+            _remove_static_route_no_proxy(
+                tbinfo,
+                neighbor_ipv4,
+                exabgp_port,
+                traffic_dst_ip,
+            )
+            pytest_assert(
+                wait_until(
+                    30,
+                    3,
+                    0,
+                    verify_routev4_existence,
+                    duthost,
+                    asic_index,
+                    traffic_dst_ip,
+                    should_exist=False,
+                ),
+                "Static route {} remained on {} asic {} after withdrawal".format(
+                    traffic_dst_ip,
+                    duthost.hostname,
+                    asic_index,
+                ),
+            )
+
+
+def verify_staged_acl_feature_bindings(duthost, asic_namespace,
+                                       ip_netns_namespace_prefix,
+                                       config_facts, staged_portchannel):
+    """
+    Verify existing ACL/Mirror tables bound to the LAG or staged member remain present.
+    """
+    portchannel = staged_portchannel["portchannel"]
+    member = staged_portchannel["withheld_member"]
+    bound_tables = {}
+    for table_name, table_config in config_facts.get("ACL_TABLE", {}).items():
+        table_ports = _normalize_acl_ports(table_config.get("ports"))
+        if portchannel in table_ports or member in table_ports:
+            bound_tables[table_name] = {
+                "type": table_config.get("type"),
+                "ports": table_ports,
+            }
+
+    if not bound_tables:
+        logger.info(
+            "No ACL/Everflow/ERSPAN ACL_TABLE binding found for %s or %s; "
+            "skipping feature binding read-back",
+            portchannel,
+            member,
+        )
+        return
+
+    acl_facts = duthost.acl_facts(
+        namespace=asic_namespace,
+    )["ansible_facts"]["ansible_acl_facts"]
+    show_cmd = "{} show acl table".format(ip_netns_namespace_prefix).strip()
+    show_output = duthost.command(show_cmd, module_ignore_errors=True)
+    pytest_assert(
+        not show_output["rc"],
+        "Failed to run '{}': rc={} stdout={} stderr={}".format(
+            show_cmd,
+            show_output.get("rc"),
+            show_output.get("stdout", ""),
+            show_output.get("stderr", ""),
+        ),
+    )
+
+    for table_name, table_info in bound_tables.items():
+        pytest_assert(
+            table_name in acl_facts,
+            "ACL table {} bound to {} not present in acl_facts".format(
+                table_name,
+                table_info,
+            ),
+        )
+        actual_ports = _normalize_acl_ports(acl_facts[table_name].get("ports"))
+        missing_ports = sorted(set(table_info["ports"]) - set(actual_ports))
+        pytest_assert(
+            not missing_ports,
+            "ACL table {} missing expected bindings {}. actual_ports={}".format(
+                table_name,
+                missing_ports,
+                actual_ports,
+            ),
+        )
+        pytest_assert(
+            table_name in show_output.get("stdout", ""),
+            "ACL table {} missing from show acl table output".format(table_name),
+        )
+        logger.info(
+            "Validated ACL/Mirror binding for table %s type=%s ports=%s",
+            table_name,
+            table_info["type"],
+            table_info["ports"],
+        )
+
+
+def verify_staged_portchannel_operational_state(duthost, tbinfo, ptfadapter,
+                                                asic_index,
+                                                asic_namespace,
+                                                cli_namespace_prefix,
+                                                ip_netns_namespace_prefix,
+                                                mg_facts, config_facts,
+                                                staged_portchannel):
+    """
+    Verify staged PortChannel member state through teamd, ASIC_DB, counters and PTF.
+    """
+    wait_for_portchannel_up_or_log(
+        duthost,
+        asic_namespace,
+        staged_portchannel["portchannel"],
+    )
+    verify_staged_teamd_lag_member_state(duthost, staged_portchannel)
+    verify_staged_asic_db_lag_member_state(
+        duthost,
+        cli_namespace_prefix,
+        staged_portchannel,
+    )
+    verify_staged_counters_db_readable(
+        duthost,
+        cli_namespace_prefix,
+        staged_portchannel,
+    )
+    verify_staged_acl_feature_bindings(
+        duthost,
+        asic_namespace,
+        ip_netns_namespace_prefix,
+        config_facts,
+        staged_portchannel,
+    )
+    verify_staged_portchannel_member_dataplane(
+        duthost,
+        tbinfo,
+        ptfadapter,
+        asic_index,
+        asic_namespace,
+        cli_namespace_prefix,
+        mg_facts,
+        staged_portchannel,
+    )
 
 
 def verify_bgp_peers_removed_from_asic(duthost, namespace):
@@ -154,6 +1354,7 @@ def remove_cluster_via_sonic_db_cli_chassis_packet(config_facts,
     - BUFFER_PG
     - CABLE_LENGTH
     - PORT_QOS_MAP
+    - QUEUE
     - PORT
     """
 
@@ -161,6 +1362,8 @@ def remove_cluster_via_sonic_db_cli_chassis_packet(config_facts,
     logger.info(f"Starting cluster removal for ASIC namespace: {json_namespace} (chassis-packet mode)")
 
     active_interfaces = get_active_interfaces(config_facts, duthost)
+    asic_interface_keys = []
+    external_portchannels = set()
 
     def run_and_check(ns, cmd, desc):
         """Run a shell command on DUT and check for success."""
@@ -186,7 +1389,6 @@ def remove_cluster_via_sonic_db_cli_chassis_packet(config_facts,
             run_and_check(json_namespace, cmd, f"Clearing table {table}")
 
         # INTERFACE
-        asic_interface_keys = []
         if "INTERFACE" in config_facts:
             for interface_key in config_facts["INTERFACE"].keys():
                 # Skip Rec and BP interfaces
@@ -244,6 +1446,16 @@ def remove_cluster_via_sonic_db_cli_chassis_packet(config_facts,
                               f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del 'BUFFER_PG|{bp_key}'",
                               f"Deleting BUFFER_PG {bp_key}")
 
+        # QUEUE - only for external interfaces
+        queue_dict = _format_sonic_queue_dict(config_facts.get("QUEUE", {}))
+        for queue_key in queue_dict:
+            if not _is_queue_for_internal_port(queue_key):
+                cmd = (
+                    f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB "
+                    f"del 'QUEUE|{queue_key}'"
+                )
+                run_and_check(json_namespace, cmd, f"Deleting QUEUE {queue_key}")
+
         # PORT_QOS_MAP - only for external interfaces (BP check only for chassis-packet)
         for iface in active_interfaces:
             if not iface.startswith("Ethernet-BP"):
@@ -271,7 +1483,6 @@ def remove_cluster_via_sonic_db_cli_chassis_packet(config_facts,
         if key.startswith('Ethernet-Rec'):
             continue
         parts = key.split('|')
-        key_to_remove = key
         if len(parts) == 2:
             port = parts[0]
             alias = mg_facts['minigraph_port_name_to_alias_map'].get(port, port)
@@ -350,7 +1561,7 @@ def apply_patch_remove_cluster_chassis_packet(config_facts,
     Changes are perfomed to below tables:
     ACL_TABLE, BGP_NEIGHBOR, DEVICE_NEIGHBOR, DEVICE_NEIGHBOR_METADATA,
     PORTCHANNEL, PORTCHANNEL_INTERFACE, PORTCHANNEL_MEMBER,
-    INTERFACE, BUFFER_PG, CABLE_LENGTH, PORT, PORT_QOS_MAP
+    INTERFACE, BUFFER_PG, CABLE_LENGTH, PORT, PORT_QOS_MAP, QUEUE
     """
 
     logger.info("Removing cluster for namespace {} via apply-patch (chassis-packet mode)."
@@ -361,6 +1572,8 @@ def apply_patch_remove_cluster_chassis_packet(config_facts,
 
     # find active ports
     active_interfaces = get_active_interfaces(config_facts, duthost)
+    asic_interface_keys = []
+    asic_interface_ip_prefix_keys = []
 
     # Identify external PortChannels (those without BP members)
     external_portchannels = set()
@@ -436,11 +1649,21 @@ def apply_patch_remove_cluster_chassis_packet(config_facts,
                 "path": f"{json_namespace}/BUFFER_PG/{buffer_pg_key.replace('/', '~1')}"
             })
 
+    # Remove QUEUE - only for non-BP interfaces (preserve BP, IB, Rec)
+    queue_dict = _format_sonic_queue_dict(config_facts.get("QUEUE", {}))
+    for queue_key in queue_dict:
+        if not _is_queue_for_internal_port(queue_key):
+            json_patch_asic.append({
+                "op": "remove",
+                "path": "{}/QUEUE/{}".format(
+                    json_namespace,
+                    escape_json_pointer_key(queue_key)
+                )
+            })
+
     # table INTERFACE - Skip BP and Rec interfaces (chassis-packet specific)
     if 'INTERFACE' in config_facts:
         asic_interface_dict = config_facts["INTERFACE"]
-        asic_interface_keys = []
-        asic_interface_ip_prefix_keys = []
         for interface_key in asic_interface_dict.keys():
             if interface_key.startswith("Ethernet-Rec") or interface_key.startswith("Ethernet-BP"):
                 continue
@@ -488,8 +1711,12 @@ def apply_patch_remove_cluster_chassis_packet(config_facts,
     json_patch = json_patch_asic
     tmpfile = generate_tmpfile(duthost)
     try:
-        logger.info("Applying patch (1/2) to remove cluster info (all except PORTCHANNEL, INTERFACE name) - "
-                    "chassis-packet mode.")
+        description = (
+            "remove cluster info (1/2) all except PORTCHANNEL, INTERFACE name "
+            "- chassis-packet mode"
+        )
+        logger.info("Applying patch (1/2) to %s.", description)
+        _log_json_patch_content(description, json_patch)
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
         verify_bgp_peers_removed_from_asic(duthost, enum_rand_one_asic_namespace)
@@ -519,7 +1746,12 @@ def apply_patch_remove_cluster_chassis_packet(config_facts,
 
     tmpfile_pc = generate_tmpfile(duthost)
     try:
-        logger.info("Applying patch (2/2) to remove cluster info (PORTCHANNEL, INTERFACE name) - chassis-packet mode.")
+        description = (
+            "remove cluster info (2/2) PORTCHANNEL, INTERFACE name "
+            "- chassis-packet mode"
+        )
+        logger.info("Applying patch (2/2) to %s.", description)
+        _log_json_patch_content(description, json_patch_extra)
         output = apply_patch(duthost, json_data=json_patch_extra, dest_file=tmpfile_pc)
         expect_op_success(duthost, output)
     finally:
@@ -548,6 +1780,7 @@ def remove_cluster_via_sonic_db_cli(config_facts,
     - BUFFER_PG
     - CABLE_LENGTH
     - PORT_QOS_MAP
+    - QUEUE
     - PORT
     """
 
@@ -555,6 +1788,7 @@ def remove_cluster_via_sonic_db_cli(config_facts,
     logger.info(f"Starting cluster removal for ASIC namespace: {json_namespace}")
 
     active_interfaces = get_active_interfaces(config_facts)
+    asic_interface_keys = []
     success = True
 
     def run_and_check(ns, cmd, desc):
@@ -581,7 +1815,6 @@ def remove_cluster_via_sonic_db_cli(config_facts,
             run_and_check(json_namespace, cmd, f"Clearing table {table}")
 
         # INTERFACE
-        asic_interface_keys = []
         for interface_key in config_facts["INTERFACE"].keys():
             if interface_key.startswith("Ethernet-Rec"):
                 continue
@@ -634,6 +1867,14 @@ def remove_cluster_via_sonic_db_cli(config_facts,
         )
         run_and_check(json_namespace, cmd, "Clearing table BUFFER_PG")
 
+        # QUEUE
+        cmd = (
+            f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB "
+            f"keys 'QUEUE|*' | xargs -r -n1 sudo sonic-db-cli "
+            f"{cli_namespace_prefix} CONFIG_DB del"
+        )
+        run_and_check(json_namespace, cmd, "Clearing table QUEUE")
+
         # PORT_QOS_MAP
         for iface in active_interfaces:
             run_and_check(json_namespace,
@@ -660,7 +1901,6 @@ def remove_cluster_via_sonic_db_cli(config_facts,
         if key.startswith('Ethernet-Rec'):
             continue
         parts = key.split('|')
-        key_to_remove = key
         if len(parts) == 2:
             port = parts[0]
             alias = mg_facts['minigraph_port_name_to_alias_map'].get(port, port)
@@ -696,7 +1936,7 @@ def remove_cluster_via_sonic_db_cli(config_facts,
                       f"sudo sonic-db-cli CONFIG_DB hdel 'ACL_TABLE|{acl_table}' ports@",
                       f"Removing localhost ACL_TABLE {acl_table} ports")
     # PORTCHANNEL
-    for entry in config_facts("PORTCHANNEL", {}).keys():
+    for entry in config_facts.get("PORTCHANNEL", {}).keys():
         run_and_check("localhost",
                       f"sudo sonic-db-cli CONFIG_DB del 'PORTCHANNEL|{entry}'",
                       f"Deleting localhost PORTCHANNEL {entry}")
@@ -745,6 +1985,7 @@ def apply_patch_remove_cluster(config_facts,
     CABLE_LENGTH
     PORT
     PORT_QOS_MAP
+    QUEUE
 
     """
 
@@ -761,6 +2002,12 @@ def apply_patch_remove_cluster(config_facts,
 
     # find active ports
     active_interfaces = get_active_interfaces(config_facts)
+    asic_interface_keys = []
+    asic_interface_ip_prefix_keys = []
+    localhost_interface_keys = []
+    localhost_ip_prefix_interface_keys = []
+    localhost_pc_member_keys = []
+    localhost_pc_interface_keys = []
 
     # W/A: TABLE:ACL_TABLE removing whole table instead of detaching ports
     # https://github.com/sonic-net/sonic-buildimage/issues/24295
@@ -791,11 +2038,16 @@ def apply_patch_remove_cluster(config_facts,
             "op": "remove",
             "path": f"{json_namespace}/DEVICE_NEIGHBOR_METADATA"
         },
-        {
-            "op": "remove",
-            "path": f"{json_namespace}/BUFFER_PG"
-        }
     ]
+    if config_facts.get("QUEUE"):
+        json_patch_asic.append({
+            "op": "remove",
+            "path": f"{json_namespace}/QUEUE"
+        })
+    json_patch_asic.append({
+        "op": "remove",
+        "path": f"{json_namespace}/BUFFER_PG"
+    })
 
     if 'PORTCHANNEL' in config_facts:
         json_patch_asic.append(
@@ -814,8 +2066,6 @@ def apply_patch_remove_cluster(config_facts,
     # table INTERFACE
     if 'INTERFACE' in config_facts:
         asic_interface_dict = config_facts["INTERFACE"]
-        asic_interface_keys = []
-        asic_interface_ip_prefix_keys = []
         for interface_key in asic_interface_dict.keys():
             if interface_key.startswith("Ethernet-Rec"):
                 continue
@@ -867,7 +2117,6 @@ def apply_patch_remove_cluster(config_facts,
     # INTERFACE TABLE: in localhost replace the interface name with the interface alias
     # INTERFACE ip-prefix
     if 'INTERFACE' in config_facts:
-        localhost_ip_prefix_interface_keys = []
         for key in asic_interface_ip_prefix_keys:
             parts = key.split('|')
             port = parts[0]
@@ -876,7 +2125,6 @@ def apply_patch_remove_cluster(config_facts,
             key_to_remove = key_to_remove.replace("/", "~1")
             localhost_ip_prefix_interface_keys.append(key_to_remove)
         # INTERFACE name
-        localhost_interface_keys = []
         for key in asic_interface_keys:
             key_to_remove = mg_facts['minigraph_port_name_to_alias_map'].get(key, key)
             key_to_remove = key_to_remove.replace("/", "~1")
@@ -887,7 +2135,6 @@ def apply_patch_remove_cluster(config_facts,
         pc_keys = config_facts.get("PORTCHANNEL", {}).keys()
 
         localhost_pc_member_dict = config_facts_localhost.get("PORTCHANNEL_MEMBER", {})
-        localhost_pc_member_keys = []
         for pc_key in pc_keys:
             if pc_key in localhost_pc_member_dict:
                 for key, _value in localhost_pc_member_dict[pc_key].items():
@@ -895,7 +2142,6 @@ def apply_patch_remove_cluster(config_facts,
                     localhost_pc_member_keys.append(key_to_remove)
         # PORTCHANNEL_INTERFACE keys
         localhost_pc_interface_dict = config_facts_localhost.get("PORTCHANNEL_INTERFACE", {})
-        localhost_pc_interface_keys = []
         for pc_key in pc_keys:
             if pc_key in localhost_pc_interface_dict:
                 for key, _value in localhost_pc_interface_dict[pc_key].items():
@@ -957,7 +2203,11 @@ def apply_patch_remove_cluster(config_facts,
     json_patch = json_patch_localhost + json_patch_asic
     tmpfile = generate_tmpfile(duthost)
     try:
-        logger.info("Applying patch (1/2) to remove cluster info (all except PORTCHANNEL, INTERFACE name).")
+        description = (
+            "remove cluster info (1/2) all except PORTCHANNEL, INTERFACE name"
+        )
+        logger.info("Applying patch (1/2) to %s.", description)
+        _log_json_patch_content(description, json_patch)
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
         verify_bgp_peers_removed_from_asic(duthost, enum_rand_one_asic_namespace)
@@ -993,7 +2243,9 @@ def apply_patch_remove_cluster(config_facts,
 
     tmpfile_pc = generate_tmpfile(duthost)
     try:
-        logger.info("Applying patch (2/2) to remove cluster info (PORTCHANNEL, INTERFACE name).")
+        description = "remove cluster info (2/2) PORTCHANNEL, INTERFACE name"
+        logger.info("Applying patch (2/2) to %s.", description)
+        _log_json_patch_content(description, json_patch_extra)
         output = apply_patch(duthost, json_data=json_patch_extra, dest_file=tmpfile_pc)
         expect_op_success(duthost, output)
     finally:
@@ -1004,7 +2256,8 @@ def apply_patch_add_cluster(config_facts,
                             config_facts_localhost,
                             mg_facts,
                             duthost,
-                            enum_rand_one_asic_namespace):
+                            enum_rand_one_asic_namespace,
+                            staged_portchannel=None):
     """
     Apply patch to add cluster information for a given ASIC namespace.
 
@@ -1022,6 +2275,7 @@ def apply_patch_add_cluster(config_facts,
     CABLE_LENGTH
     PORT
     PORT_QOS_MAP
+    QUEUE
     """
 
     logger.info("Adding cluster for namespace {} via apply-patch.".format(enum_rand_one_asic_namespace))
@@ -1032,18 +2286,33 @@ def apply_patch_add_cluster(config_facts,
     json_patch_asic = []
     json_namespace = '' if enum_rand_one_asic_namespace is None else '/' + enum_rand_one_asic_namespace
     pc_dict = {}
-    interface_dict = format_sonic_interface_dict(config_facts.get("INTERFACE", {}))
-    portchannel_interface_dict = format_sonic_interface_dict(config_facts.get("PORTCHANNEL_INTERFACE", {}))
-    portchannel_member_dict = format_sonic_interface_dict(config_facts.get("PORTCHANNEL_MEMBER", {}),
-                                                          single_entry=False)
-    buffer_pg_dict = format_sonic_buffer_pg_dict(config_facts.get("BUFFER_PG", {}))
+    staged_restore_config = _filter_staged_member_restore_config(
+        config_facts,
+        mg_facts,
+        staged_portchannel
+    )
+    interface_dict = format_sonic_interface_dict(
+        staged_restore_config.get("INTERFACE", {})
+    )
+    portchannel_interface_dict = format_sonic_interface_dict(
+        config_facts.get("PORTCHANNEL_INTERFACE", {})
+    )
+    portchannel_member_dict = format_sonic_interface_dict(
+        staged_restore_config.get("PORTCHANNEL_MEMBER", {}),
+        single_entry=False
+    )
+    buffer_pg_dict = format_sonic_buffer_pg_dict(
+        staged_restore_config.get("BUFFER_PG", {})
+    )
+    queue_dict = _format_sonic_queue_dict(staged_restore_config.get("QUEUE", {}))
     pc_dict = {
         k: {ik: iv for ik, iv in v.items() if ik != "members"}
         for k, v in config_facts.get("PORTCHANNEL", {}).items()
     }
+    pc_dict = _stage_portchannel_config(pc_dict, staged_portchannel)
 
     # find active ports
-    active_interfaces = get_active_interfaces(config_facts)
+    active_interfaces = get_active_interfaces(staged_restore_config)
 
     # PORTCHANNEL info needs to be added in separate gcu apply operation
     # https://github.com/sonic-net/sonic-buildimage/issues/24338
@@ -1063,7 +2332,9 @@ def apply_patch_add_cluster(config_facts,
             })
         tmpfile_pc = generate_tmpfile(duthost)
         try:
-            logger.info("Applying patch (1/2) to add cluster info (PORTCHANNEL).")
+            description = "add cluster info (1/2) PORTCHANNEL"
+            logger.info("Applying patch (1/2) to %s.", description)
+            _log_json_patch_content(description, json_patch_pc)
             output = apply_patch(duthost, json_data=json_patch_pc, dest_file=tmpfile_pc)
             expect_op_success(duthost, output)
         finally:
@@ -1079,12 +2350,12 @@ def apply_patch_add_cluster(config_facts,
         {
             "op": "add",
             "path": f"{json_namespace}/DEVICE_NEIGHBOR",
-            "value": config_facts["DEVICE_NEIGHBOR"]
+            "value": staged_restore_config["DEVICE_NEIGHBOR"]
         },
         {
             "op": "add",
             "path": f"{json_namespace}/DEVICE_NEIGHBOR_METADATA",
-            "value": config_facts["DEVICE_NEIGHBOR_METADATA"]
+            "value": staged_restore_config["DEVICE_NEIGHBOR_METADATA"]
         },
         {
             "op": "add",
@@ -1099,9 +2370,15 @@ def apply_patch_add_cluster(config_facts,
         {
             "op": "add",
             "path": f"{json_namespace}/PORT_QOS_MAP",
-            "value": config_facts["PORT_QOS_MAP"]
+            "value": staged_restore_config["PORT_QOS_MAP"]
         }
     ]
+    if queue_dict:
+        json_patch_asic.append({
+            "op": "add",
+            "path": f"{json_namespace}/QUEUE",
+            "value": queue_dict
+        })
 
     if 'PORTCHANNEL' in config_facts:
         json_patch_asic.append({
@@ -1124,7 +2401,7 @@ def apply_patch_add_cluster(config_facts,
         })
 
     # table CABLE_LENGTH changes
-    initial_cable_length_table = config_facts["CABLE_LENGTH"]["AZURE"]
+    initial_cable_length_table = staged_restore_config["CABLE_LENGTH"]["AZURE"]
     cable_length_values = [int(v.rstrip("m")) for v in initial_cable_length_table.values()]
     highest = max(cable_length_values)
     for interface in active_interfaces:
@@ -1179,10 +2456,10 @@ def apply_patch_add_cluster(config_facts,
     for k, v in list(config_facts["BGP_NEIGHBOR"].items()):
         localhost_add_paths_list.append('/localhost/BGP_NEIGHBOR/{}'.format(k))
         localhost_add_values_list.append(v)
-    for k, v in list(config_facts["DEVICE_NEIGHBOR"].items()):
+    for k, v in list(staged_restore_config["DEVICE_NEIGHBOR"].items()):
         localhost_add_paths_list.append('/localhost/DEVICE_NEIGHBOR/{}'.format(k))
         localhost_add_values_list.append(v)
-    for k, v in list(config_facts["DEVICE_NEIGHBOR_METADATA"].items()):
+    for k, v in list(staged_restore_config["DEVICE_NEIGHBOR_METADATA"].items()):
         localhost_add_paths_list.append('/localhost/DEVICE_NEIGHBOR_METADATA/{}'.format(k))
         localhost_add_values_list.append(v)
     for k, v in list(localhost_interface_dict.items()):
@@ -1245,7 +2522,9 @@ def apply_patch_add_cluster(config_facts,
     json_patch = json_patch_localhost + json_patch_asic
     tmpfile = generate_tmpfile(duthost)
     try:
-        logger.info("Applying patch (2/2) to add cluster info (all except PORTCHANNEL).")
+        description = "add cluster info (2/2) all except PORTCHANNEL"
+        logger.info("Applying patch (2/2) to %s.", description)
+        _log_json_patch_content(description, json_patch)
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
     finally:
@@ -1256,7 +2535,8 @@ def apply_patch_add_cluster_chassis_packet(config_facts,
                                            config_facts_localhost,
                                            mg_facts,
                                            duthost,
-                                           enum_rand_one_asic_namespace):
+                                           enum_rand_one_asic_namespace,
+                                           staged_portchannel=None):
     """
     Apply patch to add cluster information for chassis-packet switches.
 
@@ -1279,6 +2559,7 @@ def apply_patch_add_cluster_chassis_packet(config_facts,
     CABLE_LENGTH
     PORT
     PORT_QOS_MAP
+    QUEUE
     """
     logger.info("Adding cluster for namespace {} via apply-patch (chassis-packet mode).".format(
         enum_rand_one_asic_namespace))
@@ -1323,19 +2604,55 @@ def apply_patch_add_cluster_chassis_packet(config_facts,
     filtered_buffer_pg = {k: v for k, v in config_facts.get("BUFFER_PG", {}).items()
                           if not k.split('|')[0].startswith("Ethernet-BP")}
 
+    # Filter QUEUE - exclude BP interfaces
+    filtered_queue = {
+        k: v
+        for k, v in _format_sonic_queue_dict(
+            config_facts.get("QUEUE", {})
+        ).items()
+        if not _is_queue_for_internal_port(k)
+    }
+
     # Filter PORTCHANNEL - only external PortChannels
     filtered_portchannel = {k: v for k, v in config_facts.get("PORTCHANNEL", {}).items()
                             if k in external_portchannels}
 
+    staged_restore_config = dict(config_facts)
+    staged_restore_config["INTERFACE"] = filtered_interface
+    staged_restore_config["PORTCHANNEL_INTERFACE"] = filtered_pc_interface
+    staged_restore_config["PORTCHANNEL_MEMBER"] = filtered_pc_member
+    staged_restore_config["BUFFER_PG"] = filtered_buffer_pg
+    staged_restore_config["QUEUE"] = filtered_queue
+    staged_restore_config["PORTCHANNEL"] = filtered_portchannel
+    staged_restore_config = _filter_staged_member_restore_config(
+        staged_restore_config,
+        mg_facts,
+        staged_portchannel
+    )
+
     # Now build the dictionaries from filtered data
-    interface_dict = format_sonic_interface_dict(filtered_interface)
-    portchannel_interface_dict = format_sonic_interface_dict(filtered_pc_interface)
-    portchannel_member_dict = format_sonic_interface_dict(filtered_pc_member, single_entry=False)
-    buffer_pg_dict = format_sonic_buffer_pg_dict(filtered_buffer_pg)
-    pc_dict = {k: {ik: iv for ik, iv in v.items() if ik != "members"} for k, v in filtered_portchannel.items()}
+    interface_dict = format_sonic_interface_dict(
+        staged_restore_config.get("INTERFACE", {})
+    )
+    portchannel_interface_dict = format_sonic_interface_dict(
+        staged_restore_config.get("PORTCHANNEL_INTERFACE", {})
+    )
+    portchannel_member_dict = format_sonic_interface_dict(
+        staged_restore_config.get("PORTCHANNEL_MEMBER", {}),
+        single_entry=False
+    )
+    buffer_pg_dict = format_sonic_buffer_pg_dict(
+        staged_restore_config.get("BUFFER_PG", {})
+    )
+    queue_dict = _format_sonic_queue_dict(staged_restore_config.get("QUEUE", {}))
+    pc_dict = {
+        k: {ik: iv for ik, iv in v.items() if ik != "members"}
+        for k, v in staged_restore_config.get("PORTCHANNEL", {}).items()
+    }
+    pc_dict = _stage_portchannel_config(pc_dict, staged_portchannel)
 
     # find active ports
-    active_interfaces = get_active_interfaces(config_facts, duthost)
+    active_interfaces = get_active_interfaces(staged_restore_config, duthost)
 
     # Build single patch with correct operation order
     # Order is critical for YANG validation:
@@ -1399,14 +2716,14 @@ def apply_patch_add_cluster_chassis_packet(config_facts,
         })
 
     # STEP 6: Add DEVICE_NEIGHBOR and DEVICE_NEIGHBOR_METADATA
-    for dev_key, dev_value in config_facts["DEVICE_NEIGHBOR"].items():
+    for dev_key, dev_value in staged_restore_config["DEVICE_NEIGHBOR"].items():
         json_patch_asic_rest.append({
             "op": "add",
             "path": f"{json_namespace}/DEVICE_NEIGHBOR/{dev_key}",
             "value": dev_value
         })
 
-    for dev_meta_key, dev_meta_value in config_facts["DEVICE_NEIGHBOR_METADATA"].items():
+    for dev_meta_key, dev_meta_value in staged_restore_config["DEVICE_NEIGHBOR_METADATA"].items():
         json_patch_asic_rest.append({
             "op": "add",
             "path": f"{json_namespace}/DEVICE_NEIGHBOR_METADATA/{dev_meta_key}",
@@ -1440,7 +2757,10 @@ def apply_patch_add_cluster_chassis_packet(config_facts,
         })
 
     # STEP 9: Add PORT_QOS_MAP entries (skip BP interfaces)
-    for port_qos_key, port_qos_value in config_facts.get("PORT_QOS_MAP", {}).items():
+    for port_qos_key, port_qos_value in staged_restore_config.get(
+        "PORT_QOS_MAP",
+        {}
+    ).items():
         if port_qos_key.startswith("Ethernet-BP"):
             continue
         json_patch_asic_rest.append({
@@ -1449,7 +2769,20 @@ def apply_patch_add_cluster_chassis_packet(config_facts,
             "value": port_qos_value
         })
 
-    # STEP 10: Set PORT admin status to up (skip BP interfaces)
+    # STEP 10: Add QUEUE entries (skip BP interfaces)
+    for queue_key, queue_value in queue_dict.items():
+        if _is_queue_for_internal_port(queue_key):
+            continue
+        json_patch_asic_rest.append({
+            "op": "add",
+            "path": "{}/QUEUE/{}".format(
+                json_namespace,
+                escape_json_pointer_key(queue_key)
+            ),
+            "value": queue_value
+        })
+
+    # STEP 11: Set PORT admin status to up (skip BP interfaces)
     for interface in active_interfaces:
         if interface.startswith("Ethernet-BP"):
             continue
@@ -1459,8 +2792,8 @@ def apply_patch_add_cluster_chassis_packet(config_facts,
             "value": "up"
         })
 
-    # STEP 11: Set CABLE_LENGTH (skip BP interfaces)
-    initial_cable_length_table = config_facts["CABLE_LENGTH"]["AZURE"]
+    # STEP 12: Set CABLE_LENGTH (skip BP interfaces)
+    initial_cable_length_table = staged_restore_config["CABLE_LENGTH"]["AZURE"]
     cable_length_values = [int(v.rstrip("m")) for v in initial_cable_length_table.values()]
     highest = max(cable_length_values)
     for interface in active_interfaces:
@@ -1472,7 +2805,7 @@ def apply_patch_add_cluster_chassis_packet(config_facts,
             "value": f"{highest}m"
         })
 
-    # STEP 12: Add/Replace ACL_TABLE changes
+    # STEP 13: Add/Replace ACL_TABLE changes
     for acl_table_name in ["DATAACL", "EVERFLOW", "EVERFLOWV6"]:
         if acl_table_name in config_facts.get("ACL_TABLE", {}):
             json_patch_asic_rest.append({
@@ -1486,7 +2819,9 @@ def apply_patch_add_cluster_chassis_packet(config_facts,
     #####################################
     tmpfile_pc = generate_tmpfile(duthost)
     try:
-        logger.info("Applying patch (1/2) to add cluster info (PortChannel configuration - ASIC namespace).")
+        description = "add cluster info (1/2) PortChannel configuration - ASIC namespace"
+        logger.info("Applying patch (1/2) to %s.", description)
+        _log_json_patch_content(description, json_patch_asic_pc)
         output = apply_patch(duthost, json_data=json_patch_asic_pc, dest_file=tmpfile_pc)
         expect_op_success(duthost, output)
     finally:
@@ -1494,11 +2829,238 @@ def apply_patch_add_cluster_chassis_packet(config_facts,
 
     tmpfile_rest = generate_tmpfile(duthost)
     try:
-        logger.info("Applying patch (2/2) to add cluster info (BGP_NEIGHBOR and remaining config - ASIC namespace).")
+        description = (
+            "add cluster info (2/2) BGP_NEIGHBOR and remaining config "
+            "- ASIC namespace"
+        )
+        logger.info("Applying patch (2/2) to %s.", description)
+        _log_json_patch_content(description, json_patch_asic_rest)
         output = apply_patch(duthost, json_data=json_patch_asic_rest, dest_file=tmpfile_rest)
         expect_op_success(duthost, output)
     finally:
         delete_tmpfile(duthost, tmpfile_rest)
+
+
+def _append_staged_member_port_restore_ops(json_patch, config_facts, mg_facts,
+                                           json_namespace, member):
+    """
+    Append ASIC namespace operations that restore one physical member port.
+    """
+    if member in config_facts.get("PORT", {}):
+        json_patch.append({
+            "op": "add",
+            "path": "{}/PORT/{}".format(json_namespace, member),
+            "value": config_facts["PORT"][member],
+        })
+    else:
+        json_patch.append({
+            "op": "add",
+            "path": "{}/PORT/{}/admin_status".format(json_namespace, member),
+            "value": "up",
+        })
+
+    if member in config_facts.get("DEVICE_NEIGHBOR", {}):
+        json_patch.append({
+            "op": "add",
+            "path": "{}/DEVICE_NEIGHBOR/{}".format(json_namespace, member),
+            "value": config_facts["DEVICE_NEIGHBOR"][member],
+        })
+
+    neighbor_name = _get_member_neighbor_name(config_facts, mg_facts, member)
+    if (neighbor_name in config_facts.get("DEVICE_NEIGHBOR_METADATA", {}) and
+            not _is_neighbor_metadata_used_by_other_port(config_facts, neighbor_name, member)):
+        json_patch.append({
+            "op": "add",
+            "path": "{}/DEVICE_NEIGHBOR_METADATA/{}".format(json_namespace, neighbor_name),
+            "value": config_facts["DEVICE_NEIGHBOR_METADATA"][neighbor_name],
+        })
+
+    interface_dict = format_sonic_interface_dict(config_facts.get("INTERFACE", {}))
+    for iface_key, iface_value in interface_dict.items():
+        if not _is_port_scoped_key(iface_key, member):
+            continue
+        json_patch.append({
+            "op": "add",
+            "path": "{}/INTERFACE/{}".format(
+                json_namespace,
+                escape_json_pointer_key(iface_key)
+            ),
+            "value": iface_value,
+        })
+
+    buffer_pg_dict = format_sonic_buffer_pg_dict(config_facts.get("BUFFER_PG", {}))
+    for bp_key, bp_value in buffer_pg_dict.items():
+        if not _is_port_scoped_key(bp_key, member):
+            continue
+        if isinstance(bp_value, dict) and 'pg_lossless' in bp_value.get('profile', ''):
+            continue
+        json_patch.append({
+            "op": "add",
+            "path": "{}/BUFFER_PG/{}".format(
+                json_namespace,
+                escape_json_pointer_key(bp_key)
+            ),
+            "value": bp_value,
+        })
+
+    if member in config_facts.get("PORT_QOS_MAP", {}):
+        json_patch.append({
+            "op": "add",
+            "path": "{}/PORT_QOS_MAP/{}".format(json_namespace, member),
+            "value": config_facts["PORT_QOS_MAP"][member],
+        })
+
+    queue_dict = _format_sonic_queue_dict(config_facts.get("QUEUE", {}))
+    for queue_key, queue_value in queue_dict.items():
+        if not _queue_key_matches_port(queue_key, member):
+            continue
+        json_patch.append({
+            "op": "add",
+            "path": "{}/QUEUE/{}".format(
+                json_namespace,
+                escape_json_pointer_key(queue_key)
+            ),
+            "value": queue_value,
+        })
+
+    if member in config_facts.get("PFC_WD", {}):
+        json_patch.append({
+            "op": "add",
+            "path": "{}/PFC_WD/{}".format(json_namespace, member),
+            "value": config_facts["PFC_WD"][member],
+        })
+
+    cable_length = config_facts.get("CABLE_LENGTH", {}).get("AZURE", {}).get(member)
+    if cable_length is not None:
+        json_patch.append({
+            "op": "add",
+            "path": "{}/CABLE_LENGTH/AZURE/{}".format(json_namespace, member),
+            "value": cable_length,
+        })
+
+
+def _append_staged_member_localhost_restore_ops(json_patch, config_facts, mg_facts,
+                                                portchannel, member, member_value,
+                                                original_min_links):
+    """
+    Append localhost namespace operations for one restored member port.
+    """
+    member_alias = mg_facts['minigraph_port_name_to_alias_map'].get(member, member)
+
+    if member in config_facts.get("DEVICE_NEIGHBOR", {}):
+        json_patch.append({
+            "op": "add",
+            "path": "/localhost/DEVICE_NEIGHBOR/{}".format(member),
+            "value": config_facts["DEVICE_NEIGHBOR"][member],
+        })
+
+    neighbor_name = _get_member_neighbor_name(config_facts, mg_facts, member)
+    if (neighbor_name in config_facts.get("DEVICE_NEIGHBOR_METADATA", {}) and
+            not _is_neighbor_metadata_used_by_other_port(config_facts, neighbor_name, member)):
+        json_patch.append({
+            "op": "add",
+            "path": "/localhost/DEVICE_NEIGHBOR_METADATA/{}".format(neighbor_name),
+            "value": config_facts["DEVICE_NEIGHBOR_METADATA"][neighbor_name],
+        })
+
+    interface_dict = format_sonic_interface_dict(config_facts.get("INTERFACE", {}))
+    for iface_key, iface_value in interface_dict.items():
+        if not _is_port_scoped_key(iface_key, member):
+            continue
+        parts = iface_key.split('|')
+        if len(parts) == 2:
+            localhost_iface_key = "{}|{}".format(member_alias, parts[1])
+        else:
+            localhost_iface_key = member_alias
+        json_patch.append({
+            "op": "add",
+            "path": "/localhost/INTERFACE/{}".format(
+                escape_json_pointer_key(localhost_iface_key)
+            ),
+            "value": iface_value,
+        })
+
+    localhost_member_key = "{}|{}".format(portchannel, member_alias)
+    json_patch.extend([
+        {
+            "op": "add",
+            "path": "/localhost/PORTCHANNEL_MEMBER/{}".format(
+                escape_json_pointer_key(localhost_member_key)
+            ),
+            "value": member_value
+        },
+        {
+            "op": "add",
+            "path": "/localhost/PORTCHANNEL/{}/min_links".format(portchannel),
+            "value": original_min_links
+        }
+    ])
+
+
+def apply_patch_add_staged_portchannel_member(config_facts,
+                                              config_facts_localhost,
+                                              mg_facts,
+                                              duthost,
+                                              enum_rand_one_asic_namespace,
+                                              staged_portchannel):
+    """
+    Add the withheld PortChannel member and restore the original min_links.
+    """
+    if not staged_portchannel:
+        return
+
+    json_namespace = '' if enum_rand_one_asic_namespace is None else '/' + enum_rand_one_asic_namespace
+    portchannel = staged_portchannel["portchannel"]
+    member = staged_portchannel["withheld_member"]
+    original_min_links = staged_portchannel["original_min_links"]
+    member_key = "{}|{}".format(portchannel, member)
+    member_value = get_portchannel_member_value(config_facts, portchannel, member)
+    json_patch = []
+    _append_staged_member_port_restore_ops(
+        json_patch,
+        config_facts,
+        mg_facts,
+        json_namespace,
+        member
+    )
+    json_patch.extend([
+        {
+            "op": "add",
+            "path": "{}/PORTCHANNEL_MEMBER/{}".format(
+                json_namespace,
+                escape_json_pointer_key(member_key)
+            ),
+            "value": member_value
+        },
+        {
+            "op": "add",
+            "path": "{}/PORTCHANNEL/{}/min_links".format(
+                json_namespace,
+                portchannel
+            ),
+            "value": original_min_links
+        }
+    ])
+
+    if duthost.facts.get('switch_type') != 'chassis-packet':
+        _append_staged_member_localhost_restore_ops(
+            json_patch,
+            config_facts,
+            mg_facts,
+            portchannel,
+            member,
+            member_value,
+            original_min_links
+        )
+
+    _apply_json_patch(
+        duthost,
+        json_patch,
+        "add staged PortChannel member {} and restore {} min_links".format(
+            member_key,
+            portchannel
+        )
+    )
 
 
 # -----------------------------
@@ -1515,6 +3077,114 @@ def acl_config_scenario(request):
 @pytest.fixture(scope="module", params=[False])
 def data_traffic_scenario(request):
     return request.param
+
+
+@pytest.fixture(scope="module")
+def add_cluster_asic_context(tbinfo,
+                             duthosts,
+                             enum_rand_one_frontend_asic_index):
+    """
+    Select the ASIC context used by test_add_cluster.
+
+    The downstream DUT is preserved from the existing enum fixture. Within that
+    DUT, prefer the enum-selected ASIC and otherwise choose a frontend ASIC that
+    has a multi-member PortChannel suitable for staged member restoration.
+    """
+    enum_downstream_dut_hostname = _pick_primary_downstream_hostname(duthosts, tbinfo)
+    duthost = duthosts[enum_downstream_dut_hostname]
+    config_facts_localhost = duthost.config_facts(
+        host=duthost.hostname,
+        source="running",
+        namespace=None
+    )['ansible_facts']
+
+    first_context = None
+    for asic_index in _ordered_frontend_asic_indices(duthost, enum_rand_one_frontend_asic_index):
+        asic_namespace, cli_namespace_prefix, ip_netns_namespace_prefix = _get_namespace_prefixes(
+            duthost,
+            asic_index
+        )
+        config_facts = duthost.config_facts(
+            host=duthost.hostname,
+            source="running",
+            namespace=asic_namespace
+        )['ansible_facts']
+        mg_facts = duthost.get_extended_minigraph_facts(tbinfo, namespace=asic_namespace)
+        portchannel_status_map, _ = get_portchannel_status_map(
+            duthost,
+            asic_namespace,
+        )
+        staged_portchannel = _select_staged_portchannel(
+            config_facts,
+            portchannel_status_map,
+        )
+        context = {
+            "enum_downstream_dut_hostname": enum_downstream_dut_hostname,
+            "enum_rand_one_frontend_asic_index": asic_index,
+            "enum_rand_one_asic_namespace": asic_namespace,
+            "cli_namespace_prefix": cli_namespace_prefix,
+            "ip_netns_namespace_prefix": ip_netns_namespace_prefix,
+            "config_facts": config_facts,
+            "config_facts_localhost": config_facts_localhost,
+            "mg_facts": mg_facts,
+            "staged_portchannel": staged_portchannel,
+        }
+        if first_context is None:
+            first_context = context
+        if staged_portchannel:
+            logger.info(
+                "Selected add-cluster staged PortChannel context: dut=%s asic=%s namespace=%s "
+                "portchannel=%s withheld_member=%s original_min_links=%s staged_min_links=%s",
+                enum_downstream_dut_hostname,
+                asic_index,
+                asic_namespace,
+                staged_portchannel["portchannel"],
+                staged_portchannel["withheld_member"],
+                staged_portchannel["original_min_links"],
+                staged_portchannel["staged_min_links"],
+            )
+            return context
+
+    pytest_assert(first_context is not None, "No frontend ASIC context found for {}".format(
+        enum_downstream_dut_hostname
+    ))
+    logger.info(
+        "No frontend ASIC on downstream DUT %s has a multi-member PortChannel with min_links > 1. "
+        "Running add-cluster with the original full restore flow on ASIC %s.",
+        enum_downstream_dut_hostname,
+        first_context["enum_rand_one_frontend_asic_index"] if first_context else None,
+    )
+    return first_context
+
+
+@pytest.fixture(scope="module")
+def enum_rand_one_asic_namespace(add_cluster_asic_context):
+    return add_cluster_asic_context["enum_rand_one_asic_namespace"]
+
+
+@pytest.fixture(scope="module")
+def cli_namespace_prefix(add_cluster_asic_context):
+    return add_cluster_asic_context["cli_namespace_prefix"]
+
+
+@pytest.fixture(scope="module")
+def ip_netns_namespace_prefix(add_cluster_asic_context):
+    return add_cluster_asic_context["ip_netns_namespace_prefix"]
+
+
+@pytest.fixture(scope="module")
+def config_facts(add_cluster_asic_context):
+    return add_cluster_asic_context["config_facts"]
+
+
+@pytest.fixture(scope="module")
+def config_facts_localhost(add_cluster_asic_context):
+    return add_cluster_asic_context["config_facts_localhost"]
+
+
+@pytest.fixture(scope="module")
+def mg_facts(add_cluster_asic_context):
+    return add_cluster_asic_context["mg_facts"]
 
 
 def setup_acl_config(duthost, ip_netns_namespace_prefix):
@@ -1541,9 +3211,10 @@ def remove_acl_config(duthost, ip_netns_namespace_prefix):
 
 
 @pytest.fixture(scope="module")
-def setup_static_route(tbinfo, duthosts, enum_downstream_dut_hostname,
-                       enum_rand_one_frontend_asic_index,
+def setup_static_route(tbinfo, duthosts, add_cluster_asic_context,
                        rand_bgp_neigh_ip_name):
+    enum_downstream_dut_hostname = add_cluster_asic_context["enum_downstream_dut_hostname"]
+    enum_rand_one_frontend_asic_index = add_cluster_asic_context["enum_rand_one_frontend_asic_index"]
     duthost = duthosts[enum_downstream_dut_hostname]
     bgp_neigh_ip, bgp_neigh_name = rand_bgp_neigh_ip_name
     logger.info("Adding static route {} to be routed via bgp neigh {}.".format(STATIC_DST_IP, bgp_neigh_ip))
@@ -1566,13 +3237,14 @@ def setup_static_route(tbinfo, duthosts, enum_downstream_dut_hostname,
 
 
 @pytest.fixture(scope="function")
-def initialize_random_variables(enum_downstream_dut_hostname,
-                                enum_upstream_dut_hostname,
-                                enum_rand_one_frontend_asic_index,
-                                enum_rand_one_asic_namespace,
-                                ip_netns_namespace_prefix,
-                                cli_namespace_prefix,
+def initialize_random_variables(enum_upstream_dut_hostname,
+                                add_cluster_asic_context,
                                 rand_bgp_neigh_ip_name):
+    enum_downstream_dut_hostname = add_cluster_asic_context["enum_downstream_dut_hostname"]
+    enum_rand_one_frontend_asic_index = add_cluster_asic_context["enum_rand_one_frontend_asic_index"]
+    enum_rand_one_asic_namespace = add_cluster_asic_context["enum_rand_one_asic_namespace"]
+    ip_netns_namespace_prefix = add_cluster_asic_context["ip_netns_namespace_prefix"]
+    cli_namespace_prefix = add_cluster_asic_context["cli_namespace_prefix"]
     return enum_downstream_dut_hostname, enum_upstream_dut_hostname, enum_rand_one_frontend_asic_index, \
         enum_rand_one_asic_namespace, ip_netns_namespace_prefix, cli_namespace_prefix, rand_bgp_neigh_ip_name
 
@@ -1585,16 +3257,29 @@ def initialize_facts(mg_facts,
 
 
 @pytest.fixture(scope="function")
+def ignore_add_cluster_loganalyzer_exceptions(duthosts, add_cluster_asic_context, loganalyzer):
+    """
+    Ignore expected transient PFC watchdog errors on the DUT under add-cluster.
+    """
+    duthost = duthosts[add_cluster_asic_context["enum_downstream_dut_hostname"]]
+    if loganalyzer and duthost.hostname in loganalyzer:
+        loganalyzer[duthost.hostname].ignore_regex.extend(LOGANALYZER_IGNORE_REGEX)
+    yield
+
+
+@pytest.fixture(scope="function")
 def setup_add_cluster(tbinfo,
                       duthosts,
                       localhost,
                       initialize_random_variables,
                       initialize_facts,
-                      ptfadapter,
                       loganalyzer,
+                      ignore_add_cluster_loganalyzer_exceptions,
                       acl_config_scenario,
                       setup_static_route,
-                      data_traffic_scenario):
+                      add_cluster_asic_context,
+                      data_traffic_scenario,
+                      request):
     """
     This setup fixture prepares the Downstream LC by applying a patch to remove
     and then re-add the cluster configuration.
@@ -1626,6 +3311,7 @@ def setup_add_cluster(tbinfo,
         enum_rand_one_asic_namespace, ip_netns_namespace_prefix, cli_namespace_prefix, \
         rand_bgp_neigh_ip_name = initialize_random_variables
     mg_facts, config_facts, config_facts_localhost = initialize_facts
+    staged_portchannel = add_cluster_asic_context["staged_portchannel"]
     duthost = duthosts[enum_downstream_dut_hostname]
     # Check if the device is a modular chassis and the topology is T2
     is_chassis = duthost.get_facts().get("modular_chassis")
@@ -1649,7 +3335,16 @@ def setup_add_cluster(tbinfo,
             asic_id, all_asic_ids
         )
     )
-    initial_buffer_pg_info = get_cfg_info_from_dut(duthost, 'BUFFER_PG', enum_rand_one_asic_namespace)
+    initial_buffer_pg_info = get_cfg_info_from_dut(
+        duthost,
+        'BUFFER_PG',
+        enum_rand_one_asic_namespace
+    )
+    initial_queue_info = get_cfg_info_from_dut(
+        duthost,
+        'QUEUE',
+        enum_rand_one_asic_namespace
+    )
     with allure.step("Verification before removing cluster"):
         for host_device in duthosts:
             if host_device.is_supervisor_node():
@@ -1663,6 +3358,7 @@ def setup_add_cluster(tbinfo,
         pytest_assert(route_exists_src, "Static route {} doesn't exist on upstream DUT before cluster removal."
                       .format(STATIC_DST_IP))
         if data_traffic_scenario:
+            ptfadapter = request.getfixturevalue("ptfadapter")
             logger.info("Sending traffic from upstream DUT to downstream DUT before cluster removal.")
             send_and_verify_traffic(tbinfo, duthost_src, duthost, asic_id_src, asic_id,
                                     ptfadapter, dst_ip=STATIC_DST_IP, count=10, expect_error=False)
@@ -1744,22 +3440,122 @@ def setup_add_cluster(tbinfo,
                                                    config_facts_localhost,
                                                    mg_facts,
                                                    duthost,
-                                                   enum_rand_one_asic_namespace)
+                                                   enum_rand_one_asic_namespace,
+                                                   staged_portchannel=staged_portchannel)
         else:
             apply_patch_add_cluster(config_facts,
                                     config_facts_localhost,
                                     mg_facts,
                                     duthost,
-                                    enum_rand_one_asic_namespace)
+                                    enum_rand_one_asic_namespace,
+                                    staged_portchannel=staged_portchannel)
         # Verify routes added
         wait_until(5, 1, 0, verify_routev4_existence,
                    duthost, enum_rand_one_frontend_asic_index, bgp_neigh_ip, should_exist=True)
         wait_until(5, 1, 0, verify_routev4_existence,
                    duthost, enum_rand_one_frontend_asic_index, STATIC_DST_IP, should_exist=True)
         # Verify buffer pg
-        buffer_pg_info_add_interfaces = get_cfg_info_from_dut(duthost, 'BUFFER_PG', enum_rand_one_asic_namespace)
-        pytest_assert(buffer_pg_info_add_interfaces == initial_buffer_pg_info,
-                      "Didn't find expected BUFFER_PG info in CONFIG_DB after adding back the interfaces.")
+        buffer_pg_info_add_interfaces = get_cfg_info_from_dut(
+            duthost,
+            'BUFFER_PG',
+            enum_rand_one_asic_namespace
+        )
+        if not staged_portchannel:
+            pytest_assert(
+                buffer_pg_info_add_interfaces == initial_buffer_pg_info,
+                "Didn't find expected BUFFER_PG info in CONFIG_DB after "
+                "adding back the interfaces."
+            )
+            queue_info_add_interfaces = get_cfg_info_from_dut(
+                duthost,
+                'QUEUE',
+                enum_rand_one_asic_namespace
+            )
+            pytest_assert(queue_info_add_interfaces == initial_queue_info,
+                          "Didn't find expected QUEUE info in CONFIG_DB "
+                          "after adding back the interfaces.")
+
+    if staged_portchannel:
+        with allure.step("Verify add-cluster first stage before adding withheld PortChannel member"):
+            verify_staged_portchannel_member_state(
+                duthost,
+                cli_namespace_prefix,
+                staged_portchannel,
+                member_should_exist=False,
+                expected_min_links=staged_portchannel["staged_min_links"]
+            )
+            verify_staged_member_default_state(
+                duthost,
+                cli_namespace_prefix,
+                staged_portchannel
+            )
+            wait_for_portchannel_up_or_log(
+                duthost,
+                enum_rand_one_asic_namespace,
+                staged_portchannel["portchannel"]
+            )
+
+        with allure.step("Add withheld PortChannel member and restore original min_links"):
+            apply_patch_add_staged_portchannel_member(
+                config_facts,
+                config_facts_localhost,
+                mg_facts,
+                duthost,
+                enum_rand_one_asic_namespace,
+                staged_portchannel
+            )
+
+        with allure.step("Verify withheld PortChannel member and original min_links restored"):
+            verify_staged_portchannel_member_state(
+                duthost,
+                cli_namespace_prefix,
+                staged_portchannel,
+                member_should_exist=True,
+                expected_min_links=staged_portchannel["original_min_links"]
+            )
+            buffer_pg_info_after_staged_member = get_cfg_info_from_dut(
+                duthost,
+                'BUFFER_PG',
+                enum_rand_one_asic_namespace
+            )
+            pytest_assert(
+                buffer_pg_info_after_staged_member == initial_buffer_pg_info,
+                "Didn't find expected BUFFER_PG info in CONFIG_DB after "
+                "adding staged PortChannel member."
+            )
+            queue_info_after_staged_member = get_cfg_info_from_dut(
+                duthost,
+                'QUEUE',
+                enum_rand_one_asic_namespace
+            )
+            pytest_assert(queue_info_after_staged_member == initial_queue_info,
+                          "Didn't find expected QUEUE info in CONFIG_DB "
+                          "after adding staged PortChannel member.")
+            pytest_assert(
+                wait_for_portchannel_up_or_log(
+                    duthost,
+                    enum_rand_one_asic_namespace,
+                    staged_portchannel["portchannel"]
+                ),
+                "PortChannel {} did not come up after adding staged member".format(
+                    staged_portchannel["portchannel"]
+                )
+            )
+
+        with allure.step("Verify staged PortChannel member operational state"):
+            ptfadapter = request.getfixturevalue("ptfadapter")
+            verify_staged_portchannel_operational_state(
+                duthost,
+                tbinfo,
+                ptfadapter,
+                enum_rand_one_frontend_asic_index,
+                enum_rand_one_asic_namespace,
+                cli_namespace_prefix,
+                ip_netns_namespace_prefix,
+                mg_facts,
+                config_facts,
+                staged_portchannel
+            )
 
     if acl_config_scenario:
         setup_acl_config(duthost, ip_netns_namespace_prefix)
@@ -1777,12 +3573,12 @@ def setup_add_cluster(tbinfo,
 def test_add_cluster(tbinfo,
                      duthosts,
                      initialize_random_variables,
-                     ptfadapter,
                      loganalyzer,
                      acl_config_scenario,
                      cli_namespace_prefix,
                      setup_add_cluster,
-                     data_traffic_scenario):
+                     data_traffic_scenario,
+                     request):
     """
     Validates the functionality of the Downstream Linecard after adding a cluster.
 
@@ -1822,6 +3618,7 @@ def test_add_cluster(tbinfo,
     )
 
     if data_traffic_scenario:
+        ptfadapter = request.getfixturevalue("ptfadapter")
         # Traffic scenarios applied in non-acl, acl scenario
         traffic_scenarios = [
             {"direction": "upstream->downstream", "dst_ip": STATIC_DST_IP, "count": 1000, "dscp": 3,
