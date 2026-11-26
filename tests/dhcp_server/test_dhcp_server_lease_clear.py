@@ -3,7 +3,6 @@
 The clear command does not depend on the DHCP interface mode, so the scenarios run in PORT and MATCH mode.
 """
 import logging
-import re
 
 import pytest
 
@@ -24,6 +23,10 @@ pytestmark = [
 
 LEASE_SYNC_KEY = "DHCP_SERVER_IPV4_LEASE_SYNC|GLOBAL"
 CLEAR_CMD = "sonic-clear dhcp_server ipv4 lease"
+LEASE_CLEAR_LOCK = "/run/lock/sonic-dhcp-server-lease-clear.lock"
+LOCK_HOLDER_UNIT = "sonic-mgmt-dhcp-lease-clear-lock"
+LOCK_HELD_MARKER = "/tmp/dhcp_lease_clear_lock_held"
+LOCK_HOLD_SECONDS = 600
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -316,25 +319,50 @@ def test_dhcp_server_lease_clear_stale_state_db(duthost, match_env):  # noqa: F8
         duthost.shell("sonic-db-cli STATE_DB DEL '{}'".format(stale_key), module_ignore_errors=True)
 
 
+@pytest.fixture
+def lease_clear_lock_holder(duthost):
+    """Return a function that holds the lease-clear lock in a separate DUT process until cleanup."""
+    started = []
+
+    def _hold():
+        duthost.shell("sudo rm -f {}".format(LOCK_HELD_MARKER))
+        duthost.shell("sudo systemd-run --unit={} flock -n {} sh -c 'touch {}; sleep {}'".format(
+            LOCK_HOLDER_UNIT, LEASE_CLEAR_LOCK, LOCK_HELD_MARKER, LOCK_HOLD_SECONDS))
+        started.append(True)
+        pytest_assert(wait_until(30, 1, 0, lambda: duthost.shell(
+            "test -f {}".format(LOCK_HELD_MARKER), module_ignore_errors=True)["rc"] == 0),
+            "The lock holder did not confirm that it holds {}".format(LEASE_CLEAR_LOCK))
+
+    yield _hold
+    if started:
+        duthost.shell("sudo systemctl stop {0}; sudo systemctl reset-failed {0}; sudo rm -f {1}".format(
+            LOCK_HOLDER_UNIT, LOCK_HELD_MARKER), module_ignore_errors=True)
+
+
+def _release_lease_clear_lock(duthost):
+    duthost.shell("sudo systemctl stop {}".format(LOCK_HOLDER_UNIT))
+    pytest_assert(wait_until(30, 1, 0, lambda: duthost.shell(
+        "sudo flock -n {} true".format(LEASE_CLEAR_LOCK), module_ignore_errors=True)["rc"] == 0),
+        "{} is still held after stopping the holder".format(LEASE_CLEAR_LOCK))
+
+
 @pytest.mark.parametrize("mode", ["PORT", "MATCH"])
-def test_dhcp_server_lease_clear_concurrency(duthost, ptfadapter, match_env, mode):  # noqa: F811
-    """L07: two clear commands never run at the same time, and State DB ends up matching Kea."""
+def test_dhcp_server_lease_clear_concurrency(duthost, ptfadapter, match_env, mode,  # noqa: F811
+                                             lease_clear_lock_holder):
+    """L07: a clear started while another clear holds the lock reports clear-in-progress and changes nothing."""
     env = match_env
     _pool_config(env, mode).apply(duthost)
     clients = _lease_clients(duthost, env, ptfadapter, 3)
-    targets = [clients[0].ip, clients[1].ip]
-    script = " ".join("({} {} {} > /tmp/lease_clear_{} 2>&1; echo \"rc=$?\" >> /tmp/lease_clear_{}) &".format(
-        CLEAR_CMD, env.vlan, ip, index, index) for index, ip in enumerate(targets)) + " wait"
-    duthost.shell(script)
-    outputs = [duthost.shell("cat /tmp/lease_clear_{0}; rm -f /tmp/lease_clear_{0}".format(index))["stdout"]
-               for index in range(len(targets))]
-    logger.info("Concurrent clear outputs: %s", outputs)
-    codes = [int(re.search(r"rc=(\d+)", output).group(1)) for output in outputs]
-    pytest_assert(0 in codes, "Neither concurrent clear succeeded: {}".format(outputs))
-    for ip, code, output in zip(targets, codes, outputs):
-        if code != 0:
-            pytest_assert("Another DHCP lease clear is in progress" in output,
-                          "Concurrent clear of {} failed for another reason: {}".format(ip, output))
-            _clear_ok(duthost, env.vlan, ip)
-    _assert_leases(duthost, env, _expected_map(clients[2:]), "After concurrent clears")
+    before = _expected_map(clients)
+    _assert_leases(duthost, env, before, "Before contention")
+
+    _require_only_test_leases(duthost, env)
+    lease_clear_lock_holder()
+    _clear_fails(duthost, env.vlan, clients[0].ip, 1, "Another DHCP lease clear is in progress")
+    _clear_fails(duthost, env.vlan, "--all", 1, "Another DHCP lease clear is in progress")
+    _assert_leases(duthost, env, before, "While the lease-clear lock is held")
+
+    _release_lease_clear_lock(duthost)
+    _clear_ok(duthost, env.vlan, clients[0].ip)
+    _assert_leases(duthost, env, _expected_map(clients[1:]), "After the lock is released")
     pytest_assert(_state_leases(duthost, env) == _kea_leases(duthost, env), "State DB does not match Kea")

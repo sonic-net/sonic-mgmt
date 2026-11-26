@@ -60,6 +60,12 @@ t0:
   - dhcp_relay/test_dhcp_relay_stress.py
   - dhcp_relay/test_dhcpv6_relay.py
   - dhcp_server/test_dhcp_server.py
+  - dhcp_server/test_dhcp_server_lease_clear.py
+  - dhcp_server/test_dhcp_server_match.py
+  - dhcp_server/test_dhcp_server_match_cli.py
+  - dhcp_server/test_dhcp_server_match_config_change.py
+  - dhcp_server/test_dhcp_server_match_multi_vlans.py
+  - dhcp_server/test_dhcp_server_match_stress.py
   - dhcp_server/test_dhcp_server_multi_vlans.py
   - dhcp_server/test_dhcp_server_stress.py
   - disk/test_disk_exhaustion.py

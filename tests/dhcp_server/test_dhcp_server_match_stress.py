@@ -79,11 +79,13 @@ def test_dhcp_server_match_scale(duthost, ptfadapter, match_env, relay_agent):  
             expected[(port, vendor)] = ip
     logger.info("Scale configuration: %d ports, %d bindings", len(env.members), len(cfg.bindings))
 
-    cfg.apply(duthost, config_tool=DHCP_SERVER_CONFIG_TOOL_GCU, wait=False)
+    # GCU applies synchronously, so start timing before it to include generation and Kea reload.
     started = time.time()
+    cfg.apply(duthost, config_tool=DHCP_SERVER_CONFIG_TOOL_GCU, wait=False)
     wait_for_kea_pools(duthost, env, cfg.expected_pools())
     converged = time.time() - started
-    logger.info("Kea converged on %d pools %.1f seconds after the configuration change", len(expected), converged)
+    logger.info("Kea converged on %d pools %.1f seconds after the configuration change started",
+                len(expected), converged)
     pytest_assert(converged <= SCALE_CONVERGE_SECONDS, "Kea took {:.1f}s to apply {} bindings, limit is {}s".format(
         converged, len(cfg.bindings), SCALE_CONVERGE_SECONDS))
 
