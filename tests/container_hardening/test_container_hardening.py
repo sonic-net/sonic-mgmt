@@ -2,6 +2,7 @@ import re
 import shlex
 import pytest
 import logging
+from ansible.errors import AnsibleError
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.dut_utils import is_container_running, get_disabled_container_list
 
@@ -47,7 +48,11 @@ def _log_hosts_mount_diagnostics(duthost, container_name):
         ("container ID", r"timeout -k 1 5 docker inspect --format \{\{.Id\}\} " + container),
     )
     for label, command in probes:
-        result = duthost.shell(command, module_ignore_errors=True, verbose=False)
+        try:
+            result = duthost.shell(command, module_ignore_errors=True, verbose=False)
+        except (AnsibleError, OSError, RuntimeError, KeyError) as exc:
+            logger.error("Container %s %s: probe raised %s", container_name, label, type(exc).__name__)
+            continue
         logger.error("Container %s %s: rc=%s stdout=%r stderr=%r",
                      container_name, label, result.get('rc'),
                      (result.get('stdout') or '')[:2048], (result.get('stderr') or '')[:2048])
