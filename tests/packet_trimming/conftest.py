@@ -167,15 +167,23 @@ def queue_level_trim_supported(duthost):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_trimming(duthost, test_params, trim_counter_params):
+def setup_trimming(duthost, request):
     """
     Set up all prerequisites for packet trimming tests.
 
     Args:
         duthost: DUT host object
-        test_params: Test parameters from test_params fixture
-        trim_counter_params: Test parameters from trim_counter_params fixture (for counter tests)
+        request: Pytest request for resolving dataplane fixtures after the GCU guard
     """
+    if request.module.__name__ == "tests.packet_trimming.test_packet_trimming_config_symmetric" or \
+       request.module.__name__ == "tests.packet_trimming.test_packet_trimming_config_asymmetric":
+        # Skip the setup for GCU config tests.
+        yield
+        return
+
+    test_params = request.getfixturevalue("test_params")
+    trim_counter_params = request.getfixturevalue("trim_counter_params")
+
     logger.info("Prepare packet trimming related configurations")
     platform = duthost.facts['platform']
 
@@ -357,10 +365,15 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def clear_counters(duthost):
+def clear_counters(duthost, request):
     """
     Clear all counters on the DUT.
     """
+    if request.module.__name__ == "tests.packet_trimming.test_packet_trimming_config_symmetric" or \
+       request.module.__name__ == "tests.packet_trimming.test_packet_trimming_config_asymmetric":
+        # Skip for GCU config tests.
+        return
+
     duthost.shell("sonic-clear counters")
     duthost.shell("sonic-clear queuecounters")
     duthost.shell("sonic-clear switchcounters")
