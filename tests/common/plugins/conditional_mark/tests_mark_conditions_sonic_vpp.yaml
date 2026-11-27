@@ -27,6 +27,12 @@ arp/test_neighbor_mac_noptf.py:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/29438 and asic_type in ['vpp'] and topo_name == 't0'"
 
+arp/test_tagged_arp.py::test_tagged_arp_pkt:
+  skip:
+    reason: "Flaky on the KVM t0-vpp PR testbed: not every tagged GARP creates an ARP entry"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/29534 and asic_type in ['vpp'] and topo_name == 't0'"
+
 #######################################
 #####           BFD               #####
 #######################################
@@ -462,6 +468,12 @@ lldp/test_lldp_syncd.py:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/29438 and asic_type in ['vpp'] and topo_name == 't0'"
 
+lldp/test_lldp_syncd.py::test_lldp_entry_table_after_reboot:
+  skip:
+    reason: "Flaky on the KVM t0-vpp PR testbed: not all admin-up ports come up after the reboot"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/29460 and asic_type in ['vpp'] and topo_name == 't0'"
+
 #######################################
 #####         Memory Checker      #####
 #######################################
@@ -638,6 +650,15 @@ stress/test_stress_routes.py::test_announce_withdraw_route:
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
+
+#######################################
+#####     Sub-port Interfaces     #####
+#######################################
+sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_balancing_sub_ports:
+  skip:
+    reason: "Flaky on the KVM t0-vpp PR testbed: no ECMP traffic reaches the PTF sub-ports"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/29535 and asic_type in ['vpp'] and topo_name == 't0'"
 
 #######################################
 #####          Syslog             #####
