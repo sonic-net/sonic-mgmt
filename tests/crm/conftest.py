@@ -2,8 +2,13 @@ import pytest
 import time
 import json
 import logging
+import os
 import re
 import ipaddress
+import shutil
+import signal
+import subprocess
+import tempfile
 
 from test_crm import RESTORE_CMDS, get_nh_ip
 from tests.common.helpers.crm import CRM_POLLING_INTERVAL
@@ -11,9 +16,183 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common.utilities import wait_until, recover_acl_rule, is_ipv6_only_topology
 from tests.common.platform.interface_utils import parse_intf_status
 from tests.common.mellanox_data import is_mellanox_device
-from tests.common.helpers.dut_utils import get_sai_sdk_dump_file
+from tests.common.helpers.dut_utils import get_sai_sdk_dump_file, is_virtual_platform
 
 logger = logging.getLogger(__name__)
+
+CRM_PERF_DUT_DIR = "/tmp/crm_perf_debug"
+CRM_PERF_SAMPLE_INTERVAL = 5
+CRM_PERF_IDLE_BASELINE = 60
+# Appends one line per interval to $1; started detached, so its PID is written to $1.pid.
+# us/sy/id/wa/st are percentages of all CPUs over the interval; st (steal) is CPU time the
+# hypervisor gave to other VMs; run is the number of runnable tasks; load1/5/15 are the load
+# averages over 1, 5 and 15 minutes (load15 at the first sample shows how busy the host was
+# before sampling started); top lists the busiest
+# processes as name[pid]=cpu%. The first time a process reaches 50% CPU, a "hot" line records
+# its full command line, parent, age in seconds and container (capped at 300 such lines), and a
+# "behavior" line measures it for one second: user/sys CPU %, voluntary context switches (times it
+# blocked waiting for input or I/O), involuntary ones (times it was preempted), read/write
+# syscalls (needs root) and the kernel function it is waiting in. A spinning process blocks ~0 times; a process
+# working on requests blocks between them.
+CRM_PERF_SAMPLER = r"""#!/bin/bash
+out=$1
+interval=$2
+echo $$ > $out.pid
+echo "$(date '+%F %T') nproc=$(nproc) $(grep -m1 'model name' /proc/cpuinfo)" >> $out
+containers=$(docker ps --format '{{.ID}}={{.Names}}' 2>/dev/null | paste -sd ' ')
+echo "$(date '+%F %T') containers: ${containers:--}" >> $out
+clk_tck=$(getconf CLK_TCK)
+declare -A seen
+hot_logged=0
+
+probe() {
+    local stat f sysc
+    stat=$(cat /proc/$1/stat 2>/dev/null) || return
+    f=(${stat##*) })
+    sysc=$(awk '/^syscr/ {r = $2} /^syscw/ {w = $2} END {print (r == "" ? "-" : r + w)}' /proc/$1/io 2>/dev/null)
+    echo "${f[0]} ${f[11]} ${f[12]}" \
+         "$(awk '/^voluntary_ctxt/ {v = $2} /^nonvoluntary_ctxt/ {n = $2} END {print v, n}' /proc/$1/status)" \
+         "${sysc:--}"
+}
+
+read -r _ u n s i w q sq st _ < /proc/stat
+while true; do
+    procs=$(top -b -n 2 -d 1 -w 512 | awk '/^top -/{f++} f == 2 && $1 ~ /^[0-9]+$/ {print $1, $9, $12}' \
+            | head -n 5)
+    top5=$(echo "$procs" | awk 'NF {print $3 "[" $1 "]=" $2}' | paste -sd ' ')
+    declare -A before=()
+    while read -r pid cpu comm; do
+        [ -n "$pid" ] && [ "${cpu%.*}" -ge 50 ] && [ -z "${seen[$pid]}" ] && [ $hot_logged -lt 300 ] || continue
+        seen[$pid]=1
+        hot_logged=$((hot_logged + 1))
+        ctr=$(grep -o -m1 '[0-9a-f]\{64\}' /proc/$pid/cgroup 2>/dev/null | head -n 1 | cut -c1-12)
+        read -r ppid age < <(ps -o ppid=,etimes= -p $pid 2>/dev/null)
+        pcomm=$(ps -o comm= -p "${ppid:-0}" 2>/dev/null)
+        cmd=$(tr '\0\n' '  ' < /proc/$pid/cmdline 2>/dev/null | cut -c1-300)
+        echo "$(date '+%F %T') hot pid=$pid cpu=$cpu comm=$comm container=${ctr:-host}" \
+             "ppid=${ppid:--}($pcomm) age_s=${age:--} cmd=${cmd:--}" >> $out
+        before[$pid]=$(probe $pid)
+    done <<< "$procs"
+    if [ ${#before[@]} -gt 0 ]; then
+        sleep 1
+        for pid in "${!before[@]}"; do
+            read -r _ pu1 ps1 pv1 pn1 pc1 <<< "${before[$pid]}"
+            after=$(probe $pid)
+            if [ -z "$after" ] || [ -z "$pu1" ]; then
+                echo "$(date '+%F %T') behavior pid=$pid exited during measurement" >> $out
+                continue
+            fi
+            read -r pstate pu2 ps2 pv2 pn2 pc2 <<< "$after"
+            sysc="-"
+            [ "$pc1" = "-" ] || [ "$pc2" = "-" ] || sysc=$((pc2 - pc1))
+            echo "$(date '+%F %T') behavior pid=$pid over 1s: state=$pstate" \
+                 "user%=$(( (pu2 - pu1) * 100 / clk_tck )) sys%=$(( (ps2 - ps1) * 100 / clk_tck ))" \
+                 "blocked=$((pv2 - pv1)) preempted=$((pn2 - pn1)) rw_syscalls=$sysc" \
+                 "wchan=$(cat /proc/$pid/wchan 2>/dev/null)" >> $out
+        done
+    fi
+    sleep $((interval - 1))
+    read -r _ u2 n2 s2 i2 w2 q2 sq2 st2 _ < /proc/stat
+    total=$(( (u2 + n2 + s2 + i2 + w2 + q2 + sq2 + st2) - (u + n + s + i + w + q + sq + st) ))
+    [ "$total" -gt 0 ] || total=1
+    run=$(awk '/^procs_running/ {print $2}' /proc/stat)
+    psi=$(awk '/^some/ {sub("avg10=", "", $2); print $2}' /proc/pressure/cpu 2>/dev/null)
+    echo "$(date '+%F %T') us=$(( 100 * (u2 + n2 - u - n) / total ))" \
+         "sy=$(( 100 * (s2 + q2 + sq2 - s - q - sq) / total )) id=$(( 100 * (i2 - i) / total ))" \
+         "wa=$(( 100 * (w2 - w) / total )) st=$(( 100 * (st2 - st) / total ))" \
+         "run=$run load1/5/15=$(cut -d ' ' -f1-3 /proc/loadavg | tr ' ' /) psi_some10=${psi:--} top: $top5" >> $out
+    u=$u2; n=$n2; s=$s2; i=$i2; w=$w2; q=$q2; sq=$sq2; st=$st2
+done
+"""
+
+
+class CrmPerfSampler(object):
+    """Run CRM_PERF_SAMPLER on the DUT and on the test runner and copy new samples into the test log."""
+
+    def __init__(self, duthost):
+        self.duthost = duthost
+        self.dut_out = os.path.join(CRM_PERF_DUT_DIR, "samples.log")
+        self.runner_dir = tempfile.mkdtemp(prefix="crm_perf_debug_")
+        self.runner_out = os.path.join(self.runner_dir, "samples.log")
+        self.dut_lines_logged = 0
+        self.runner_lines_logged = 0
+
+    def start(self):
+        script = os.path.join(CRM_PERF_DUT_DIR, "sampler.sh")
+        self.duthost.shell("sudo rm -rf {0} && mkdir -p {0}".format(CRM_PERF_DUT_DIR))
+        self.duthost.copy(content=CRM_PERF_SAMPLER, dest=script)
+        self.duthost.shell("sudo setsid bash {} {} {} < /dev/null > /dev/null 2>&1 &".format(
+            script, self.dut_out, CRM_PERF_SAMPLE_INTERVAL))
+
+        script = os.path.join(self.runner_dir, "sampler.sh")
+        with open(script, "w") as f:
+            f.write(CRM_PERF_SAMPLER)
+        subprocess.Popen(["setsid", "bash", script, self.runner_out, str(CRM_PERF_SAMPLE_INTERVAL)],
+                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        dut_epoch = float(self.duthost.shell("date +%s.%N")["stdout"])
+        logger.info("CRM_PERF sampling started every %s s; DUT clock minus runner clock = %.1f s",
+                    CRM_PERF_SAMPLE_INTERVAL, dut_epoch - time.time())
+
+        # No Ansible calls during this window, so the samples show the DUT's own background load.
+        logger.info("CRM_PERF idle baseline start (%s s)", CRM_PERF_IDLE_BASELINE)
+        time.sleep(CRM_PERF_IDLE_BASELINE)
+        logger.info("CRM_PERF idle baseline end")
+        self.log_new_samples()
+
+    def log_new_samples(self):
+        result = self.duthost.shell("tail -n +{} {}".format(self.dut_lines_logged + 1, self.dut_out),
+                                    module_ignore_errors=True)
+        lines = result.get("stdout_lines", [])
+        self.dut_lines_logged += len(lines)
+        for line in lines:
+            logger.info("CRM_PERF dut    | %s", line)
+
+        try:
+            with open(self.runner_out) as f:
+                lines = f.read().splitlines()[self.runner_lines_logged:]
+        except IOError:
+            lines = []
+        self.runner_lines_logged += len(lines)
+        for line in lines:
+            logger.info("CRM_PERF runner | %s", line)
+
+    def stop(self):
+        self.log_new_samples()
+        self.duthost.shell("sudo kill $(cat {0}.pid); sudo rm -rf {1}".format(self.dut_out, CRM_PERF_DUT_DIR),
+                           module_ignore_errors=True)
+        try:
+            with open(self.runner_out + ".pid") as f:
+                os.kill(int(f.read()), signal.SIGTERM)
+        except (IOError, ValueError, OSError):
+            pass
+        shutil.rmtree(self.runner_dir, ignore_errors=True)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def crm_perf_sampler(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    """Sample CPU on KVM testbeds to tell CPU steal on the DUT apart from a slow test runner."""
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if not is_virtual_platform(duthost):
+        yield None
+        return
+    sampler = CrmPerfSampler(duthost)
+    sampler.start()
+    yield sampler
+    sampler.stop()
+
+
+@pytest.fixture(autouse=True)
+def crm_perf_test_samples(request, crm_perf_sampler):
+    """Log each test's duration followed by the CPU samples taken while it ran."""
+    if crm_perf_sampler is None:
+        yield
+        return
+    start = time.time()
+    logger.info("CRM_PERF start %s", request.node.nodeid)
+    yield
+    logger.info("CRM_PERF end %s after %.1f s", request.node.nodeid, time.time() - start)
+    crm_perf_sampler.log_new_samples()
 
 
 def pytest_runtest_teardown(item, nextitem):

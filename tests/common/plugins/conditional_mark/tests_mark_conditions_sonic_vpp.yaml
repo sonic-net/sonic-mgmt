@@ -117,12 +117,6 @@ copp/test_copp.py:
     conditions:
       - "asic_type in ['vpp'] and (topo_type != 't1' or topo_name != 't1-lag')"
 
-crm/test_crm.py:
-  skip:
-    reason: "Flaky on the KVM t0-vpp PR testbed, likely from host CPU oversubscription"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/29438 and asic_type in ['vpp'] and topo_name == 't0'"
-
 #######################################
 #####           Decap             #####
 #######################################
