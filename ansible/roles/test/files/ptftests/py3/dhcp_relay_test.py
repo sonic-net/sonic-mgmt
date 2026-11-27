@@ -4,6 +4,7 @@ import ipaddress
 import binascii
 import os
 import logging
+import time
 
 # Packet Test Framework imports
 import ptf
@@ -140,6 +141,7 @@ class DHCPTest(DataplaneBaseTest):
 
         self.hostname = self.test_params['hostname']
         self.verified_option82 = False
+        self.sniffer_threads = []
 
         if 'other_client_port' in self.test_params:
             self.other_client_port = ast.literal_eval(
@@ -262,7 +264,11 @@ class DHCPTest(DataplaneBaseTest):
         self.enable_source_port_ip_in_relay = self.test_params.get('enable_source_port_ip_in_relay', False)
 
     def tearDown(self):
-        DataplaneBaseTest.tearDown(self)
+        try:
+            for thread in self.sniffer_threads:
+                thread.join()
+        finally:
+            DataplaneBaseTest.tearDown(self)
 
     """
      Packet generation functions/wrappers
@@ -904,10 +910,11 @@ class DHCPTest(DataplaneBaseTest):
                     self.verified_option82 = True
 
     def Sniffer(self, iface, ready_event=None):
-        if ready_event:
-            ready_event.set()
+        # Scapy calls this only after capture socket setup, not merely when this
+        # worker thread has started.
         scapy2.sniff(iface=iface, filter="udp and (port 67 or 68)",
-                     prn=self.pkt_callback, store=0, timeout=5)
+                     prn=self.pkt_callback, store=0, timeout=5,
+                     started_callback=ready_event.set if ready_event is not None else None)
 
     def start_sniffers_and_wait(self):
         """Start sniffer threads on all server ports and wait for them to be ready.
@@ -917,6 +924,7 @@ class DHCPTest(DataplaneBaseTest):
         """
         events = []
         threads = []
+        deadline = time.monotonic() + 2
         for interface_index in self.server_port_indices:
             ready = threading.Event()
             events.append(ready)
@@ -924,8 +932,14 @@ class DHCPTest(DataplaneBaseTest):
                 "eth"+str(interface_index), ready))
             t1.start()
             threads.append(t1)
-        for e in events:
-            e.wait(timeout=2)
+            self.sniffer_threads.append(t1)
+        # Use one startup budget so earlier captures do not expire while waiting
+        # up to two seconds separately for each remaining interface.
+        for interface_index, ready in zip(self.server_port_indices, events):
+            self.assertTrue(ready.wait(timeout=max(0, deadline - time.monotonic())),
+                            "DHCP capture did not become ready on eth{}".format(interface_index))
+        self.assertTrue(time.monotonic() <= deadline and all(thread.is_alive() for thread in threads),
+                        "DHCP capture stopped or startup deadline expired before sending packets")
         return threads
 
     # Verify that the DHCP relay actually received and relayed the DHCPDISCOVER message to all of
