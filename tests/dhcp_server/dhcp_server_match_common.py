@@ -38,6 +38,7 @@ VENDOR_B = "VendorB"
 TEST_MAC_PREFIX = "02:dc"
 REPLY_TIMEOUT = 6
 NO_REPLY_TIMEOUT = 4
+STRAY_REPLY_TIMEOUT = 0.1
 KEA_CONVERGE_TIMEOUT = 60
 KEA_CTRL_SOCKET = "/run/kea/kea4-ctrl-socket"
 DHCP_SERVER_CONTAINER = "dhcp_server"
@@ -851,8 +852,8 @@ def expect_ack(env, reply, ip, what, lease_time=MATCH_LEASE_TIME):
 class DhcpClient(object):
     """A DHCP client injected from a PTF port with a unique, locally administered test MAC.
 
-    The relay may broadcast replies to every VLAN member, so replies are correlated by
-    transaction ID and client hardware address rather than by receiving port.
+    Replies are correlated by transaction ID and client hardware address, and only count when they reach
+    the client's own port. The relay may also flood copies to other VLAN members; those are ignored.
     """
 
     def __init__(self, env, ptfadapter, port, opt60=None, mac=None):
@@ -892,12 +893,16 @@ class DhcpClient(object):
         """Send ``pkt`` and return the server reply, or None if none arrives within ``timeout``."""
         self.ptfadapter.dataplane.flush()
         testutils.send_packet(self.ptfadapter, self.port.ptf_index, pkt)
-        result = self.ptfadapter.dataplane.poll(device_number=0, timeout=timeout, filters=[self._reply_filter(xid)])
+        reply_filter = self._reply_filter(xid)
+        result = self.ptfadapter.dataplane.poll(device_number=0, port_number=self.port.ptf_index, timeout=timeout,
+                                                filters=[reply_filter])
         if result.packet is None:
+            # A reply that reached only other ports never reached this client.
+            stray = self.ptfadapter.dataplane.poll(device_number=0, timeout=STRAY_REPLY_TIMEOUT,
+                                                   filters=[reply_filter])
+            pytest_assert(stray.packet is None, "Reply for {} arrived on PTF port {} but not on the client port {} "
+                          "({})".format(self.mac, stray.port, self.port.ptf_index, self.port.name))
             return None
-        vlan_ports = set(port.ptf_index for port in self.env.members) | {self.port.ptf_index}
-        pytest_assert(result.port in vlan_ports, "Reply for {} on {} arrived on PTF port {}, outside {}".format(
-            self.mac, self.port.name, result.port, self.env.vlan))
         reply = scapy.Ether(result.packet)
         logger.info("Client %s on %s got %s", self.mac, self.port.name, reply.summary())
         return reply
