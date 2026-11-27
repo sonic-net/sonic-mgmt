@@ -48,6 +48,12 @@ def setup_faulted_y_cable_driver(
 ):
     """Set up the faulted Y-cable driver and yield the selected mux port."""
     pytest_require(active_standby_ports, "No active-standby mux ports, skip...")
+    for duthost in (
+            simulated_faulty_side, simulated_good_side):
+        pytest_assert(
+            _wait_for_mux_ports_healthy(duthost, active_standby_ports),
+            "MUX ports did not recover on {} before Y-cable fault "
+            "injection".format(duthost.hostname))
     select_mux_port = random.choice(active_standby_ports)
 
     def _remove_pmon_container(duthost):
