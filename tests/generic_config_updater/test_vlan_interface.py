@@ -384,14 +384,13 @@ def vlan_interface_tc1_replace(duthost, vlan_info):
 
 
 def vlan_interface_tc1_remove(duthost, vlan_info):
-    """ Remove all VLAN intf
+    """ Remove all VLAN intf, together with the DHCP servers that depend on them
     """
-    json_patch = [
-        {
-            "op": "remove",
-            "path": "/VLAN_INTERFACE"
-        }
-    ]
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    json_patch = [{"op": "remove", "path": "/VLAN_INTERFACE"}]
+    json_patch += [{"op": "remove", "path": "/VLAN/{}/{}".format(vlan, field)}
+                   for vlan, entry in config_facts.get('VLAN', {}).items()
+                   for field in ("dhcp_servers", "dhcpv6_servers") if field in entry]
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
