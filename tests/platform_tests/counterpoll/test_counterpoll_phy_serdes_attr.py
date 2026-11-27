@@ -57,22 +57,73 @@ def skip_non_th5_asics(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                    "This test is not supported on {} asic".format(asic_type))
 
 
+def get_phy_counterpoll_state(host):
+    """Return the current PHY counterpoll status and interval."""
+    counterpoll_output = ConterpollHelper.get_counterpoll_show_output(host)
+    parsed_counterpoll = ConterpollHelper.get_parsed_counterpoll_show(counterpoll_output)
+    pytest_assert(PORT_PHY_ATTR_TYPE in parsed_counterpoll,
+                  "PHY counters not found in counterpoll show output")
+    return parsed_counterpoll[PORT_PHY_ATTR_TYPE]
+
+
+def get_effective_counterpoll_interval(interval):
+    """Return the numeric value from either '10000' or 'default (10000)'."""
+    if interval.startswith('default'):
+        return interval[interval.find('(') + 1:interval.find(')')]
+    return interval
+
+
+def configure_phy_counterpoll(asic, status=None, interval=None):
+    """Configure PHY counterpoll status, interval, or both on one ASIC."""
+    pytest_assert(status in (None, ENABLE, DISABLE),
+                  "Invalid PHY counterpoll status: {}".format(status))
+    pytest_assert(interval is None or (str(interval).isdigit() and int(interval) > 0),
+                  "Invalid PHY counterpoll interval: {}".format(interval))
+
+    if interval is not None:
+        ConterpollHelper.set_counterpoll_interval(asic, PORT_PHY_ATTR, interval)
+
+    if status is not None:
+        asic.command(CounterpollConstants.COUNTERPOLL_RESTORE.format(PORT_PHY_ATTR, status))
+
+
 @pytest.fixture(scope="module", autouse=True)
-def backup_and_restore_config_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                 skip_non_th5_asics):
-    """Restore the persistent and running configuration changed by this module."""
+def backup_and_restore_config_db_and_live_phy_state(
+        duthosts, enum_rand_one_per_hwsku_frontend_hostname, skip_non_th5_asics):
+    """Restore the persistent config DB and original live PHY counterpoll state."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     config_db = '/etc/sonic/config_db.json'
     backup_path = duthost.shell(
         'mktemp /host/config_db.json.before_counterpoll_phy_serdes_attr.XXXXXX')['stdout'].strip()
 
+    original_phy_states = [(asic, get_phy_counterpoll_state(asic)) for asic in duthost.asics]
     duthost.shell('cp -p {} {}'.format(config_db, backup_path))
 
     try:
         yield
     finally:
         duthost.shell('mv {} {}'.format(backup_path, config_db))
-        config_reload(duthost, config_source='config_db', safe_reload=True, yang_validate=False)
+        try:
+            config_reload(duthost, config_source='config_db', safe_reload=True, yang_validate=False)
+        finally:
+            # A saved file and live CONFIG_DB can legitimately differ. Restore
+            # the original live PHY state after reloading the persistent file.
+            for asic, original_state in original_phy_states:
+                current_state = get_phy_counterpoll_state(asic)
+                original_interval = get_effective_counterpoll_interval(
+                    original_state[CounterpollConstants.INTERVAL])
+                current_interval = get_effective_counterpoll_interval(
+                    current_state[CounterpollConstants.INTERVAL])
+
+                original_status = original_state[CounterpollConstants.STATUS]
+                interval_to_restore = (
+                    original_interval if current_interval != original_interval else None)
+                status_to_restore = (
+                    original_status
+                    if current_state[CounterpollConstants.STATUS] != original_status else None)
+                if interval_to_restore is not None or status_to_restore is not None:
+                    configure_phy_counterpoll(
+                        asic, status=status_to_restore, interval=interval_to_restore)
 
 
 def verify_phy_attr_in_cli(duthost, expected_status):
@@ -417,22 +468,22 @@ def test_phy_enable_and_validate(duthosts, enum_rand_one_per_hwsku_frontend_host
     Test 1: Configure PHY counters and validate show output + all DBs
 
     Steps:
-    1. Enable PHY counters (counterpoll phy enable)
+    1. Enable PHY counters with a 10000ms interval
     2. Validate CLI, CONFIG_DB, FLEX_COUNTER_DB, and COUNTERS_DB
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-    with allure.step("Enabling PHY counters"):
+    with allure.step("Enabling PHY counters with a 10000ms interval"):
         for asic in duthost.asics:
-            ConterpollHelper.enable_counterpoll(asic, [PORT_PHY_ATTR])
+            configure_phy_counterpoll(asic, status=ENABLE, interval=10000)
 
     verify_phy_attr_in_cli(duthost, ENABLE)
     # Leave time for modules to react to config change.
     time.sleep(5)
 
-    verify_phy_attr_in_config_db(duthost, ENABLE)
+    verify_phy_attr_in_config_db(duthost, ENABLE, expected_interval=10000)
 
-    verify_phy_serdes_attr_in_flex_counter_db(duthost)
+    verify_phy_serdes_attr_in_flex_counter_db(duthost, expected_interval=10000)
 
     sample_serdes_info_map = get_sample_port_serdes_with_asic_and_port_id(duthost, 3)
 
@@ -451,16 +502,21 @@ def test_phy_interval_change(duthosts, enum_rand_one_per_hwsku_frontend_hostname
     Test 2: Validate interval modification propagates to all DBs
 
     Steps:
-    1. Change interval to 5000ms
-    2. Verify CLI, CONFIG_DB, FLEX_COUNTER_DB
-    3. Change interval to 10000ms
-    4. Verify new interval in all locations
+    1. Enable PHY counters
+    2. Change interval to 5000ms
+    3. Verify CLI, CONFIG_DB, FLEX_COUNTER_DB
+    4. Change interval to 10000ms
+    5. Verify new interval in all locations
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
+    with allure.step("Ensuring PHY counters are enabled"):
+        for asic in duthost.asics:
+            configure_phy_counterpoll(asic, status=ENABLE)
+
     with allure.step("Changing interval to 5000ms"):
         for asic in duthost.asics:
-            asic.command(CounterpollConstants.COUNTERPOLL_INTERVAL_STR.format(PORT_PHY_ATTR, 5000))
+            configure_phy_counterpoll(asic, interval=5000)
 
     # Leave time for modules to react to config change.
     time.sleep(5)
@@ -471,7 +527,7 @@ def test_phy_interval_change(duthosts, enum_rand_one_per_hwsku_frontend_hostname
 
     with allure.step("Changing interval to 10000ms"):
         for asic in duthost.asics:
-            asic.command(CounterpollConstants.COUNTERPOLL_INTERVAL_STR.format(PORT_PHY_ATTR, 10000))
+            configure_phy_counterpoll(asic, interval=10000)
 
     # Leave time for modules to react to config change.
     time.sleep(5)
@@ -488,20 +544,25 @@ def test_phy_config_reload_persistence(duthosts, enum_rand_one_per_hwsku_fronten
     Test 3: Verify PHY counters persist after config save + disable + reload
 
     Steps:
-    1. Save config
-    2. Disable PHY counters
-    3. Config reload
-    4. Verify PHY counters restored to enabled
-    5. Verify COUNTERS_DB has fresh data
+    1. Enable PHY counters with a 10000ms interval
+    2. Save config
+    3. Disable PHY counters
+    4. Config reload
+    5. Verify PHY counters restored to enabled
+    6. Verify COUNTERS_DB has fresh data
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    with allure.step("Preparing enabled PHY counterpoll configuration"):
+        for asic in duthost.asics:
+            configure_phy_counterpoll(asic, status=ENABLE, interval=10000)
 
     with allure.step("Saving config"):
         duthost.command('config save -y')
 
     with allure.step("Disabling PHY counters"):
         for asic in duthost.asics:
-            ConterpollHelper.disable_counterpoll(asic, [PORT_PHY_ATTR])
+            configure_phy_counterpoll(asic, status=DISABLE)
 
     # Leave time for modules to react to config change.
     time.sleep(5)
@@ -515,7 +576,9 @@ def test_phy_config_reload_persistence(duthosts, enum_rand_one_per_hwsku_fronten
 
     verify_phy_attr_in_cli(duthost, ENABLE)
 
-    verify_phy_serdes_attr_in_flex_counter_db(duthost)
+    verify_phy_attr_in_config_db(duthost, ENABLE, expected_interval=10000)
+
+    verify_phy_serdes_attr_in_flex_counter_db(duthost, expected_interval=10000)
 
     sample_serdes_info_map = get_sample_port_serdes_with_asic_and_port_id(duthost, 3)
 
@@ -532,16 +595,24 @@ def test_phy_reboot_persistence(duthosts, enum_rand_one_per_hwsku_frontend_hostn
     Test 4: Verify PHY counters persist after disable + reboot
 
     Steps:
-    1. Disable PHY counters
-    2. Reboot
-    3. Verify PHY counters restored to enabled
-    4. Verify COUNTERS_DB has fresh data
+    1. Enable PHY counters and save config
+    2. Disable PHY counters
+    3. Reboot
+    4. Verify PHY counters restored to enabled
+    5. Verify COUNTERS_DB has fresh data
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
+    with allure.step("Preparing enabled PHY counterpoll configuration"):
+        for asic in duthost.asics:
+            configure_phy_counterpoll(asic, status=ENABLE, interval=10000)
+
+    with allure.step("Saving config"):
+        duthost.command('config save -y')
+
     with allure.step("Disabling PHY counters"):
         for asic in duthost.asics:
-            ConterpollHelper.disable_counterpoll(asic, [PORT_PHY_ATTR])
+            configure_phy_counterpoll(asic, status=DISABLE)
 
     # Leave time for modules to react to config change.
     time.sleep(5)
@@ -553,7 +624,9 @@ def test_phy_reboot_persistence(duthosts, enum_rand_one_per_hwsku_frontend_hostn
 
     verify_phy_attr_in_cli(duthost, ENABLE)
 
-    verify_phy_serdes_attr_in_flex_counter_db(duthost)
+    verify_phy_attr_in_config_db(duthost, ENABLE, expected_interval=10000)
+
+    verify_phy_serdes_attr_in_flex_counter_db(duthost, expected_interval=10000)
 
     sample_serdes_info_map = get_sample_port_serdes_with_asic_and_port_id(duthost, 3)
 
