@@ -223,7 +223,8 @@ class PtfGrpc:
                 'timeout', 'deadline exceeded', 'context deadline exceeded'
             ]):
                 raise GrpcTimeoutError(
-                    f"Operation timed out after {self.timeout}s: {err_text}"
+                    f"gRPC timeout/deadline exceeded (connect_timeout={self.timeout}s, "
+                    f"max_time={self.max_time}s): {err_text}"
                 )
 
             # Service/method not found
