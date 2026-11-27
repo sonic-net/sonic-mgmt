@@ -12,20 +12,22 @@ pytestmark = [
 
 
 @pytest.fixture
-def shutdown_interface(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-    """Fixture to shutdown an interface and guarantee it is brought back up on cleanup."""
+def shutdown_interface(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index):
+    """Shutdown and restore an interface in the selected ASIC namespace."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
     intf_to_restore = None
 
     def do_shutdown(intf):
         nonlocal intf_to_restore
         intf_to_restore = intf
-        duthost.shutdown_interface(intf)
+        asichost.shutdown_interface(intf)
 
-    yield do_shutdown
-
-    if intf_to_restore is not None:
-        duthost.no_shutdown_interface(intf_to_restore)
+    try:
+        yield do_shutdown
+    finally:
+        if intf_to_restore is not None:
+            asichost.startup_interface(intf_to_restore)
 
 
 def _pick_neighbor(asichost, ipv6_only=False):
