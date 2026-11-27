@@ -319,14 +319,12 @@ def _raise_on_gnmi_cli_failure(duthost, output, extra_error_markers=None, expect
         error_markers.extend(extra_error_markers)
     client_crash = "Traceback (most recent call last)" in combined
     expected_response = (
-        rc == 1 and expected_error_markers
-        and all(marker in stdout for marker in expected_error_markers)
+        rc == 1 and expected_error_markers and all(marker in stdout for marker in expected_error_markers)
     )
     if client_crash or (not expected_response and (rc != 0 or any(marker in combined for marker in error_markers))):
         dump_gnmi_log(duthost)
         dump_system_status(duthost)
-        raise Exception(
-            "gNMI CLI failed rc={}\nSTDOUT:\n{}\nSTDERR:\n{}".format(rc, stdout, stderr))
+        raise Exception("gNMI CLI failed rc={}\nSTDOUT:\n{}\nSTDERR:\n{}".format(rc, stdout, stderr))
 
 
 def gnmi_get(duthost, ptfhost, path_list, ip=None, target=None, origin="sonic-db", raw=False):
@@ -377,8 +375,8 @@ def gnmi_get(duthost, ptfhost, path_list, ip=None, target=None, origin="sonic-db
     else:
         dump_gnmi_log(duthost)
         dump_system_status(duthost)
-        stderr = output.get('stderr') or ''
-        raise Exception("error:{}\nrc={}\nSTDERR:\n{}".format(msg, output.get('rc', 1), stderr))
+        stderr = output.get("stderr") or ""
+        raise Exception("error:{}\nrc={}\nSTDERR:\n{}".format(msg, output.get("rc", 1), stderr))
 
 
 def _bracket_ipv6(ip):
