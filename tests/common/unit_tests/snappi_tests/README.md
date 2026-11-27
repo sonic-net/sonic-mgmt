@@ -17,6 +17,49 @@ python3 -m pytest --noconftest \
   tests/common/unit_tests/snappi_tests/unit_test_common_helpers.py -v
 ```
 
+For final MACsec statistics readiness checks:
+```bash
+python3 -m pytest --noconftest \
+  tests/common/unit_tests/snappi_tests/unit_test_traffic_generation.py -v
+```
+
+These checks cover delayed TX/RX updates, missing flows, traffic-engine completion,
+counter stability, and explicit timeout diagnostics. Genuine positive packet
+loss is returned unchanged for the existing test-specific assertions.
+Registered MACsec flows are explicitly stopped before final-counter polling;
+regressions also verify this ordering when counters time out or shutdown fails.
+On a final-counter timeout, raw Flow Statistics, Traffic Item Statistics, and
+Port Statistics snapshots are logged for comparison without changing the
+reported counts. Missing diagnostic views do not mask the original failure.
+
+The deferred-first-read MACsec experiment avoids Flow Statistics reads while
+registered flows run, unless pause-time snapshots are explicitly required.
+It waits for the IxNetwork traffic engine to finish before reading counters.
+The in-flight return value is `None` for this path; final loss assertions and
+counter consistency checks remain unchanged. A hardware run showed consistent
+TX/RX counters after deferral, but retained nonzero Quick Flow Group rates.
+Final readiness therefore requires the engine to be `stopped` or
+`stoppedWaitingForStats` and valid counters stable across two consecutive
+snapshots; nonzero rate cells are logged as a warning rather than treated as
+ongoing traffic. Running engines, invalid or changing counters, missing flows,
+and RX greater than TX still fail. Hardware validation of this readiness
+correction is pending.
+
+For MACsec RX subnet selection and configuration restoration:
+```bash
+python3 -m pytest --noconftest \
+  tests/common/unit_tests/snappi_tests/unit_test_snappi_fixtures.py -v
+```
+
+When the RX interface subnet is too small for the receiver devices, the fixture
+prefers the existing test gateway range but skips networks overlapping other
+configured IPv4 interfaces. For example, an existing `40.1.1.1/28` on another
+port prevents assigning `40.1.1.1/27` to the RX port. The selected gateway is
+shared by the DUT and all receiver stacks, and cleanup restores the RX port's
+original address. Regressions cover routed interface types, larger and
+consecutive conflicts, IPv6 coexistence, and single- and multi-ASIC restoration.
+This correction still requires hardware validation.
+
 ### Run a specific test case
 ```bash
 python3 -m pytest --noconftest \

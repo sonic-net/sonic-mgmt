@@ -12,8 +12,11 @@ Run with::
 """
 
 import ast
+from copy import deepcopy
 from pathlib import Path
 from unittest.mock import MagicMock
+
+import pytest
 
 
 MODULE_PATH = (Path(__file__).resolve().parents[3] /
@@ -109,3 +112,55 @@ def test_get_queue_scheduler_weight_dict_defaults_when_unconfigured():
     # DSCP annotations from DSCP_TO_TC_MAP / TC_TO_QUEUE_MAP still apply.
     assert result[0]["dscp"] == 8
     assert result[3]["dscp"] == 3
+
+
+@pytest.fixture
+def voq_facts():
+    facts = deepcopy(CONFIG_FACTS)
+    facts["DEVICE_METADATA"] = {"localhost": {"asic_name": "chip-name-not-a-namespace"}}
+    facts["QUEUE"] = {
+        "test_dut": {
+            "Asic0|Ethernet8|{}".format(queue): settings
+            for queue, settings in facts["QUEUE"]["Ethernet100"].items()
+        }
+    }
+    return facts
+
+
+@pytest.mark.parametrize("namespace", [None, "None", "asic0", "Asic0"])
+def test_voq_queue_weights_for_ethernet8(voq_facts, namespace):
+    host = MagicMock(hostname="test_dut")
+    host.config_facts.return_value = {"ansible_facts": voq_facts}
+    voq_facts["QUEUE"]["test_dut"].update({
+        "Asic1|Ethernet12|0": {"scheduler": "scheduler.0"},
+        "Asic2|Ethernet12|0": {"scheduler": "scheduler.1"},
+    })
+
+    result = _load("get_queue_scheduler_weight_dict")(host, asic_value=namespace, port="Ethernet8")
+
+    assert result == EXPECTED
+    expected_args = {"host": host.hostname, "source": "running"}
+    if namespace not in (None, "None"):
+        expected_args["namespace"] = namespace
+    host.config_facts.assert_called_once_with(**expected_args)
+
+
+def test_voq_queue_weights_require_namespace_for_ambiguous_port(voq_facts):
+    host = MagicMock(hostname="test_dut")
+    host.config_facts.return_value = {"ansible_facts": voq_facts}
+    voq_facts["QUEUE"]["test_dut"]["Asic1|Ethernet8|7"] = {"scheduler": "scheduler.0"}
+    get_weights = _load("get_queue_scheduler_weight_dict")
+
+    with pytest.raises(ValueError, match="Ambiguous QUEUE entries for port Ethernet8"):
+        get_weights(host, port="Ethernet8")
+    assert get_weights(host, asic_value="asic0", port="Ethernet8") == EXPECTED
+
+
+@pytest.mark.parametrize("key", ["Ethernet8|0", "Asic0|Ethernet8|0|extra", "|Ethernet8|0"])
+def test_voq_queue_weights_report_malformed_keys(voq_facts, key):
+    host = MagicMock(hostname="test_dut")
+    host.config_facts.return_value = {"ansible_facts": voq_facts}
+    voq_facts["QUEUE"]["test_dut"] = {key: {"scheduler": "scheduler.0"}}
+
+    with pytest.raises(ValueError, match=r"Invalid QUEUE key .*expected ASIC\|interface\|queue"):
+        _load("get_queue_scheduler_weight_dict")(host, port="Ethernet8")

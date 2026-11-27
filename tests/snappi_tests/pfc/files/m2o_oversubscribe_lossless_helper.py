@@ -5,6 +5,10 @@
 # Compiled at: 2023-02-10 09:15:26
 from math import ceil                                                                   # noqa: F401
 import logging                                                                          # noqa: F401
+import re
+import sys
+from tabulate import tabulate
+from collections import namedtuple
 from tests.common.helpers.assertions import pytest_assert, pytest_require               # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts  # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id                          # noqa: F401
@@ -31,6 +35,226 @@ DATA_FLOW_DELAY_SEC = 5
 SNAPPI_POLL_DELAY_SEC = 2
 TOLERANCE_THRESHOLD = 0.05
 UDP_PORT_START = 5000
+# Number of non-MACsec devices created on the rx port per tx port (see __intf_config_macsec)
+MACSEC_DEVICES_PER_TX_PORT = 7
+# MACsec bytes (SecTAG + ICV) carried inside the configured frame size and removed by the DUT, and the
+# per-frame L1 overhead (preamble + IFG) on the wire
+MACSEC_OVERHEAD_BYTES = 32
+L1_OVERHEAD_BYTES = 20
+
+
+def macsec_egress_rate_scale(pkt_size=DATA_PKT_SIZE):
+    """
+    Ingress is MACsec, egress is plain. Ixia sends the same frame rate as without MACsec (the configured
+    frame size includes the MACsec bytes), but the DUT strips MACSEC_OVERHEAD_BYTES per frame, so the same
+    percentage of ingress line rate loads the plain egress port by this factor (< 1) only.
+    """
+    return (pkt_size - MACSEC_OVERHEAD_BYTES + L1_OVERHEAD_BYTES) / float(pkt_size + L1_OVERHEAD_BYTES)
+
+
+def get_oversubscription_drop_percent(total_offered_percent, macsec_enabled=False, pkt_size=DATA_PKT_SIZE):
+    """
+    Share of the offered frames that exceeds the egress capacity, when total_offered_percent (sum of the
+    flows' line-rate percents) is offered to one plain egress port. With a MACsec ingress the offered load is
+    scaled by macsec_egress_rate_scale first.
+    """
+    offered = total_offered_percent * (macsec_egress_rate_scale(pkt_size) if macsec_enabled else 1.0)
+    pytest_assert(offered > 0, "FAIL: total offered load must be > 0")
+    return 100.0 * max(0.0, offered - 100.0) / offered
+
+
+def macsec_pgid(src_index, prio, devices_per_tx_port=MACSEC_DEVICES_PER_TX_PORT):
+    """
+    PGID used to track a MACsec flow in the IxNetwork Flow Statistics.
+    Each Tx port owns a block of devices_per_tx_port PGIDs, one per priority.
+    """
+    return src_index * devices_per_tx_port + prio
+
+
+def macsec_priority(pgid, devices_per_tx_port=MACSEC_DEVICES_PER_TX_PORT):
+    """Inverse of macsec_pgid: the priority of the flow tracked under pgid."""
+    return pgid % devices_per_tx_port
+
+
+MacsecFlowStatRow = namedtuple(
+    'MacsecFlowStatRow',
+    [
+        'flow_name',
+        'display_name',
+        'flow_kind',
+        'priority',
+        'pgid',
+        'tx_port',
+        'rx_port',
+        'tx_frames',
+        'rx_frames',
+        'loss_percent',
+        'identity',
+    ],
+)
+
+
+def _macsec_flow_kind(flow_name):
+    if TEST_FLOW_NAME in flow_name:
+        return 'test'
+    if BG_FLOW_NAME in flow_name:
+        return 'background'
+    return 'other'
+
+
+def _macsec_display_name(flow_name, priority):
+    if TEST_FLOW_NAME in flow_name:
+        kind = 'Test_flow'
+    elif BG_FLOW_NAME in flow_name:
+        kind = 'Background_flow'
+    else:
+        kind = 'Flow'
+    match = re.search(r'(\d+) -> (\d+)', flow_name)
+    if match:
+        return '{}_prio{}_port{}->port{}'.format(
+            kind, priority, match.group(1), match.group(2))
+    return '{}_prio{}'.format(kind, priority)
+
+
+def assert_macsec_flow_stat_identities_disjoint(flow_name_stats_identity_map):
+    """Fail if a test flow and a background flow share the same MACsec stats identity."""
+    test_identities = {
+        identity
+        for name, identity in flow_name_stats_identity_map.items()
+        if TEST_FLOW_NAME in name
+    }
+    bg_identities = {
+        identity
+        for name, identity in flow_name_stats_identity_map.items()
+        if BG_FLOW_NAME in name
+    }
+    pytest_assert(
+        test_identities.isdisjoint(bg_identities),
+        "FAIL: Test and Background Flows share a MACsec statistics identity")
+
+
+def get_missing_macsec_flow_identities(parsed_stats, flow_name_stats_identity_map, flow_kind=None):
+    """
+    Return the (Tx Port, Rx Port, PGID) identities of configured flows that have no transmitting row
+    in parsed_stats (e.g. the flow did not run, or IxNetwork did not report it).
+
+    Args:
+        parsed_stats (list): output of parse_macsec_flow_statistics / log_macsec_flow_statistics
+        flow_name_stats_identity_map (dict): flow name -> (Tx Port, Rx Port, PGID)
+        flow_kind (str): restrict the check to 'test' or 'background' flows (default: all flows)
+    """
+    seen_identities = {stat.identity for stat in parsed_stats}
+    return {
+        identity
+        for flow_name, identity in flow_name_stats_identity_map.items()
+        if (flow_kind is None or _macsec_flow_kind(flow_name) == flow_kind)
+        and identity not in seen_identities
+    }
+
+
+def parse_macsec_flow_statistics(rows,
+                                 flow_name_stats_identity_map,
+                                 skip_zero_tx=True):
+    """
+    Match IxNetwork Flow Statistics rows to configured flows via flow_name_stats_identity_map.
+
+    Args:
+        rows (list): IxNetwork Flow Statistics rows (keyed by column name)
+        flow_name_stats_identity_map (dict): flow name -> (Tx Port, Rx Port, PGID)
+        skip_zero_tx (bool): ignore rows with no transmitted frames
+
+    Returns:
+        list[MacsecFlowStatRow]: one entry per matched row with Tx Frames > 0 (if skip_zero_tx).
+    """
+    identity_to_flow_name = {}
+    for flow_name, identity in flow_name_stats_identity_map.items():
+        pytest_assert(
+            identity not in identity_to_flow_name,
+            "FAIL: Flows '{}' and '{}' share the MACsec statistics identity {}".format(
+                identity_to_flow_name.get(identity), flow_name, identity))
+        identity_to_flow_name[identity] = flow_name
+    parsed = []
+
+    for row in rows:
+        pgid = int(row['PGID'])
+        identity = (row['Tx Port'], row['Rx Port'], pgid)
+        if identity not in identity_to_flow_name:
+            continue
+        try:
+            tx_frames = int(row['Tx Frames'])
+            rx_frames = int(row['Rx Frames'])
+        except (TypeError, ValueError):
+            # Rows without a transmit side (e.g. 'Quick Flow Groups Egress Only') report blank Tx Frames
+            continue
+        if skip_zero_tx and tx_frames == 0:
+            continue
+        flow_name = identity_to_flow_name[identity]
+        priority = macsec_priority(pgid)
+        parsed.append(
+            MacsecFlowStatRow(
+                flow_name=flow_name,
+                display_name=_macsec_display_name(flow_name, priority),
+                flow_kind=_macsec_flow_kind(flow_name),
+                priority=priority,
+                pgid=pgid,
+                tx_port=identity[0],
+                rx_port=identity[1],
+                tx_frames=tx_frames,
+                rx_frames=rx_frames,
+                loss_percent=100.0 * (tx_frames - rx_frames) / tx_frames,
+                identity=identity,
+            ))
+
+    return parsed
+
+
+def log_macsec_flow_statistics(rows,
+                               flow_name_stats_identity_map,
+                               skip_zero_tx=True,
+                               header='MACsec flow statistics'):
+    """
+    Parse MACsec flow statistics, log a standard table, and return parsed rows for verification.
+
+    Table columns:
+        Snappi flow name, display_name, Priority, Tx port, Rx port, Tx frames, Rx frames, Loss
+    """
+    parsed = parse_macsec_flow_statistics(
+        rows,
+        flow_name_stats_identity_map,
+        skip_zero_tx=skip_zero_tx,
+    )
+    table_rows = [
+        [
+            stat.flow_name,
+            stat.display_name,
+            stat.priority,
+            stat.tx_port,
+            stat.rx_port,
+            stat.tx_frames,
+            stat.rx_frames,
+            '{:.2f}'.format(stat.loss_percent),
+        ]
+        for stat in parsed
+    ]
+    logger.info(
+        "%s:\n%s",
+        header,
+        tabulate(
+            table_rows,
+            headers=[
+                'Snappi flow name',
+                'display_name',
+                'Priority',
+                'Tx port',
+                'Rx port',
+                'Tx frames',
+                'Rx frames',
+                'Loss',
+            ],
+            tablefmt='psql',
+        ),
+    )
+    return parsed
 
 
 def run_m2o_oversubscribe_lossless_test(api,
@@ -119,7 +343,8 @@ def run_m2o_oversubscribe_lossless_test(api,
                   data_flow_dur_sec=DATA_FLOW_DURATION_SEC,
                   data_pkt_size=DATA_PKT_SIZE,
                   prio_dscp_map=prio_dscp_map,
-                  no_of_bg_streams=no_of_bg_streams)
+                  no_of_bg_streams=no_of_bg_streams,
+                  snappi_extra_params=snappi_extra_params)
 
     flows = testbed_config.flows
     all_flow_names = [flow.name for flow in flows]
@@ -152,7 +377,8 @@ def run_m2o_oversubscribe_lossless_test(api,
     """ Verify Results """
     verify_m2o_oversubscribe_lossless_result(flow_stats,
                                              tx_port,
-                                             rx_port)
+                                             rx_port,
+                                             snappi_extra_params=snappi_extra_params)
 
 
 def __gen_traffic(testbed_config,
@@ -170,7 +396,8 @@ def __gen_traffic(testbed_config,
                   data_flow_dur_sec,
                   data_pkt_size,
                   prio_dscp_map,
-                  no_of_bg_streams):
+                  no_of_bg_streams,
+                  snappi_extra_params):
     """
     Generate configurations of flows under all to all traffic pattern, including
     test flows, background flows and pause storm. Test flows and background flows
@@ -192,6 +419,7 @@ def __gen_traffic(testbed_config,
         pfc_storm_dur_sec (float): duration of the pause storm in second
         data_pkt_size (int): packet size of data flows in byte
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
 
     Returns:
         N/A
@@ -206,6 +434,7 @@ def __gen_traffic(testbed_config,
                      flow_dur_sec=data_flow_dur_sec,
                      data_pkt_size=data_pkt_size,
                      prio_dscp_map=prio_dscp_map,
+                     snappi_extra_params=snappi_extra_params,
                      no_of_streams=1)
 
     __gen_data_flows(testbed_config=testbed_config,
@@ -218,6 +447,7 @@ def __gen_traffic(testbed_config,
                      flow_dur_sec=data_flow_dur_sec,
                      data_pkt_size=data_pkt_size,
                      prio_dscp_map=prio_dscp_map,
+                     snappi_extra_params=snappi_extra_params,
                      no_of_streams=no_of_bg_streams)
 
 
@@ -231,6 +461,7 @@ def __gen_data_flows(testbed_config,
                      flow_dur_sec,
                      data_pkt_size,
                      prio_dscp_map,
+                     snappi_extra_params,
                      no_of_streams=1):
     """
     Generate the configuration for data flows
@@ -246,11 +477,12 @@ def __gen_data_flows(testbed_config,
         flow_dur_sec (int): duration of each flow in second
         data_pkt_size (int): packet size of data flows in byte
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
 
     Returns:
         N/A
     """
-    for src_port_id in src_port_id_list:
+    for src_index, src_port_id in enumerate(src_port_id_list):
         for dst_port_id in dst_port_id_list:
             if src_port_id == dst_port_id:
                 continue
@@ -264,6 +496,9 @@ def __gen_data_flows(testbed_config,
                             flow_dur_sec=flow_dur_sec,
                             data_pkt_size=data_pkt_size,
                             prio_dscp_map=prio_dscp_map,
+                            snappi_extra_params=snappi_extra_params,
+                            src_index=src_index,
+                            num_src_ports=len(src_port_id_list),
                             no_of_streams=no_of_streams)
 
 
@@ -277,6 +512,9 @@ def __gen_data_flow(testbed_config,
                     flow_dur_sec,
                     data_pkt_size,
                     prio_dscp_map,
+                    snappi_extra_params,
+                    src_index,
+                    num_src_ports,
                     no_of_streams):
     """
     Generate the configuration for a data flow
@@ -292,10 +530,15 @@ def __gen_data_flow(testbed_config,
         flow_dur_sec (int): duration of the flow in second
         data_pkt_size (int): packet size of the flow in byte
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+        src_index (int): position of the source port in the source port list
+        num_src_ports (int): number of source (MACsec) ports
+        no_of_streams (int): number of UDP streams for the flow
 
     Returns:
         N/A
     """
+    ptype = "--snappi_macsec" in sys.argv
     tx_port_config = next((x for x in port_config_list if x.id == src_port_id), None)
     rx_port_config = next((x for x in port_config_list if x.id == dst_port_id), None)
     tx_mac = tx_port_config.mac
@@ -305,62 +548,83 @@ def __gen_data_flow(testbed_config,
         rx_mac = tx_port_config.gateway_mac
 
     flow = testbed_config.flows.flow(name='{} {} -> {}'.format(flow_name_prefix, src_port_id, dst_port_id))[-1]
-    flow.tx_rx.port.tx_name = testbed_config.ports[src_port_id].name
-    flow.tx_rx.port.rx_name = testbed_config.ports[dst_port_id].name
-    eth, ipv4, udp = flow.packet.ethernet().ipv4().udp()
 
-    eth.src.value = tx_mac
-    eth.dst.value = rx_mac
+    # Priority used by this flow: first priority for the flow from port 1, second for port 2
+    if 'Flow 1 -> 0' in flow.name:
+        prio = flow_prio[0]
+    elif 'Flow 2 -> 0' in flow.name:
+        prio = flow_prio[1]
+    else:
+        prio = flow_prio[src_index]
+
+    if ptype:
+        # MACsec devices of the tx ports are the last devices in the config; the rx port has
+        # MACSEC_DEVICES_PER_TX_PORT non-MACsec devices per tx port, one per priority.
+        tx_device = testbed_config.devices[len(testbed_config.devices) - num_src_ports + src_index]
+        rx_device = testbed_config.devices[src_index * MACSEC_DEVICES_PER_TX_PORT + prio]
+        flow.tx_rx.device.tx_names = [tx_device.ethernets[0].ipv4_addresses[0].name]
+        flow.tx_rx.device.rx_names = [rx_device.ethernets[0].ipv4_addresses[0].name]
+        flow.tx_rx.device.mode = flow.tx_rx.device.ONE_TO_ONE
+        flow.packet.ethernet().ipv4()
+        ipv4 = flow.packet[-1]
+        eth = flow.packet[-2]
+        eth.src.value = tx_mac
+        eth.dst.value = rx_mac
+        # if pfcQueueGroupSize == 8:
+        if pfc_queue_group_size() == 8:
+            eth.pfc_queue.value = prio
+        else:
+            eth.pfc_queue.value = pfcQueueValueDict[prio]
+        # MACsec flow statistics are tracked per PGID, keep the flow -> PGID mapping for verification.
+        # flow_name_prio_map is deliberately not filled here: run_traffic uses it to select the rows it
+        # polls for 'flows stopped', which is not suitable for this multi-ingress topology. The priority
+        # is derived from the PGID (macsec_priority) when parsing the statistics.
+        snappi_extra_params.flow_name_stats_identity_map[flow.name] = (
+            testbed_config.ports[src_port_id].name,
+            testbed_config.ports[dst_port_id].name,
+            macsec_pgid(src_index, prio),
+        )
+    else:
+        flow.tx_rx.port.tx_name = testbed_config.ports[src_port_id].name
+        flow.tx_rx.port.rx_name = testbed_config.ports[dst_port_id].name
+        eth, ipv4, udp = flow.packet.ethernet().ipv4().udp()
+
+        eth.src.value = tx_mac
+        eth.dst.value = rx_mac
+        # if pfcQueueGroupSize == 8:
+        if pfc_queue_group_size() == 8:
+            if 'Background Flow' in flow.name:
+                eth.pfc_queue.value = 1
+            elif 'Test Flow 1 -> 0' in flow.name:
+                eth.pfc_queue.value = flow_prio[0]
+            elif 'Test Flow 2 -> 0' in flow.name:
+                eth.pfc_queue.value = flow_prio[1]
+        else:
+            # Adding queue values based on flow_priorities for both test and background flows.
+            if 'Flow 1 -> 0' in flow.name:
+                eth.pfc_queue.value = pfcQueueValueDict[flow_prio[0]]
+            elif 'Flow 2 -> 0' in flow.name:
+                eth.pfc_queue.value = pfcQueueValueDict[flow_prio[1]]
+
+        global UDP_PORT_START
+        src_port = UDP_PORT_START
+        UDP_PORT_START += no_of_streams
+        udp.src_port.increment.start = src_port
+        udp.src_port.increment.step = 1
+        udp.src_port.increment.count = no_of_streams
+
+        ipv4.src.value = tx_port_config.ip
+        ipv4.dst.value = gen_data_flow_dest_ip(rx_port_config.ip)
+
     flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec(DATA_FLOW_DELAY_SEC))
-    if pfc_queue_group_size() == 8:
-        if 'Background Flow' in flow.name:
-            eth.pfc_queue.value = 1
-        elif 'Test Flow 1 -> 0' in flow.name:
-            eth.pfc_queue.value = flow_prio[0]
-        elif 'Test Flow 2 -> 0' in flow.name:
-            eth.pfc_queue.value = flow_prio[1]
-    else:
-        # Adding queue values based on flow_priorities for both test and background flows.
-        if 'Flow 1 -> 0' in flow.name:
-            eth.pfc_queue.value = pfcQueueValueDict[flow_prio[0]]
-        elif 'Flow 2 -> 0' in flow.name:
-            eth.pfc_queue.value = pfcQueueValueDict[flow_prio[1]]
-
-    global UDP_PORT_START
-    src_port = UDP_PORT_START
-    UDP_PORT_START += no_of_streams
-    udp.src_port.increment.start = src_port
-    udp.src_port.increment.step = 1
-    udp.src_port.increment.count = no_of_streams
-
-    ipv4.src.value = tx_port_config.ip
-    ipv4.dst.value = gen_data_flow_dest_ip(rx_port_config.ip)
     ipv4.priority.choice = ipv4.priority.DSCP
-
-    flow_prio_dscp_list = []
     # Background flows have dynamic lossy priorities.
-    if 'Background Flow 1 -> 0' in flow.name:
-        ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[0]]
-    elif 'Background Flow 2 -> 0' in flow.name:
-        ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[1]]
-    elif 'Test Flow 1 -> 0' in flow.name:
-        for fp in flow_prio:
-            for val in prio_dscp_map[fp]:
-                flow_prio_dscp_list.append(val)
-        ipv4.priority.dscp.phb.values = [
-            ipv4.priority.dscp.phb.DEFAULT,
-        ]
-        ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[0]]
-    elif 'Test Flow 2 -> 0' in flow.name:
-        for fp in flow_prio:
-            for val in prio_dscp_map[fp]:
-                flow_prio_dscp_list.append(val)
-        ipv4.priority.dscp.phb.values = [
-            ipv4.priority.dscp.phb.AF11,
-        ]
-        ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[1]]
-    else:
-        pass
+    ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
+    if ptype and len(ipv4.priority.dscp.phb.values) > 1:
+        # Single DSCP value per MACsec flow so it maps to a single PGID
+        ipv4.priority.dscp.phb.values = ipv4.priority.dscp.phb.values[:1]
+    logger.info('{} prio {} queue {} dscp {}'.format(flow.name, prio, eth.pfc_queue.value,
+                                                     ipv4.priority.dscp.phb.values))
 
     ipv4.priority.dscp.ecn.value = ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1
     flow.size.fixed = data_pkt_size
@@ -372,23 +636,50 @@ def __gen_data_flow(testbed_config,
 
 def verify_m2o_oversubscribe_lossless_result(rows,
                                              tx_port,
-                                             rx_port):
+                                             rx_port,
+                                             snappi_extra_params=None):
     """
-    Verifies the required loss % from the Traffic Items Statistics
+    Verifies the required loss % from the Traffic Items Statistics (non-MACsec) or
+    from the IxNetwork Flow Statistics (MACsec)
 
     Args:
-        rows (list): Traffic Item Statistics from snappi config
+        rows (list): Traffic Item Statistics from snappi config (non-MACsec), or
+            IxNetwork Flow Statistics rows (MACsec)
         tx_port (list): Ingress Ports
         rx_port : Egress Port
+        snappi_extra_params (SnappiTestParams obj): flow name to statistics identity / priority
+            mappings (required for MACsec)
     Returns:
         N/A
     """
-    for row in rows:
-        if 'Test Flow 1 -> 0' in row.name:
-            pytest_assert(int(row.loss) == 0, "{} must have 0% loss and having {}% loss".format(row.name, row.loss))
-        elif 'Test Flow 2 -> 0' in row.name:
-            pytest_assert(int(row.loss) == 0, "{} must have 0% loss and having {}% loss".format(row.name, row.loss))
-        elif 'Background Flow 1 -> 0' in row.name:
-            pytest_assert(int(row.loss) == 0, "{} must have 0% loss and having {}% loss".format(row.name, row.loss))
-        elif 'Background Flow 2 -> 0' in row.name:
-            pytest_assert(int(row.loss) == 0, "{} must have 0% loss and having {}% loss".format(row.name, row.loss))
+    if "--snappi_macsec" in sys.argv:
+        pytest_assert(snappi_extra_params is not None,
+                      "FAIL: snappi_extra_params is required to verify MACsec statistics")
+        identity_map = snappi_extra_params.flow_name_stats_identity_map
+        assert_macsec_flow_stat_identities_disjoint(identity_map)
+        parsed_stats = log_macsec_flow_statistics(rows, identity_map)
+
+        missing_identities = get_missing_macsec_flow_identities(parsed_stats, identity_map)
+        pytest_assert(
+            not missing_identities,
+            "FAIL: No transmitting MACsec statistics rows for flows {}".format(
+                sorted(missing_identities)))
+
+        for stat in parsed_stats:
+            pytest_assert(
+                stat.tx_frames == stat.rx_frames,
+                "FAIL: {} lost {} frames ({:.2f}% loss)".format(
+                    stat.display_name,
+                    stat.tx_frames - stat.rx_frames,
+                    stat.loss_percent,
+                ))
+    else:
+        for row in rows:
+            if 'Test Flow 1 -> 0' in row.name:
+                pytest_assert(int(row.loss) == 0, "{} must have 0% loss and having {}% loss".format(row.name, row.loss))
+            elif 'Test Flow 2 -> 0' in row.name:
+                pytest_assert(int(row.loss) == 0, "{} must have 0% loss and having {}% loss".format(row.name, row.loss))
+            elif 'Background Flow 1 -> 0' in row.name:
+                pytest_assert(int(row.loss) == 0, "{} must have 0% loss and having {}% loss".format(row.name, row.loss))
+            elif 'Background Flow 2 -> 0' in row.name:
+                pytest_assert(int(row.loss) == 0, "{} must have 0% loss and having {}% loss".format(row.name, row.loss))

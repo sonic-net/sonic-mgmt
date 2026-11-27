@@ -1,3 +1,18 @@
+# Keep the host receive backlog above the kernel default without lowering tuned values.
+- name: Read host network input backlog
+  slurp:
+    src: /proc/sys/net/core/netdev_max_backlog
+  register: netdev_max_backlog_current
+
+- name: Persist a host network input backlog of at least 2000
+  sysctl:
+    name: net.core.netdev_max_backlog
+    value: "{{ [2000, (netdev_max_backlog_current.content | b64decode | trim | int)] | max | string }}"
+    state: present
+    sysctl_set: true
+    reload: true
+    sysctl_file: /etc/sysctl.d/99-ptf-backlog.conf
+  become: yes
 
 # The PTF image built from different branches may be incompatible. The ptf_imagetag variable added here is to
 # support using different PTF images for different branches. When the ptf_imagetag variable is not specified,
