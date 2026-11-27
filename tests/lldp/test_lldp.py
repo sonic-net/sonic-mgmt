@@ -1,5 +1,6 @@
 import contextlib
 import ipaddress
+import json
 import logging
 import re
 import pytest
@@ -12,7 +13,7 @@ from tests.common.helpers.dut_utils import is_virtual_platform
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'm0', 'mx', 'm1', 'uma', 'lma', 'c0'),
+    pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'm0', 'mx', 'm1', 'uma', 'lma', 'c0', 'lt2'),
     pytest.mark.device_type('vs')
 ]
 
@@ -148,11 +149,45 @@ def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
                 )
 
 
+def _neighbor_lldp_facts(localhost, hostip, snmp_community, neighbor_interface,
+                         dut_hostname, eos_host=None):
+    """Converged EOS peers need not expose SNMP; reuse their established CLI.
+
+    Normalize CLI output to retain the same LLDP field assertions as SNMP.
+    """
+    if eos_host is None:
+        return localhost.lldp_facts(
+            host=hostip, version='v2c', community=snmp_community)['ansible_facts']
+
+    pytest_assert(re.fullmatch(r'Ethernet\d+(?:/\d+)*', neighbor_interface),
+                  "Unexpected EOS LLDP interface name")
+    output = eos_host.eos_command(
+        commands=["show lldp neighbors {} detail | json".format(neighbor_interface)],
+        verbose=False)['stdout'][0]
+    if isinstance(output, str):
+        output = json.loads(output)
+    entries = output.get('lldpNeighbors', {}).get(
+        neighbor_interface, {}).get('lldpNeighborInfo', [])
+    neighbor = next((entry for entry in entries if entry.get('systemName') == dut_hostname), None)
+    if neighbor is None:
+        return {'ansible_lldp_facts': {}}
+    port = neighbor['neighborInterfaceInfo']
+    return {'ansible_lldp_facts': {
+        neighbor_interface: {
+            'neighbor_sys_name': neighbor['systemName'],
+            'neighbor_sys_desc': neighbor['systemDescription'],
+            'neighbor_chassis_id': '0x' + neighbor['chassisId'].replace('.', '').replace(':', '').lower(),
+            'neighbor_port_id': port.get('interfaceId_v2') or port['interfaceId'].strip('"'),
+            'neighbor_port_desc': port['interfaceDescription'],
+        },
+    }}
+
+
 def _neighbor_has_lldp_entry(localhost, hostip, snmp_community, neighbor_interface,
-                             dut_hostname, dut_port_alias):
+                             dut_hostname, dut_port_alias, eos_host=None):
     """Return True if the neighbor's LLDP table has an entry for the DUT link."""
-    nei_lldp_facts = localhost.lldp_facts(
-        host=hostip, version='v2c', community=snmp_community)['ansible_facts']
+    nei_lldp_facts = _neighbor_lldp_facts(
+        localhost, hostip, snmp_community, neighbor_interface, dut_hostname, eos_host)
     return neighbor_interface in nei_lldp_facts.get('ansible_lldp_facts', {})
 
 
@@ -186,8 +221,14 @@ def check_lldp_neighbor(duthost, localhost, nbrhosts, eos, sonic,
         switch_mac = duthost.facts['router_mac']
 
     nei_meta = config_facts.get('DEVICE_NEIGHBOR_METADATA', {})
+    use_eos_cli = (request.config.getoption("--neighbor_type") == 'eos' and not is_csonic
+                   and tbinfo['topo']['properties'].get('topo_is_multi_vrf', False))
 
     for k, v in list(lldpctl_facts['lldpctl'].items()):
+        eos_host = None
+        if use_eos_cli:
+            neighbor_name = config_facts['DEVICE_NEIGHBOR'][k]['name']
+            eos_host = nbrhosts[neighbor_name]['host']
         try:
             hostip = v['chassis']['mgmt-ip']
         except Exception:
@@ -205,7 +246,7 @@ def check_lldp_neighbor(duthost, localhost, nbrhosts, eos, sonic,
             except ValueError:
                 return False
 
-        if not _is_ipv4(hostip):
+        if not _is_ipv4(hostip) and not use_eos_cli:
             nei_name = v['chassis'].get('name')
             fallback = nei_meta.get(nei_name, {}).get('mgmt_addr')
             if _is_ipv4(fallback):
@@ -222,7 +263,7 @@ def check_lldp_neighbor(duthost, localhost, nbrhosts, eos, sonic,
 
         if request.config.getoption("--neighbor_type") == 'eos' and not is_csonic:
             neighbor_interface = v['port']['ifname']
-            snmp_community = eos['snmp_rocommunity']
+            snmp_community = None if use_eos_cli else eos['snmp_rocommunity']
         else:
             # A SONiC (cSONiC/docker-sonic-vs) neighbor advertises its LLDP
             # port-id with the MAC subtype, so the DUT-side lldpctl 'port' dict
@@ -253,12 +294,12 @@ def check_lldp_neighbor(duthost, localhost, nbrhosts, eos, sonic,
                 "neighbor SNMP LLDP local-port key".format(k))
         assert wait_until(30, 5, 0, _neighbor_has_lldp_entry,
                           localhost, hostip, snmp_community, neighbor_interface,
-                          duthost.hostname, dut_port_alias), \
+                          duthost.hostname, dut_port_alias, eos_host), \
             "Neighbor {} did not learn LLDP on interface '{}' within 30s".format(
                 hostip, neighbor_interface)
 
-        nei_lldp_facts = localhost.lldp_facts(
-            host=hostip, version='v2c', community=snmp_community)['ansible_facts']
+        nei_lldp_facts = _neighbor_lldp_facts(
+            localhost, hostip, snmp_community, neighbor_interface, duthost.hostname, eos_host)
 
         # Verify the published DUT system name field is correct
         assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_name'] == duthost.hostname, (
