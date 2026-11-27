@@ -92,7 +92,8 @@ def disable_port_toggle(duthosts, tbinfo, restore_test_env):
 
 
 @pytest.fixture(autouse=True)
-def setup_env(duthosts, rand_one_dut_front_end_hostname, enum_rand_one_frontend_asic_index, ip_netns_namespace_prefix):
+def setup_env(request, duthosts, rand_one_dut_front_end_hostname,
+              enum_rand_one_frontend_asic_index, ip_netns_namespace_prefix):
     """
     Setup/teardown fixture for acl config
     Args:
@@ -101,6 +102,11 @@ def setup_env(duthosts, rand_one_dut_front_end_hostname, enum_rand_one_frontend_
         enum_rand_one_frontend_asic_index: The fixture returns a randomly selected asic index.
     """
     duthost = duthosts[rand_one_dut_front_end_hostname]
+
+    # Skip before checkpoint setup. Otherwise this fixture runs before the
+    # BMC-only test body can skip non-BMC DUTs.
+    if request.node.originalname == "test_cacl_redfish_feature_gating" and not duthost.is_bmc():
+        pytest.skip("REDFISH CACL gating test requires a BMC DUT")
 
     original_iptable_rules = get_iptable_rules(duthost, ip_netns_namespace_prefix)
     original_cacl_tables = get_cacl_tables(duthost, ip_netns_namespace_prefix)
