@@ -5,8 +5,7 @@ import random
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id              # noqa: F401
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
-    get_pfcwd_poll_interval, get_pfcwd_detect_time, get_pfcwd_restore_time, \
-    enable_packet_aging, start_pfcwd, sec_to_nanosec                             # noqa: F401
+    get_pfcwd_timers, enable_packet_aging, start_pfcwd, sec_to_nanosec           # noqa: F401
 from tests.common.snappi_tests.port import select_ports, select_tx_port           # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
@@ -73,9 +72,10 @@ def run_pfcwd_burst_storm_test(api,
     start_pfcwd(ingress_duthost, tx_port['asic_value'])
     enable_packet_aging(ingress_duthost)
 
-    poll_interval_sec = get_pfcwd_poll_interval(egress_duthost, rx_port['asic_value']) / 1000.0
-    detect_time_sec = get_pfcwd_detect_time(host_ans=egress_duthost, intf=rx_port['peer_port'], asic_value=rx_port['asic_value']) / 1000.0        # noqa: E501
-    restore_time_sec = get_pfcwd_restore_time(host_ans=egress_duthost, intf=rx_port['peer_port'], asic_value=rx_port['asic_value']) / 1000.0      # noqa: E501
+    timers = get_pfcwd_timers(egress_duthost, rx_port['peer_port'], rx_port['asic_value'])
+    poll_interval_sec = timers['poll_interval']
+    detect_time_sec = timers['detection_time']
+    restore_time_sec = timers['restoration_time']
     burst_cycle_sec = poll_interval_sec + detect_time_sec + restore_time_sec + 0.1
     data_flow_dur_sec = ceil(burst_cycle_sec * BURST_EVENTS)
     pause_flow_dur_sec = poll_interval_sec * 0.5
