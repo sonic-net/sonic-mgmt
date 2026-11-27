@@ -26,6 +26,14 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
         ]
         loganalyzer[duthost.hostname].ignore_regex.extend(loganalyzer_ignore_regex)
 
+    if loganalyzer:
+        loganalyzer_ignore_regex = [
+            ".*ERR pmon#CmisManagerTask.*: .*no suitable app for the port appl .*host_lane_count .*host_speed.*",
+        ]
+        for duthost in duthosts.frontend_nodes:
+            if duthost.facts.get("asic_type") == "cisco-8000":
+                loganalyzer[duthost.hostname].ignore_regex.extend(loganalyzer_ignore_regex)
+
     yield
 
 
