@@ -172,10 +172,11 @@ ERSPAN_DEFAULT_DIRECTION = "rx"
 
 
 def remove_mirror_session(duthost, session_name):
-    '''Remove bindings owned by this test session before deleting the export.'''
+    '''Wait for this session's source bindings to detach in ASIC_DB before deleting the export.'''
     for (port, direction), entry in sample_bindings(duthost).items():
         if entry['mirror_session'] == session_name:
             duthost.command('config mirror_session sample remove {} {} {}'.format(session_name, port, direction))
+            wait_for_sample_binding(duthost, port, direction, enabled=False)
     if config_db_key_exists(duthost, 'MIRROR_SESSION|' + session_name):
         duthost.command('config mirror_session remove {}'.format(session_name))
 

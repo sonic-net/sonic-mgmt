@@ -48,7 +48,7 @@ The test targets a running SONiC with a fully functioning configuration. It veri
 - Advertises sampling and truncation capabilities via STATE_DB.
 - Accepts valid sample_rate / truncate_size values via CLI and writes them to CONFIG_DB.
 - Rejects out-of-range and invalid values.
-- Requires `sample_rate >= 2` on each binding; omitting `truncate_size` disables truncation. Zero is invalid for both fields.
+- Requires `sample_rate` (2–4294967295) on every sampled binding. `truncate_size` is optional (64–9216 bytes); omitting it leaves sampled packets untruncated.
 - Mirrors approximately 1 of every N packets when sampling is configured, in the rx, tx, and both directions.
 - Truncates each mirrored packet to the configured byte budget, including combined with sampling.
 
@@ -102,7 +102,7 @@ On setup, sessions are created via:
 ```
 sudo config mirror_session erspan add <name> <src_ip> <dst_ip> <dscp> <ttl> [gre_type] [queue]
 sudo config mirror_session sample add <name> <src_port> <rx|tx|both> \
-     --sample_rate <N> [--truncate_size <bytes>]
+     --sample_rate <N> [--truncate_size <bytes>]  # N is required, even when truncation is requested.
 ```
 
 On teardown:
@@ -155,9 +155,9 @@ Inspect `MIRROR_SESSION|<name>` for export attributes and `PORT_MIRROR_SAMPLE|<p
 
 | Test case | Objective | Parametrization | Pass criteria |
 |-----------|-----------|-----------------|---------------|
-| `test_create_erspan_session_config_fields` | Verify the binding owns the sampling policy. | Rate 50000 with/without truncation 128; `rx`/`tx`/`both`. | Each binding references the export and stores the expected policy and `admin_state=up`. `both` creates `rx` and `tx` keys. Source, direction and policy fields are absent from the export. |
+| `test_create_erspan_session_config_fields` | Verify the binding owns the sampling policy. | `--sample_rate 50000` alone or with `--truncate_size 128`; each for `rx`/`tx`/`both`. | Each binding references the export and stores `sample_rate=50000` and `admin_state=up`. `truncate_size` is absent in the first case and `128` in the second. `both` creates separate `rx` and `tx` keys. The export has no source, direction or policy fields. |
 | `test_remove_erspan_session_with_sampling` | Remove the binding and export separately. | Direction `rx`/`tx`/`both`; `--sample_rate 256`. | Binding keys disappear after `sample remove`; the export remains until `mirror_session remove`. |
-| `test_invalid_sample_rate_rejected` | Reject a missing or invalid rate even when truncation is requested. | Missing, `0`, `1`; `--truncate_size 128`. | CLI exits non-zero with a rate error; no binding is written. |
+| `test_invalid_sample_rate_rejected` | Verify that a valid truncation size cannot substitute for a valid sample rate. | Always pass `--truncate_size 128`; omit `--sample_rate` or set it to `0` or `1`. | All three commands exit non-zero, report `--sample_rate` in stderr and create no `PORT_MIRROR_SAMPLE` entry. |
 | `test_invalid_truncate_size_rejected` | Out-of-range `truncate_size` is rejected at the CLI layer. | `0`, `32`, `63`, `9217`; `--sample_rate 2`. | CLI exits non-zero with a size error; no binding is written. |
 | `test_erspan_sampling_config_high_rate` | A high sample rate (`1:50000`) is accepted and stored. Config-only - dataplane verification at this rate would need millions of packets. | `1:50000` | CLI exits 0; CONFIG_DB `sample_rate` field equals `50000`. |
 

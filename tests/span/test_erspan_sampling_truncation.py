@@ -200,6 +200,7 @@ def test_remove_erspan_session_with_sampling(
     assert sample_bindings(duthost) == _expected_bindings(session_name, erspan_config_source, sampling_direction, 256)
     duthost.command('config mirror_session sample remove {} {} {}'.format(
         session_name, erspan_config_source, sampling_direction))
+    wait_for_sample_binding(duthost, erspan_config_source, sampling_direction, enabled=False)
     assert not sample_bindings(duthost)
     assert config_db_key_exists(duthost, 'MIRROR_SESSION|' + session_name)
     duthost.command('config mirror_session remove {}'.format(session_name))
@@ -557,7 +558,6 @@ def test_erspan_session_remove_stops_mirroring(
     src_mac = ptfadapter.dataplane.get_mac(*inject_port)
 
     remove_mirror_session(duthost, erspan_session['session_name'])
-    wait_for_sample_binding(duthost, erspan_session['source_port'], 'rx', enabled=False)
 
     probe = erspan_session['probes'][src_port]
     inner_pkt = testutils.simple_tcp_packet(

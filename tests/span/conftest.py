@@ -11,6 +11,9 @@ from contextlib import ExitStack
 from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
 from tests.common.utilities import skip_release, wait_until
 from tests.common.helpers.assertions import pytest_assert as _pytest_assert
+from tests.common.helpers.dut_utils import restart_service_with_startlimit_guard
+from tests.common.platform.interface_utils import get_dut_interfaces_status, wait_ports_oper_status
+from tests.common.platform.processes_utils import get_docker_started_at, wait_critical_processes
 from erspan_helpers import (   # noqa F401
     ERSPAN_SESSION_NAME,
     ERSPAN_SRC_IP,
@@ -414,6 +417,19 @@ def sampling_direction(request, erspan_capabilities):
     return direction
 
 
+def _restart_sampling_runtime(duthost, up_ports, bgp_neighbors):
+    '''The sampling mode is owned by orchagent for the lifetime of the process.'''
+    before = get_docker_started_at(duthost, 'swss')
+    restart_service_with_startlimit_guard(duthost, 'swss')
+    wait_critical_processes(duthost)
+    after = get_docker_started_at(duthost, 'swss')
+    _pytest_assert(before and after and after != before, f'swss restart not confirmed: {before!r} -> {after!r}')
+    pending = wait_ports_oper_status(duthost, up_ports, 'up', 300, poll_interval_sec=5)
+    _pytest_assert(not pending, 'Ports did not recover after swss restart: {}'.format(pending))
+    _pytest_assert(wait_until(300, 10, 0, duthost.check_bgp_session_state_all_asics, bgp_neighbors),
+                   'Established BGP neighbors did not recover after swss restart')
+
+
 @pytest.fixture(scope='module')
 def sampled_mirror_cli(rand_selected_dut):
     if rand_selected_dut.is_multi_asic:
@@ -427,6 +443,15 @@ def sampled_mirror_cli(rand_selected_dut):
         pytest.skip('Sampled bindings require SFLOW|global to be absent, even when disabled')
     if sample_bindings(rand_selected_dut):
         pytest.skip('Preserving pre-existing sampled mirror bindings')
+
+    up_ports = [port for port, status in get_dut_interfaces_status(rand_selected_dut).items() if status['oper'] == 'up']
+    bgp_neighbors = rand_selected_dut.get_bgp_neighbors_per_asic(state='established')
+    _restart_sampling_runtime(rand_selected_dut, up_ports, bgp_neighbors)
+    yield
+    # Per-test cleanup has run. Only these two CONFIG_DB tables select the mode on restart.
+    _pytest_assert(not sample_bindings(rand_selected_dut), 'Sampled mirror bindings remain at module teardown')
+    _pytest_assert(not config_db_key_exists(rand_selected_dut, 'SFLOW|global'), 'Unexpected SFLOW|global at teardown')
+    _restart_sampling_runtime(rand_selected_dut, up_ports, bgp_neighbors)
 
 
 @pytest.fixture
@@ -470,7 +495,7 @@ def erspan_config_source(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module")
-def erspan_ports(duthosts, rand_one_dut_hostname, tbinfo):
+def erspan_ports(duthosts, rand_one_dut_hostname, tbinfo, sampled_mirror_cli):
     '''Discover existing routed paths using the common active-interface API.'''
     duthost = duthosts[rand_one_dut_hostname]
     # Session CLI/STATE_DB operations below are single-ASIC scoped.
