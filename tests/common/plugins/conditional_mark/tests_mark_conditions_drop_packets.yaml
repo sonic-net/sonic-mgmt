@@ -9,7 +9,7 @@ drop_packets/test_configurable_drop_counter_monitor.py::test_drop_count_threshol
     conditions_logical_operator: or
     conditions:
       - "'Mellanox' in hwsku"
-      - asic_type=='cisco-8000'
+      - asic_type in ('cisco', 'cisco-8000')
       - "topo_type in ['m0', 'mx']"
       - "asic_type in ['vs']"
       - "'-v6-' in topo_name"
@@ -65,7 +65,7 @@ drop_packets/test_configurable_drop_counters.py::test_sip_link_local:
     reason: "M0/Mx topos doesn't support drop packets / Cisco 8000 platform and some MLX platforms does not drop SIP link local packets / KVM do not support drop reason in testcase / SIP_LINK_LOCAL drop reason is for IPv4 only."
     conditions_logical_operator: or
     conditions:
-      - asic_type=="cisco-8000"
+      - asic_type in ("cisco", "cisco-8000")
       - "'Mellanox' in hwsku"
       - "topo_type in ['m0', 'mx']"
       - "asic_type in ['vs']"
@@ -95,7 +95,7 @@ drop_packets/test_drop_counters.py::test_dst_ip_absent:
     reason: "Test case not supported on Broadcom DNX platform and Cisco 8000 platform and M0/Mx topos"
     conditions_logical_operator: or
     conditions:
-      - "asic_subtype in ['broadcom-dnx'] or asic_type in ['cisco-8000']"
+      - "asic_subtype in ['broadcom-dnx'] or asic_type in ['cisco', 'cisco-8000']"
       - "topo_type in ['m0', 'mx']"
 
 drop_packets/test_drop_counters.py::test_dst_ip_absent[vlan_members]:
@@ -111,7 +111,7 @@ drop_packets/test_drop_counters.py::test_dst_ip_is_loopback_addr:
     reason: "Cisco 8000 platform does not drop DIP loopback packets. Test also not supported on Broadcom DNX and M0/Mx topos"
     conditions_logical_operator: or
     conditions:
-      - "(asic_type=='cisco-8000') or (asic_subtype in ['broadcom-dnx'])"
+      - "(asic_type in ('cisco', 'cisco-8000')) or (asic_subtype in ['broadcom-dnx'])"
       - "topo_type in ['m0', 'mx']"
 
 drop_packets/test_drop_counters.py::test_dst_ip_is_loopback_addr[vlan_members]:
@@ -127,7 +127,7 @@ drop_packets/test_drop_counters.py::test_dst_ip_link_local:
     reason: "M0/Mx topos doesn't support drop packets / Cisco 8000 broadcom DNX platforms and some MLX platforms do not drop DIP linklocal packets"
     conditions_logical_operator: or
     conditions:
-      - "(asic_type=='cisco-8000') or (asic_subtype in ['broadcom-dnx'])"
+      - "(asic_type in ('cisco', 'cisco-8000')) or (asic_subtype in ['broadcom-dnx'])"
       - "'Mellanox' in hwsku"
       - "topo_type in ['m0', 'mx']"
 
@@ -144,7 +144,7 @@ drop_packets/test_drop_counters.py::test_ip_is_zero_addr:
     conditions_logical_operator: or
     reason: "M0/Mx topos doesn't support drop packets / Cisco 8000 platform does not drop packets with 0.0.0.0 source or destination IP address"
     conditions:
-      - "asic_type=='cisco-8000'"
+      - "asic_type in ('cisco', 'cisco-8000')"
       - "topo_type in ['m0', 'mx']"
 
 drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv4-dst]:
@@ -155,7 +155,7 @@ drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv4-dst]:
     strict: True
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['broadcom', 'cisco-8000'] and topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
+      - "asic_type in ['broadcom', 'cisco', 'cisco-8000'] and topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
       - topo_type not in ['t0']
 
 drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv4-src]:
@@ -165,7 +165,7 @@ drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv4-src]:
     - "Test case requires topology type t0 for vlan testing"
     strict: True
     conditions:
-      - "asic_type in ['broadcom', 'cisco-8000'] and topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
+      - "asic_type in ['broadcom', 'cisco', 'cisco-8000'] and topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
       - topo_type not in ['t0']
 
 drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv6-dst]:
@@ -175,7 +175,7 @@ drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv6-dst]:
     - "Test case requires topology type t0 for vlan testing"
     strict: True
     conditions:
-      - "asic_type in ['broadcom', 'cisco-8000'] and topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
+      - "asic_type in ['broadcom', 'cisco', 'cisco-8000'] and topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
       - topo_type not in ['t0']
 
 drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv6-src]:
@@ -183,7 +183,7 @@ drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv6-src]:
     reason: "Image issue on Broadcom dualtor testbeds. Cisco 8000 platform does not drop packets with 0.0.0.0 source or destination IP address"
     strict: True
     conditions:
-      - "asic_type in ['broadcom', 'cisco-8000']"
+      - "asic_type in ['broadcom', 'cisco', 'cisco-8000']"
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
 
 drop_packets/test_drop_counters.py::test_ip_pkt_with_expired_ttl:
@@ -230,7 +230,7 @@ drop_packets/test_drop_counters.py::test_src_ip_is_class_e:
     reason: "M0/Mx topos doesn't support drop packets / Cisco 8000 platform does not drop packets with source IP address in class E"
     conditions_logical_operator: or
     conditions:
-      - "asic_type=='cisco-8000'"
+      - "asic_type in ('cisco', 'cisco-8000')"
       - "topo_type in ['m0', 'mx']"
 
 drop_packets/test_drop_counters.py::test_src_ip_is_loopback_addr:
@@ -270,6 +270,6 @@ drop_packets/test_drop_counters.py::test_src_ip_link_local:
     reason: "M0/Mx topos doesn't support drop packets / Cisco 8000 broadcom DNX platforms and some MLX platforms do not drop SIP linklocal packets"
     conditions_logical_operator: or
     conditions:
-      - "(asic_type=='cisco-8000') or (asic_subtype in ['broadcom-dnx'])"
+      - "(asic_type in ('cisco', 'cisco-8000')) or (asic_subtype in ['broadcom-dnx'])"
       - "'Mellanox' in hwsku"
       - "topo_type in ['m0', 'mx']"

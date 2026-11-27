@@ -690,7 +690,7 @@ def skip_sonic_leaf_fanout(fanouthosts):
             asic_type = fanouthost.facts['asic_type']
             platform = fanouthost.facts["platform"]
             if not (
-                asic_type in ["broadcom", "mellanox", "cisco-8000", "marvell", "marvell-teralynx"]
+                asic_type in ["broadcom", "mellanox", "cisco", "cisco-8000", "marvell", "marvell-teralynx"]
                 or platform in ["armhf-nokia_ixs7215_52x-r0"]
             ):
                 pytest.skip("Not supported on SONiC leaf-fanout platform")

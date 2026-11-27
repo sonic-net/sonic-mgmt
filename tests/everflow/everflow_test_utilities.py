@@ -1685,7 +1685,7 @@ class BaseEverflowTest(object):
                         bytes(padded)[24:]
                 else:
                     padded = binascii.unhexlify("0" * 44) + bytes(padded)
-        if asic_type in ["barefoot", "cisco-8000", "marvell-teralynx"] \
+        if asic_type in ["barefoot", "cisco", "cisco-8000", "marvell-teralynx"] \
            or platform_asic == "broadcom-dnx" \
            or hwsku in ["rd98DX35xx", "rd98DX35xx_cn9131"] \
            or hwsku.startswith("Nokia-7215-A1"):
@@ -1724,7 +1724,7 @@ class BaseEverflowTest(object):
         expected_packet.set_do_not_care_packet(packet.IP, "chksum")
         if duthost.facts["asic_type"] in ["marvell-prestera", "marvell"]:
             expected_packet.set_do_not_care_packet(packet.IP, "id")
-        if asic_type in ["marvell", "cisco-8000", "marvell-teralynx", "marvell-prestera"] or \
+        if asic_type in ["marvell", "cisco", "cisco-8000", "marvell-teralynx", "marvell-prestera"] or \
            platform_asic == "broadcom-dnx":
             expected_packet.set_do_not_care_packet(packet.GRE, "seqnum_present")
 
@@ -1761,7 +1761,7 @@ class BaseEverflowTest(object):
         expected_packet.set_do_not_care_packet(packet.Ether, "dst")
         expected_packet.set_do_not_care_packet(packet.IPv6, "plen")
         expected_packet.set_do_not_care_packet(packet.IPv6, "fl")
-        if (asic_type in ["marvell", "cisco-8000", "marvell-teralynx", "marvell-prestera"] or
+        if (asic_type in ["marvell", "cisco", "cisco-8000", "marvell-teralynx", "marvell-prestera"] or
                 platform_asic == "broadcom-dnx"):
             expected_packet.set_do_not_care_packet(packet.GRE, "seqnum_present")
         # The fanout switch may modify this value en route to the PTF so we should ignore it, even

@@ -46,6 +46,8 @@ def default_live_addon_config_path(asic_type):
     name = (asic_type or "").strip()
     if not name:
         raise ValueError("asic_type is empty")
+    if name == "cisco":
+        name = "cisco-8000"
     return os.path.abspath(os.path.join(MODULE_DIR, "files", "{}_live_addon_docker.json".format(name)))
 
 
