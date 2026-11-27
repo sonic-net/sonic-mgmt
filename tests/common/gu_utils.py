@@ -434,7 +434,7 @@ def get_asic_name(duthost):
                 return asic_name
         return "unknown"
 
-    if asic_type == 'cisco-8000':
+    if asic_type in ('cisco', 'cisco-8000'):
         asic = "cisco-8000"
     elif asic_type in ('mellanox', 'broadcom'):
         asic = _get_asic_name(asic_type)
@@ -442,7 +442,7 @@ def get_asic_name(duthost):
         asic = "marvell-teralynx"
     elif asic_type == 'vs':
         # We need to check both mellanox and broadcom asics for vs platform
-        dummy_asic_list = ['broadcom', 'mellanox', 'cisco-8000']
+        dummy_asic_list = ['broadcom', 'mellanox', 'cisco', 'cisco-8000']
         for dummy_asic in dummy_asic_list:
             tmp_asic = _get_asic_name(dummy_asic)
             if tmp_asic != "unknown":

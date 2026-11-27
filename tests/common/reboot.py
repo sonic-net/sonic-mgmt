@@ -520,7 +520,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
             pytest_assert(wait_until(wait + 300, 20, 0, check_interface_status_of_up_ports, duthost),
                           "{}: Not all ports that are admin up on are operationally up".format(hostname))
 
-        if duthost.facts['asic_type'] == "cisco-8000":
+        if duthost.facts['asic_type'] in ("cisco", "cisco-8000"):
             # Wait dshell initialization finish
             pytest_assert(wait_until(wait + 300, 20, 0, check_dshell_ready, duthost),
                           "dshell not ready")
@@ -616,7 +616,7 @@ def get_reboot_cause(dut):
             cause = match.groups()[0]
 
     for type, ctrl in list(reboot_ctrl_dict.items()):
-        if dut.facts['asic_type'] == "cisco-8000" and dut.get_facts().get("modular_chassis") \
+        if dut.facts['asic_type'] in ("cisco", "cisco-8000") and dut.get_facts().get("modular_chassis") \
            and type == REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS:
             # Skip the check for SUP heartbeat loss on T2 chassis
             if re.search(r"Heartbeat|headless|Power Loss", cause):

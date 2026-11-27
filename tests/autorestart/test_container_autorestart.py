@@ -695,7 +695,7 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
         reload_and_restore_autorestart(duthost)
 
         if (duthost.get_facts().get("modular_chassis") and
-                duthost.facts["asic_type"] == "cisco-8000" and
+                duthost.facts["asic_type"] in ("cisco", "cisco-8000") and
                 "teamd" in container_name and
                 not bgp_check):
             # When teamd container is auto-restarted on Cisco 8800 T2 chassis, BGP sessions may fail to establish

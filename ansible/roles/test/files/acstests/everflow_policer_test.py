@@ -291,7 +291,7 @@ class EverflowPolicerTest(BaseTest):
                                                 inner_frame=bytes(payload),
                                                 ip_id=0,
                                                 sgt_other=0x4)
-        elif self.asic_type in ["cisco-8000"]:
+        elif self.asic_type in ["cisco", "cisco-8000"]:
             exp_pkt = testutils.ipv4_erspan_pkt(eth_src=self.router_mac,
                                                 ip_src=self.session_src_ip,
                                                 ip_dst=self.session_dst_ip,
@@ -315,7 +315,7 @@ class EverflowPolicerTest(BaseTest):
         if self.asic_type in ["marvell-prestera", "marvell"]:
             masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "id")
             masked_exp_pkt.set_do_not_care_scapy(scapy.GRE, "seqnum_present")
-        if self.asic_type in ["cisco-8000"]:
+        if self.asic_type in ["cisco", "cisco-8000"]:
             erspan_bit_offset = 42
             masked_exp_pkt.set_do_not_care(erspan_bit_offset * 8 + 19, 2)  # Mask the encap value
             masked_exp_pkt.set_do_not_care(erspan_bit_offset * 8 + 22, 10)  # Mask the session_id
@@ -342,7 +342,7 @@ class EverflowPolicerTest(BaseTest):
                 pkt = scapy.Ether(bytes(pkt)[8:])
             elif self.asic_type == "barefoot":
                 pkt = scapy.Ether(pkt).load
-            elif self.asic_type == "cisco-8000":
+            elif self.asic_type in ("cisco", "cisco-8000"):
                 pkt = scapy.Ether(pkt)[scapy.GRE].payload
                 pkt = bytes(pkt)
                 pkt = scapy.Ether(pkt[8:])  # Mask the ERSPAN II header

@@ -266,7 +266,7 @@ class TestChassisFans(PlatformApiTestBase):
                 "`chassis.fans` in platform.json (platform {})".format(duthost.facts.get("platform"))
             )
 
-        if duthost.facts["asic_type"] in ["cisco-8000"]:
+        if duthost.facts["asic_type"] in ["cisco", "cisco-8000"]:
             target_speed = random.randint(40, 60)
         elif use_discrete:
             target_speed = pick_initial_discrete_target_speed(
