@@ -1,0 +1,113 @@
+# Draft normal Ansible VM topology for a virtual EVPN-MH dual-ToR testbed.
+#
+# This file follows the existing topo_*.yml schema consumed by the normal
+# VM-topology playbooks. It is a bring-up scaffold; VM images, management
+# addresses, and final EVPN-MH configuration come from the testbed inventory
+# and SONiC configuration workflow.
+
+topology:
+  dut_num: 2
+
+  # The first pair is the dual-homed endpoint attachment. The second pair
+  # is retained for a single-homed mobility endpoint.
+  host_interfaces:
+    - 0.0,1.0
+    - 0.1,1.1
+    - 0.2,1.2
+    - 0.3,1.3
+    - 0.4,1.4
+    - 0.5,1.5
+    - 0.6,1.6
+    - 0.7,1.7
+
+  host_interfaces_active_active:
+    - 0.0,1.0
+
+  VMs:
+    T1UNDERLAY01:
+      vlans:
+        - "0.8@8"
+        - "1.8@9"
+      vm_offset: 0
+
+    REMOTEVTEP01:
+      vlans:
+        - "0.10@10"
+        - "1.10@11"
+      vm_offset: 1
+
+  DUT:
+    loopback:
+      ipv4:
+        - 10.1.0.1/32
+        - 10.1.0.2/32
+      ipv6:
+        - 2064:100::1/128
+        - 2064:100::2/128
+
+    vlan_configs:
+      default_vlan_config: evpn_mh
+      evpn_mh:
+        Vlan10:
+          id: 10
+          intfs: [0, 1, 2]
+          prefix: 192.168.10.1/24
+          prefix_v6: fc02:10::1/64
+          tag: 10
+        Vlan20:
+          id: 20
+          intfs: [3]
+          prefix: 192.168.20.1/24
+          prefix_v6: fc02:20::1/64
+          tag: 20
+
+configuration_properties:
+  common:
+    dut_asn: 65100
+    dut_type: ToRRouter
+    swrole: leaf
+    nhipv4: 10.10.246.254
+    nhipv6: FC0A::FF
+
+configuration:
+  T1UNDERLAY01:
+    properties:
+      - common
+    bgp:
+      asn: 65001
+      peers:
+        65100:
+          - 10.0.0.1
+          - 10.0.0.2
+    interfaces:
+      Loopback0:
+        ipv4: 10.1.1.1/32
+        ipv6: 2064:100:1::1/128
+      Ethernet1:
+        dut_index: 0
+      Ethernet2:
+        dut_index: 1
+    bp_interface:
+      ipv4: 10.10.246.11/24
+      ipv6: FC0A::11/64
+
+  REMOTEVTEP01:
+    properties:
+      - common
+    bgp:
+      asn: 64101
+      peers:
+        65100:
+          - 10.0.0.3
+          - 10.0.0.4
+    interfaces:
+      Loopback0:
+        ipv4: 10.1.2.1/32
+        ipv6: 2064:100:2::1/128
+      Ethernet1:
+        dut_index: 0
+      Ethernet2:
+        dut_index: 1
+    bp_interface:
+      ipv4: 10.10.246.12/24
+      ipv6: FC0A::12/64
