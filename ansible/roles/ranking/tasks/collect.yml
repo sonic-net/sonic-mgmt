@@ -1,0 +1,165 @@
+- name: Bind the ranking case collection locations
+  ansible.builtin.set_fact:
+    ranking_collect_run_dir: '{{ ranking_runtime.ptf_root }}/{{ ranking_environment_id }}/runs/{{ ranking_run_id }}'
+    ranking_collect_names: [result.json, run.log, outcome.json]
+- name: Check for already collected case artifacts
+  ansible.builtin.stat:
+    path: '{{ ranking_artifacts_dir }}/{{ ranking_environment_id }}/{{ ranking_run_id }}/{{ item }}'
+  delegate_to: localhost
+  register: ranking_collect_existing
+  loop: '{{ ranking_collect_names }}'
+- name: Refuse to overwrite collected case artifacts
+  ansible.builtin.fail:
+    msg: Refuse to overwrite collected case artifacts
+  loop: '{{ ranking_collect_existing.results }}'
+  when: item.stat.exists | default(false)
+- name: Build the collecting run state request
+  ansible.builtin.set_fact:
+    ranking_collecting_request:
+      action: write
+      handle: '{{ ranking_ptf_handle }}'
+      name: run-state.json
+      value:
+        schema_version: 1
+        environment_id: '{{ ranking_environment_id }}'
+        run_id: '{{ ranking_run_id }}'
+        phase: collecting
+        process_exited: true
+        collected: false
+        outcome_path: '{{ ranking_collect_run_dir }}/outcome.json'
+  when: ranking_case_run_initiated | default(false)
+- name: Stage the collecting run state request
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/write-run-state-collecting.json'
+    content: '{{ ranking_collecting_request | to_json }}'
+    mode: '0600'
+  delegate_to: '{{ ranking_ptf_host }}'
+  when: ranking_case_run_initiated | default(false)
+- name: Record the collecting ranking run state
+  ansible.builtin.command:
+    argv: [python3, -m, ranking.remote_agent, --request, '{{ ranking_request_root }}/write-run-state-collecting.json']
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_collecting_write
+  failed_when: ranking_collecting_write.rc != 0
+  changed_when: true
+  when: ranking_case_run_initiated | default(false)
+- name: Copy the case artifacts out of the PTF container
+  ansible.builtin.command:
+    argv:
+      - docker
+      - cp
+      - '{{ ranking_runtime.ptf_container }}:{{ ranking_collect_run_dir }}/{{ item }}'
+      - '{{ ranking_collect_run_dir }}/{{ item }}'
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_collect_cp
+  failed_when: false
+  changed_when: true
+  loop: '{{ ranking_collect_names }}'
+- name: Fetch the case artifacts from the PTF host
+  ansible.builtin.fetch:
+    src: '{{ ranking_collect_run_dir }}/{{ item }}'
+    dest: '{{ ranking_artifacts_dir }}/{{ ranking_environment_id }}/{{ ranking_run_id }}/{{ item }}'
+    flat: true
+    fail_on_missing: false
+  delegate_to: '{{ ranking_ptf_host }}'
+  failed_when: false
+  register: ranking_collect_fetch
+  loop: '{{ ranking_collect_names }}'
+- name: Record the case artifact collection flags
+  ansible.builtin.set_fact:
+    ranking_collect_flags: '{{ ranking_collect_flags | default({}) | combine({item.item: item.rc == 0}) }}'
+  loop: '{{ ranking_collect_cp.results }}'
+- name: Record the fetched case artifact flags
+  ansible.builtin.set_fact:
+    ranking_fetch_flags: '{{ ranking_fetch_flags | default({}) | combine({item.item: item.dest is defined}) }}'
+  loop: '{{ ranking_collect_fetch.results }}'
+- name: Combine the copied and fetched case artifact flags
+  ansible.builtin.set_fact:
+    ranking_collect_flags: '{{ ranking_collect_flags | combine({item: ranking_collect_flags[item] and ranking_fetch_flags[item]}) }}'
+  loop: '{{ ranking_collect_names }}'
+- name: Record each failed case artifact copy
+  ansible.builtin.set_fact:
+    ranking_collect_errors: '{{ ranking_collect_errors | default({}) | combine({item.item: item.stderr}) }}'
+  when: item.rc != 0
+  loop: '{{ ranking_collect_cp.results }}'
+- name: Assemble the ranking role outcome record
+  ansible.builtin.set_fact:
+    ranking_role_outcome:
+      schema_version: 1
+      environment_id: '{{ ranking_environment_id }}'
+      run_id: '{{ ranking_run_id }}'
+      case: '{{ ranking_case }}'
+      collected: '{{ ranking_collect_flags }}'
+      collection_errors: '{{ ranking_collect_errors | default({}) }}'
+      case_rc: '{{ ranking_case_run.rc | default(-1) }}'
+      case_error: '{{ ranking_case_run.stderr | default("") }}'
+- name: Stage the ranking role outcome record
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/role-outcome.json'
+    content: '{{ ranking_role_outcome | to_json }}'
+    mode: '0600'
+- name: Fetch the ranking role outcome record
+  ansible.builtin.fetch:
+    src: '{{ ranking_request_root }}/role-outcome.json'
+    dest: '{{ ranking_artifacts_dir }}/role-outcome.json'
+    flat: true
+- name: Build the failed run state request
+  ansible.builtin.set_fact:
+    ranking_failed_request:
+      action: write
+      handle: '{{ ranking_ptf_handle }}'
+      name: run-state.json
+      value:
+        schema_version: 1
+        environment_id: '{{ ranking_environment_id }}'
+        run_id: '{{ ranking_run_id }}'
+        phase: failed
+        process_exited: true
+        collected: '{{ ranking_collect_flags["outcome.json"] | default(false) }}'
+        outcome_path: '{{ ranking_collect_run_dir }}/outcome.json'
+  when: ranking_case_run_initiated | default(false) and ranking_case_run.rc | default(-1) != 0
+- name: Stage the failed run state request
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/write-run-state-failed.json'
+    content: '{{ ranking_failed_request | to_json }}'
+    mode: '0600'
+  delegate_to: '{{ ranking_ptf_host }}'
+  when: ranking_case_run_initiated | default(false) and ranking_case_run.rc | default(-1) != 0
+- name: Record the failed ranking run state
+  ansible.builtin.command:
+    argv: [python3, -m, ranking.remote_agent, --request, '{{ ranking_request_root }}/write-run-state-failed.json']
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_failed_write
+  failed_when: ranking_failed_write.rc != 0
+  changed_when: true
+  when: ranking_case_run_initiated | default(false) and ranking_case_run.rc | default(-1) != 0
+- name: Build the collected run state request
+  ansible.builtin.set_fact:
+    ranking_collected_request:
+      action: write
+      handle: '{{ ranking_ptf_handle }}'
+      name: run-state.json
+      value:
+        schema_version: 1
+        environment_id: '{{ ranking_environment_id }}'
+        run_id: '{{ ranking_run_id }}'
+        phase: collected
+        process_exited: true
+        collected: '{{ ranking_collect_flags["outcome.json"] | default(false) }}'
+        outcome_path: '{{ ranking_collect_run_dir }}/outcome.json'
+  when: ranking_case_run_initiated | default(false) and ranking_case_run.rc | default(-1) == 0
+- name: Stage the collected run state request
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/write-run-state-collected.json'
+    content: '{{ ranking_collected_request | to_json }}'
+    mode: '0600'
+  delegate_to: '{{ ranking_ptf_host }}'
+  when: ranking_case_run_initiated | default(false) and ranking_case_run.rc | default(-1) == 0
+- name: Record the collected ranking run state
+  ansible.builtin.command:
+    argv: [python3, -m, ranking.remote_agent, --request, '{{ ranking_request_root }}/write-run-state-collected.json']
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_collected_write
+  failed_when: ranking_collected_write.rc != 0
+  changed_when: true
+  when: ranking_case_run_initiated | default(false) and ranking_case_run.rc | default(-1) == 0

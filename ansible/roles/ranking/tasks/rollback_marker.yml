@@ -1,0 +1,31 @@
+- name: Build the rollback marker request
+  ansible.builtin.set_fact:
+    ranking_rollback_marker_request:
+      action: mark_attempt
+      handle: '{{ ranking_dut_handle }}'
+      marker: '{{ item }}'
+- name: Stage the rollback marker request
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/mark-rollback-{{ item }}.json'
+    content: '{{ ranking_rollback_marker_request | to_json }}'
+    mode: '0600'
+- name: Reaffirm the rollback marker
+  ansible.builtin.command:
+    argv: [python3, -m, ranking.remote_agent, --request, '{{ ranking_request_root }}/mark-rollback-{{ item }}.json']
+  register: ranking_rollback_mark
+  failed_when: ranking_rollback_mark.rc != 0
+  changed_when: true
+- name: Reverse the stopped service
+  ansible.builtin.command:
+    argv: [systemctl, start, '{{ item | replace("stop:", "") }}']
+  register: ranking_rollback_service_start
+  failed_when: ranking_rollback_service_start.rc != 0
+  changed_when: true
+  when: item is match('stop:')
+- name: Reverse the started saiserver container
+  ansible.builtin.command:
+    argv: [docker, stop, '{{ ranking_runtime.saiserver_container }}']
+  register: ranking_rollback_saiserver_stop
+  failed_when: ranking_rollback_saiserver_stop.rc != 0
+  changed_when: true
+  when: item is match('start:saiserver')

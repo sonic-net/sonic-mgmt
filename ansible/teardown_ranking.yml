@@ -1,0 +1,5 @@
+- hosts: '{{ ranking_dut_host }}'
+  gather_facts: false
+  become: true
+  roles:
+    - ranking

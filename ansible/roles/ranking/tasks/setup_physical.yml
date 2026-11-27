@@ -1,0 +1,6 @@
+- name: Check the physical fanout port status
+  ansible.builtin.command:
+    argv: [show, interfaces, status]
+  register: ranking_physical_ports
+  failed_when: ranking_physical_ports.rc != 0
+  changed_when: false
