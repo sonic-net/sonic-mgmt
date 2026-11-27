@@ -9,6 +9,7 @@ from tests.common.utilities import wait_until, check_skip_release
 logger = logging.getLogger(__name__)
 
 skip_versions = ['201811', '201911', '202012', '202106', '202111']
+skip_platforms = ["x86_64-8122_64eh_o-r0", "x86_64-8122_64ehf_o-r0"]
 CAPABILITY_WAIT_TIME_IN_SEC = 180
 CAPABILITY_CHECK_INTERVAL_IN_SEC = 5
 
@@ -37,7 +38,7 @@ class RouteFlowCounterTestContext:
     def __enter__(self):
         """Enable route flow counter and configure route pattern
         """
-        if not self.is_route_flow_counter_supported:
+        if self.skip_route_flow_counter_feature():
             return
         with allure.step('Enable route flow counter and config route flow pattern: {}'
                          .format(','.join(self.route_pattern_list))):
@@ -56,7 +57,7 @@ class RouteFlowCounterTestContext:
             exc_val (object): not used
             exc_tb (object): not used
         """
-        if not self.is_route_flow_counter_supported:
+        if self.skip_route_flow_counter_feature():
             return
 
         try:
@@ -68,6 +69,14 @@ class RouteFlowCounterTestContext:
             set_route_flow_counter_status(self.dut, False)
             for route_pattern in self.route_pattern_list:
                 remove_route_flow_counter_pattern(self.dut, route_pattern)
+
+    def skip_route_flow_counter_feature(self):
+        if not self.is_route_flow_counter_supported:
+            return True
+
+        found_platform = [platform for platform in skip_platforms if platform == self.dut.facts["platform"]]
+
+        return found_platform
 
     def check_stats(self):
         """Verify route flow counter statistic
