@@ -2700,6 +2700,12 @@ generic_config_updater/test_dhcp_relay.py:
       - "'t2' in topo_name or topo_type in ['lrh', 'urh']"
       - "'t0-isolated' in topo_name"
 
+generic_config_updater/test_dt2_addcluster.py:
+  skip:
+    reason: "The test verifies lossless BUFFER_PG entries, which full-lossy hwskus do not have."
+    conditions:
+      - "hwsku in constants['FULL_LOSSY_HWSKUS']"
+
 generic_config_updater/test_dynamic_acl.py:
   skip:
     reason: "Device SKUs do not support the custom ACL_TABLE_TYPE that we use in this test / Known log error unrelated to test
