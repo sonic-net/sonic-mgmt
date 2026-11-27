@@ -2889,6 +2889,12 @@ generic_config_updater/test_multiasic_linkcrc.py:
       - "(is_multi_asic is False)"
       - "'bmc' in topo_type"
 
+generic_config_updater/test_packet_trimming_buffer_profile.py:
+  skip:
+    reason: "GCU does not allow BUFFER_PROFILE.packet_discard_action field updates on Force10-S6000 VS (td2); see https://github.com/sonic-net/sonic-utilities/pull/4087."
+    conditions:
+      - "asic_type == 'vs' and hwsku == 'Force10-S6000'"
+
 generic_config_updater/test_pfcwd_interval.py:
   skip:
     reason: "This test can only support mellanox platforms. This test is not run on this hwsku currently"
