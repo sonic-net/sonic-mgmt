@@ -1172,14 +1172,20 @@ class TestVrfLoopbackIntf:
         # deploy start script
         ptfhost.template(src="vrf/bgp_speaker/start.j2", dest="%s/%s" % (exabgp_dir, "start.sh"), mode="u+rwx")
 
+        # Only match the exabgp instances started by this test. A bare "pkill exabgp" would also kill
+        # the topology exabgp-<VM> processes on the PTF; supervisor restarts them without the routes
+        # injected by announce_routes, so the VMs withdraw every route (incl. default) from the DUT.
+        # The "[e]" keeps the pattern from matching the cmdline of the shell running pkill/pgrep.
+        exabgp_proc_pattern = "[e]xabgp {}/config.ini".format(exabgp_dir)
+
         # kill exabgp if any
-        ptfhost.shell("pkill exabgp || true")
+        ptfhost.shell("pkill -f '{}' || true".format(exabgp_proc_pattern))
 
         # start exabgp instance
         ptfhost.shell("bash %s/start.sh" % exabgp_dir)
 
         # ensure exabgp started
-        ptfhost.shell("pgrep exabgp")
+        ptfhost.shell("pgrep -f '{}'".format(exabgp_proc_pattern))
 
         # make sure routes announced to bgp neighbors
         def _bgp_speaker_routes_announced():
@@ -1200,11 +1206,13 @@ class TestVrfLoopbackIntf:
         # del route to ptf_speaker_ip on dut
         for (vrf, vlan_peer_port), ips in list(g_vars["vlan_peer_ips"].items()):
             duthost.shell(
-                "vtysh -c 'configure terminal' -c 'no ip route {} {} vrf {}'".format(peer_range, ips["ipv4"][0], vrf)
+                "vtysh -c 'configure terminal' -c 'no ip route {} {} vrf {}'".format(
+                    peer_range, ips["ipv4"][0].ip, vrf
+                )
             )
 
         # kill exabgp
-        ptfhost.shell("pkill exabgp || true")
+        ptfhost.shell("pkill -f '{}' || true".format(exabgp_proc_pattern))
 
         # del speaker ips from ptf ports
         for vrf, vlan_peer_port in g_vars["vlan_peer_ips"]:
