@@ -1,4 +1,7 @@
-"""IS-IS CLI integration tests for the community Force10 seven-node topology."""
+"""Explicit IS-IS acceptance on the community Force10 seven-node topology.
+
+Run this module by its file path; see README.md for the image prerequisites.
+"""
 
 import ipaddress
 import json

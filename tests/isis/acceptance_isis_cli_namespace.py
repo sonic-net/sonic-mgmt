@@ -1,4 +1,7 @@
-"""Installed IS-IS namespace selection on multi-ASIC SONiC."""
+"""Explicit IS-IS namespace acceptance on a matching multi-ASIC image.
+
+Run this module by its file path; see README.md for the image prerequisites.
+"""
 import json
 import logging
 import re
