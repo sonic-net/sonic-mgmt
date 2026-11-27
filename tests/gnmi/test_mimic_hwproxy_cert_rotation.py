@@ -3,6 +3,7 @@ import logging
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
+from tests.common.gu_utils import create_checkpoint, rollback
 from tests.common.pygnmi_client import PygnmiClient
 from tests.common.utilities import wait_until
 from tests.common.helpers.gnmi_utils import GNMIEnvironment, delete_gnmi_certs, \
@@ -35,8 +36,7 @@ def check_gnmi_status(duthost):
     return "RUNNING" in output['stdout']
 
 
-def check_telemetry_status(duthost):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
+def check_telemetry_status(duthost, env):
     dut_command = "docker exec %s supervisorctl status %s" % (env.gnmi_container, env.gnmi_program)
     output = duthost.shell(dut_command, module_ignore_errors=True)
     return "RUNNING" in output['stdout']
@@ -57,6 +57,7 @@ def test_mimic_hwproxy_cert_rotation(
 
     gnmi_enabled = False
     telemetry_enabled = False
+    gnmi_certs_rotated = False
 
     for line in output.splitlines():
         parts = line.split()
@@ -74,21 +75,29 @@ def test_mimic_hwproxy_cert_rotation(
         )
 
     if gnmi_enabled:
-        # The managed fixture requires gnmi; retain legacy setup for telemetry-only DUTs.
         gnmi_tls = request.getfixturevalue("gnmi_tls")  # noqa: F811
-        cmd_feature = "docker images | grep 'docker-sonic-gnmi'"
-        result = duthost.shell(cmd_feature, module_ignore_errors=True)
-        if result["stdout"].strip():
-            unit_file_state = duthost.command(
-                "systemctl show gnmi.service --property=UnitFileState --value")["stdout"].strip()
-            # disable feature
-            disable_feature = 'sudo config feature state gnmi disabled'
-            duthost.command(disable_feature, module_ignore_errors=True)
-            try:
+    if telemetry_enabled:
+        # Resolve the telemetry endpoint before stopping its container.
+        env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
+        assert env.gnmi_container == "telemetry", "Telemetry container is not running"
+        if not gnmi_enabled:
+            create_checkpoint(duthost, "hwproxy_telemetry_rotation")
+
+    try:
+        if gnmi_enabled:
+            cmd_feature = "docker images | grep 'docker-sonic-gnmi'"
+            result = duthost.shell(cmd_feature, module_ignore_errors=True)
+            if result["stdout"].strip():
+                unit_file_state = duthost.command(
+                    "systemctl show gnmi.service --property=UnitFileState --value")["stdout"].strip()
+                # disable feature
+                disable_feature = 'sudo config feature state gnmi disabled'
+                duthost.command(disable_feature, module_ignore_errors=True)
                 # rotate gnmi cert
                 _rotate_gnmi_certs(duthost, localhost, ptfhost)
                 duthost.copy(src="gnmiCA.pem", dest="/etc/sonic/telemetry/gnmiCA.cer")
                 duthost.copy(src="gnmiserver.crt", dest="/etc/sonic/telemetry/gnmiserver.cer")
+                gnmi_certs_rotated = True
                 # set gnmi table
                 port = gnmi_tls.port
                 set_table = (
@@ -118,25 +127,22 @@ def test_mimic_hwproxy_cert_rotation(
                     loganalyzer[duthost.hostname].ignore_regex.append(
                         r" ERR featured: \['sudo', 'systemctl', 'enable', 'gnmi\.service'\]"
                         r" - failed: return code - 1, output:\s*$")
-            finally:
-                delete_gnmi_certs(localhost)
 
-    if telemetry_enabled:
-        if not gnmi_enabled:
-            request.getfixturevalue("setup_gnmi_server")
-            request.getfixturevalue("setup_gnmi_rotated_server")
-        cmd_feature = "docker images | grep 'docker-sonic-telemetry'"
-        result = duthost.command(cmd_feature, module_ignore_errors=True)
-        if result["stdout"].strip():
-            # disable feature
-            disable_feature = 'sudo config feature state telemetry disabled'
-            duthost.command(disable_feature, module_ignore_errors=True)
-            try:
-                # rotate telemetry cert
-                _rotate_gnmi_certs(duthost, localhost, ptfhost)
-                # set telemetry table
-                env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
+        if telemetry_enabled:
+            cmd_feature = "docker images | grep 'docker-sonic-telemetry'"
+            result = duthost.shell(cmd_feature, module_ignore_errors=True)
+            if result["stdout"].strip():
                 port = env.gnmi_port
+                # disable feature
+                disable_feature = 'sudo config feature state telemetry disabled'
+                duthost.command(disable_feature, module_ignore_errors=True)
+                # rotate telemetry cert
+                # Both services share the server key path; reuse this test's fresh PKI.
+                if not gnmi_certs_rotated:
+                    _rotate_gnmi_certs(duthost, localhost, ptfhost)
+                    duthost.copy(src="gnmiCA.pem", dest="/etc/sonic/telemetry/gnmiCA.cer")
+                    duthost.copy(src="gnmiserver.crt", dest="/etc/sonic/telemetry/gnmiserver.cer")
+                # set telemetry table
                 set_table = (
                     f'sonic-db-cli CONFIG_DB hset "TELEMETRY|gnmi" '
                     f'client_auth "true" '
@@ -145,13 +151,20 @@ def test_mimic_hwproxy_cert_rotation(
                 )
                 duthost.command(set_table, module_ignore_errors=True)
                 set_table_cert = 'sonic-db-cli CONFIG_DB hset "TELEMETRY|certs"   \
-                    ca_crt "/etc/sonic/telemetry/gnmiCA.pem"   \
-                    server_crt "/etc/sonic/telemetry/gnmiserver.crt"   \
+                    ca_crt "/etc/sonic/telemetry/gnmiCA.cer"   \
+                    server_crt "/etc/sonic/telemetry/gnmiserver.cer"   \
                     server_key "/etc/sonic/telemetry/gnmiserver.key"'
                 duthost.command(set_table_cert, module_ignore_errors=True)
                 # enable feature
                 enable_feature = 'sudo config feature state telemetry enabled'
                 duthost.command(enable_feature, module_ignore_errors=True)
-                assert wait_until(60, 3, 0, check_telemetry_status, duthost), "TELEMETRY service failed to start"
-            finally:
-                delete_gnmi_certs(localhost)
+                assert wait_until(60, 3, 0, check_telemetry_status, duthost, env), "TELEMETRY service failed to start"
+    finally:
+        delete_gnmi_certs(localhost)
+        # gnmi_tls owns the checkpoint when gNMI is enabled, including dual-service tests.
+        if telemetry_enabled and not gnmi_enabled:
+            output = rollback(duthost, "hwproxy_telemetry_rotation")
+            assert output['rc'] == 0 and "Config rolled back successfully" in output['stdout'], output
+            duthost.service(name="telemetry", state="restarted")
+            assert wait_until(60, 3, 0, check_telemetry_status, duthost, env), \
+                "TELEMETRY service failed to recover"
