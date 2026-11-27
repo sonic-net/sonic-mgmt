@@ -3,11 +3,13 @@ import random
 import sys
 import time
 from ipaddress import ip_address
+import binascii
 
 import ptf.packet as scapy
 import ptf.testutils as testutils
 import scapy.utils as scapy_utils
-from scapy.all import Ether, IP, VXLAN, IPv6, GRE
+from scapy.all import Ether, IP, VXLAN, IPv6, UDP, GRE
+from scapy.layers.inet6 import ICMPv6ND_Redirect
 from configs import privatelink_config as pl
 from constants import *  # noqa: F403
 from ptf.dataplane import match_exp_pkt
@@ -122,11 +124,12 @@ def set_do_not_care_layer(mask, layer, field_name, n=1):
 
 
 def inbound_pl_packets(
-    config, floating_nic=False, inner_packet_type="udp", vxlan_udp_dport=4789, inner_sport=4567, inner_dport=6789,
-    vxlan_udp_base_src_port=VXLAN_UDP_BASE_SRC_PORT, vxlan_udp_src_port_mask=VXLAN_UDP_SRC_PORT_MASK, exp_vni=None,
-    tcp_flag_syn=False, tcp_flag_ack=False, tcp_flag_fin=False,
-    tcp_seq_num=None, tcp_ack_num=None
-):
+    config, floating_nic=False, inner_packet_type="udp", vxlan_udp_dport=4789,
+    inner_sport=4567, inner_dport=6789, vxlan_udp_base_src_port=VXLAN_UDP_BASE_SRC_PORT,
+    vxlan_udp_src_port_mask=VXLAN_UDP_SRC_PORT_MASK, exp_vni=None,
+    exp_vm_inner_sip=None, tcp_flag_syn=False, tcp_flag_ack=False, tcp_flag_fin=False,
+    tcp_seq_num=None, tcp_ack_num=None):
+
     if exp_vni is not None:
         expected_vni = int(exp_vni)
     else:
@@ -178,7 +181,7 @@ def inbound_pl_packets(
     exp_inner_packet = generate_inner_packet(inner_packet_type)(
         eth_src=pl.ENI_MAC if floating_nic else pl.REMOTE_MAC,
         eth_dst=pl.VM_MAC if floating_nic else pl.ENI_MAC,
-        ip_src=pl.PE_CA,
+        ip_src=exp_vm_inner_sip if exp_vm_inner_sip else pl.PE_CA,
         ip_dst=pl.VM1_CA,
         ip_id=0,
     )
@@ -204,12 +207,19 @@ def inbound_pl_packets(
     masked_exp_packet.set_do_not_care_packet(scapy.Ether, "dst")
     masked_exp_packet.set_do_not_care_packet(scapy.UDP, "chksum")
     masked_exp_packet.set_do_not_care(8 * (34 + 2) - vxlan_udp_src_port_mask, vxlan_udp_src_port_mask)
+    masked_exp_packet.set_do_not_care_packet(scapy.UDP, "sport")
+    masked_exp_packet.set_do_not_care_packet(scapy.UDP, "dport")
     masked_exp_packet.set_do_not_care_packet(scapy.IP, "ttl")
     masked_exp_packet.set_do_not_care_packet(scapy.IP, "chksum")
     if floating_nic:
         # As destination IP is not fixed in case of return path ECMP,
         # we need to mask the checksum and destination IP
-        set_do_not_care_layer(masked_exp_packet, scapy.Ether, "dst", 2)
+        masked_exp_packet.set_do_not_care_packet(scapy.IP, "dst")
+        masked_exp_packet.set_do_not_care(400, 48)  # Inner dst MAC
+
+    if inner_packet_type == "tcp":
+        # Masking TCP Sequence Number, Ack Number, Urg Pointer, Flags and MSS Field
+        masked_exp_packet.set_do_not_care(704, 128)
 
     return gre_packet, masked_exp_packet
 
@@ -237,8 +247,76 @@ def plnsg_packets(config, **kwargs):
     masked_outer_pkt.set_do_not_care_packet(scapy.IP, "ttl")
     set_do_not_care_layer(masked_outer_pkt, scapy.IP, "ttl", 2)
     set_do_not_care_layer(masked_outer_pkt, scapy.IP, "chksum", 2)
+
+    masked_outer_pkt.set_do_not_care(736, 48)
+    if kwargs["inner_packet_type"] == "tcp":
+        # Masking TCP Sequence Number, Ack Number, Urg Pointer, Flags and MSS Field
+        masked_outer_pkt.set_do_not_care(1200, 128)
+
     return vm_to_dpu_pkt, masked_outer_pkt
 
+
+def fastpath_icmpv6_redirect_packets(config, plnsg=False,
+                                     inner_sport=None, inner_dport=None,
+                                     redirected_dmac=None, redirected_dip=None,
+                                     backend_ip=None):
+
+    if backend_ip:
+        inner_dip = get_pl_overlay_dip(backend_ip, pl.PL_REDIRECT_OVERLAY_DIP, pl.PL_REDIRECT_OVERLAY_DIP_MASK)
+    else:
+        inner_dip = get_pl_overlay_dip(pl.PE_CA, pl.PL_OVERLAY_DIP, pl.PL_OVERLAY_DIP_MASK)
+
+    inner_sip = get_pl_overlay_sip(
+            pl.VM1_CA, pl.PL_OVERLAY_SIP, pl.PL_OVERLAY_SIP_MASK, pl.PL_ENCODING_IP, pl.PL_ENCODING_MASK
+        )
+
+    redirectinfo = format(inner_sport, 'x')
+    redirectinfo += format(inner_dport, 'x')
+    redirectinfo += '00000000000000010002000100000100'
+    redirectinfo += redirected_dip.replace(".","")
+    redirectinfo += redirected_dmac.replace(":","")
+    redirectinfo = binascii.unhexlify(redirectinfo)
+
+    redirect_option = scapy.IPv6()/redirectinfo
+    redirect_option[IPv6].plen = len(redirectinfo)
+    redirect_option[IPv6].src = inner_sip
+    redirect_option[IPv6].dst = inner_dip
+    redirect_option[IPv6].nh = 6
+
+    inner_pkt = scapy.Ether(dst=pl.ENI_MAC, src=pl.REMOTE_MAC)
+    inner_pkt /= scapy.IPv6(src=inner_sip, dst=inner_dip)
+    inner_pkt /= ICMPv6ND_Redirect(type=137, code=0, tgt=inner_dip, dst=inner_dip)
+    inner_pkt /= binascii.unhexlify('0400000000000000')
+    inner_pkt /= redirect_option
+
+    # As per Fastpath spec. GRE Key for the Fastpath ICMPv6 redirect packet
+    # will use predefined special reserved VNI/key-252
+    gre_packet = testutils.simple_gre_packet(
+        eth_dst=config[DUT_MAC],
+        ip_src=pl.PE_PA,
+        ip_dst=pl.APPLIANCE_VIP,
+        gre_key_present=True,
+        gre_key=int(252) << 8,
+        inner_frame=inner_pkt,
+    )
+    gre_packet = bytes(gre_packet)
+    return gre_packet
+
+
+def exp_pkt_strip_plnsg_outer_encap(exp_dpu_to_pe_pkt, inner_packet_type='udp'):
+    inner_pkt = exp_dpu_to_pe_pkt.exp_pkt[Ether][IP][UDP][VXLAN].payload
+
+    masked_exp_pkt = Mask(inner_pkt)
+    masked_exp_pkt.set_do_not_care_packet(scapy.Ether, "src")
+    masked_exp_pkt.set_do_not_care_packet(scapy.Ether, "dst")
+    masked_exp_pkt.set_do_not_care_packet(scapy.IP, "chksum")
+    masked_exp_pkt.set_do_not_care_packet(scapy.IP, "ttl")  # behavior differs between Cisco and Nvidia platforms
+    masked_exp_pkt.set_do_not_care(336, 48)  # Inner Ether dst
+    if inner_packet_type == "tcp":
+        # Masking TCP Sequence Number, Ack Number, Urg Pointer, Flags and MSS Field
+        masked_exp_pkt.set_do_not_care(800, 128)
+
+    return masked_exp_pkt
 
 def outbound_pl_packets(
     config,
@@ -251,12 +329,15 @@ def outbound_pl_packets(
         VXLAN_UDP_BASE_SRC_PORT + 2**VXLAN_UDP_SRC_PORT_MASK - 1),
     inner_sport=6789,
     inner_dport=4567,
+    inner_dip=None,
     vni=None,
     tcp_flag_syn=False,
     tcp_flag_ack=False,
     tcp_flag_fin=False,
     tcp_seq_num=None,
-    tcp_ack_num=None
+    tcp_ack_num=None,
+    exp_outer_dip=None,
+    exp_inner_dmac=None
 ):
     outer_vni = int(vni if vni else pl.VM_VNI)
 
@@ -266,7 +347,7 @@ def outbound_pl_packets(
         eth_src=pl.VM_MAC if floating_nic else pl.ENI_MAC,
         eth_dst=pl.ENI_MAC if floating_nic else pl.REMOTE_MAC,
         ip_src=pl.VM1_CA,
-        ip_dst=pl.PE_CA,
+        ip_dst=inner_dip if inner_dip else pl.PE_CA
     )
     inner_packet[l4_protocol_key].sport = inner_sport
     inner_packet[l4_protocol_key].dport = inner_dport
@@ -326,17 +407,23 @@ def outbound_pl_packets(
     else:
         exp_inner_packet = scapy.Ether() / scapy.IPv6() / scapy.UDP()
     exp_inner_packet[scapy.Ether].src = pl.ENI_MAC
-    exp_inner_packet[scapy.Ether].dst = pl.REMOTE_MAC
+    if exp_inner_dmac:
+        exp_inner_packet[scapy.Ether].dst = exp_inner_dmac
+    else:
+        exp_inner_packet[scapy.Ether].dst = pl.REMOTE_MAC
     exp_inner_packet[scapy.IPv6].src = exp_overlay_sip
     exp_inner_packet[scapy.IPv6].dst = exp_overlay_dip
 
     exp_inner_packet[l4_protocol_key] = inner_packet[l4_protocol_key]
 
+    if exp_outer_dip is None:
+        exp_outer_dip = pl.PE_PA
+
     exp_encap_packet = testutils.simple_gre_packet(
         eth_dst=config[REMOTE_PTF_MAC],
         eth_src=config[DUT_MAC],
         ip_src=pl.APPLIANCE_VIP,
-        ip_dst=pl.PE_PA,
+        ip_dst=exp_outer_dip,
         gre_key_present=True,
         gre_key=pl.ENCAP_VNI << 8,
         inner_frame=exp_inner_packet,
@@ -349,6 +436,8 @@ def outbound_pl_packets(
     masked_exp_packet.set_do_not_care_packet(scapy.IP, "chksum")
     masked_exp_packet.set_do_not_care_packet(scapy.IP, "ttl")  # behavior differs between Cisco and Nvidia platforms
     masked_exp_packet.set_do_not_care(336, 48)  # Inner Ether dst
+    if inner_packet_type == "tcp":
+        masked_exp_packet.set_do_not_care(800, 128)
 
     return outer_packet, masked_exp_packet
 
@@ -433,7 +522,6 @@ def outbound_vnet_packets(dash_config_info, inner_extra_conf={}, inner_packet_ty
         ip_dst=dash_config_info[REMOTE_PA_IP],
         udp_dport=vxlan_udp_dport,
         vxlan_vni=dash_config_info[VNET2_VNI],
-        # TODO: Change TTL to 63 after SAI bug is fixed
         ip_ttl=0xFF,
         ip_id=0,
         inner_frame=inner_packet,
@@ -662,6 +750,7 @@ def generate_pl_pkts_with_inner_l4_parameters(
                          inner_packet_type="udp",
                          inner_sport=4567,
                          inner_dport=6789,
+                         inner_dip=None,
                          vni=None,
                          exp_vni=None,
                          plnsg=False):
@@ -672,20 +761,20 @@ def generate_pl_pkts_with_inner_l4_parameters(
             logger.info(f"Generating outbound PLNSG {inner_packet_type} packets")
             vm_to_dpu_pkt, exp_dpu_to_pe_pkt = plnsg_packets(
                 config, floating_nic=floating_nic,
-                inner_packet_type=inner_packet_type,
+                inner_packet_type=inner_packet_type, inner_dip=inner_dip,
                 inner_sport=inner_sport, inner_dport=inner_dport, vni=vni)
         else:
             logger.info(f"Generating outbound {inner_packet_type} packets")
             vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(
                        config, outer_encap, floating_nic=floating_nic,
-                       inner_packet_type=inner_packet_type,
+                       inner_packet_type=inner_packet_type, inner_dip=inner_dip,
                        inner_sport=inner_sport,
                        inner_dport=inner_dport, vni=vni)
 
         logger.info(f"Generating inbound {inner_packet_type} packets")
         pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(
                        config, floating_nic=floating_nic,
-                       inner_packet_type=inner_packet_type,
+                       inner_packet_type=inner_packet_type, exp_vm_inner_sip=inner_dip,
                        inner_sport=inner_dport,
                        inner_dport=inner_sport, exp_vni=exp_vni)
     elif inner_packet_type == "tcp":
@@ -693,7 +782,8 @@ def generate_pl_pkts_with_inner_l4_parameters(
             logger.info(f"Generating outbound PLNSG {inner_packet_type} packets with SYN flag")
             vm_to_dpu_pkt, exp_dpu_to_pe_pkt = plnsg_packets(
                 config, floating_nic=floating_nic,
-                inner_packet_type=inner_packet_type, inner_sport=inner_sport,
+                inner_packet_type=inner_packet_type,
+                inner_sport=inner_sport, inner_dip=inner_dip,
                 inner_dport=inner_dport, vni=vni, tcp_flag_syn=True,
                 tcp_seq_num=0)
         else:
@@ -701,13 +791,13 @@ def generate_pl_pkts_with_inner_l4_parameters(
             vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(
                         config, outer_encap, floating_nic=floating_nic,
                         inner_packet_type=inner_packet_type,
-                        inner_sport=inner_sport,
+                        inner_sport=inner_sport, inner_dip=inner_dip,
                         inner_dport=inner_dport, vni=vni, tcp_flag_syn=True,
                         tcp_seq_num=0)
         logger.info(f"Generating inbound {inner_packet_type} packets")
         pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(
                        config, floating_nic=floating_nic,
-                       inner_packet_type=inner_packet_type,
+                       inner_packet_type=inner_packet_type, exp_vm_inner_sip=inner_dip,
                        inner_sport=inner_dport,
                        inner_dport=inner_sport, tcp_flag_syn=True, tcp_flag_ack=True,
                        tcp_seq_num=0, tcp_ack_num=100, exp_vni=exp_vni)
