@@ -63,6 +63,7 @@ from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import get_test_server_host
 from tests.common.utilities import str2bool
 from tests.common.utilities import safe_filename
+from tests.common.utilities import flush_permanent_neighbors
 from tests.common.utilities import get_duts_from_host_pattern
 from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type, file_exists_on_dut
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node, create_duthost_console, creds_on_dut, \
@@ -1605,7 +1606,7 @@ def clear_neigh_entries(duthosts, tbinfo):
 
     if 'dualtor' in tbinfo['topo']['name']:
         for dut in duthosts:
-            dut.command("sudo ip neigh flush nud permanent")
+            flush_permanent_neighbors(dut)
 
 
 @pytest.fixture(scope="module")
