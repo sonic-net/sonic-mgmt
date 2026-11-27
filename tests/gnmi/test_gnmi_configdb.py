@@ -92,6 +92,8 @@ def setup_vrf_configuration(duthosts, rand_one_dut_hostname, vrf_config):
             duthost.shell("sudo systemctl start snmpd snmp-subagent", module_ignore_errors=True)
         if vrf_name != MGMT_VRF_NAME or mgmt_vrf_enabled:
             duthost.shell("config save -y")
+        # These deliberate restarts can exhaust gNMI's three-start/20-minute limit.
+        duthost.shell("sudo systemctl reset-failed gnmi")
         duthost.shell("sudo systemctl restart gnmi")
 
 
