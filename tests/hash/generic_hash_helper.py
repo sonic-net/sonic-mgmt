@@ -81,6 +81,8 @@ HASH_CAPABILITIES = {'mellanox': {'ecmp': MELLANOX_ECMP_HASH_FIELDS,
                                  'lag': DEFAULT_LAG_HASH_FIELDS},
                      'cisco-8000': {'ecmp': CISCO_ECMP_HASH_FIELDS,
                                     'lag': CISCO_LAG_HASH_FIELDS},
+                     'cisco': {'ecmp': CISCO_ECMP_HASH_FIELDS,
+                               'lag': CISCO_LAG_HASH_FIELDS},
                      'vpp': {'ecmp': VPP_ECMP_HASH_FIELDS,
                              'lag': VPP_LAG_HASH_FIELDS},
                      'marvell-teralynx': {'ecmp': MARVELL_TERALYNX_ECMP_HASH_FIELDS,
@@ -105,7 +107,7 @@ def get_supported_hash_algorithms(request):
     asic_type = get_asic_type(request)
     if asic_type in 'mellanox':
         supported_hash_algorithm_list = MELLANOX_SUPPORTED_HASH_ALGORITHM[:]
-    elif asic_type in 'cisco-8000':
+    elif asic_type in ('cisco', 'cisco-8000'):
         supported_hash_algorithm_list = CISCO_SUPPORTED_HASH_ALGORITHM[:]
     elif asic_type in 'vpp':
         supported_hash_algorithm_list = VPP_SUPPORTED_HASH_ALGORITHM[:]
@@ -809,7 +811,7 @@ def get_hash_algorithm_from_option(request, hash_algorithm_identifier):
     asic_type = get_asic_type(request)
     if asic_type in 'mellanox':
         supported_hash_algorithm_list = MELLANOX_SUPPORTED_HASH_ALGORITHM[:]
-    elif asic_type in 'cisco-8000':
+    elif asic_type in ('cisco', 'cisco-8000'):
         supported_hash_algorithm_list = CISCO_SUPPORTED_HASH_ALGORITHM[:]
     elif asic_type in 'vpp':
         supported_hash_algorithm_list = VPP_SUPPORTED_HASH_ALGORITHM[:]

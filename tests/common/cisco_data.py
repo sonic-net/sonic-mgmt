@@ -9,6 +9,7 @@ from tests.common.cisco_s1_cli import CiscoS1Cli
 # Cisco 8000 Constants
 # =============================================================================
 CISCO_ASIC_TYPE = "cisco-8000"
+CISCO_ASIC_TYPES = ("cisco", CISCO_ASIC_TYPE)
 
 # Platform prefixes for conditional_mark and other test infrastructure.
 CISCO_8122_PREFIX = "x86_64-8122"        # Matches both GR2 (x86_64-8122_*) and GR2X (x86_64-8122x*)
@@ -21,7 +22,7 @@ GR2X_HWSKU_PREFIX = "Cisco-8122X"
 
 
 def is_cisco_device(dut):
-    return dut.facts["asic_type"] == CISCO_ASIC_TYPE
+    return dut.facts["asic_type"] in CISCO_ASIC_TYPES
 
 
 def is_model_json_format(duthost):
@@ -33,7 +34,7 @@ def get_markings_config_file(duthost):
     """
         Get the config file where the ECN markings are enabled or disabled.
     """
-    if duthost.facts["asic_type"] != CISCO_ASIC_TYPE:
+    if duthost.facts["asic_type"] not in CISCO_ASIC_TYPES:
         raise RuntimeError("This is applicable only to cisco platforms.")
     platform = duthost.facts['platform']
     hwsku = duthost.facts['hwsku']
@@ -90,7 +91,7 @@ def setup_markings_dut(duthost, localhost, **kwargs):
 
 
 def copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name):
-    if dut.facts['asic_type'] != CISCO_ASIC_TYPE:
+    if dut.facts['asic_type'] not in CISCO_ASIC_TYPES:
         raise RuntimeError("This function should have been called only for cisco-8000.")
 
     script_path = "/tmp/{}".format(script_name)

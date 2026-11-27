@@ -179,7 +179,7 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_serial:
     reason: "Unsupported platform API in mellanox or retrieving fan tray serial number is not supported in Cisco 8000"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox', 'cisco-8000', 'vs']"
+      - "asic_type in ['mellanox', 'cisco', 'cisco-8000', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_led:
@@ -187,7 +187,7 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_led:
     reason: "Unsupported platform API in mellanox or Cisco 8000 platform the leds belong to the fan_tray and are set through the fan_tray API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox', 'cisco-8000', 'vs']"
+      - "asic_type in ['mellanox', 'cisco', 'cisco-8000', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
   xfail:
     reason: "Testcase consistently fails, raised issue to track"
@@ -352,7 +352,7 @@ platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_serial:
     reason: "Retrieving fan tray serial number is not supported in Cisco 8000 and mellanox platform"
     conditions_logical_operator: or
     conditions:
-       - "asic_type in ['mellanox', 'cisco-8000', 'vs']"
+       - "asic_type in ['mellanox', 'cisco', 'cisco-8000', 'vs']"
        - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_status:
@@ -395,7 +395,7 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_serial:
     reason: "Retrieving fan tray serial number is not supported in Cisco 8000 and mellanox platform"
     conditions_logical_operator: or
     conditions:
-       - "asic_type in ['mellanox', 'cisco-8000', 'vs']"
+       - "asic_type in ['mellanox', 'cisco', 'cisco-8000', 'vs']"
        - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_led:
@@ -403,7 +403,7 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_led
     reason: "On Cisco 8000 and mellanox platform, fans do not have their own leds."
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox', 'cisco-8000', 'vs']"
+      - "asic_type in ['mellanox', 'cisco', 'cisco-8000', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_speed:
@@ -427,7 +427,7 @@ platform_tests/api/test_liquid_cooling_leakage.py:
     reason: "Unsupported platform API on Cisco 8000, and liquid cooling leakage tests are not applicable to m0, mx, m1, c0 topologies"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['cisco-8000']"
+      - "asic_type in ['cisco', 'cisco-8000']"
       - "topo_type in ['m0', 'mx', 'm1', 'c0']"
 
 #######################################
@@ -461,7 +461,7 @@ platform_tests/api/test_module.py::TestModuleApi::test_reboot:
             / Only support T2"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['cisco-8000', 'vs']"
+      - "asic_type in ['cisco', 'cisco-8000', 'vs']"
       - "topo_type not in ['t2', 'lrh', 'urh']"
       - "is_multi_asic==True and release in ['201911']"
 
@@ -535,7 +535,7 @@ platform_tests/api/test_psu.py::TestPsuApi::test_led:
     reason: "On Cisco 8000, mellanox and Nokia 7215 platform, PSU led are unable to be controlled by software"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox', 'cisco-8000', 'vs'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "asic_type in ['mellanox', 'cisco', 'cisco-8000', 'vs'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_psu.py::TestPsuApi::test_power:
@@ -624,7 +624,7 @@ platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_led:
     reason: "On Cisco 8000 and mellanox platform, PSU led are unable to be controlled by software"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox', 'cisco-8000', 'vs']"
+      - "asic_type in ['mellanox', 'cisco', 'cisco-8000', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
   xfail:
     reason: "Testcase consistently fails on Celestica, raised issue to track"
@@ -709,7 +709,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_rx_los:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vs'] or (asic_type in ['cisco-8000'] and release in ['202012'])"
+      - "asic_type in ['vs'] or (asic_type in ['cisco', 'cisco-8000'] and release in ['202012'])"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_rx_power:
@@ -761,7 +761,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_threshold_info:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['cisco-8000'] and release in ['202012']"
+      - "asic_type in ['cisco', 'cisco-8000'] and release in ['202012']"
       - "is_multi_asic==True and release in ['201911']"
       - "asic_type in ['vs']"
   xfail:
@@ -782,7 +782,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_tx_fault:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox', 'vs'] or (asic_type in ['cisco-8000'] and release in ['202012'])"
+      - "asic_type in ['mellanox', 'vs'] or (asic_type in ['cisco', 'cisco-8000'] and release in ['202012'])"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_tx_power:
@@ -935,7 +935,7 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_model:
     reason: "test_get_model is not supported in cisco and mellanox platform. Unsupported on BMC"
     conditions_logical_operator: or
     conditions:
-       - "asic_type in ['mellanox', 'cisco-8000', 'vs']"
+       - "asic_type in ['mellanox', 'cisco', 'cisco-8000', 'vs']"
        - "is_multi_asic==True and release in ['201911']"
        - "platform.startswith('arm64-c8220tg_48a_o')"
        - "'bmc' in topo_type"
@@ -955,7 +955,7 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_serial:
     reason: "test_get_serial is not supported in cisco and mellanox platform. Unsupported on BMC"
     conditions_logical_operator: or
     conditions:
-       - "asic_type in ['mellanox', 'cisco-8000', 'vs']"
+       - "asic_type in ['mellanox', 'cisco', 'cisco-8000', 'vs']"
        - "is_multi_asic==True and release in ['201911']"
        - "platform.startswith('arm64-c8220tg_48a_o')"
        - "'bmc' in topo_type"
@@ -1337,7 +1337,7 @@ platform_tests/mgmt/test_mgmt_flap.py::test_mgmt_interface_stress_flap_console:
     reason: "Skip test unless it is Cisco t2 and eth_mgmt_ctrl available"
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['cisco-8000']"
+      - "asic_type not in ['cisco', 'cisco-8000']"
       - "topo_type not in ['t2', 'lrh', 'urh']"
       - "eth_mgmt_ctrl_available==False"
 
@@ -1559,7 +1559,7 @@ platform_tests/test_platform_info.py::test_thermal_control_load_invalid_format_j
     reason: "Skip on Cisco platform and multi-asic platform running 201911 release / Test not required on Mellanox Platforms as all thermal policies have been removed from thermalctld"
     conditions_logical_operator: or
     conditions:
-      - "asic_type=='cisco-8000' or (is_multi_asic==True and release in ['201911']) or ('dell_s6100' in platform) or ('sw_to3200k' in hwsku)"
+      - "asic_type in ('cisco', 'cisco-8000') or (is_multi_asic==True and release in ['201911']) or ('dell_s6100' in platform) or ('sw_to3200k' in hwsku)"
       - "asic_type in ['mellanox']"
 
 platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_json:
@@ -1572,7 +1572,7 @@ platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_js
     reason: "Skip on Cisco platform and multi-asic platform running 201911 release / Test not required on Mellanox Platforms as all thermal policies have been removed from thermalctld"
     conditions_logical_operator: or
     conditions:
-      - "asic_type=='cisco-8000' or (is_multi_asic==True and release in ['201911']) or ('dell_s6100' in platform) or ('sw_to3200k' in hwsku)"
+      - "asic_type in ('cisco', 'cisco-8000') or (is_multi_asic==True and release in ['201911']) or ('dell_s6100' in platform) or ('sw_to3200k' in hwsku)"
       - "asic_type in ['mellanox']"
 
 platform_tests/test_platform_info.py::test_turn_on_off_psu_and_check_psustatus:

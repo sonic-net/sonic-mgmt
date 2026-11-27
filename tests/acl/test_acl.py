@@ -1824,7 +1824,7 @@ class TestAclWithReboot(TestBasicAcl):
         # We need some additional delay on e1031
         if dut.facts["platform"] == "x86_64-cel_e1031-r0":
             route_convergence_delay = 240
-        elif dut.get_facts().get("modular_chassis") and dut.facts["asic_type"] == "cisco-8000":
+        elif dut.get_facts().get("modular_chassis") and dut.facts["asic_type"] in ("cisco", "cisco-8000"):
             # todo: remove the extra sleep on chassis device after bgp suppress fib pending feature is enabled
             # We observe flakiness failure on chassis devices
             # Suspect it's because the route is not programmed into hardware

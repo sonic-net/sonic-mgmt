@@ -447,8 +447,8 @@ def verify_thresholds(duthost, asichost, **kwargs):
                 # For test case used 'nexthop_group' need to be configured at least 1 percent from available
                 continue
             if kwargs["crm_cli_res"] in ["ipv4 neighbor", "ipv6 neighbor"] and \
-                    "cisco-8000" in duthost.facts["asic_type"].lower():
-                # Skip the percentage check for Cisco-8000 devices
+                    duthost.facts["asic_type"].lower() in ("cisco", "cisco-8000"):
+                # Skip the percentage check for Cisco ASIC devices
                 continue
             used_percent = get_used_percent(kwargs["crm_used"], kwargs["crm_avail"])
             if key == "exceeded_percentage":
