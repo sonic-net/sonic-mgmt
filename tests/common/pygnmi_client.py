@@ -24,6 +24,9 @@ from pygnmi.client import gNMIclient, gNMIException
 
 logger = logging.getLogger(__name__)
 
+# Allow full COUNTERS_DB responses above gRPC's default 4 MiB receive limit.
+MAX_GNMI_RECEIVE_MSG_SIZE = 8 * 1024 * 1024
+
 
 class StrEnum(str, Enum):
     """
@@ -194,7 +197,13 @@ class PygnmiClient:
             An unconnected ``gNMIclient`` configured for either an insecure
             (plaintext) channel or mutual TLS using the configured cert paths.
         """
-        kwargs = {"target": (self.host, self.port), "gnmi_timeout": self.timeout}
+        kwargs = {
+            "target": (self.host, self.port),
+            "gnmi_timeout": self.timeout,
+            "grpc_options": [
+                ("grpc.max_receive_message_length", MAX_GNMI_RECEIVE_MSG_SIZE),
+            ],
+        }
         if self.plaintext:
             kwargs["insecure"] = True
         else:
