@@ -76,14 +76,22 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
         downlink_vlan_iface = {}
         downlink_vlan_iface['name'] = vlan_iface_name
 
+        # A VLAN interface can have more than one configured IPv4 address (primary +
+        # secondary). The DUT kernel may source relayed DHCP replies from any of them,
+        # so we keep the full list (addr_list) in addition to the primary addr/mask used
+        # for giaddr/link selection, which stays the first IPv4 entry for backward compat.
         for vlan_interface_info_dict in mg_facts['minigraph_vlan_interfaces']:
-            if vlan_interface_info_dict['attachto'] == vlan_iface_name:
+            if vlan_interface_info_dict['attachto'] != vlan_iface_name:
+                continue
+            if ipaddress.ip_address(str(vlan_interface_info_dict['addr'])).version != 4:
+                continue
+            downlink_vlan_iface.setdefault('addr_list', []).append(str(vlan_interface_info_dict['addr']))
+            if 'addr' not in downlink_vlan_iface:
                 downlink_vlan_iface['addr'] = vlan_interface_info_dict['addr']
                 downlink_vlan_iface['mask'] = vlan_interface_info_dict['mask']
                 subnet = ipaddress.IPv4Interface("{}/{}".format(vlan_interface_info_dict['addr'],
                                                  vlan_interface_info_dict['mask'])).network
                 downlink_vlan_iface['link_selection_ip'] = str(subnet.network_address)
-                break
 
         # Obtain MAC address of the VLAN interface
         res = duthost.shell('cat /sys/class/net/{}/address'.format(vlan_iface_name))
