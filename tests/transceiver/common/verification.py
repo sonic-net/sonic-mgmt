@@ -743,3 +743,262 @@ def standard_port_recovery_and_verification(
         "post_recovery_sentinels": post_recovery_sentinels,
         "post_recovery_started_at": recovery_t0,
     }
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Pre-FEC BER Guard (Standard Port Recovery sub-check 8)
+# ──────────────────────────────────────────────────────────────────────
+
+_COUNTERS_DB = "COUNTERS_DB"
+# SWSS port_rates.lua overwrites RATES:<oid> FEC_PRE_BER on every PORT counter
+# poll (1s by default), so a single read is one poll's instantaneous rate.
+DEFAULT_PREFEC_BER_SAMPLE_INTERVAL_SEC = 2
+
+
+def _get_prefec_ber_oids(duthost, ports):
+    """Resolve each port's ``COUNTERS_DB`` OID, grouped by namespace.
+
+    Args:
+        duthost: SONiC DUT host fixture.
+        ports: logical port names to resolve.
+
+    Returns:
+        dict: ``{namespace: {port: oid}}`` -- ``namespace`` is ``None`` on a
+        single-ASIC DUT. Ports with no ``COUNTERS_PORT_NAME_MAP`` entry are
+        omitted (logged).
+    """
+    ports_by_ns = {}
+    for port in ports:
+        ports_by_ns.setdefault(db_helpers.resolve_port_namespace(duthost, port), []).append(port)
+
+    oids_by_ns = {}
+    for namespace, ns_ports in ports_by_ns.items():
+        name_map = db_helpers.hgetall_dict(
+            duthost, _COUNTERS_DB, "COUNTERS_PORT_NAME_MAP", namespace=namespace
+        )
+        for port in ns_ports:
+            oid = name_map.get(port)
+            if not oid:
+                logger.warning("%s: no entry in COUNTERS_DB COUNTERS_PORT_NAME_MAP", port)
+                continue
+            oids_by_ns.setdefault(namespace, {})[port] = oid
+    return oids_by_ns
+
+
+def _sample_prefec_ber_from_db(duthost, oids_by_ns):
+    """Take one ``FEC_PRE_BER`` sample from ``COUNTERS_DB`` ``RATES:<oid>``.
+
+    Reads the DB rather than the CLI's ``FEC_PRE_BER`` column: on some images
+    ``show interfaces counters fec-stats`` omits the BER columns when it diffs
+    against a ``sonic-clear counters`` snapshot. One ``sonic-db-dump`` of the
+    ``RATES`` table per namespace covers every port.
+
+    Args:
+        duthost: SONiC DUT host fixture.
+        oids_by_ns: ``{namespace: {port: oid}}``, from :func:`_get_prefec_ber_oids`.
+
+    Returns:
+        dict: ``{port: float}`` -- ports whose ``FEC_PRE_BER`` is absent,
+        ``N/A`` or unreadable this sample are omitted.
+    """
+    sample = {}
+    for namespace, port_oids in oids_by_ns.items():
+        rates, err = db_helpers.get_db_table(
+            duthost, _COUNTERS_DB, "RATES", namespace=namespace, sep=":"
+        )
+        if err:
+            logger.warning("Pre-FEC BER sample failed: %s", err)
+            continue
+        for port, oid in port_oids.items():
+            value = db_helpers.parse_numeric(rates.get(oid, {}).get("FEC_PRE_BER"))
+            if value is not None:
+                sample[port] = value
+    return sample
+
+
+def _get_up_ports(duthost, ports):
+    """Return the subset of ``ports`` that ``show interfaces counters fec-stats`` reports as up.
+
+    A down port never accumulates FEC codewords, corroborated by ``fec_corr``
+    always reading ``0`` for a down port (a mismatch is logged as a warning).
+
+    Args:
+        duthost: SONiC DUT host fixture.
+        ports: logical port names to check.
+
+    Returns:
+        list: ports from ``ports`` whose ``state`` is ``U``, in input order.
+    """
+    parsed = duthost.show_and_parse("show interfaces counters fec-stats")
+    by_port = {entry.get("iface"): entry for entry in parsed if entry.get("iface")}
+
+    up_ports = []
+    for port in ports:
+        entry = by_port.get(port)
+        if entry is None:
+            logger.warning(
+                "%s: not present in 'show interfaces counters fec-stats' output", port
+            )
+            continue
+
+        state = entry.get("state", "").strip().lower()
+        if state != "u":
+            fec_corr = entry.get("fec_corr", "").strip().replace(",", "")
+            if fec_corr and fec_corr != "0":
+                logger.warning(
+                    "%s: state=%s but fec_corr=%s (expected 0 for a down port) "
+                    "- CLI output may be inconsistent",
+                    port, entry.get("state"), fec_corr,
+                )
+            logger.info(
+                "%s: state=%s (not up) - excluded from Pre-FEC BER measurement",
+                port, entry.get("state"),
+            )
+            continue
+        up_ports.append(port)
+    return up_ports
+
+
+def measure_prefec_ber(
+    duthost, ports, measure_sec, sample_interval_sec=DEFAULT_PREFEC_BER_SAMPLE_INTERVAL_SEC,
+):
+    """Measure Pre-FEC BER for ``ports`` as the mean of samples taken across ``measure_sec``.
+
+    ``RATES:<oid> FEC_PRE_BER`` is recomputed and overwritten by SWSS on every
+    counter poll, and ``sonic-clear counters`` only snapshots the CLI display,
+    so neither a counter clear nor a single read yields a windowed BER. This
+    samples the field every ``sample_interval_sec`` from the start to the end of
+    the window and averages the samples per port.
+
+    Only ports the CLI reports as up (``state`` == ``U``) both before and after
+    the window are measured, so a port that drops mid-window doesn't report a
+    mixed average. A port with no parseable sample in the window is treated as
+    missing, not a ``0.0`` reading.
+
+    Args:
+        duthost: SONiC DUT host fixture.
+        ports: logical port names to measure.
+        measure_sec: length of the sampling window in seconds.
+        sample_interval_sec: seconds between samples; samples are always taken
+            at both the start and the end of the window.
+
+    Returns:
+        dict: ``{port: float}`` -- mean Pre-FEC BER, one entry per requested
+        port that stayed up with at least one parseable sample; all others are
+        omitted (logged).
+    """
+    up_ports = _get_up_ports(duthost, ports)
+    oids_by_ns = _get_prefec_ber_oids(duthost, up_ports)
+
+    samples = {port: [] for port in up_ports}
+    start = time.monotonic()
+    deadline = start + measure_sec
+    while True:
+        for port, value in _sample_prefec_ber_from_db(duthost, oids_by_ns).items():
+            samples[port].append(value)
+        now = time.monotonic()
+        if now >= deadline:
+            break
+        time.sleep(min(sample_interval_sec, deadline - now))
+    elapsed = time.monotonic() - start
+
+    still_up = set(_get_up_ports(duthost, up_ports))
+    readings = {}
+    for port in up_ports:
+        if port not in still_up:
+            logger.info("%s: went down during the Pre-FEC BER window - excluded", port)
+            continue
+        port_samples = samples[port]
+        if not port_samples:
+            logger.info("%s: no parseable FEC_PRE_BER in COUNTERS_DB RATES - excluded", port)
+            continue
+        readings[port] = sum(port_samples) / len(port_samples)
+        logger.info(
+            "%s: Pre-FEC BER mean=%.3g min=%.3g max=%.3g over %d sample(s) in %.1fs",
+            port, readings[port], min(port_samples), max(port_samples),
+            len(port_samples), elapsed,
+        )
+    return readings
+
+
+def capture_prefec_ber_baseline(duthost, ports, measure_sec):
+    """Record the steady-state Pre-FEC BER baseline for ``ports``.
+
+    Args:
+        duthost: SONiC DUT host fixture.
+        ports: logical port names to measure.
+        measure_sec: sampling window in seconds (see :func:`measure_prefec_ber`).
+
+    Returns:
+        dict: ``{port: float}`` -- see :func:`measure_prefec_ber`.
+    """
+    return measure_prefec_ber(duthost, ports, measure_sec)
+
+
+def check_prefec_ber_guard(
+    duthost, ports, baseline, measure_sec, prefec_ber_max, prefec_ber_degradation_factor,
+):
+    """Pre-FEC BER Guard: verify post-recovery Pre-FEC BER stays within
+    tolerance of ``baseline`` for every port that has one.
+
+    Args:
+        duthost: SONiC DUT host fixture.
+        ports: ports to measure. Only ports also present in ``baseline`` are
+            asserted on; the rest pass trivially (nothing to guard).
+        baseline: dict of ``{port: float}``, from
+            :func:`capture_prefec_ber_baseline`.
+        measure_sec: sampling window in seconds (same helper / window as the
+            baseline capture, so the two are comparable).
+        prefec_ber_max: absolute Pre-FEC BER ceiling. Either a single float
+            shared across ``ports``, or a dict of ``{port: float}``.
+        prefec_ber_degradation_factor: max allowed ratio of post-recovery
+            reading to baseline (only applied when the baseline is non-zero).
+            Either a single float or a dict of ``{port: float}``.
+
+    Returns:
+        dict: ``{port: {'passed': bool, 'details': str}}``, one entry per
+        ``ports``.
+    """
+    def _for_port(value_or_map, port):
+        return value_or_map[port] if isinstance(value_or_map, dict) else value_or_map
+
+    readings = measure_prefec_ber(duthost, ports, measure_sec)
+
+    per_port = {}
+    for port in ports:
+        if port not in baseline:
+            per_port[port] = {
+                "passed": True,
+                "details": f"{port}: no Pre-FEC BER baseline - guard skipped",
+            }
+            continue
+
+        base = baseline[port]
+        reading = readings.get(port)
+        max_allowed = _for_port(prefec_ber_max, port)
+        degradation_factor = _for_port(prefec_ber_degradation_factor, port)
+
+        if reading is None:
+            details = f"{port}: fec_pre_ber unavailable post-flap (baseline={base:.3g})"
+            logger.warning("Pre-FEC BER Guard FAILED: %s", details)
+            per_port[port] = {"passed": False, "details": details}
+        elif reading > max_allowed:
+            details = (
+                f"{port}: Pre-FEC BER {reading:.3g} exceeds ceiling "
+                f"{max_allowed:.3g} (baseline={base:.3g})"
+            )
+            logger.warning("Pre-FEC BER Guard FAILED: %s", details)
+            per_port[port] = {"passed": False, "details": details}
+        elif base > 0 and reading > base * degradation_factor:
+            details = (
+                f"{port}: Pre-FEC BER degraded to {reading:.3g} vs baseline "
+                f"{base:.3g} (ratio {reading / base:.1f}x > {degradation_factor}x)"
+            )
+            logger.warning("Pre-FEC BER Guard FAILED: %s", details)
+            per_port[port] = {"passed": False, "details": details}
+        else:
+            details = f"{port}: Pre-FEC BER {reading:.3g} within tolerance (baseline={base:.3g})"
+            logger.info("Pre-FEC BER Guard PASSED: %s", details)
+            per_port[port] = {"passed": True, "details": details}
+
+    return per_port
