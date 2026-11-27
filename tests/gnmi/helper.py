@@ -70,6 +70,9 @@ def apply_cert_config(duthost, vrf_name=None):
     if vrf_name:
         gnmi_command += "--gnmi_vrf %s " % vrf_name
     gnmi_command += "--ca_crt /etc/sonic/telemetry/gnmiCA.pem "
+    # Increase message sizes from the default; this is the same as in
+    # sonic-buildimage/dockers/docker-sonic-gnmi/gnmi-native.sh
+    gnmi_command += "-max_send_msg_size=$((8*1024*1024)) -max_recv_msg_size=$((8*1024*1024)) "
     gnmi_command += "-gnmi_native_write=true -v=10 >/root/gnmi.log 2>&1"
     start_container_process(duthost, env.gnmi_container, gnmi_command)
 
