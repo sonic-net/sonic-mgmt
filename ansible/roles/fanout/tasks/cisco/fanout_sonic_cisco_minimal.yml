@@ -5,7 +5,24 @@
     local_conn: "{{ device_conn[inventory_hostname] }}"
     local_hwsku: "{{ device_info[inventory_hostname]['HwSku'] }}"
 
-- name: Backup and remove current /etc/sonic/config_db.json
+- name: Set TPID configuration filters
+  set_fact:
+    # HwSKUs where TPID should be disabled (expandable list)
+    tpid_excluded_hwskus: "{{ tpid_excluded_hwskus | default([]) }}"
+    # Topologies where TPID should be disabled (expandable list)
+    tpid_excluded_topologies: "{{ tpid_excluded_topologies | default(['t2', 't2_2lc_min_ports-masic']) }}"
+    # Current topology name (passed from playbook or empty)
+    current_topo: "{{ topo_name | default('') | lower }}"
+
+- name: Determine if TPID should be enabled
+  set_fact:
+    tpid_enabled: >-
+      {{
+        (local_hwsku not in tpid_excluded_hwskus) and
+        (current_topo not in tpid_excluded_topologies)
+      }}
+
+- name: Backup current /etc/sonic/config_db.json
   shell: |
     if [ -f /etc/sonic/config_db.json ]; then
       mv /etc/sonic/config_db.json /etc/sonic/config_db.json_before_reset
@@ -13,7 +30,11 @@
   become: yes
   ignore_errors: yes
 
-- name: Reload configuration to generate default config_db.json from init_cfg.json
+- name: Generate clean default config_db.json based on HwSku
+  shell: sonic-cfggen -H -k {{ local_hwsku }} --print-data > /etc/sonic/config_db.json
+  become: yes
+
+- name: Reload configuration to flush old Redis DB and load clean config
   shell: config reload -y -f
   become: yes
   async: 600
@@ -39,6 +60,7 @@
     device_vlan_list: "{{ local_vlan_list }}"
     device_port_vlans: "{{ local_port_vlans }}"
     device_conn: "{{ local_conn }}"
+    tpid_enabled: "{{ tpid_enabled }}"
 
 - name: Apply minimal configuration to /etc/sonic/config_db.json
   shell: sonic-cfggen -j /tmp/cisco_minimal_config.json --write-to-db
