@@ -1,0 +1,13 @@
+signatures:
+  - name: custom_low_high_threshold
+    exception_type: Failed
+    message: |-
+      Failed: BGP session did not establish within timeout. Neighbor 10.0.0.1 stuck in Active state after 180 seconds.
+    stack_trace: |-
+      tests/bgp/test_bgp.py:120: in test_bgp_session
+          pytest.fail(msg)
+    failure_matching_rule: >-
+      If the failure is about BGP session establishment timeout, it is
+      the same issue.
+    xfail_similarity_high_th: "0.50"
+    xfail_similarity_low_th: "0.30"
