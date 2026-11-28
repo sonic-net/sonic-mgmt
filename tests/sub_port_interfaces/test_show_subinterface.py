@@ -19,6 +19,11 @@ def subintf_expected_config(duthost, apply_config_on_the_dut):
 
     for subinterface, config in list(subinterfaces.items()):
         interface, vlan = subinterface.split(constants.VLAN_SUB_INTERFACE_SEPARATOR)
+        # Convert abbreviated name to full interface name
+        if interface.startswith('Eth'):
+            interface = 'Ethernet' + interface[3:]
+        elif interface.startswith('Po'):
+            interface = 'PortChannel' + interface[2:]
         config["speed"] = show_int_status[interface]["speed"]
         config["mtu"] = show_int_status[interface]["mtu"]
         config["vlan"] = vlan
@@ -26,7 +31,7 @@ def subintf_expected_config(duthost, apply_config_on_the_dut):
     return subinterfaces
 
 
-def test_subinterface_status(duthost, subintf_expected_config):
+def test_subinterface_status(duthost, subintf_expected_config, reload_ptf_config):
     """
     Verify subinterface status after creation/deletion.
 
