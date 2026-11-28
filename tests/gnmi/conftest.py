@@ -211,3 +211,47 @@ def test_eventd_healthy(duthosts, tbinfo, rand_one_dut_hostname, ptfhost, ptfada
     py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "eventd"), "eventd not started.")
 
     module.test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, EVENTS_DATA_DIR, None)
+
+
+GNOI_TEST_VRF = "Vrf_gnoi"
+GNOI_TEST_LOOPBACK = "Loopback77"
+GNOI_TEST_LOOPBACK_IP = "198.51.100.77"  # TEST-NET-2 (RFC 5737)
+
+
+@pytest.fixture
+def gnoi_test_vrf(duthosts, rand_one_dut_hostname, gnmi_tls):
+    """
+    Configure a VRF with a loopback address, reachable only inside the VRF,
+    for the gNOI network diagnostic tests.
+
+    Depends on gnmi_tls so that the configuration is removed before gnmi_tls
+    rolls back to its checkpoint.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    pyrequire(not duthost.is_multi_asic, "VRF test configuration is for single-ASIC DUTs")
+    pyrequire(
+        duthost.shell(f"ip link show {GNOI_TEST_LOOPBACK}", module_ignore_errors=True)["rc"] != 0,
+        f"{GNOI_TEST_LOOPBACK} already exists on the DUT",
+    )
+
+    try:
+        duthost.shell(f"config vrf add {GNOI_TEST_VRF}")
+        duthost.shell(f"config loopback add {GNOI_TEST_LOOPBACK}")
+        duthost.shell(f"config interface vrf bind {GNOI_TEST_LOOPBACK} {GNOI_TEST_VRF}")
+        duthost.shell(f"config interface ip add {GNOI_TEST_LOOPBACK} {GNOI_TEST_LOOPBACK_IP}/32")
+
+        def loopback_in_vrf():
+            output = duthost.shell(f"ip -4 addr show dev {GNOI_TEST_LOOPBACK}", module_ignore_errors=True)["stdout"]
+            return f"master {GNOI_TEST_VRF}" in output and GNOI_TEST_LOOPBACK_IP in output
+
+        pyrequire(
+            wait_until(30, 2, 0, loopback_in_vrf),
+            f"{GNOI_TEST_LOOPBACK} {GNOI_TEST_LOOPBACK_IP} did not come up in {GNOI_TEST_VRF}",
+        )
+        yield GNOI_TEST_VRF, GNOI_TEST_LOOPBACK_IP
+    finally:
+        duthost.shell(
+            f"config interface ip remove {GNOI_TEST_LOOPBACK} {GNOI_TEST_LOOPBACK_IP}/32", module_ignore_errors=True
+        )
+        duthost.shell(f"config loopback del {GNOI_TEST_LOOPBACK}", module_ignore_errors=True)
+        duthost.shell(f"config vrf del {GNOI_TEST_VRF}", module_ignore_errors=True)
