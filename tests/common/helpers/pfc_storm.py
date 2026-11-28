@@ -1,9 +1,12 @@
+import hashlib
 import logging
 import os
 import pathlib
 import re
 import json
+import time
 
+import pytest
 from jinja2 import Template
 from tests.common.errors import MissingInputError
 from tests.common.devices.sonic import SonicHost
@@ -14,6 +17,20 @@ ANSIBLE_ROOT = pathlib.Path(os.getenv("ANSIBLE_CONFIG",
 RUN_PLAYBOOK = os.path.realpath(os.path.join(os.path.dirname(__file__), "../../scripts/exec_template.yml"))
 
 logger = logging.getLogger(__name__)
+
+# How long start_storm() gives pfc_gen_brcm_xgs.py on a SONiC fanout to report
+# PFC_STORM_START: a fixed allowance for reading the port map from the ASIC,
+# one wait for orchagent to apply the PFC transmit change, which the generator
+# shares across all its interfaces (PFC_TX_ENABLE_TIMEOUT_S in
+# pfc_gen_brcm_xgs.py, mirrored here), and per interface its handful of
+# bcmcmd/redis/config spawns, which do not count against that wait. A healthy
+# fanout reports in a few seconds; a stuck one makes the generator raise once
+# the shared wait expires, which start_storm() catches as PFC_STORM_ERROR well
+# before this deadline.
+PFC_GEN_START_TIMEOUT_S = 40
+PFC_TX_ENABLE_TIMEOUT_S = 30
+PFC_GEN_PER_INTF_CMDS_S = 5
+PFC_GEN_START_POLL_S = 2
 
 # Broadcom part number -> chip name pfc_gen_brcm_xgs.py understands. Read from the
 # fanout ASIC at runtime, so a new HWSKU on a known chip needs no table change.
@@ -246,17 +263,7 @@ class PFCStorm(object):
         if self.asic_type == 'vs':
             return
         if self.peer_device.os in ('eos', 'sonic'):
-            chip_name = self._xgs_chip_name()
-            if chip_name:
-                self.pfc_gen_file = "pfc_gen_brcm_xgs.py"
-                self.pfc_gen_file_test_name = "pfc_gen_brcm_xgs.py"
-                self.pfc_gen_chip_name = chip_name
-            else:
-                # This instance may have been pointed at an XGS fanout before;
-                # a fanout that cannot run that generator must not inherit it.
-                self.pfc_gen_file = self._pfc_gen_file_requested
-                self.pfc_gen_file_test_name = self._pfc_gen_file_requested
-                self.pfc_gen_chip_name = None
+            self._select_xgs_generator()
             src_pfc_gen_file = "common/helpers/{}".format(self.pfc_gen_file)
             self._create_pfc_gen()
             if self.fanout_asic_type == 'mellanox':
@@ -320,11 +327,61 @@ class PFCStorm(object):
         elif 'MLNX-OS' in self.peer_info['hwsku']:
             self.platform_name = 'mlnx'
 
+    def _select_xgs_generator(self):
+        """
+        Switch to pfc_gen_brcm_xgs.py when the fanout is a Broadcom XGS switch.
+
+        Called from deploy_pfc_gen() and from every template render, so a handle
+        that never deployed (test_pfcwd_warm_reboot deploys once per fanout and
+        shares the copy between its per-port handles) still runs the generator
+        that was copied, with the chip name it needs, instead of the default
+        pfc_gen.py that is not on the fanout.
+        """
+        chip_name = self._xgs_chip_name()
+        if chip_name:
+            self.pfc_gen_file = "pfc_gen_brcm_xgs.py"
+            self.pfc_gen_file_test_name = "pfc_gen_brcm_xgs.py"
+            self.pfc_gen_chip_name = chip_name
+        else:
+            # This instance may have been pointed at an XGS fanout before;
+            # a fanout that cannot run that generator must not inherit it.
+            self.pfc_gen_file = self._pfc_gen_file_requested
+            self.pfc_gen_file_test_name = self._pfc_gen_file_requested
+            self.pfc_gen_chip_name = None
+
+    def _uses_xgs_generator(self):
+        """
+        True when the storm is driven by pfc_gen_brcm_xgs.py on a SONiC fanout,
+        the only generator whose start-up start_storm() can watch. Keyed off the
+        fanout's chip, as the template choice is, not off deploy_pfc_gen() having
+        run on this handle.
+        """
+        return (self.asic_type != 'vs' and self.peer_device.os == 'sonic' and
+                bool(self._xgs_chip_name()))
+
+    def _pfc_gen_log_path(self):
+        """
+        Log file the generator's stdout/stderr go to on the fanout.
+
+        Named after the storm's interfaces and queue so generators running at
+        the same time (one per port and queue on the warm-reboot tests) each
+        keep their own. Many-port storms get a hash rather than a 400-character
+        file name.
+        """
+        intfs = self.peer_info['pfc_fanout_interface'].split(',')
+        if len(intfs) == 1:
+            label = intfs[0]
+        else:
+            digest = hashlib.md5(",".join(intfs).encode()).hexdigest()[:8]
+            label = "{}_plus{}_{}".format(intfs[0], len(intfs) - 1, digest)
+        return "{}/pfc_gen_{}_q{}.log".format(self._PFC_GEN_DIR['sonic'], label, self.pfc_queue_idx)
+
     def _update_template_args(self):
         """
         Populates all the vars needed by the pfc storm templates
         """
-        self.extra_vars = dict()
+        if self.asic_type != 'vs' and self.peer_device.os in ('eos', 'sonic'):
+            self._select_xgs_generator()
         self.extra_vars = {
             "pfc_gen_file": self.pfc_gen_file,
             "pfc_queue_index": self.pfc_queue_idx,
@@ -350,6 +407,8 @@ class PFCStorm(object):
                 self.extra_vars['pfc_gen_dir'] = self._PFC_GEN_DIR[self.peer_device.os]
             if self.fanout_asic_type == 'mellanox' and self.peer_device.os == 'sonic':
                 self.extra_vars.update({"pfc_fanout_label_port": self._generate_mellanox_label_ports()})
+            if self._uses_xgs_generator():
+                self.extra_vars['pfc_gen_log'] = self._pfc_gen_log_path()
 
     def _prepare_start_template(self):
         """
@@ -400,9 +459,11 @@ class PFCStorm(object):
     def _run_pfc_gen_template(self):
         """
         Run pfc generator script on a specific OS type.
+
+        Returns the shell result on a SONiC fanout, else None.
         """
         if self.asic_type == 'vs':
-            return
+            return None
         if self.peer_device.os == 'sonic':
             with open(self.extra_vars['template_path']) as tmpl_fd:
                 tmpl = Template(tmpl_fd.read())
@@ -410,7 +471,7 @@ class PFCStorm(object):
             cmds = (_.strip() for _ in cmds)
             cmd = "; ".join(_ for _ in cmds if _)
             logger.info("Running command: {}".format(cmd))
-            self.peer_device.shell(cmd, module_ignore_errors=True)
+            return self.peer_device.shell(cmd, module_ignore_errors=True)
         else:
             # TODO: replace this playbook execution with Mellanox
             # onyx_config/onyx_command modules
@@ -420,10 +481,73 @@ class PFCStorm(object):
                 ANSIBLE_ROOT, RUN_PLAYBOOK,
                 self.inventory, **self.extra_vars
                 )
+            return None
+
+    def _wait_storm_started(self, launch_result):
+        """
+        Block until pfc_gen_brcm_xgs.py prints PFC_STORM_START, or fail the test.
+
+        The generator runs detached under nohup. Before this, a storm it never
+        managed to assert (orchagent on the fanout stuck, so the PFC enable it
+        waits for never lands) only showed up 10 s later as a missing
+        "detected PFC storm" line on the DUT and was filed against pfcwd. Now
+        it fails here, naming the fanout and quoting the generator's own output.
+        """
+        fanout = self.peer_info['peerdevice']
+        intfs = self.peer_info['pfc_fanout_interface']
+        log = self.extra_vars['pfc_gen_log']
+        mo = re.search(r'pfc_gen_pid=(\d+)', (launch_result or {}).get('stdout', ''))
+        pid = mo.group(1) if mo else None
+        timeout = (PFC_GEN_START_TIMEOUT_S + PFC_TX_ENABLE_TIMEOUT_S
+                   + PFC_GEN_PER_INTF_CMDS_S * len(intfs.split(',')))
+
+        # One round trip per poll: the log tail, then whether the generator is alive.
+        probe = "tail -n 20 {} 2>/dev/null".format(log)
+        if pid:
+            probe += "; [ -d /proc/{} ] && echo pfc_gen_alive || echo pfc_gen_exited".format(pid)
+        started = time.time()
+        while True:
+            lines = self.peer_device.shell(probe, module_ignore_errors=True).get('stdout', '').splitlines()
+            exited = 'pfc_gen_exited' in lines
+            log_lines = [_ for _ in lines if _ not in ('pfc_gen_alive', 'pfc_gen_exited')]
+            if any(_.startswith('PFC_STORM_START') for _ in log_lines):
+                logger.info("PFC storm on {} {} asserted after {:.1f}s"
+                            .format(fanout, intfs, time.time() - started))
+                return
+            if any(_.startswith('PFC_STORM_ERROR') for _ in log_lines):
+                reason = "the generator reported an error"
+                break
+            if exited:
+                reason = "the generator (pid {}) exited without reporting PFC_STORM_START".format(pid)
+                break
+            if time.time() - started > timeout:
+                reason = "no PFC_STORM_START from the generator within {}s".format(timeout)
+                # Still running, so nobody else will stop it: callers only call
+                # stop_storm() once start_storm() has returned. Left alone it
+                # would assert PFC on the port whenever orchagent catches up,
+                # with no test left to clear it. Its SIGTERM handler clears
+                # whatever it has configured so far.
+                self.stop_storm()
+                break
+            time.sleep(PFC_GEN_START_POLL_S)
+
+        hint = ""
+        if any("PFC transmit not " in _ for _ in log_lines):
+            hint = ("; the fanout never applied the PFC transmit change, "
+                    "so its orchagent is probably stuck")
+        pytest.fail("fanout {}: PFC storm never started on {} (queue {}): {}{}.\n"
+                    "Last lines of {} on the fanout:\n{}"
+                    .format(fanout, intfs, self.pfc_queue_idx, reason, hint,
+                            log, "\n".join(log_lines) or "<empty>"))
 
     def start_storm(self):
         """
         Starts PFC storm on the fanout interfaces
+
+        On a SONiC fanout driven by pfc_gen_brcm_xgs.py this returns only once
+        the generator has asserted the storm, and fails the test if it never
+        does. A deferred start (pfc_storm_defer_time) is not waited for: the
+        caller wants the storm to begin later, while it does something else.
         """
         self._ensure_pfc_gen_deployed()
         self._prepare_start_template()
@@ -433,7 +557,9 @@ class PFCStorm(object):
                     .format(self.peer_info['peerdevice'],
                             self.peer_info['pfc_fanout_interface'],
                             self.pfc_queue_idx))
-        self._run_pfc_gen_template()
+        launch_result = self._run_pfc_gen_template()
+        if self._uses_xgs_generator() and not getattr(self, "pfc_storm_defer_time", None):
+            self._wait_storm_started(launch_result)
 
     def stop_storm(self):
         """
