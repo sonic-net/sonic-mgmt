@@ -1,0 +1,221 @@
+import json
+
+from tests.ranking.report.tools import generate_metadata
+
+
+def _write_source_tree(root):
+    include = root / 'inc'
+    include.mkdir(parents=True)
+    (include / 'saiport.h').write_text(
+        '''
+typedef enum _sai_port_attr_t
+{
+    /**
+     * @brief Administrative state
+     * @type bool
+     * @flags CREATE_AND_SET
+     */
+    SAI_PORT_ATTR_ADMIN_STATE,
+} sai_port_attr_t;
+''', encoding='utf-8')
+    return include
+
+
+def _write_case_registry(path, capability='SAI_PORT_ATTR_ADMIN_STATE'):
+    path.write_text(json.dumps({
+        '_meta': {'source': 'fixture'},
+        capability: {
+            'direction': 'equal',
+            'operations': ['create', 'set', 'read'],
+            'result_type': 'capability',
+            'unit': 'supported',
+        },
+        'port_counter_read': {
+            'display_name': 'Port counter read',
+            'description': 'Total time to read port counters',
+            'direction': 'lower_better',
+            'metric_type': 'counter',
+            'operations': ['read'],
+            'unit': 'ms',
+        },
+    }))
+    return path
+
+
+def test_pipeline_generates_metadata_from_explicit_external_inputs(tmp_path):
+    include = _write_source_tree(tmp_path / 'source')
+    registry = _write_case_registry(tmp_path / 'case-spec-registry.json')
+    output = tmp_path / 'generated'
+    generate_metadata.generate(include, [], registry, output)
+    paths = generate_metadata.validate_metadata(output)
+    assert set(paths) == set(generate_metadata.METADATA_FILES)
+    skeleton = json.loads(paths['skeleton.json'].read_text())
+    assert skeleton['denominator'] == len(skeleton['cells'])
+    assert {cell['attr'] for cell in skeleton['cells']} == {
+        'SAI_PORT_ATTR_ADMIN_STATE'}
+    report_registry = json.loads(paths['spec_registry.json'].read_text())
+    assert set(report_registry) == {'port_counter_read'}
+
+
+def test_pipeline_output_is_stable_across_source_roots(tmp_path):
+    registry = _write_case_registry(tmp_path / 'case-spec-registry.json')
+    outputs = []
+    for name in ('first-root', 'unrelated-second-root'):
+        include = _write_source_tree(tmp_path / name)
+        output = tmp_path / ('output-' + name)
+        generate_metadata.generate(include, [], registry, output)
+        outputs.append(output)
+
+    for name in generate_metadata.METADATA_FILES:
+        assert (outputs[0] / name).read_bytes() == (
+            outputs[1] / name).read_bytes()
+    skeleton = json.loads((outputs[0] / 'skeleton.json').read_text())
+    assert 'attr_dirs' not in skeleton
+    assert 'enum_dirs' not in skeleton
+    assert str(tmp_path) not in (outputs[0] / 'skeleton.json').read_text()
+
+
+def test_pipeline_resolves_experimental_enums_for_standard_attributes(
+        tmp_path, monkeypatch):
+    include = _write_source_tree(tmp_path / 'source')
+    header = include / 'saiport.h'
+    header.write_text(header.read_text().replace(
+        '@type bool', '@type sai_external_mode_t').replace(
+            'SAI_PORT_ATTR_ADMIN_STATE', 'SAI_PORT_ATTR_EXTERNAL_MODE'))
+    experimental = tmp_path / 'experimental'
+    experimental.mkdir()
+    (experimental / 'saiexternal.h').write_text(
+        """
+typedef enum _sai_external_mode_t
+{
+    SAI_EXTERNAL_MODE_DISABLED = 3,
+    SAI_EXTERNAL_MODE_ENABLED = 7,
+} sai_external_mode_t;
+
+typedef enum _sai_external_attr_t
+{
+    /**
+     * @type bool
+     * @flags CREATE_AND_SET
+     */
+    SAI_EXTERNAL_ATTR_ENABLED,
+} sai_external_attr_t;
+""", encoding='utf-8')
+    output = tmp_path / 'generated'
+    registry = _write_case_registry(
+        tmp_path / 'case-spec-registry.json',
+        capability='SAI_PORT_ATTR_EXTERNAL_MODE')
+    monkeypatch.setattr(generate_metadata, 'METADATA_ROOT', output)
+    monkeypatch.setattr(generate_metadata, 'CASE_SPEC_REGISTRY', registry)
+
+    assert generate_metadata.main([
+        '--headers', str(include),
+        '--experimental-headers', str(experimental),
+    ]) == 0
+
+    enums = json.loads((output / 'enum_values.json').read_text())
+    assert enums['sai_external_mode_t'] == {
+        '3': 'SAI_EXTERNAL_MODE_DISABLED',
+        '7': 'SAI_EXTERNAL_MODE_ENABLED',
+    }
+    skeleton = json.loads((output / 'skeleton.json').read_text())
+    assert {cell['attr'] for cell in skeleton['cells']} == {
+        'SAI_PORT_ATTR_EXTERNAL_MODE'}
+    assert {(cell['op'], cell['value']) for cell in skeleton['cells']} == {
+        ('create', 'SAI_EXTERNAL_MODE_DISABLED'),
+        ('create', 'SAI_EXTERNAL_MODE_ENABLED'),
+        ('set', 'SAI_EXTERNAL_MODE_DISABLED'),
+        ('set', 'SAI_EXTERNAL_MODE_ENABLED'),
+        ('read', None),
+    }
+
+
+def test_pipeline_rejects_header_attributes_missing_from_case_registry(tmp_path):
+    include = _write_source_tree(tmp_path / 'source')
+    registry = _write_case_registry(
+        tmp_path / 'case-spec-registry.json',
+        capability='SAI_PORT_ATTR_UNRELATED')
+
+    try:
+        generate_metadata.generate(include, [], registry, tmp_path / 'generated')
+    except ValueError as error:
+        assert 'missing capability definitions' in str(error)
+        assert 'SAI_PORT_ATTR_ADMIN_STATE' in str(error)
+    else:
+        raise AssertionError('missing capability definition was accepted')
+
+
+def test_metadata_cli_exposes_header_inputs_only():
+    options = {action.dest for action in generate_metadata.build_parser()._actions}
+
+    assert {'headers', 'experimental_headers'} <= options
+    assert not {'sai_root', 'inc', 'experimental', 'out_dir'} & options
+
+
+def test_report_registry_preserves_explicit_metric_contract_for_hidden_specs():
+    registry = {
+        'acl_counter_read': {
+            'display_name': 'ACL counter read',
+            'description': 'Total time to read ACL counters',
+            'metric_type': 'counter',
+            'operations': ['read'],
+            'unit': 'ms',
+            'direction': 'lower_better',
+            'include_in_report': True,
+        },
+        'borrowed_route_rate': {
+            'description': 'Route rate collected by another scale case',
+            'metric_type': 'throughput',
+            'operations': ['create'],
+            'unit': 'routes/s',
+            'direction': 'higher_better',
+            'include_in_report': False,
+        },
+    }
+
+    report = generate_metadata.build_report_registry(registry)
+
+    assert set(report) == {'acl_counter_read', 'borrowed_route_rate'}
+    assert report['acl_counter_read']['display_name'] == 'ACL counter read'
+    assert report['acl_counter_read']['metric_type'] == 'counter'
+    assert report['borrowed_route_rate']['include_in_report'] is False
+
+
+def test_visible_report_metric_requires_display_name():
+    registry = {
+        'acl_counter_read': {
+            'description': 'Total time to read ACL counters',
+            'metric_type': 'counter',
+            'operations': ['read'],
+            'unit': 'ms',
+            'direction': 'lower_better',
+            'include_in_report': True,
+        },
+    }
+
+    try:
+        generate_metadata.build_report_registry(registry)
+    except ValueError as error:
+        assert 'acl_counter_read.display_name' in str(error)
+    else:
+        raise AssertionError('visible metric without display_name was accepted')
+
+
+def test_visible_report_metric_rejects_empty_display_name():
+    registry = {
+        'acl_counter_read': {
+            'display_name': '   ',
+            'description': 'Total time to read ACL counters',
+            'metric_type': 'counter',
+            'operations': ['read'],
+            'unit': 'ms',
+            'direction': 'lower_better',
+        },
+    }
+
+    try:
+        generate_metadata.build_report_registry(registry)
+    except ValueError as error:
+        assert 'acl_counter_read.display_name' in str(error)
+    else:
+        raise AssertionError('visible metric with empty display_name was accepted')

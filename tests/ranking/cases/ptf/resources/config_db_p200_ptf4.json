@@ -1,0 +1,40 @@
+{
+    "PORT": {
+        "Ethernet1": {
+            "admin_status": "up",
+            "alias": "Ethernet1",
+            "fec": "rs",
+            "index": "1",
+            "lanes": "3840,3841,3842,3843",
+            "mtu": "9100",
+            "speed": "400000"
+        },
+        "Ethernet2": {
+            "admin_status": "up",
+            "alias": "Ethernet2",
+            "fec": "rs",
+            "index": "2",
+            "mtu": "9100",
+            "lanes": "3844,3845,3846,3847",
+            "speed": "400000"
+        },
+        "Ethernet3": {
+            "admin_status": "up",
+            "alias": "Ethernet3",
+            "fec": "rs",
+            "index": "3",
+            "mtu": "9100",
+            "lanes": "3848,3849,3850,3851",
+            "speed": "400000"
+        },
+        "Ethernet4": {
+            "admin_status": "up",
+            "alias": "Ethernet4",
+            "fec": "rs",
+            "index": "4",
+            "mtu": "9100",
+            "lanes": "3852,3853,3854,3855",
+            "speed": "400000"
+        }
+    }
+}
