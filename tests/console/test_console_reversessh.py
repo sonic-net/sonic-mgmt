@@ -70,25 +70,36 @@ def custom_default_escape_char(duthost, request):
 
 
 @pytest.fixture(scope="function")
-def console_session(custom_default_escape_char):
-    sessions = []
-
+def console_session(custom_default_escape_char, request):
     def create(duthost, dutip, ressh_user, dutpass, target_line):
         client = pexpect.spawn('ssh {}@{} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
-                               .format(ressh_user, dutip))
-        sessions.append((client, duthost, target_line))
+                               .format(ressh_user, dutip), echo=False)
+        session_up = False
+
+        def cleanup():
+            try:
+                if session_up:
+                    pytest_assert(
+                        disconnect_console_client(client, custom_default_escape_char),
+                        "Reverse SSH session on line {} did not reach EOF after Ctrl-{} Ctrl-X; "
+                        "local SSH client was closed".format(target_line, custom_default_escape_char.upper()))
+                else:
+                    client.close(force=True)
+            finally:
+                wait_for_line_idle(
+                    duthost, target_line,
+                    error_msg="Target line {} is busy after exited reverse SSH session".format(target_line))
+
+        # Register before authentication; pytest runs every finalizer even if
+        # setup fails or another session's cleanup raises.
+        request.addfinalizer(cleanup)
         client.expect('[Pp]assword:')
         client.sendline(dutpass)
         ensure_console_session_up(client, target_line, custom_default_escape_char)
+        session_up = True
         return client
 
-    yield create
-
-    for client, duthost, target_line in sessions:
-        disconnect_console_client(client, custom_default_escape_char)
-        wait_for_line_idle(
-            duthost, target_line,
-            error_msg="Target line {} is busy after exited reverse SSH session".format(target_line))
+    return create
 
 
 def test_console_reversessh_connectivity(duthost, creds, conn_graph_facts, console_session):  # noqa: F811
