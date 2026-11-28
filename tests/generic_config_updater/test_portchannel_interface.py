@@ -309,25 +309,41 @@ def verify_attr_change(duthost, po_name, attr, value):
 
 def portchannel_interface_tc2_replace(duthost,
                                       frontend_asic_index_with_portchannel,
-                                      rand_portchannel_name):
+                                      rand_portchannel_name,
+                                      cfg_facts):
     """Test PortChannelXXXX attribute change
     """
     asic_namespace = None if frontend_asic_index_with_portchannel is None else \
         'asic{}'.format(frontend_asic_index_with_portchannel)
+
+    target_mtu = "3324"
+
+    # Members inherit the PortChannel MTU at runtime (teammgrd), and YANG rejects a member
+    # PORT.mtu that differs from its PortChannel. Remove the member MTU instead of matching
+    # it: GCU can order "remove member mtu -> set PortChannel mtu", while changing both to a
+    # new value has no valid intermediate state and fails to sort.
+    port_cfg = cfg_facts.get('PORT', {})
+    member_ports = list(cfg_facts.get('PORTCHANNEL_MEMBER', {}).get(rand_portchannel_name, {}).keys())
+
+    json_patch = [
+        {
+            "op": "remove",
+            "path": "/PORT/{}/mtu".format(member_port)
+        }
+        for member_port in member_ports if 'mtu' in port_cfg.get(member_port, {})
+    ]
+
     attributes = [
-        ("mtu", "3324"),
+        ("mtu", target_mtu),
         ("min_links", "2"),
         ("admin_status", "down")
     ]
-
-    json_patch = []
     for attr, value in attributes:
-        patch = {
+        json_patch.append({
             "op": "replace",
             "path": "/PORTCHANNEL/{}/{}".format(rand_portchannel_name, attr),
             "value": value
-        }
-        json_patch.append(patch)
+        })
 
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
                                                  is_asic_specific=True, asic_namespaces=[asic_namespace])
@@ -374,11 +390,12 @@ def portchannel_interface_tc2_incremental(duthost,
 
 def test_portchannel_interface_tc2_attributes(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                               frontend_asic_index_with_portchannel,
-                                              rand_portchannel_name):
+                                              rand_portchannel_name, cfg_facts):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     portchannel_interface_tc2_replace(duthost,
                                       frontend_asic_index_with_portchannel,
-                                      rand_portchannel_name)
+                                      rand_portchannel_name,
+                                      cfg_facts)
     portchannel_interface_tc2_incremental(duthost,
                                           frontend_asic_index_with_portchannel,
                                           rand_portchannel_name)
