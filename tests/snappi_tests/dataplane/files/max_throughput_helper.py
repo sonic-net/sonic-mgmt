@@ -210,7 +210,6 @@ MIRROR_TTL = "64"
 MIRROR_QUEUE = "0"
 MIRROR_GRE_TYPES = {
     "mellanox": "35145",     # 0x8949
-    "barefoot": "8939",      # 0x22EB
     "cisco-8000": "35006",   # 0x88BE
 }
 DEFAULT_MIRROR_GRE_TYPE = "35006"  # 0x88BE

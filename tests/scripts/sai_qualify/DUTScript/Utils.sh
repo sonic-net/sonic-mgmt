@@ -28,8 +28,6 @@ get_asic_from_std() {
         ASIC="brcm"
     elif [[ x"$1" == x"mellanox" ]]; then
         ASIC="mlnx"
-    elif [[ x"$1" == x"barefoot" ]]; then
-        ASIC="bfn"
     else
         echo "ASIC: $1 does not currently support by saitest"
         exit 1

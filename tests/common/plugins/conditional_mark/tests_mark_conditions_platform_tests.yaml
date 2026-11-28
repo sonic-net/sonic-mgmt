@@ -106,7 +106,6 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_get_watchdog:
     reason: "Unsupported platform API"
     conditions_logical_operator: 'OR'
     conditions:
-      - "asic_type in ['barefoot'] and hwsku in ['newport']"
       - "'sw_to3200k' in hwsku"
       - "'Force10-S6000' in hwsku"
       - "asic_type in ['vs']"
@@ -543,7 +542,7 @@ platform_tests/api/test_psu.py::TestPsuApi::test_power:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vs'] or (asic_type in ['barefoot'] and hwsku in ['newport']) or platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "asic_type in ['vs'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_psu.py::TestPsuApi::test_temperature:
@@ -862,7 +861,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_tx_disable_channel:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vs'] or (asic_type in ['barefoot'] and hwsku in ['newport']) or platform in ['armhf-nokia_ixs7215_52x-r0', 'x86_64-cel_e1031-r0']"
+      - "asic_type in ['vs'] or platform in ['armhf-nokia_ixs7215_52x-r0', 'x86_64-cel_e1031-r0']"
       - "is_multi_asic==True and release in ['201911']"
 
 #######################################
@@ -1012,7 +1011,7 @@ platform_tests/api/test_watchdog.py:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['barefoot'] and hwsku in ['newport', 'montara'] or ('sw_to3200k' in hwsku)"
+      - "'sw_to3200k' in hwsku"
       - "platform in ['x86_64-nokia_ixr7250e_sup-r0', 'x86_64-nokia_ixr7250e_36x400g-r0', 'x86_64-dell_s6000_s1220-r0', 'arm64-elba-asic-flash128-r0']"
       - "asic_type in ['vs']"
       - "is_multi_asic==True and release in ['201911']"
@@ -1679,7 +1678,6 @@ platform_tests/test_reload_config.py::test_reload_configuration:
     reason: "Unsupported platform API / Service watchdog-control can not load on kvm testbed."
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['barefoot'] and hwsku in ['newport']"
       - "https://github.com/sonic-net/sonic-buildimage/issues/19879 and asic_type in ['vs']"
   xfail:
     reason: "timemaster.service fails benignly on Cisco-8102 lab DUTs (no reachable NTP/PTP source), causing 'systemctl is-system-running' to report 'degraded' and trip config_system_checks_passed. Data plane is unaffected."
@@ -1691,7 +1689,6 @@ platform_tests/test_reload_config.py::test_reload_configuration_checks:
     reason: "Unsupported platform API / Service watchdog-control can not load on kvm testbed."
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['barefoot'] and hwsku in ['newport']"
       - "https://github.com/sonic-net/sonic-buildimage/issues/19879 and asic_type in ['vs']"
 
 #######################################

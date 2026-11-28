@@ -144,8 +144,6 @@ class EverflowTest(BaseTest):
 
         if self.asic_type in ["mellanox"]:
             payload = str(scapy_pkt[scapy.GRE].payload)[22:]
-        if self.asic_type in ["barefoot"]:
-            payload = str(scapy_pkt[scapy.GRE].payload)[12:]
         if self.asic_type in ["marvell-teralynx"]:
             payload = str(scapy_pkt[scapy.GRE].payload)[8:]
 

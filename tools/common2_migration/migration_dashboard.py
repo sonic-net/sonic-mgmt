@@ -82,7 +82,6 @@ DOMAIN_KEYWORDS: List[Tuple[str, str]] = [
     ("mellanox", "platform/vendor"),
     ("marvell", "platform/vendor"),
     ("nokia", "platform/vendor"),
-    ("barefoot", "platform/vendor"),
     ("vs_data", "platform/vendor"),
     ("sai", "platform/sai"),
     ("dhcp", "network/dhcp"),
