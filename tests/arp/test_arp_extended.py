@@ -20,13 +20,13 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
-def _check_neighbor_entry(duthost, ip, version):
-    """Return True if ip is present in the DUT's ARP/neighbor table."""
-    switch_arptable = duthost.switch_arptable()['ansible_facts']
+def _check_neighbor_entry(asichost, ip, version):
+    """Return True if ip is present in the ARP/neighbor table of the ASIC."""
+    switch_arptable = asichost.switch_arptable()['ansible_facts']
     return ip in switch_arptable['arptable'][version]
 
 
-def test_arp_accept_value(rand_selected_dut, garp_enabled, config_facts):
+def test_arp_accept_value(rand_selected_dut, asic_under_test, garp_enabled, config_facts):
     """
     Verify that arp_accept is set to 2 when grat_arp is enabled.
 
@@ -34,16 +34,17 @@ def test_arp_accept_value(rand_selected_dut, garp_enabled, config_facts):
     that the kernel arp_accept sysctl is programmed to 2 (same-subnet only).
     """
     duthost = rand_selected_dut
+    asic = asic_under_test
 
     vlan_intfs = list(config_facts['VLAN_INTERFACE'].keys())
 
     for vlan in vlan_intfs:
-        arp_accept_res = duthost.shell('cat /proc/sys/net/ipv4/conf/{}/arp_accept'.format(vlan))
+        arp_accept_res = duthost.shell('{}cat /proc/sys/net/ipv4/conf/{}/arp_accept'.format(asic.ns_arg, vlan))
         pytest_assert(int(arp_accept_res['stdout']) == 2,
                       "Expected arp_accept=2 for {}, got {}".format(vlan, arp_accept_res['stdout']))
 
 
-def test_accept_untracked_na_value(rand_selected_dut, garp_enabled, config_facts):
+def test_accept_untracked_na_value(rand_selected_dut, asic_under_test, garp_enabled, config_facts):
     """
     Verify that accept_untracked_na is set to 2 when grat_arp is enabled.
 
@@ -52,17 +53,20 @@ def test_accept_untracked_na_value(rand_selected_dut, garp_enabled, config_facts
     (same-subnet only).
     """
     duthost = rand_selected_dut
+    asic = asic_under_test
 
     vlan_intfs = list(config_facts['VLAN_INTERFACE'].keys())
 
     for vlan in vlan_intfs:
-        accept_untracked_na_res = duthost.shell('cat /proc/sys/net/ipv6/conf/{}/accept_untracked_na'.format(vlan))
+        accept_untracked_na_res = duthost.shell('{}cat /proc/sys/net/ipv6/conf/{}/accept_untracked_na'.format(
+            asic.ns_arg, vlan))
         pytest_assert(int(accept_untracked_na_res['stdout']) == 2,
                       "Expected accept_untracked_na=2 for {}, got {}".format(
                           vlan, accept_untracked_na_res['stdout']))
 
 
-def test_arp_garp_enabled(rand_selected_dut, garp_enabled, ip_and_intf_info, intfs_for_test, config_facts, ptfadapter):
+def test_arp_garp_enabled(rand_selected_dut, asic_under_test, garp_enabled, ip_and_intf_info, intfs_for_test,
+                          config_facts, ptfadapter):
     """
     Send a gratuitous ARP (GARP) packet from the PTF to the DUT
 
@@ -70,6 +74,7 @@ def test_arp_garp_enabled(rand_selected_dut, garp_enabled, ip_and_intf_info, int
     """
     pytest_require(garp_enabled, 'Gratuitous ARP not enabled for this device')
     duthost = rand_selected_dut
+    asic = asic_under_test
     ptf_intf_ipv4_addr = ip_and_intf_info[0]
 
     arp_request_ip = increment_ipv4_addr(ptf_intf_ipv4_addr)
@@ -87,19 +92,19 @@ def test_arp_garp_enabled(rand_selected_dut, garp_enabled, ip_and_intf_info, int
                                       hw_tgt='ff:ff:ff:ff:ff:ff'
                                       )
 
-    clear_dut_arp_cache(duthost)
+    clear_dut_arp_cache(duthost, asic.cli_ns_option)
 
     logger.info("Sending GARP for target {} from PTF interface {}".format(arp_request_ip, intf1_index))
     testutils.send_packet(ptfadapter, intf1_index, pkt)
 
     vlan_intfs = list(config_facts['VLAN_INTERFACE'].keys())
 
-    switch_arptable = duthost.switch_arptable()['ansible_facts']
+    switch_arptable = asic.switch_arptable()['ansible_facts']
     pytest_assert(switch_arptable['arptable']['v4'][arp_request_ip]['macaddress'].lower() == arp_src_mac.lower())
     pytest_assert(switch_arptable['arptable']['v4'][arp_request_ip]['interface'] in vlan_intfs)
 
 
-def test_arp_garp_out_of_subnet_not_learned(rand_selected_dut, garp_enabled, ip_and_intf_info,
+def test_arp_garp_out_of_subnet_not_learned(rand_selected_dut, asic_under_test, garp_enabled, ip_and_intf_info,
                                             intfs_for_test, config_facts, ptfadapter):
     """
     Send a gratuitous ARP (GARP) packet with a source IP outside the subnet
@@ -109,6 +114,7 @@ def test_arp_garp_out_of_subnet_not_learned(rand_selected_dut, garp_enabled, ip_
     out-of-subnet GARP.
     """
     duthost = rand_selected_dut
+    asic = asic_under_test
 
     # Derive an out-of-subnet IP from the VLAN's IPv4 subnet
     vlan_addrs = list(list(config_facts['VLAN_INTERFACE'].items())[0][1].keys())
@@ -139,7 +145,7 @@ def test_arp_garp_out_of_subnet_not_learned(rand_selected_dut, garp_enabled, ip_
                                       hw_tgt='ff:ff:ff:ff:ff:ff'
                                       )
 
-    clear_dut_arp_cache(duthost)
+    clear_dut_arp_cache(duthost, asic.cli_ns_option)
 
     logger.info("Sending out-of-subnet GARP for target {} from PTF interface {}".format(
         out_of_subnet_ip, intf1_index))
@@ -148,13 +154,13 @@ def test_arp_garp_out_of_subnet_not_learned(rand_selected_dut, garp_enabled, ip_
     # Allow time for the DUT to process the packet before verifying it was NOT learned
     time.sleep(5)
 
-    switch_arptable = duthost.switch_arptable()['ansible_facts']
+    switch_arptable = asic.switch_arptable()['ansible_facts']
     pytest_assert(out_of_subnet_ip not in switch_arptable['arptable']['v4'],
                   "Out-of-subnet GARP source {} should NOT be learned with arp_accept=2".format(out_of_subnet_ip))
 
 
-def test_ipv6_unsolicited_na_link_local_accepted(rand_selected_dut, garp_enabled, ip_and_intf_info,
-                                                 intfs_for_test, config_facts, ptfadapter):
+def test_ipv6_unsolicited_na_link_local_accepted(rand_selected_dut, asic_under_test, garp_enabled,
+                                                 ip_and_intf_info, intfs_for_test, config_facts, ptfadapter):
     """
     Send an unsolicited IPv6 Neighbor Advertisement (NA) with a link-local
     source address (fe80::).
@@ -163,6 +169,7 @@ def test_ipv6_unsolicited_na_link_local_accepted(rand_selected_dut, garp_enabled
     settings, since link-local is always valid on any interface.
     """
     duthost = rand_selected_dut
+    asic = asic_under_test
     ptf_intf_ipv6_addr = ip_and_intf_info[2]
     pytest_require(ptf_intf_ipv6_addr is not None, 'No IPv6 VLAN address configured on device')
 
@@ -176,18 +183,18 @@ def test_ipv6_unsolicited_na_link_local_accepted(rand_selected_dut, garp_enabled
     pkt /= ICMPv6ND_NA(tgt=link_local_ip, R=0, S=0, O=1)
     pkt /= ICMPv6NDOptSrcLLAddr(type=2, lladdr=na_src_mac)
 
-    clear_dut_arp_cache(duthost, is_ipv6=True)
+    clear_dut_arp_cache(duthost, asic.cli_ns_option, is_ipv6=True)
 
     logger.info("Sending link-local unsolicited NA for target {} from PTF interface {}".format(
         link_local_ip, intf1_index))
     testutils.send_packet(ptfadapter, intf1_index, pkt)
 
-    pytest_assert(wait_until(5, 1, 0, _check_neighbor_entry, duthost, link_local_ip, 'v6'),
+    pytest_assert(wait_until(5, 1, 0, _check_neighbor_entry, asic, link_local_ip, 'v6'),
                   "Link-local unsolicited NA source {} should be learned".format(link_local_ip))
 
 
-def test_ipv6_unsolicited_na_in_subnet_learned(rand_selected_dut, garp_enabled, ip_and_intf_info,
-                                               intfs_for_test, config_facts, ptfadapter):
+def test_ipv6_unsolicited_na_in_subnet_learned(rand_selected_dut, asic_under_test, garp_enabled,
+                                               ip_and_intf_info, intfs_for_test, config_facts, ptfadapter):
     """
     Send an unsolicited IPv6 Neighbor Advertisement (NA) with a source address
     inside the VLAN's IPv6 subnet.
@@ -195,6 +202,7 @@ def test_ipv6_unsolicited_na_in_subnet_learned(rand_selected_dut, garp_enabled, 
     The DUT should learn a neighbor entry from this in-subnet unsolicited NA.
     """
     duthost = rand_selected_dut
+    asic = asic_under_test
     ptf_intf_ipv6_addr = ip_and_intf_info[2]
     pytest_require(ptf_intf_ipv6_addr is not None, 'No IPv6 VLAN address configured on device')
 
@@ -209,23 +217,23 @@ def test_ipv6_unsolicited_na_in_subnet_learned(rand_selected_dut, garp_enabled, 
     pkt /= ICMPv6ND_NA(tgt=in_subnet_ipv6, R=0, S=0, O=1)
     pkt /= ICMPv6NDOptSrcLLAddr(type=2, lladdr=na_src_mac)
 
-    clear_dut_arp_cache(duthost, is_ipv6=True)
+    clear_dut_arp_cache(duthost, asic.cli_ns_option, is_ipv6=True)
 
     logger.info("Sending in-subnet unsolicited NA for target {} from PTF interface {}".format(
         in_subnet_ipv6, intf1_index))
     testutils.send_packet(ptfadapter, intf1_index, pkt)
 
-    pytest_assert(wait_until(5, 1, 0, _check_neighbor_entry, duthost, in_subnet_ipv6, 'v6'),
+    pytest_assert(wait_until(5, 1, 0, _check_neighbor_entry, asic, in_subnet_ipv6, 'v6'),
                   "In-subnet unsolicited NA source {} should be learned".format(in_subnet_ipv6))
 
     vlan_intfs = list(config_facts['VLAN_INTERFACE'].keys())
-    switch_arptable = duthost.switch_arptable()['ansible_facts']
+    switch_arptable = asic.switch_arptable()['ansible_facts']
     pytest_assert(switch_arptable['arptable']['v6'][in_subnet_ipv6]['macaddress'].lower() == na_src_mac.lower())
     pytest_assert(switch_arptable['arptable']['v6'][in_subnet_ipv6]['interface'] in vlan_intfs)
 
 
-def test_ipv6_unsolicited_na_out_of_subnet_not_learned(rand_selected_dut, garp_enabled, ip_and_intf_info,
-                                                       intfs_for_test, config_facts, ptfadapter):
+def test_ipv6_unsolicited_na_out_of_subnet_not_learned(rand_selected_dut, asic_under_test, garp_enabled,
+                                                       ip_and_intf_info, intfs_for_test, config_facts, ptfadapter):
     """
     Send an unsolicited IPv6 Neighbor Advertisement (NA) with a source address
     outside the VLAN's IPv6 subnet.
@@ -234,6 +242,7 @@ def test_ipv6_unsolicited_na_out_of_subnet_not_learned(rand_selected_dut, garp_e
     unsolicited NA.
     """
     duthost = rand_selected_dut
+    asic = asic_under_test
     ptf_intf_ipv6_addr = ip_and_intf_info[2]
     pytest_require(ptf_intf_ipv6_addr is not None, 'No IPv6 VLAN address configured on device')
 
@@ -262,7 +271,7 @@ def test_ipv6_unsolicited_na_out_of_subnet_not_learned(rand_selected_dut, garp_e
     pkt /= ICMPv6ND_NA(tgt=out_of_subnet_ipv6, R=0, S=0, O=1)
     pkt /= ICMPv6NDOptSrcLLAddr(type=2, lladdr=na_src_mac)
 
-    clear_dut_arp_cache(duthost, is_ipv6=True)
+    clear_dut_arp_cache(duthost, asic.cli_ns_option, is_ipv6=True)
 
     logger.info("Sending out-of-subnet unsolicited NA for target {} from PTF interface {}".format(
         out_of_subnet_ipv6, intf1_index))
@@ -271,18 +280,21 @@ def test_ipv6_unsolicited_na_out_of_subnet_not_learned(rand_selected_dut, garp_e
     # Allow time for the DUT to process the packet before verifying it was NOT learned
     time.sleep(5)
 
-    switch_arptable = duthost.switch_arptable()['ansible_facts']
+    switch_arptable = asic.switch_arptable()['ansible_facts']
     pytest_assert(out_of_subnet_ipv6 not in switch_arptable['arptable']['v6'],
                   "Out-of-subnet unsolicited NA source {} should NOT be learned".format(out_of_subnet_ipv6))
 
 
-def test_proxy_arp(rand_selected_dut, proxy_arp_enabled, ip_and_intf_info, ptfadapter, packets_for_test):
+def test_proxy_arp(rand_selected_dut, asic_under_test, proxy_arp_enabled, ip_and_intf_info, ptfadapter,
+                   packets_for_test):
     """
     Send an ARP request or neighbor solicitation (NS) to the DUT for an IP address within the subnet of the DUT's VLAN.
 
     DUT should reply with an ARP reply or neighbor advertisement (NA) containing the DUT's own MAC
     """
     pytest_require(proxy_arp_enabled, 'Proxy ARP not enabled for all VLANs')
+    asic = asic_under_test
+    swss = asic.get_docker_name('swss')
 
     ptf_intf_ipv4_addr, _, ptf_intf_ipv6_addr, _, ptf_intf_index = ip_and_intf_info
 
@@ -304,24 +316,25 @@ def test_proxy_arp(rand_selected_dut, proxy_arp_enabled, ip_and_intf_info, ptfad
         for table_name, table in running_config.items():
             if "VLAN" in table_name:
                 logger.debug("{}: {}".format(table_name, table))
-        swss_status = rand_selected_dut.shell('docker exec swss supervisorctl status',
+        swss_status = rand_selected_dut.shell('docker exec {} supervisorctl status'.format(swss),
                                               module_ignore_errors=True)['stdout']
         logger.debug(swss_status)
-        ndppd_conf = rand_selected_dut.shell('docker exec swss cat /etc/ndppd.conf',
+        ndppd_conf = rand_selected_dut.shell('docker exec {} cat /etc/ndppd.conf'.format(swss),
                                              module_ignore_errors=True)['stdout']
         logger.debug(ndppd_conf)
         # when there are a large number of routes, ndppd will take long time to read /proc/net/ipv6_route.
         # instead of sleep for a specific time, we just log the time taken to read the file to match the delay time.
         # once ndppd performance is improved, this can be removed.
-        ipv6_routes_read_time = rand_selected_dut.shell("docker exec swss bash -c 'time wc -l /proc/net/ipv6_route'")
+        ipv6_routes_read_time = rand_selected_dut.shell(
+            "docker exec {} bash -c 'time wc -l /proc/net/ipv6_route'".format(swss))
         logger.debug("Total ipv6 route entries: {} \n Read time:{}".format(ipv6_routes_read_time['stdout'],
                                                                            ipv6_routes_read_time['stderr']))
 
-        neigh_table = rand_selected_dut.shell('ip -6 neigh')['stdout']
+        neigh_table = rand_selected_dut.shell(asic.ns_arg + 'ip -6 neigh')['stdout']
         logger.debug(neigh_table)
 
     testutils.send_packet(ptfadapter, ptf_intf_index, outgoing_packet)
     if ip_version == 'v6':
-        neigh_table = rand_selected_dut.shell('ip -6 neigh')['stdout']
+        neigh_table = rand_selected_dut.shell(asic.ns_arg + 'ip -6 neigh')['stdout']
         logger.debug(neigh_table)
     testutils.verify_packet(ptfadapter, expected_packet, ptf_intf_index, timeout=PTF_TIMEOUT)
