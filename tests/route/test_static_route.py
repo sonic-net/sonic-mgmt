@@ -25,6 +25,7 @@ from tests.common import config_reload
 from tests.common.reboot import reboot
 from tests.common.mellanox_data import is_mellanox_device, is_issu_enabled
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
+from tests.common.plugins.loganalyzer.loganalyzer import DisableLogrotateCronContext
 import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
@@ -1035,24 +1036,25 @@ def test_static_route_no_bgp_churn(rand_selected_dut, clear_static_route, tbinfo
         pytest.fail("No valid BGP neighbors found")
     wait_time = 3
 
-    with allure.step("Record swss.rec baseline then add static routes {}".format(prefixes)):
-        mark = int(duthost.shell("sudo stat -c %s /var/log/swss/swss.rec")["stdout"].strip())
-        for p in prefixes:
-            _add_route(duthost, p, nexthop)
+    with DisableLogrotateCronContext(duthost):
+        with allure.step("Record swss.rec baseline then add static routes {}".format(prefixes)):
+            mark = int(duthost.shell("sudo stat -c %s /var/log/swss/swss.rec")["stdout"].strip())
+            for p in prefixes:
+                _add_route(duthost, p, nexthop)
 
-    tail_offset = mark + 1
-    with allure.step("Wait then dump swss.rec incremental content"):
-        time.sleep(wait_time)
-        delta = duthost.shell(
-            f"sudo tail -c +{tail_offset} /var/log/swss/swss.rec")["stdout"]
+        tail_offset = mark + 1
+        with allure.step("Wait then dump swss.rec incremental content"):
+            time.sleep(wait_time)
+            delta = duthost.shell(
+                f"sudo tail -c +{tail_offset} /var/log/swss/swss.rec")["stdout"]
 
-        non_empty_lines = [ln for ln in delta.splitlines() if ln.strip() and 'eth0' not in ln]
-        logger.info(
-            f"swss.rec new content after static routes: {len(non_empty_lines)} non-empty line(s)")
+            non_empty_lines = [ln for ln in delta.splitlines() if ln.strip() and 'eth0' not in ln]
+            logger.info(
+                f"swss.rec new content after static routes: {len(non_empty_lines)} non-empty line(s)")
 
-        routes = _routes_from_swss_delta(delta)
-        pytest_assert(
-            set(routes) == set(prefixes),
-            f"Routes from swss delta {routes} do not match expected prefixes {prefixes}")
-        logger.info(f"swss.rec ROUTE_TABLE prefixes: {routes}")
-        logger.info(f"swss.rec delta raw:\n{delta}")  # noqa: E231
+            routes = _routes_from_swss_delta(delta)
+            pytest_assert(
+                set(routes) == set(prefixes),
+                f"Routes from swss delta {routes} do not match expected prefixes {prefixes}")
+            logger.info(f"swss.rec ROUTE_TABLE prefixes: {routes}")
+            logger.info(f"swss.rec delta raw:\n{delta}")  # noqa: E231
