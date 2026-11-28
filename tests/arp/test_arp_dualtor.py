@@ -215,10 +215,14 @@ def verify_neighbor_stays_incomplete(duthosts, neigh_ip):
     return verify_all_neighbor_status(duthosts, neigh_ip, INCOMPLETE)
 
 
-def verify_failed_neighbor_request(duthost, vlan_name, neigh_ip):
-    key = "{}:{}:{}".format(
+def get_failed_neighbor_key(vlan_name, neigh_ip):
+    return "{}:{}:{}".format(
         NEIGH_FAILED_TABLE, vlan_name, ip_address(neigh_ip)
     )
+
+
+def verify_failed_neighbor_request(duthost, vlan_name, neigh_ip):
+    key = get_failed_neighbor_key(vlan_name, neigh_ip)
     result = duthost.shell(
         "sonic-db-cli APPL_DB exists '{}'".format(key)
     )
@@ -256,6 +260,12 @@ def clear_test_neighbors(duthosts, neighbor_info):
                 ),
                 module_ignore_errors=True
             )
+        failed_neighbor_key = get_failed_neighbor_key(
+            vlan_name, neighbor_info['neighbor_ipv6']
+        )
+        duthost.shell(
+            "sonic-db-cli APPL_DB del '{}'".format(failed_neighbor_key)
+        )
 
 
 def clear_neighbor_entry(duthost, neigh_ip):
