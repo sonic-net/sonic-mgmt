@@ -25,6 +25,12 @@ from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.devices.sonic import SonicHost
 from tests.common.devices.eos import EosHost
+from tests.common.devices.csonic import CsonicHost
+from tests.bgp.bgp_helpers import (
+    get_converged_csonic_route_details,
+    get_neighbor_exabgp_nexthops,
+    neighbor_route_matches,
+)
 
 from bgp_bbr_helpers import get_bbr_default_state, config_bbr_by_gcu
 
@@ -155,6 +161,12 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
     nhipv6 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv6']
     tor_neighbors = natsorted([neighbor for neighbor in list(nbrhosts.keys()) if neighbor.endswith('T0')])
     tor1 = tor_neighbors[0]
+    tor1_neighbor = nbrhosts[tor1]
+    if (isinstance(tor1_neighbor['host'], CsonicHost)
+            and tor1_neighbor['host'].bgp_vrf
+            and tor1_neighbor.get('is_multi_vrf_peer')):
+        nhipv4, nhipv6 = get_neighbor_exabgp_nexthops(
+            tbinfo, tor1_neighbor)
 
     neigh_peer_map = defaultdict(dict)
     for bgp_neigh in mg_facts['minigraph_bgp']:
@@ -275,6 +287,18 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
         tor1 = setup['tor1']
         # Check route on tor1
         logger.info('Check route for prefix {} on {}'.format(route.prefix, tor1))
+        tor1_neighbor = nbrhosts[tor1]
+        if (isinstance(tor1_neighbor['host'], CsonicHost)
+                and tor1_neighbor['host'].bgp_vrf
+                and tor1_neighbor.get('is_multi_vrf_peer')):
+            details = get_converged_csonic_route_details(
+                tor1_neighbor, route.prefix)
+            if neighbor_route_matches(details, route.aspath):
+                return True
+            logging.warning(
+                'On {} expected present route with aspath {}, actual details: {}'
+                .format(tor1, route.aspath, details))
+            return False
         tor1_route = nbrhosts[tor1]['host'].get_route(route.prefix)
 
         if isinstance(nbrhosts[tor1]['host'], EosHost):
@@ -351,6 +375,37 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
 
         def _check_route():
             nonlocal vm_route
+            neighbor = nbrhosts[node]
+            if (isinstance(neighbor['host'], CsonicHost)
+                    and neighbor['host'].bgp_vrf
+                    and neighbor.get('is_multi_vrf_peer')):
+                try:
+                    details = get_converged_csonic_route_details(
+                        neighbor, route.prefix)
+                except (RuntimeError, ValueError) as error:
+                    vm_route = {
+                        'failed': True,
+                        'message': 'Route query on {} failed: {}'.format(
+                            node, error),
+                    }
+                    return False
+                vm_route = {
+                    'failed': False,
+                    'message': 'Checking route {} on {} passed'.format(
+                        str(route), node),
+                }
+                expected = '{} {} {}'.format(
+                    dut_asn, tor1_asn, route.aspath)
+                if not neighbor_route_matches(
+                        details, expected, accepted=accepted):
+                    vm_route['failed'] = True
+                    vm_route['message'] = (
+                        'On {} expected accepted={} with aspath {}, '
+                        'actual details: {}'.format(
+                            node, accepted, expected, details)
+                    )
+                    return False
+                return True
             vm_route = nbrhosts[node]['host'].get_route(route.prefix)
             if not isinstance(vm_route, dict):
                 logging.warning("DEBUG: unexpected vm_route type {}, {}".format(type(vm_route), vm_route))

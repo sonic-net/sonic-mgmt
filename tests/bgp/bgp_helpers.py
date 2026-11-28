@@ -31,6 +31,7 @@ from tests.bgp.traffic_checker import get_traffic_shift_state
 from tests.bgp.constants import TS_NORMAL
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
+from tests.common.devices.csonic import CsonicHost
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 DUT_TMP_DIR = os.path.join('tmp', os.path.basename(BASE_DIR))
@@ -80,6 +81,122 @@ TCPDUMP_WAIT_TIMEOUT = 20
 LOCAL_PCAP_FILE_TEMPLATE = "%s_dump.pcap"
 
 
+def _is_converged_csonic(neighbor):
+    """Return whether neighbor is a logical handle on a converged cSONiC."""
+    host = neighbor.get('host') if neighbor else None
+    return (
+        isinstance(host, CsonicHost)
+        and bool(host.bgp_vrf)
+        and bool(neighbor.get('is_multi_vrf_peer'))
+    )
+
+
+def get_neighbor_exabgp_nexthops(tbinfo, neighbor=None):
+    """Return ExaBGP next hops, specializing only logical cSONiC peers."""
+    common = tbinfo['topo']['properties']['configuration_properties']['common']
+    nhipv4 = common.get('nhipv4')
+    nhipv6 = common.get('nhipv6')
+    if _is_converged_csonic(neighbor):
+        backplane = neighbor['multi_vrf_data']['ptf_bp_config']
+        nhipv4 = backplane.get('ipv4', nhipv4)
+        nhipv6 = backplane.get('ipv6', nhipv6)
+        nhipv4 = nhipv4.split('/')[0] if nhipv4 else None
+        nhipv6 = nhipv6.split('/')[0] if nhipv6 else None
+    return nhipv4, nhipv6
+
+
+def _frr_path_communities(path):
+    """Normalize communities from the selected FRR route path only."""
+    value = path.get('community', path.get('communities', []))
+    if isinstance(value, dict):
+        value = value.get('list', value.get('string', []))
+    if isinstance(value, str):
+        value = value.split()
+    if not isinstance(value, list):
+        return set()
+    return {str(item) for item in value}
+
+
+def get_converged_csonic_route_details(neighbor, prefix):
+    """Read one logical cSONiC route and fail closed on query errors."""
+    if not _is_converged_csonic(neighbor):
+        raise TypeError(
+            "Logical route details require a converged CsonicHost neighbor")
+
+    host = neighbor['host']
+    afi = 'ipv4' if ipaddress.IPNetwork(prefix).version == 4 else 'ipv6'
+    command = 'vtysh -c "show bgp vrf {} {} unicast {} json"'.format(
+        host.bgp_vrf, afi, prefix)
+    result = host.command(command, module_ignore_errors=True)
+    if result.get('rc', 1) != 0:
+        raise RuntimeError(
+            "cSONiC BGP route query failed for {} (rc={}): {}".format(
+                prefix, result.get('rc'), result.get('stderr', '')))
+    output = result.get('stdout')
+    if not isinstance(output, str) or not output.strip():
+        raise RuntimeError(
+            "cSONiC BGP route query returned no output for {}".format(prefix))
+    try:
+        route = json.loads(output)
+    except (TypeError, ValueError) as error:
+        raise ValueError(
+            "cSONiC BGP route query returned invalid JSON for {}".format(
+                prefix)) from error
+    if not isinstance(route, dict):
+        raise ValueError(
+            "cSONiC BGP route query returned {} instead of an object for {}"
+            .format(type(route).__name__, prefix))
+
+    if route and 'paths' not in route:
+        raise ValueError(
+            "cSONiC BGP route query returned an error object without paths "
+            "for {}".format(prefix))
+    paths = route.get('paths', [])
+    if not isinstance(paths, list):
+        raise ValueError(
+            "cSONiC BGP route query returned invalid paths for {}".format(
+                prefix))
+    selected_paths = [
+        candidate for candidate in paths
+        if isinstance(candidate, dict)
+        and isinstance(candidate.get('bestpath'), dict)
+        and candidate['bestpath'].get('overall') is True
+    ]
+    if paths and len(selected_paths) != 1:
+        raise ValueError(
+            "cSONiC BGP route query returned {} selected paths for {}"
+            .format(len(selected_paths), prefix))
+    path = selected_paths[0] if selected_paths else {}
+    return {
+        'present': bool(paths),
+        'aspath': path.get('aspath', {}).get('string'),
+        'communities': _frr_path_communities(path),
+    }
+
+
+def _converged_csonic_route_entries(neighbor, prefix):
+    """Adapt logical cSONiC details to the established allow-list shape."""
+    details = get_converged_csonic_route_details(neighbor, prefix)
+    if not details['present']:
+        return {}
+    return {
+        prefix: {
+            'bgpRoutePaths': [{
+                'routeDetail': {
+                    'communityList': details['communities'],
+                },
+            }],
+        },
+    }
+
+
+def neighbor_route_matches(details, expected_aspath, accepted=True):
+    """Match normalized logical-neighbor details against a BBR expectation."""
+    if not accepted:
+        return not details['present']
+    return details['present'] and details['aspath'] == expected_aspath
+
+
 def apply_bgp_config(duthost, template_name):
     """
     Apply bgp configuration on the bgp docker of DUT
@@ -119,6 +236,26 @@ def get_no_export_output(vm, ipv6=False):
         ipv6: Boolean flag to check IPv6 routes
     """
     vm_host = vm['host']
+    if _is_converged_csonic(vm):
+        afi = 'ipv6' if ipv6 else 'ipv4'
+        route_pattern = (r'[0-9a-fA-F:]+\/\d+\s+[0-9a-fA-F:]+.*'
+                         if ipv6 else
+                         r'\d+\.\d+.\d+.\d+\/\d+\s+\d+\.\d+.\d+.\d+.*')
+        command = (
+            'vtysh -c "show bgp vrf {} {} unicast community no-export"'
+            .format(vm_host.bgp_vrf, afi)
+        )
+        result = vm_host.command(command)
+        if result.get('rc', 1) != 0:
+            raise RuntimeError(
+                "Failed to query {} no-export routes from cSONiC neighbor "
+                "{} (rc={}): {}".format(
+                    'IPv6' if ipv6 else 'IPv4',
+                    vm_host.hostname,
+                    result.get('rc'),
+                    result.get('stderr', '')))
+        return re.findall(route_pattern, result.get('stdout', ''))
+
     vrf_option = ''
     if isinstance(vm_host, EosHost) and vm.get('is_multi_vrf_peer', False):
         vrf_option = ' vrf {}'.format(vm['multi_vrf_data']['vrf'])
@@ -371,9 +508,8 @@ def update_routes(action, ptfip, port, route):
     assert r.status_code == 200
 
 
-def build_routes(tbinfo, prefix_list, expected_community):
-    nhipv4 = tbinfo['topo']['properties']['configuration_properties']['common'].get('nhipv4')
-    nhipv6 = tbinfo['topo']['properties']['configuration_properties']['common'].get('nhipv6')
+def build_routes(tbinfo, prefix_list, expected_community, neighbor=None):
+    nhipv4, nhipv6 = get_neighbor_exabgp_nexthops(tbinfo, neighbor)
     routes = []
     for list_name, prefixes in list(prefix_list.items()):
         logging.info('list_name: {}, prefixes: {}'.format(list_name, str(prefixes)))
@@ -396,19 +532,24 @@ def build_routes(tbinfo, prefix_list, expected_community):
 
 @pytest.fixture(scope='module', autouse=True)
 def prepare_eos_routes(bgp_allow_list_setup, ptfhost, nbrhosts, tbinfo):
-    routes = build_routes(tbinfo, PREFIX_LISTS, TEST_COMMUNITY)
     downstream = bgp_allow_list_setup['downstream']
+    routes = build_routes(
+        tbinfo, PREFIX_LISTS, TEST_COMMUNITY, nbrhosts[downstream])
     downstream_exabgp_port = bgp_allow_list_setup['downstream_exabgp_port']
     downstream_exabgp_port_v6 = bgp_allow_list_setup['downstream_exabgp_port_v6']
     downstream_asn = tbinfo['topo']['properties']['configuration'][downstream]['bgp']['asn']
     downstream_peers = tbinfo['topo']['properties']['configuration'][downstream]['bgp']['peers']
 
-    # By default, EOS does not send community, this is to config EOS to send community
+    # FRR sends standard communities by default. Do not mutate the shared FRR
+    # daemon for a converged logical cSONiC peer; retain every established
+    # backend's setup and teardown commands unchanged.
+    converged_csonic = _is_converged_csonic(nbrhosts[downstream])
     cmds = []
-    for peer_ips in list(downstream_peers.values()):
-        for peer_ip in peer_ips:
-            cmds.append('neighbor {} send-community'.format(peer_ip))
-    nbrhosts[downstream]['host'].config(lines=cmds, parents='router bgp {}'.format(downstream_asn))
+    if not converged_csonic:
+        for peer_ips in list(downstream_peers.values()):
+            for peer_ip in peer_ips:
+                cmds.append('neighbor {} send-community'.format(peer_ip))
+        nbrhosts[downstream]['host'].config(lines=cmds, parents='router bgp {}'.format(downstream_asn))
 
     for route in routes:
         if ipaddress.IPNetwork(route['prefix']).version == 4:
@@ -424,9 +565,10 @@ def prepare_eos_routes(bgp_allow_list_setup, ptfhost, nbrhosts, tbinfo):
             update_routes('withdraw', ptfhost.mgmt_ip, downstream_exabgp_port, route)
         else:
             update_routes('withdraw', ptfhost.mgmt_ip, downstream_exabgp_port_v6, route)
-    # Restore EOS config
-    no_cmds = ['no {}'.format(cmd) for cmd in cmds]
-    nbrhosts[downstream]['host'].config(lines=no_cmds, parents='router bgp {}'.format(downstream_asn))
+    if not converged_csonic:
+        # Restore EOS config
+        no_cmds = ['no {}'.format(cmd) for cmd in cmds]
+        nbrhosts[downstream]['host'].config(lines=no_cmds, parents='router bgp {}'.format(downstream_asn))
 
 
 def apply_allow_list(duthost, namespace, allow_list, allow_list_file_path):
@@ -455,6 +597,14 @@ def check_routes_on_from_neighbor(setup_info, nbrhosts):
         if setup_info['is_v6_topo'] and "v6" not in list_name.lower():
             continue
         for prefix in prefixes:
+            if _is_converged_csonic(nbrhosts[downstream]):
+                details = get_converged_csonic_route_details(
+                    nbrhosts[downstream], prefix)
+                pytest_assert(
+                    details['present'],
+                    'Announced route {} not found on {}'.format(
+                        prefix, downstream))
+                continue
             vrf = downstream if nbrhosts[downstream].get('is_multi_vrf_peer', False) else 'default'
             downstream_route = nbrhosts[downstream]['host'].get_route(prefix, vrf=vrf)
             route_entries = downstream_route['vrfs'][vrf]['bgpRouteEntries']
@@ -497,8 +647,12 @@ def check_routes_on_neighbors_empty_allow_list(nbrhosts, setup, permit=True):
                 continue
             for prefix in prefixes:
                 prefix_result = {'failed': False, 'prefix': prefix, 'reasons': []}
-                vrf = node if nbrhosts[node].get('is_multi_vrf_peer', False) else 'default'
-                neigh_route = nbrhosts[node]['host'].get_route(prefix, vrf=vrf)['vrfs'][vrf]['bgpRouteEntries']
+                if _is_converged_csonic(nbrhosts[node]):
+                    neigh_route = _converged_csonic_route_entries(
+                        nbrhosts[node], prefix)
+                else:
+                    vrf = node if nbrhosts[node].get('is_multi_vrf_peer', False) else 'default'
+                    neigh_route = nbrhosts[node]['host'].get_route(prefix, vrf=vrf)['vrfs'][vrf]['bgpRouteEntries']
 
                 if permit:
                     # All routes should be forwarded
@@ -553,8 +707,12 @@ def check_routes_on_neighbors(nbrhosts, setup, permit=True):
                 continue
             for prefix in prefixes:
                 prefix_result = {'failed': False, 'prefix': prefix, 'reasons': []}
-                vrf = node if nbrhosts[node].get('is_multi_vrf_peer', False) else 'default'
-                neigh_route = nbrhosts[node]['host'].get_route(prefix, vrf=vrf)['vrfs'][vrf]['bgpRouteEntries']
+                if _is_converged_csonic(nbrhosts[node]):
+                    neigh_route = _converged_csonic_route_entries(
+                        nbrhosts[node], prefix)
+                else:
+                    vrf = node if nbrhosts[node].get('is_multi_vrf_peer', False) else 'default'
+                    neigh_route = nbrhosts[node]['host'].get_route(prefix, vrf=vrf)['vrfs'][vrf]['bgpRouteEntries']
 
                 if permit:
                     # All routes should be forwarded
@@ -665,10 +823,22 @@ def restart_bgp_session(duthost, neighbor=None, asic_namespace=None):
             duthost.shell(cmd)
 
 
-def get_ptf_recv_port(duthost, vm_name, tbinfo, multi_vrf_topo=False):
+def get_ptf_recv_port(
+        duthost, vm_name, tbinfo, multi_vrf_topo=False,
+        csonic_multi_vrf=False):
     """
     Get ptf receive port
     """
+    if csonic_multi_vrf:
+        # LLDP identifies the shared prime, not its logical peer. Use the
+        # logical minigraph neighbor and retain every LAG member's PTF index.
+        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+        ports = [
+            port for port, neighbor in mg_facts['minigraph_neighbors'].items()
+            if neighbor.get('name') == vm_name
+        ]
+        return [mg_facts['minigraph_ptf_indices'][port] for port in ports]
+
     if multi_vrf_topo:
         # When using multi-vrf topologies, the vm_name alone is not unique enough to be used as an
         # index into the lldp table.  In this scenario, only the host container is listed by name,
@@ -721,7 +891,15 @@ def get_vm_offset(duthost, nbrhosts, tbinfo, is_random=True):
             port_offset = tbinfo['topo']['properties']['convergence_data']['vm_offset_mapping'][vm_name]
         else:
             port_offset = tbinfo['topo']['properties']['topology']['VMs'][vm_name]['vm_offset']
-        ptf_recv_port = get_ptf_recv_port(duthost, vm_name, tbinfo, multi_vrf_topo=multi_vrf_topo)
+        csonic_multi_vrf = (
+            multi_vrf_topo
+            and _is_converged_csonic(nbrhosts[vm_name])
+        )
+        ptf_recv_port = get_ptf_recv_port(
+            duthost, vm_name, tbinfo,
+            multi_vrf_topo=multi_vrf_topo,
+            csonic_multi_vrf=csonic_multi_vrf,
+        )
         logging.info("vm_offset of {} is: {}".format(vm_name, port_offset))
         port_offset_ptf_recv_port_list.append((port_offset, ptf_recv_port))
     return port_offset_ptf_recv_port_list
@@ -869,6 +1047,14 @@ def check_route_install_status(duthost, route, vrf=DEFAULT, ip_ver=IP_VER, check
                           "Vrf:{} - route:{} is installed into FIB".format(vrf, route))
 
 
+def _route_prefixes_from_output(output):
+    """Extract exact IPv4/IPv6 CIDR tokens from neighbor route text."""
+    return set(re.findall(
+        r'(?<![0-9a-fA-F:.])[0-9a-fA-F:.]+/\d+(?![0-9a-fA-F:.])',
+        output or '',
+    ))
+
+
 def check_propagate_route(vmhost, route_list, bgp_neighbor, ip_ver=IP_VER, action=ACTION_IN, vrf=DEFAULT):
     """
     Check whether ipv4 or ipv6 route is advertised to T2 VM
@@ -882,6 +1068,20 @@ def check_propagate_route(vmhost, route_list, bgp_neighbor, ip_ver=IP_VER, actio
         if isinstance(vmhost['host'], EosHost):
             out = vmhost['host'].eos_command(
                 commands=['show ip bgp neighbors {} routes vrf {}'.format(bgp_neighbor, vrf)])['stdout'][0]
+        elif _is_converged_csonic(vmhost):
+            # This helper already resolved the logical runtime VRF, so issue
+            # the exact FRR command here instead of relying on another PR's
+            # command-translation behavior.
+            result = vmhost['host'].shell(
+                'vtysh -c "show bgp vrf {} ipv4 unicast neighbors {} routes"'
+                .format(vrf, bgp_neighbor),
+                module_ignore_errors=True)
+            if result.get('rc') != 0:
+                logging.warning(
+                    "Failed to query IPv4 routes from cSONiC neighbor %s: %s",
+                    bgp_neighbor, result.get('stderr', ''))
+                return False
+            out = result.get('stdout', '')
         elif isinstance(vmhost['host'], SonicHost):
             out = vmhost['host'].shell('show ip bgp vrf {} neighbor {} routes'.format(vrf, bgp_neighbor),
                                        module_ignore_errors=True)['stdout']
@@ -890,21 +1090,37 @@ def check_propagate_route(vmhost, route_list, bgp_neighbor, ip_ver=IP_VER, actio
         if isinstance(vmhost['host'], EosHost):
             out = vmhost['host'].eos_command(
                 commands=['show ipv6 bgp peers {} routes vrf {}'.format(bgp_neighbor, vrf)])['stdout'][0]
+        elif _is_converged_csonic(vmhost):
+            result = vmhost['host'].shell(
+                'vtysh -c "show bgp vrf {} ipv6 unicast neighbors {} routes"'
+                .format(vrf, bgp_neighbor),
+                module_ignore_errors=True)
+            if result.get('rc') != 0:
+                logging.warning(
+                    "Failed to query IPv6 routes from cSONiC neighbor %s: %s",
+                    bgp_neighbor, result.get('stderr', ''))
+                return False
+            out = result.get('stdout', '')
         elif isinstance(vmhost['host'], SonicHost):
             out = vmhost['host'].shell('show ipv6 bgp vrf {} neighbor {} routes'.format(vrf, bgp_neighbor),
                                        module_ignore_errors=True)['stdout']
     logging.debug('Command output:\n {}'.format(out))
+    observed_routes = (
+        _route_prefixes_from_output(out)
+        if _is_converged_csonic(vmhost)
+        else out
+    )
 
     if action == ACTION_IN:
         for route in route_list:
-            if route in out:
+            if route in observed_routes:
                 logging.debug("Route:{} found - action:{}".format(route, action))
             else:
                 logging.info("Route:{} not found - action:{}".format(route, action))
                 return False
     else:
         for route in route_list:
-            if route in out:
+            if route in observed_routes:
                 logging.info("Route:{} found - action:{}".format(route, action))
                 return False
             else:
