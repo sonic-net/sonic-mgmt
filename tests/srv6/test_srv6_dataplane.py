@@ -140,7 +140,8 @@ class TestSRv6DataPlaneBase(SRv6Base):
     def test_srv6_full_func(self, config_setup, srv6_crm_total_sids,
                             setup_standby_ports_on_rand_unselected_tor,       # noqa: F811
                             toggle_all_simulator_ports_to_rand_selected_tor,  # noqa: F811
-                            ptfadapter, rand_selected_dut, localhost, request, enum_frontend_asic_index, weak_server):
+                            ptfadapter, rand_selected_dut, localhost, request, enum_frontend_asic_index, weak_server,
+                            is_warm_reboot_enabled):
 
         with allure.step('Validate SRv6 packet process'):
             srv6_pkt_list = self._validate_srv6_function(rand_selected_dut, ptfadapter, config_setup, weak_server)
@@ -156,10 +157,16 @@ class TestSRv6DataPlaneBase(SRv6Base):
                 reboot_type = request.config.getoption("--srv6_reboot_type")
 
                 if reboot_type == "random":
-                    reboot_type = random.choice(["cold", "reload", "bgp"])
+                    reboot_options = ["cold", "reload", "bgp"]
+                    if is_warm_reboot_enabled:
+                        reboot_options.append("warm")
+                    reboot_type = random.choice(reboot_options)
 
-                if reboot_type == "cold":
-                    with allure.step('Execute cold reboot'):
+                if reboot_type == "warm" and not is_warm_reboot_enabled:
+                    pytest.skip("Warm reboot unsupported (ISSU disabled)")
+
+                if reboot_type in ("cold", "warm"):
+                    with allure.step('Execute {} reboot'.format(reboot_type)):
                         reboot(rand_selected_dut, localhost, reboot_type=reboot_type, wait_warmboot_finalizer=True,
                                safe_reboot=True, check_intf_up_ports=True, wait_for_bgp=True)
                 elif reboot_type == "reload":

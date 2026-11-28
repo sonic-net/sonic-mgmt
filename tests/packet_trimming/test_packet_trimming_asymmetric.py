@@ -1,11 +1,13 @@
 import pytest
 import logging
+import time
+from ptf import testutils
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.packet_trimming.constants import (
     DEFAULT_PACKET_SIZE, DEFAULT_DSCP, JUMBO_PACKET_SIZE,
     ASYM_PORT_1_DSCP, ASYM_PORT_2_DSCP, MODE_TOGGLE_COUNT,
-    NORMAL_PACKET_DSCP)
+    NORMAL_PACKET_DSCP, WEAK_SERVER_SEND_PPS)
 from tests.packet_trimming.packet_trimming_config import PacketTrimmingConfig
 from tests.packet_trimming.packet_trimming_helper import (
     configure_trimming_global, verify_trimming_config, configure_trimming_action, verify_trimmed_packet,
@@ -18,6 +20,38 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__name__)
+
+
+@pytest.fixture(autouse=True)
+def limit_send_rate_on_weak_server(weak_server, monkeypatch):
+    """On a weak server, pace PTF injection and warm-reboot traffic to WEAK_SERVER_SEND_PPS."""
+    if not weak_server:
+        yield
+        return
+
+    original_send = testutils.send
+    interval = 1.0 / WEAK_SERVER_SEND_PPS
+
+    def rate_limited_send(test, port_id, pkt, count=1):
+        logger.info("Weak server send rate limit: %s pkt(s) at %s pps", count, WEAK_SERVER_SEND_PPS)
+        next_send = time.time()
+        for i in range(count):
+            original_send(test, port_id, pkt, count=1)
+            if i + 1 >= count:
+                break
+            next_send += interval
+            delay = next_send - time.time()
+            if delay > 0:
+                time.sleep(delay)
+
+    monkeypatch.setattr(testutils, "send", rate_limited_send)
+    # Warm-reboot sender runs on the PTF host via a separate script (not testutils.send).
+    monkeypatch.setattr(
+        "tests.packet_trimming.packet_trimming_helper.WARM_REBOOT_PACKET_RATE", WEAK_SERVER_SEND_PPS)
+    # Keep the min-rate check below the capped send rate with some slack.
+    monkeypatch.setattr(
+        "tests.packet_trimming.base_packet_trimming.WARM_REBOOT_MIN_PACKET_RATE", WEAK_SERVER_SEND_PPS // 2)
+    yield
 
 
 class TestPacketTrimmingAsymmetric(BasePacketTrimming):

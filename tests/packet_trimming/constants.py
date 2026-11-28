@@ -29,6 +29,8 @@ BATCH_PACKET_COUNT = 10000
 SEND_MAX_RETRIES = 10
 ECN = 2   # ECN Capable Transport(0), ECT(0)
 PACKET_SIZE_MARGIN = 4
+# Weak server cannot sustain line-rate PTF injection; cap send rate when needed.
+WEAK_SERVER_SEND_PPS = 500
 
 # Buffer configuration constants
 # Dedicated buffer profile for the trim queue
