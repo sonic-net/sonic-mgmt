@@ -11,7 +11,7 @@ from tests.common.cisco_data import is_cisco_device
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD, SONIC_SSH_PORT, SONIC_SSH_REGEX
-from tests.common.helpers.dut_utils import is_mellanox_devices
+from tests.common.helpers.dut_utils import is_mellanox_devices, enable_nat_for_dpus
 from tests.smartswitch.common.device_utils_dpu import (  # noqa: F401
     check_dpu_link_and_status,
     pre_test_check, post_test_switch_check, post_test_dpus_check,
@@ -108,6 +108,10 @@ def test_dpu_status_post_switch_reboot(duthosts, dpuhosts,
                            dpu_on_list, dpu_off_list,
                            ip_address_list)
 
+    if getattr(duthost, 'dpu_nat_port_mapping', None):
+        logging.info("Restoring NAT rules for DPU SSH access after reboot")
+        enable_nat_for_dpus(duthost)
+
     logging.info("Executing post switch reboot dpu check")
     post_test_dpus_check(duthost, dpuhosts,
                          dpu_on_list, ip_address_list,
@@ -137,6 +141,10 @@ def test_dpu_status_post_switch_config_reload(duthosts, dpuhosts,
 
     logging.info("Wait until all critical services are fully started")
     wait_critical_processes(duthost)
+
+    if getattr(duthost, 'dpu_nat_port_mapping', None):
+        logging.info("Restoring NAT rules for DPU SSH access after reboot")
+        enable_nat_for_dpus(duthost)
 
     logging.info("Checking DPU link status and connectivity")
     check_dpu_link_and_status(duthost, dpu_on_list,
@@ -189,6 +197,10 @@ def test_dpu_status_post_switch_mem_exhaustion(duthosts, dpuhosts,
                            dpu_on_list, dpu_off_list,
                            ip_address_list)
 
+    if getattr(duthost, 'dpu_nat_port_mapping', None):
+        logging.info("Restoring NAT rules for DPU SSH access after reboot")
+        enable_nat_for_dpus(duthost)
+
     logging.info("Executing post switch mem exhaustion dpu check")
     post_test_dpus_check(duthost, dpuhosts,
                          dpu_on_list, ip_address_list,
@@ -236,6 +248,10 @@ def test_dpu_status_post_switch_kernel_panic(duthosts, dpuhosts,
     post_test_switch_check(duthost, localhost,
                            dpu_on_list, dpu_off_list,
                            ip_address_list)
+
+    if getattr(duthost, 'dpu_nat_port_mapping', None):
+        logging.info("Restoring NAT rules for DPU SSH access after reboot")
+        enable_nat_for_dpus(duthost)
 
     logging.info("Executing post switch kernel panic dpu check")
     post_test_dpus_check(duthost, dpuhosts,
@@ -464,6 +480,10 @@ def test_cold_reboot_switch(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname
     post_test_switch_check(duthost, localhost,
                            dpu_on_list, dpu_off_list,
                            ip_address_list)
+
+    if getattr(duthost, 'dpu_nat_port_mapping', None):
+        logging.info("Restoring NAT rules for DPU SSH access after reboot")
+        enable_nat_for_dpus(duthost)
 
     logging.info("Executing post switch reboot dpu check")
     post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list, num_dpu_modules,
