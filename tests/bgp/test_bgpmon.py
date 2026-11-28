@@ -362,10 +362,22 @@ def test_bgpmon_v6(dut_with_default_route, localhost, enum_rand_one_frontend_asi
     ptfadapter.dataplane.flush()
     logger.info("Configured bgpmon v6 and verifying active ExaBGP peering")
     asichost.write_to_config_db(BGPMON_CONFIG_FILE)
+
+    def _bgpmon_neighbor_ready():
+        try:
+            out = asichost.run_vtysh("-c 'show bgp summary json'")['stdout']
+            peers = json.loads(out).get('ipv6Unicast', {}).get('peers', {})
+            return peer_addr in peers
+        except Exception:
+            return False
+
     if configure_passive:
-        duthost.run_vtysh(
-            "-c 'configure terminal' -c 'router bgp {}' -c 'neighbor {} passive'".format(asn, peer_addr),
-            asic_index='all'
+        pytest_assert(
+            wait_until(30, 2, 0, _bgpmon_neighbor_ready),
+            "BGPMon neighbor {} not ready on selected ASIC before setting passive".format(peer_addr)
+        )
+        asichost.run_vtysh(
+            "-c 'configure terminal' -c 'router bgp {}' -c 'neighbor {} passive'".format(asn, peer_addr)
         )
 
     selected_ptf_interface = None
@@ -408,9 +420,8 @@ def test_bgpmon_v6(dut_with_default_route, localhost, enum_rand_one_frontend_asi
         pytest_assert(bgpmon_established, "BGPMon v6 Peer connection not established")
     finally:
         if configure_passive:
-            duthost.run_vtysh(
-                "-c 'configure terminal' -c 'router bgp {}' -c 'no neighbor {} passive'".format(asn, peer_addr),
-                asic_index='all'
+            asichost.run_vtysh(
+                "-c 'configure terminal' -c 'router bgp {}' -c 'no neighbor {} passive'".format(asn, peer_addr)
             )
         ptfhost.exabgp(name=BGP_MONITOR_NAME, state="absent")
         if selected_ptf_interface:
