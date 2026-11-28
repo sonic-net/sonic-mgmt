@@ -91,12 +91,13 @@ def test_state_db_cleanup_after_swss_restart(duthosts, enum_rand_one_per_hwsku_f
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     service_name = asichost.get_service_name("swss")
     db_cli = "{} STATE_DB".format(asichost.sonic_db_cli)
+    writer_cli = "{} --authenticate STATE_DB".format(asichost.sonic_db_cli)
 
     # Populate sentinel keys for all tables
     for table in STATE_DB_CLEANUP_TABLES:
         key = _sentinel_key(table)
         logger.info("Setting sentinel STATE_DB entry: {} (asic {})".format(key, enum_frontend_asic_index))
-        duthost.shell('{} HSET "{}" "test_field" "test_value"'.format(db_cli, key))
+        duthost.shell('{} HSET "{}" "test_field" "test_value"'.format(writer_cli, key))
 
     # Verify all sentinel keys were created
     missing = []

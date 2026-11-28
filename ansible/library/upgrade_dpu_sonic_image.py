@@ -532,7 +532,7 @@ class UpgradeDpuSonicImageModule(object):
     def is_module_transition_in_progress(self, dpu_index):
         """Return True if the DPU chassis module has a state transition in progress."""
         dpu_name = "DPU{}".format(dpu_index)
-        cmd = 'sonic-db-cli STATE_DB HGET "CHASSIS_MODULE_TABLE|{}" transition_in_progress'.format(dpu_name)
+        cmd = 'sonic-db-cli -s STATE_DB HGET "CHASSIS_MODULE_TABLE|{}" transition_in_progress'.format(dpu_name)
         with self._cli_lock:
             rc, out, err = self.module.run_command(cmd)
         if rc != 0:
@@ -760,7 +760,7 @@ class UpgradeDpuSonicImageModule(object):
 
         for dpu_index in dpu_indices:
             dpu_name = "DPU{}".format(dpu_index)
-            cmd = 'sonic-db-cli CONFIG_DB HGET "CHASSIS_MODULE|{}" admin_status'.format(dpu_name)
+            cmd = 'sonic-db-cli -s CONFIG_DB HGET "CHASSIS_MODULE|{}" admin_status'.format(dpu_name)
             with self._cli_lock:
                 rc, out, err = self.module.run_command(cmd)
 
