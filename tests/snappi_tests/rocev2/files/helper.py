@@ -28,6 +28,7 @@ Layers in this file:
 import random
 import logging
 import json
+import os
 import time
 import collections
 from dataclasses import dataclass
@@ -35,9 +36,11 @@ from dataclasses import dataclass
 import pandas as pd
 from tabulate import tabulate
 from ixnetwork_restpy.assistants.statistics.statviewassistant import StatViewAssistant
+from ixnetwork_restpy import SessionAssistant, Files
 
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.utilities import wait_until, wait
+from tests.common.portstat_utilities import parse_portstat
 
 # Fixtures re-exported so a test can `from ...files.helper import *` and pull
 # everything (incl. fixtures) from this one module.
@@ -88,6 +91,10 @@ __all__ = [
     "build_rate_fairness", "build_rate_fairness_by_queue", "build_rank_fairness",
     # orchestration
     "Rocev2DpStats", "collect_flow_queue_stats", "collect_rocev2_dp_stats",
+    # leaf-spine fabric (Topology 2)
+    "classify_fabric", "get_leaf_uplinks", "get_fabric_links", "FabricMap", "build_fabric_map",
+    "leaf_egress_counters", "clear_fabric_counters", "fabric_distribution", "set_link_state",
+    "generate_tester_pfc", "clear_tester_pfc",
 ]
 
 # Latency thresholds are in NANOSECONDS. snappi/IxNetwork report RoCEv2 per-QP
@@ -172,16 +179,13 @@ def configure_rocev2_topology(config, port_config_list, topology):
         rocev2_int.ipv4_name = ipv4_stack.name
 
         peers_ids = topo_entry["peers"]
-        # Fail fast on multi-peer tx ports: QPs are created once after the peer loop
-        # and would attach only to the last peer. Single peer (or none, for an rx-only
-        # node) is supported today. TODO: to support multi-peer, move QP creation inside
-        # the peer loop with per-peer-unique peer/QP names.
+        # Single peer (or none, for an rx-only node) per tx port: QPs are created once and
+        # attach to that peer. Multi-peer per tx port is a separate feature that lands with
+        # the all-to-all / broadcast tests, not part of this suite.
         pytest_assert(
             len(peers_ids) <= 1,
             f"configure_rocev2_topology: tx port {tx_port_id} has {len(peers_ids)} peers; "
-            f"multi-peer per tx port is not supported yet (QPs attach only to the last peer). "
-            f"Use one peer per tx port, or extend the helper to create QPs per peer."
-        )
+            f"multi-peer per tx port is not supported here (use one peer per tx port).")
         # Fail fast on unknown peers (no configured IP/device) so misconfig surfaces
         # here rather than as silently-dropped destinations downstream.
         for pid in peers_ids:
@@ -203,6 +207,8 @@ def configure_rocev2_topology(config, port_config_list, topology):
         dest_port_ips = [port_to_dev_ip[port_id]["ip"] for port_id in peers_ids if port_id in port_to_dev_ip]
         logger.info(f"RoCEv2 {tx_port_id}, Dest Ports: {peers_ids}, Dest IPs: {dest_port_ips}")
 
+        # One peer per tx port (single-peer); QPs attach to it. Rx-only nodes have no
+        # configured destination, so a placeholder peer keeps the stack well-formed.
         peer_ips = dest_port_ips or ["0.0.0.0"]
         for dest_ip in peer_ips:
             peer = rocev2_int.peers.add()
@@ -216,9 +222,17 @@ def configure_rocev2_topology(config, port_config_list, topology):
             qps_objs[tx_port_id].append((f"QP{tx_port_id}_{indx}", qp_cfg))
             qp.connection_type.choice = "reliable_connection"
             rc = qp.connection_type.reliable_connection
-            rc.source_qp_number = qp_cfg.get("qp_num", default_qp_configs[indx]["qp_num"])
-            rc.dscp = qp_cfg.get("dscp", default_qp_configs[indx]["dscp"])
-            rc.ecn = qp_cfg.get("ecn", default_qp_configs[indx]["ecn"])
+            # Fall back to the default QP template only within its length; beyond it
+            # use computed defaults so an arbitrary QP count works (no eager IndexError).
+            dflt = default_qp_configs[indx] if indx < len(default_qp_configs) else {}
+            rc.source_qp_number = qp_cfg.get("qp_num", dflt.get("qp_num", 33 + indx))
+            rc.dscp = qp_cfg.get("dscp", dflt.get("dscp", 3))
+            rc.ecn = qp_cfg.get("ecn", dflt.get("ecn", "non_ect"))
+            # Only set the UDP source port when a test opts in (e.g. TC7 varies it per
+            # QP for ECMP entropy); unset preserves the emulation default for other tests.
+            usp = qp_cfg.get("udp_source_port", dflt.get("udp_source_port"))
+            if usp is not None:
+                rc.udp_source_port = usp
 
         stf_peer = config.stateful_flows.rocev2.add()
         tx_port = stf_peer.tx_ports.add()
@@ -305,7 +319,7 @@ def is_traffic_stopped(api, flow_names=None):
     return all(float(fs.data_tx_rate) == 0 for fs in stats)
 
 
-def start_stop(api, operation="start", op_type="protocols", waittime=10):
+def start_stop(api, operation="start", op_type="protocols", waittime=10, wait_convergence=True):
     logger.info("%s %s", operation.capitalize(), op_type)
     cs = api.control_state()
     state_map = {
@@ -321,10 +335,15 @@ def start_stop(api, operation="start", op_type="protocols", waittime=10):
     elif op_type == "traffic":
         cs.traffic.flow_transmit.state = state_map[(op_type, operation)]
     api.set_control_state(cs)
+    # wait_convergence=False: issue the control-state change but don't poll for it. Used by
+    # best-effort cleanup stops where traffic is usually already stopped and the per-QP rate
+    # metric can report a stale non-zero value, which would hang the full wait_until timeout.
     if op_type == "traffic" and operation == "stop":
-        wait_until(180, 10, 0, is_traffic_stopped, api)
+        if wait_convergence:
+            wait_until(180, 10, 0, is_traffic_stopped, api)
     elif op_type == "traffic" and operation == "start":
-        wait_until(180, 10, 0, is_traffic_running, api)
+        if wait_convergence:
+            wait_until(180, 10, 0, is_traffic_running, api)
     else:
         wait(waittime, f"For {op_type} To {operation}")
 
@@ -418,19 +437,31 @@ def sample_flow_rates(api, n=3, gap=2):
 
 def run_rocev2_step(api, base_config, port_config_list, topology, *, traffic_duration,
                     duthosts=None, sample_rates=False, sample_start=3, sample_count=3, sample_gap=2,
-                    config_name=None):
+                    config_name=None, pre_traffic_hook=None):
     config = configure_rocev2_topology(base_config, port_config_list, topology)
     api.set_config(config)
+    # restpy tweaks that must be applied AFTER set_config (which rebuilds traffic) and
+    # BEFORE traffic starts, e.g. IxNetwork tester PFC generation / staggered transmit
+    # (not in OTG). Done here, before SaveConfig, so the saved .ixncfg captures them.
+    if pre_traffic_hook is not None:
+        pre_traffic_hook(api)
     if config_name:
         # Save the IxNetwork config under the (sanitized) test name + parameters
         # for later replay/debug, e.g. test_rocev2_pfc_congestion_ai[q3_single].ixncfg
         safe = "".join(c if c.isalnum() or c in "._-" else "_" for c in config_name)
-        api._ixnetwork.SaveConfig(Arg1=f"{safe}.ixncfg")
-        logger.info(f"Saved IxNetwork config: {safe}.ixncfg")
+        # SaveConfig writes to the server's default file storage; DownloadFile then
+        # copies it back into the rocev2 test folder so it lands on the client.
+        api._ixnetwork.SaveConfig(Files(f"{safe}.ixncfg"))
+        ixncfg_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ixncfg")
+        os.makedirs(ixncfg_dir, exist_ok=True)
+        out_path = os.path.join(ixncfg_dir, f"{safe}.ixncfg")
+        api.assistant.Session.DownloadFile(f"{safe}.ixncfg", out_path)
+        logger.info(f"Saved IxNetwork config: {out_path}")
     start_stop(api, operation="start", op_type="protocols")
     for duthost in duthosts:
-        duthost.command("sonic-clear queuecounters")
-        duthost.command("sonic-clear pfccounters")
+        for asic in duthost.asics:                       # single-asic -> one asic, cli_ns_option=""
+            duthost.command(f"sonic-clear queuecounters {asic.cli_ns_option}")
+            duthost.command(f"sonic-clear pfccounters {asic.cli_ns_option}")
     start_stop(api, operation="start", op_type="traffic")
 
     live_rate_df = None
@@ -470,7 +501,7 @@ def run_rocev2_step(api, base_config, port_config_list, topology, *, traffic_dur
 # ===========================================================================
 # 3. DUT-side data (counters + scheduler config)
 # ===========================================================================
-def scheduler_weights(snappi_dut_port_map, queue_ids=None, asic_index=0):
+def scheduler_weights(snappi_dut_port_map, queue_ids=None):
     """
     Per (dut, interface, snappi_port) egress scheduler bound to each queue and
     that scheduler's weight, read from DUT CONFIG_DB (QUEUE + SCHEDULER).
@@ -486,27 +517,33 @@ def scheduler_weights(snappi_dut_port_map, queue_ids=None, asic_index=0):
     all_rows = []
     for duthost, dut_snappi_ports_map in snappi_dut_port_map.items():
         dut_name = getattr(duthost, "hostname", str(duthost))
-        cfg = duthost.config_facts(host=duthost.hostname, asic_index=asic_index,
-                                   source="running")["ansible_facts"]
-        queue_cfg = cfg.get("QUEUE", {})
-        sched_cfg = cfg.get("SCHEDULER", {})
-        for dut_interface, snappi_port in dut_snappi_ports_map.items():
-            row = {"dut": dut_name, "dut_interface": dut_interface, "snappi_port": snappi_port}
-            for q_str, q_val in queue_cfg.get(dut_interface, {}).items():
-                try:
-                    q = int(q_str)
-                except (ValueError, TypeError):
-                    continue
-                if want_specific and q not in queue_ids:
-                    continue
-                sched_name = q_val.get("scheduler")
-                sched = sched_cfg.get(sched_name, {}) if sched_name else {}
-                weight = sched.get("weight")
-                row[f"UC{q} scheduler"] = sched_name
-                row[f"UC{q} weight"] = int(weight) if isinstance(weight, str) and weight.isdigit() else weight
-                row[f"UC{q} type"] = sched.get("type")
-                row[f"UC{q} wred_profile"] = q_val.get("wred_profile")
-            all_rows.append(row)
+        # QUEUE/SCHEDULER config is per-ASIC; group interfaces by asic index and
+        # read config_facts once per ASIC (interfaces on one DUT can span ASICs).
+        by_index = collections.defaultdict(dict)
+        for intf, snappi_port in dut_snappi_ports_map.items():
+            by_index[duthost.get_port_asic_instance(intf).asic_index][intf] = snappi_port
+        for aidx, intfs in by_index.items():
+            cfg = duthost.config_facts(host=duthost.hostname, asic_index=aidx,
+                                       source="running")["ansible_facts"]
+            queue_cfg = cfg.get("QUEUE", {})
+            sched_cfg = cfg.get("SCHEDULER", {})
+            for dut_interface, snappi_port in intfs.items():
+                row = {"dut": dut_name, "dut_interface": dut_interface, "snappi_port": snappi_port}
+                for q_str, q_val in queue_cfg.get(dut_interface, {}).items():
+                    try:
+                        q = int(q_str)
+                    except (ValueError, TypeError):
+                        continue
+                    if want_specific and q not in queue_ids:
+                        continue
+                    sched_name = q_val.get("scheduler")
+                    sched = sched_cfg.get(sched_name, {}) if sched_name else {}
+                    weight = sched.get("weight")
+                    row[f"UC{q} scheduler"] = sched_name
+                    row[f"UC{q} weight"] = int(weight) if isinstance(weight, str) and weight.isdigit() else weight
+                    row[f"UC{q} type"] = sched.get("type")
+                    row[f"UC{q} wred_profile"] = q_val.get("wred_profile")
+                all_rows.append(row)
 
     df = pd.DataFrame(all_rows)
     if not df.empty:
@@ -542,15 +579,16 @@ def disable_wred(snappi_dut_port_map, queues):
         for duthost, ports in snappi_dut_port_map.items():
             saved[duthost] = {}
             for intf in ports:                       # ports == {interface: snappi_port}
+                db_cli = duthost.get_port_asic_instance(intf).sonic_db_cli   # namespaced on multi-ASIC
                 for q in qnums:
                     key = f"QUEUE|{intf}|{q}"
-                    prof = duthost.shell(f'sonic-db-cli CONFIG_DB hget "{key}" wred_profile',
+                    prof = duthost.shell(f'{db_cli} CONFIG_DB hget "{key}" wred_profile',
                                          module_ignore_errors=True)["stdout"].strip()
                     if not prof:
                         continue
                     saved[duthost][(intf, q)] = prof
-                    duthost.shell(f'sonic-db-cli CONFIG_DB hdel "{key}" wred_profile')
-                    left = duthost.shell(f'sonic-db-cli CONFIG_DB hget "{key}" wred_profile',
+                    duthost.shell(f'{db_cli} CONFIG_DB hdel "{key}" wred_profile')
+                    left = duthost.shell(f'{db_cli} CONFIG_DB hget "{key}" wred_profile',
                                          module_ignore_errors=True)["stdout"].strip()
                     pytest_assert(not left, f"WRED still set on {duthost.hostname} {key} after hdel")
                     logger.info(f"WRED disabled on {duthost.hostname} {key} (was {prof})")
@@ -564,7 +602,8 @@ def restore_wred(saved):
     """Re-attach the WRED profiles removed by disable_wred()."""
     for duthost, items in (saved or {}).items():
         for (intf, q), prof in items.items():
-            duthost.shell(f'sonic-db-cli CONFIG_DB hset "QUEUE|{intf}|{q}" wred_profile "{prof}"')
+            db_cli = duthost.get_port_asic_instance(intf).sonic_db_cli
+            duthost.shell(f'{db_cli} CONFIG_DB hset "QUEUE|{intf}|{q}" wred_profile "{prof}"')
             logger.info(f"WRED restored on {duthost.hostname} QUEUE|{intf}|{q} -> {prof}")
 
 
@@ -582,26 +621,29 @@ def pfc_counters(snappi_dut_port_map, direction="Tx"):
     rows = []
     for duthost, ports in snappi_dut_port_map.items():
         dut_name = getattr(duthost, "hostname", str(duthost))
-        out = duthost.shell("show pfc counters")["stdout"]
-        section, counts = None, {}
-        for line in out.splitlines():
-            s = line.strip()
-            if not s:
-                continue
-            low = s.lower()
-            if low.startswith("port rx"):
-                section = "Rx"; continue
-            if low.startswith("port tx"):
-                section = "Tx"; continue
-            parts = s.split()
-            if section == direction and parts and parts[0].startswith("Ethernet"):
-                vals = []
-                for p in parts[1:9]:
-                    try:
-                        vals.append(int(p.replace(",", "")))
-                    except ValueError:
-                        vals.append(0)
-                counts[parts[0]] = vals
+        # Interfaces on one DUT can span ASICs; query each namespace once.
+        counts = {}
+        for ns_opt in {duthost.get_port_asic_instance(intf).cli_ns_option for intf in ports}:
+            out = duthost.shell(f"show pfc counters {ns_opt}")["stdout"]
+            section = None
+            for line in out.splitlines():
+                s = line.strip()
+                if not s:
+                    continue
+                low = s.lower()
+                if low.startswith("port rx"):
+                    section = "Rx"; continue
+                if low.startswith("port tx"):
+                    section = "Tx"; continue
+                parts = s.split()
+                if section == direction and parts and parts[0].startswith("Ethernet"):
+                    vals = []
+                    for p in parts[1:9]:
+                        try:
+                            vals.append(int(p.replace(",", "")))
+                        except ValueError:
+                            vals.append(0)
+                    counts[parts[0]] = vals
         for intf, snappi_port in ports.items():
             vals = counts.get(intf, [0] * 8)
             row = {"dut": dut_name, "dut_interface": intf, "snappi_port": snappi_port}
@@ -622,10 +664,12 @@ def queue_counters(snappi_dut_port_map, queue_ids=None, queue_cols=None):
     all_rows = []
     for duthost, dut_snappi_ports_map in snappi_dut_port_map.items():
         dut_name = getattr(duthost, "hostname", str(duthost))
-        json_output = duthost.shell("show queue counters --json")["stdout"]
-        queuecounters = json.loads(json_output)
-        queuecounters = {port: {q: v for q, v in counters.items() if q != 'time'}
-                         for port, counters in queuecounters.items()}
+        # Interfaces on one DUT can span ASICs; query each namespace once and merge.
+        queuecounters = {}
+        for ns_opt in {duthost.get_port_asic_instance(intf).cli_ns_option for intf in dut_snappi_ports_map}:
+            qc = json.loads(duthost.shell(f"show queue counters {ns_opt} --json")["stdout"])
+            queuecounters.update({port: {q: v for q, v in counters.items() if q != 'time'}
+                                  for port, counters in qc.items()})
         for dut_interface, snappi_port in dut_snappi_ports_map.items():
             row = {"dut": dut_name, "dut_interface": dut_interface, "snappi_port": snappi_port}
             int_queue_counters = queuecounters[dut_interface]
@@ -1002,7 +1046,7 @@ def collect_flow_queue_stats(*, snappi_api, duthosts, plist, tconfig, snappi_dut
                              topology, prio_dscp_map, queue_ids, traffic_duration,
                              queue_cols=("totalpacket",), sample_rates=True,
                              sample_start=3, sample_count=3, sample_gap=2, log=True,
-                             config_name=None):
+                             config_name=None, pre_traffic_hook=None):
     """
     Universal collector for ANY topology: run one traffic step and merge live
     queue counters + per-flow scheduler weight onto the flow stats. Unlike
@@ -1020,7 +1064,7 @@ def collect_flow_queue_stats(*, snappi_api, duthosts, plist, tconfig, snappi_dut
         api=snappi_api, base_config=tconfig, port_config_list=plist, topology=topology,
         traffic_duration=traffic_duration, duthosts=duthosts, sample_rates=sample_rates,
         sample_start=sample_start, sample_count=sample_count, sample_gap=sample_gap,
-        config_name=config_name)
+        config_name=config_name, pre_traffic_hook=pre_traffic_hook)
     merged_df, dut_queue_df, sched_df = queue_stats(
         flow_df, snappi_dut_port_map, prio_dscp_map=prio_dscp_map,
         queue_ids=list(queue_ids), queue_cols=list(queue_cols))
@@ -1085,3 +1129,215 @@ def collect_rocev2_dp_stats(*, snappi_api, duthosts, plist, tconfig, snappi_dut_
         ack_agg_df=ack_agg_df, data_queue_df=data_queue_df, rate_check_df=rate_check_df,
         port_stats_df=port_stats_df, priority_to_dscp=priority_to_dscp,
         dsps=dsps, lossy_dsps=lossy_dsps, ack_q_col=ack_q_col)
+
+
+# ===========================================================================
+# 6. Leaf-spine fabric (Topology 2) helpers
+# ===========================================================================
+# All additive: used only by the fabric tests (TC7-TC11). The single-DUT tests
+# (TC1-TC6) never call these, so their behavior is unchanged.
+def classify_fabric(conn_graph_facts):
+    """
+    Classify the DUTs in a leaf-spine (Topology 2) connection graph, derived
+    purely from conn_graph_facts["device_conn"]:
+      leaf  = a DUT with >=1 tester-facing port (peer is NOT one of the lab DUTs).
+      spine = a DUT whose links are all DUT<->DUT (no tester-facing port).
+    Returns (leaves, spines) as sorted hostname lists. Nothing about which DUT is
+    leaf/spine is hardcoded - roles come from the graph.
+    """
+    device_conn = conn_graph_facts.get("device_conn", {})
+    duts = set(device_conn)                      # DUTs are the hosts with a conn table
+    leaves, spines = [], []
+    for host, conns in device_conn.items():
+        has_tester = any(c["peerdevice"] not in duts for c in conns.values())
+        (leaves if has_tester else spines).append(host)
+    return sorted(leaves), sorted(spines)
+
+
+def get_leaf_uplinks(conn_graph_facts, leaf):
+    """
+    {leaf_port: (peer_dut, peer_port)} for the leaf's ports whose peer is another
+    lab DUT (the spine) - i.e. fabric uplinks. Tester-facing ports are excluded.
+    Scales to however many uplinks the fabric has.
+    """
+    device_conn = conn_graph_facts.get("device_conn", {})
+    duts = set(device_conn)
+    return {port: (c["peerdevice"], c["peerport"])
+            for port, c in device_conn.get(leaf, {}).items()
+            if c["peerdevice"] in duts}
+
+
+def get_fabric_links(conn_graph_facts, dut, peer_dut):
+    """
+    {dut_port: (peer_dut, peer_port)} for `dut`'s ports connected to `peer_dut` -
+    e.g. the spine's egress links toward a given leaf. Scales to the link count.
+    """
+    device_conn = conn_graph_facts.get("device_conn", {})
+    return {port: (c["peerdevice"], c["peerport"])
+            for port, c in device_conn.get(dut, {}).items()
+            if c["peerdevice"] == peer_dut}
+
+
+@dataclass
+class FabricMap:
+    """Leaf-spine fabric tied to the snappi tester ports. leaves maps each leaf
+    hostname to {host, tester_port_ids, uplinks}; spine is the (first) spine."""
+    leaves: dict
+    spine: dict
+    spines: list
+
+
+def build_fabric_map(conn_graph_facts, snappi_ports, duthosts):
+    """
+    Build a FabricMap from the connection graph + the snappi ports. For each leaf:
+    its DUT host object, the snappi port_ids attached to it (from snappi_ports),
+    and its fabric uplinks. Plus the spine host. Everything is discovered - it
+    scales to any number of leaves / uplinks / tester ports with no code change.
+    """
+    leaves, spines = classify_fabric(conn_graph_facts)
+    tester_by_leaf = collections.defaultdict(list)
+    for sp in snappi_ports:
+        host = getattr(sp["duthost"], "hostname", sp["duthost"])
+        tester_by_leaf[host].append(sp["port_id"])
+
+    leaf_map = {}
+    for leaf in leaves:
+        leaf_map[leaf] = {
+            "host": duthosts[leaf],
+            "tester_port_ids": sorted(tester_by_leaf.get(leaf, [])),
+            "uplinks": get_leaf_uplinks(conn_graph_facts, leaf),
+        }
+    spine = {"hostname": spines[0], "host": duthosts[spines[0]]} if spines else {}
+    return FabricMap(leaves=leaf_map, spine=spine, spines=spines)
+
+
+def set_link_state(duthost, port, up):
+    """
+    Admin up/down a DUT port via `config interface startup/shutdown` (namespace-aware
+    through the port's ASIC). Used by the failover test to drop/restore a fabric
+    link mid-traffic.
+    """
+    ns = duthost.get_port_asic_instance(port).cli_ns_option      # "" single-ASIC
+    action = "startup" if up else "shutdown"
+    cmd = f"config interface {ns} {action} {port}" if ns else f"config interface {action} {port}"
+    logger.info(f"Link {'UP' if up else 'DOWN'}: {duthost.hostname} {port} ({cmd})")
+    duthost.command(cmd)
+
+
+def clear_fabric_counters(fabric_map):
+    """sonic-clear counters on every leaf AND the spine so leaf_egress_counters /
+    the spine-egress diagnostic read a per-run delta (not lifetime totals)."""
+    hosts = [lf["host"] for lf in fabric_map.leaves.values()]
+    if fabric_map.spine.get("host") is not None:
+        hosts.append(fabric_map.spine["host"])
+    for host in hosts:
+        host.command("sonic-clear counters")
+
+
+def leaf_egress_counters(leaf_host, uplinks):
+    """
+    Per-uplink egress (Tx) packet counts on a leaf's uplink ports, via the
+    validated portstat parser (no hand-rolled table parsing). Clear counters with
+    clear_fabric_counters() before the run so these read a delta.
+    Returns a DataFrame: leaf, uplink_port, peer, peer_port, tx_pkts.
+    """
+    stats = parse_portstat(leaf_host.command("portstat")["stdout_lines"])
+    rows = []
+    for port, (peer, peer_port) in sorted(uplinks.items()):
+        s = stats.get(port, {})
+        tx = int("".join(str(s.get("tx_ok", "0")).split(",")))
+        rows.append({"leaf": getattr(leaf_host, "hostname", str(leaf_host)),
+                     "uplink_port": port, "peer": peer, "peer_port": peer_port, "tx_pkts": tx})
+    return pd.DataFrame(rows)
+
+
+def fabric_distribution(egress_df, active_thresh=1000):
+    """
+    Observational summary of how traffic spread across a leaf's uplinks: how many
+    uplinks carried traffic (> active_thresh) and how even they were. Hashing is
+    HW-proprietary, so this is reported (and loosely asserted), not pinned to an
+    exact port count. Returns a 1-row DataFrame.
+    """
+    df = egress_df.copy()
+    df["tx_pkts"] = pd.to_numeric(df["tx_pkts"], errors="coerce").fillna(0)
+    active = df[df["tx_pkts"] > active_thresh]["tx_pkts"]
+    n_active = int(active.count())
+    mean = float(active.mean()) if n_active else 0.0
+    dev = ((active.max() - active.min()) / mean * 100) if n_active and mean else 0.0
+    return pd.DataFrame([{
+        "n_uplinks": len(df), "n_active": n_active,
+        "min_pkts": int(active.min()) if n_active else 0,
+        "max_pkts": int(active.max()) if n_active else 0,
+        "mean_pkts": round(mean, 1), "deviation_pct": round(dev, 2),
+    }])
+
+
+def generate_tester_pfc(api, rx_priority_map, bw_pct):
+    """
+    Enable IxNetwork per-port PFC pause generation on each receiver (tester) port for
+    ONLY its assigned lossless priority, disabling every other priority on that port, so
+    the tester pauses the DUT on that priority and the DUT propagates PFC upstream
+    (TC5 step 5). OTG/snappi does not expose this, so it is set via restpy on the vport
+    L1Config. Call as a pre_traffic_hook: it must run AFTER set_config (which rebuilds
+    the config) and BEFORE traffic starts.
+
+    rx_priority_map: {receiver_snappi_port_id: lossless_priority}, e.g. {rx_q3: 3, rx_q4: 4}.
+    Each receiver enables PFC pause generation for its one priority (the Priority object
+    whose PfcPriority == that value) and disables the rest. Vports are named "Port <id>"
+    (snappi convention); the L1 card child here is AresOneM (this testbed's tester card).
+
+    NOTE: this enables PFC pause generation (the core mechanism). The ~bw_pct target
+    (pause rate/quanta that leaves bw_pct available) is not tuned here yet - refine with
+    the relevant PfcPauseGeneration field once its attributes are confirmed on HW.
+    """
+    ixn = api._ixnetwork
+    enabled = []
+    vports = {v.Name: v for v in ixn.Vport.find()}
+    for rid, prio_val in rx_priority_map.items():
+        vport = vports.get(f"Port {rid}", None)
+        if not vport:
+            logger.warning(f"generate_tester_pfc: no vport 'Port {rid}' - skipping PFC generation for this receiver.")
+            continue
+        pfc_gen = vport.L1Config.find().AresOneM.find().PfcPauseGeneration.find()
+        pytest_assert(len(pfc_gen) > 0,
+                      f"generate_tester_pfc: no PfcPauseGeneration on vport 'Port {rid}' "
+                      f"(L1Config card may not be AresOneM on this testbed).")
+        pfc_gen.EnablePFCPause = True
+        for prio in pfc_gen.Priority.find():
+            # enable ONLY this receiver's priority (disable the rest); set its consumption
+            # rate to bw_pct% of line rate so the tester drains that priority at ~bw_pct and
+            # pauses only the remainder (the plan's "~90% available bandwidth" target).
+            match = (prio.PfcPriority == prio_val)
+            prio.EnablePFCPriority = match
+            if match:
+                prio.ConsumptionRate = bw_pct
+        enabled.append(f"Port {rid}->prio {prio_val}")
+    pytest_assert(enabled,
+                  f"generate_tester_pfc: enabled on no receiver ports {list(rx_priority_map)}.")
+    logger.info(f"Tester PFC pause generation enabled: {enabled} "
+                f"(one priority per receiver, others disabled; target ~{bw_pct}% bandwidth).")
+    #start_stop(api, operation="start", op_type="protocols")
+
+
+def clear_tester_pfc(api):
+    """
+    Teardown for generate_tester_pfc: disable IxNetwork per-port PFC pause generation on
+    ALL tester vports - turn off EnablePFCPause and every per-priority EnablePFCPriority.
+    Because this is a native IxNetwork L1 setting (not managed by snappi set_config), an
+    enabled pfc_gen run would otherwise LEAK into later tests (the stray-PFC-gen gotcha
+    that skewed a TC6 run). Idempotent and safe to call unconditionally in a finally block.
+    """
+    ixn = api._ixnetwork
+    cleared = []
+    for vport in ixn.Vport.find():
+        pfc_gen = vport.L1Config.find().AresOneM.find().PfcPauseGeneration.find()
+        if len(pfc_gen) == 0:
+            continue
+        if pfc_gen.EnablePFCPause:
+            pfc_gen.EnablePFCPause = False
+        for prio in pfc_gen.Priority.find():
+            if prio.EnablePFCPriority:
+                prio.EnablePFCPriority = False
+        cleared.append(vport.Name)
+    if cleared:
+        logger.info(f"Tester PFC pause generation cleared on: {cleared}.")
