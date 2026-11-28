@@ -1,5 +1,7 @@
 """Shared helpers for BMC platform tests (syslog, event.log, Switch-Host)."""
 
+import argparse
+import ast
 import logging
 import shlex
 import time
@@ -290,38 +292,212 @@ def get_platform_major_leak_num_min_sensors(duthost, default=0):
 
     This is the system-wide default used by thermalctld when there is no user override.
     A value of 0 means the count-based MAJOR rule is off (the MAX-T escalation rule is
-    independent of MIN-N). Returns `default` if the API is unavailable on this platform.
+    independent of MIN-N). Only an explicitly unsupported API returns `default`;
+    command errors, malformed results and unexpected implementation failures fail.
     """
-    out = duthost.shell(
-        "python3 -c 'from sonic_platform.chassis import Chassis; "
-        "print(Chassis().get_liquid_cooling().get_major_leak_num_min_sensors())'",
-        module_ignore_errors=True)
+    # Only explicit missing method / NotImplementedError is unsupported. Import,
+    # transport, implementation errors and malformed results remain failures.
+    script = """from sonic_platform.chassis import Chassis
+lc = Chassis().get_liquid_cooling()
+method = getattr(lc, 'get_major_leak_num_min_sensors', None)
+if method is None:
+    print('UNSUPPORTED')
+else:
     try:
-        return int((out.get('stdout') or '').strip())
-    except (TypeError, ValueError):
+        value = method()
+    except NotImplementedError:
+        print('UNSUPPORTED')
+    else:
+        if type(value) is not int or not 0 <= value <= 4294967295 or value == 1:
+            raise ValueError('Invalid MIN-N: {!r}'.format(value))
+        print(value)
+"""
+    out = duthost.shell("python3 -c {}".format(shlex.quote(script)), module_ignore_errors=True)
+    pytest_assert(out.get('rc') == 0, "Platform MIN-N query failed: {}".format(out))
+    raw = (out.get('stdout') or '').strip()
+    if raw == 'UNSUPPORTED':
         return default
+    pytest_assert(raw.isdigit() and int(raw) <= 4294967295 and int(raw) != 1,
+                  "Invalid platform MIN-N response: {!r}".format(raw))
+    return int(raw)
 
 
-def is_major_leak_supported(duthost):
-    """True if the image supports MAJOR system leak (read-only probe of the major-leak-threshold CLI)."""
-    out = duthost.shell("config liquid-cool major-leak-threshold --help 2>&1", module_ignore_errors=True)
-    return out['rc'] == 0
+def read_bmc_hash(duthost, db, key):
+    """Read native sonic-db-cli HGETALL dictionary output without losing values.
+
+    RedisReply::formatDictReply emits a quoted dictionary, including {} on a
+    missing hash. Blank output and raw line pairs are not this protocol: reject
+    them rather than interpreting transport/format failures as safe defaults.
+    """
+    out = duthost.shell("sonic-db-cli {} HGETALL {}".format(db, shlex.quote(key)),
+                        module_ignore_errors=True)
+    pytest_assert(out.get('rc') == 0, "Cannot read {} {}: {}".format(db, key, out))
+    raw = out.get('stdout')
+    pytest_assert(isinstance(raw, str), "Missing hash output for {}".format(key))
+    try:
+        expression = ast.parse(raw.strip(), mode='eval').body
+    except (ValueError, SyntaxError) as error:
+        pytest.fail("Invalid native hash output for {}: {}".format(key, error))
+    pytest_assert(isinstance(expression, ast.Dict), "Expected native hash dictionary for {}".format(key))
+    fields = {}
+    for field, value in zip(expression.keys, expression.values):
+        pytest_assert(isinstance(field, ast.Constant) and isinstance(field.value, str) and
+                      isinstance(value, ast.Constant) and isinstance(value.value, str),
+                      "Invalid hash fields for {}".format(key))
+        pytest_assert(field.value not in fields, "Duplicate hash field for {}".format(key))
+        fields[field.value] = value.value
+    return fields
 
 
-def power_down_action_configured(duthost, action_field):
-    """True if the effective policy action in `action_field` (for example system_major_leak_action)
-    is a power-down action (power_off or graceful_shutdown), so an injected event would really
-    shut the Switch-Host down. Read-only; LEAK_CONTROL_POLICY is not modified. Unset means the
-    syslog_only default."""
-    action = redis_hget(duthost, CONFIG_DB, 'LEAK_CONTROL_POLICY|policy', action_field)
-    return action in ('power_off', 'graceful_shutdown')
+def get_effective_leak_policy(duthost):
+    """Mirror bmcctld's first-existing-row rule, not a per-field fallback.
+
+    Table.get('') addresses the bare table name. Failed or malformed reads stop
+    admission. A policy snapshot is not a lock: callers still need exclusive,
+    hardware-owner-authorized test access; never disable enforcement to obtain it.
+    """
+    policy = {
+        'system_leak_policy': 'enabled',
+        'system_critical_leak_action': 'power_off',
+        'system_major_leak_action': 'syslog_only',
+        'system_minor_leak_action': 'syslog_only',
+        'rack_mgr_leak_policy': 'enabled',
+        'rack_mgr_critical_alert_action': 'syslog_only',
+        'rack_mgr_major_alert_action': 'syslog_only',
+        'rack_mgr_minor_alert_action': 'syslog_only',
+    }
+    for key in ('LEAK_CONTROL_POLICY|policy', 'LEAK_CONTROL_POLICY|LEAK_CONTROL_POLICY',
+                'LEAK_CONTROL_POLICY'):
+        row = read_bmc_hash(duthost, CONFIG_DB, key)
+        if row:
+            policy.update({k: v for k, v in row.items() if k in policy})
+            break
+    return policy
+
+
+def _read_pmon_daemon_source(duthost, daemon):
+    """Read installed source only: CLI and daemon packages upgrade independently."""
+    pytest_assert(daemon in ('bmcctld', 'thermalctld'), "Unexpected daemon {}".format(daemon))
+    out = duthost.shell("docker exec pmon cat /usr/local/bin/{}".format(daemon), module_ignore_errors=True)
+    pytest_assert(out.get('rc') == 0 and out.get('stdout'),
+                  "Cannot establish installed {} contract: {}".format(daemon, out))
+    source = out['stdout']
+    try:
+        ast.parse(source)
+    except SyntaxError as error:
+        pytest.fail("Invalid installed {} source: {}".format(daemon, error))
+    return source
+
+
+def is_liquid_cooling_updater_enabled(duthost):
+    """Resolve the running thermalctld startup gate, not physical sensor presence.
+
+    This getter query requires owner-approved platform API access/initialization. Unlike the
+    API-test module skip helpers, errors/non-booleans are never unsupported.
+    No API server fixture, daemon construction or cooling-object query is used.
+    """
+    source = _read_pmon_daemon_source(duthost, 'thermalctld')
+    # Recognize the supported startup contract, not a package version or target
+    # hash. Unknown implementations require review before using this query.
+    contract = (
+        "parser.add_argument('--enable_liquid_cooling', action='store_true', default=False)",
+        'if not enable_liquid_cooling:',
+        'enable_liquid_cooling = bool(self.chassis.is_liquid_cooled())',
+        'self.liquid_cooling_updater = LiquidCoolingUpdater(self.chassis, liquid_cooling_update_interval) '
+        'if enable_liquid_cooling else None',
+    )
+    pytest_assert(all(fragment in source for fragment in contract),
+                  "Unrecognized thermalctld enablement contract; refusing to guess")
+    status, pid = duthost.get_pmon_daemon_status('thermalctld')
+    pytest_assert(status == 'RUNNING' and type(pid) is int and pid > 0,
+                  "Cannot resolve running thermalctld startup")
+    command = "docker exec pmon cat /proc/{}/cmdline".format(pid)
+    out = duthost.shell(command, module_ignore_errors=True)
+    pytest_assert(out.get('rc') == 0 and isinstance(out.get('stdout'), str),
+                  "Cannot read thermalctld startup: {}".format(out))
+    argv = out['stdout'].rstrip('\x00').split('\x00')
+    pytest_assert(len(argv) >= 2 and argv[1] == '/usr/local/bin/thermalctld' and
+                  argv[0].rsplit('/', 1)[-1].startswith('python3'),
+                  "Unexpected thermalctld startup argv: {!r}".format(argv))
+    parser = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
+    parser.add_argument('--enable_liquid_cooling', action='store_true')
+    parser.add_argument('--thermal-monitor-initial-interval', type=int)
+    parser.add_argument('--thermal-monitor-update-interval', type=int)
+    parser.add_argument('--thermal-monitor-update-elapsed-threshold', type=int)
+    parser.add_argument('--liquid_cooling_update_interval', type=float)
+    try:
+        args = parser.parse_args(argv[2:])
+    except SystemExit:
+        pytest.fail("Unrecognized thermalctld startup arguments; refusing to guess")
+    if args.enable_liquid_cooling:
+        pytest_assert(duthost.get_pmon_daemon_status('thermalctld') == (status, pid),
+                      "thermalctld changed during applicability query; retry before testing")
+        return True  # Explicit startup override takes precedence over platform False/errors.
+
+    # Same Platform -> Chassis capability as thermalctld, in the same container.
+    # Platform construction is not a pure source read: the owner must review the
+    # installed constructor dependencies before approving this getter query.
+    # Do not call get_liquid_cooling(): declared sensors do not enable the updater.
+    script = """from sonic_platform.platform import Platform
+value = Platform().get_chassis().is_liquid_cooled()
+if type(value) is not bool:
+    raise ValueError('is_liquid_cooled must return bool')
+print(value)
+"""
+    out = duthost.shell("docker exec pmon python3 -B -c {}".format(shlex.quote(script)),
+                        module_ignore_errors=True)
+    pytest_assert(out.get('rc') == 0 and isinstance(out.get('stdout'), str) and
+                  out['stdout'].strip() in ('True', 'False'),
+                  "Cannot establish platform liquid-cooling capability: {}".format(out))
+    pytest_assert(duthost.get_pmon_daemon_status('thermalctld') == (status, pid),
+                  "thermalctld changed during applicability query; retry before testing")
+    return out['stdout'].strip() == 'True'
+
+
+def require_liquid_cooling_publisher(duthost):
+    """Case-local admission: disabled is SKIP; enabled but missing data is FAIL."""
+    if not is_liquid_cooling_updater_enabled(duthost):
+        pytest.skip("Liquid-cooling updater is not enabled by thermalctld startup/platform capability; "
+                    "publisher-dependent scenario is inapplicable (not a no-leak assertion)")
+    baseline = read_bmc_hash(duthost, STATE_DB, 'SYSTEM_LEAK_STATUS|system').get('device_leak_status')
+    pytest_assert(baseline in ('None', 'MINOR', 'MAJOR', 'CRITICAL'),
+                  "Enabled liquid-cooling publisher has missing/unknown system leak baseline; refusing injection")
+    return baseline
+
+
+def is_major_leak_supported(duthost, daemon='bmcctld'):
+    """Recognize known new/legacy daemon contracts; unknown is not unsupported."""
+    source = _read_pmon_daemon_source(duthost, daemon)
+    if daemon == 'thermalctld':
+        if 'def _resolve_major_leak_min(' in source and 'SystemLeakStatus.MAJOR' in source:
+            return True
+        if 'escalated_to_critical = True' in source and 'sensor_leak_severity = LeakSeverity.CRITICAL' in source:
+            return False
+    else:
+        if 'elif leak_status == SystemLeakStatus.MAJOR:' in source and '"MAJOR_SYSTEM_LEAK"' in source:
+            return True
+        if 'SYSTEM_LEAK_CRITICAL = "CRITICAL"' in source and 'SYSTEM_LEAK_MINOR = "MINOR"' in source:
+            return False
+    pytest.fail("Unrecognized installed {} leak contract; refusing to guess".format(daemon))
+
+
+def get_power_on_block_reason(duthost):
+    """Select the installed bmcctld result contract before issuing any command."""
+    source = _read_pmon_daemon_source(duthost, 'bmcctld')
+    if 'POWER_ON_BLOCK_REASON = "POWER_DOWN_POLICY_CONFIGURED_EVENT_ACTIVE"' in source:
+        return 'POWER_DOWN_POLICY_CONFIGURED_EVENT_ACTIVE'
+    if 'self._set_cmd_status(key, CMD_STATUS_FAILED, "CRITICAL_LEAK_PRESENT")' in source:
+        return 'CRITICAL_LEAK_PRESENT'
+    pytest.fail("Unrecognized bmcctld power-on refusal contract; refusing to guess")
 
 
 def action_is_syslog_only(duthost, action_field):
-    """True if the effective policy action in `action_field` is syslog_only (unset means the
-    syslog_only default). Read-only; LEAK_CONTROL_POLICY is not modified."""
-    action = redis_hget(duthost, CONFIG_DB, 'LEAK_CONTROL_POLICY|policy', action_field)
-    return action in ('', None, 'syslog_only')
+    """Admit only enabled, known syslog-only policy; disabled is not test coverage."""
+    policy = get_effective_leak_policy(duthost)
+    pytest_assert(action_field in policy and action_field.endswith('_action'),
+                  "Unknown action field {}".format(action_field))
+    enabled_field = 'system_leak_policy' if action_field.startswith('system_') else 'rack_mgr_leak_policy'
+    return policy[enabled_field] == 'enabled' and policy[action_field] == 'syslog_only'
 
 
 def get_major_leak_min_sensors(duthost, default=None):
@@ -337,9 +513,8 @@ def get_major_leak_min_sensors(duthost, default=None):
     independent of MIN-N.
     """
     # LEAK_CONTROL_POLICY is a single-row table; the CLI writes key "policy".
-    # redis_hget returns '' for a missing field, which int() rejects below.
-    val = redis_hget(duthost, CONFIG_DB, 'LEAK_CONTROL_POLICY|policy',
-                     'system_major_leak_num_min_sensors')
+    val = read_bmc_hash(duthost, CONFIG_DB, 'LEAK_CONTROL_POLICY|policy').get(
+        'system_major_leak_num_min_sensors')
     try:
         override = int(val)
     except (TypeError, ValueError):
