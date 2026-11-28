@@ -14,11 +14,13 @@ container. They cover:
   * _bgp_summary_peers      - summary parsing + FRR address-family nesting
   * _bgp_neighbors_json     - neighbors parsing + malformed-output handling
   * get_route              - ``show bgp ipv4|ipv6 unicast <prefix> json``
-                             (SonicHost-compatible shape, {} on error)
+                             (SonicHost-compatible shape, strict errors while
+                             preserving {} for a valid absent prefix)
 
 Follows the repo unit-test convention (unit_test_*.py, unittest.mock).
 """
 
+import json
 import os
 import shlex
 import sys
@@ -684,22 +686,53 @@ class TestGetRoute:
         with patch.object(host, "_docker_exec", return_value=docker_ok("{\n}")):
             assert host.get_route("10.255.0.0/24") == {}
 
-    def test_command_failure_is_empty(self):
+    @pytest.mark.parametrize(
+        "result, expected_rc, expected_error",
+        [
+            ({"rc": 1, "stdout": "{}", "stderr": "no frr"}, 1, "no frr"),
+            ({"rc": -1, "stdout": "", "stderr": "Command timed out"}, -1, "Command timed out"),
+            ({"stdout": "{}", "stderr": "missing status"}, None, "missing status"),
+        ],
+    )
+    def test_command_failure_raises(self, result, expected_rc, expected_error):
         host = make_host()
-        with patch.object(host, "_docker_exec",
-                          return_value={"rc": 1, "stdout": "", "stderr": "no frr"}):
-            assert host.get_route("192.168.0.0/21") == {}
+        with patch.object(host, "_docker_exec", return_value=result):
+            with pytest.raises(RuntimeError) as excinfo:
+                host.get_route("192.168.0.0/21")
+        message = str(excinfo.value)
+        assert host.hostname in message
+        assert "192.168.0.0/21" in message
+        assert "rc={}".format(expected_rc) in message
+        assert expected_error in message
 
-    def test_malformed_output_is_empty(self):
+    def test_empty_output_raises(self):
+        host = make_host()
+        with patch.object(host, "_docker_exec", return_value=docker_ok("  \n")):
+            with pytest.raises(RuntimeError, match="returned empty stdout"):
+                host.get_route("192.168.0.0/21")
+
+    def test_malformed_output_raises(self):
         host = make_host()
         with patch.object(host, "_docker_exec",
                           return_value=docker_ok("% Unknown command")):
-            assert host.get_route("fc02:1000::/64") == {}
+            with pytest.raises(ValueError, match="returned invalid JSON") as excinfo:
+                host.get_route("fc02:1000::/64")
+        assert isinstance(excinfo.value.__cause__, json.JSONDecodeError)
+        assert "% Unknown command" in str(excinfo.value)
 
-    def test_nonobject_output_is_empty(self):
+    @pytest.mark.parametrize(
+        "output, output_type",
+        [
+            ("[1,2,3]", "list"),
+            ("null", "NoneType"),
+            ('"route"', "str"),
+        ],
+    )
+    def test_nonobject_output_raises(self, output, output_type):
         host = make_host()
-        with patch.object(host, "_docker_exec", return_value=docker_ok("[1,2,3]")):
-            assert host.get_route("192.168.0.0/21") == {}
+        with patch.object(host, "_docker_exec", return_value=docker_ok(output)):
+            with pytest.raises(TypeError, match="expected a JSON object, got {}".format(output_type)):
+                host.get_route("192.168.0.0/21")
 
 
 if __name__ == "__main__":
