@@ -3838,6 +3838,76 @@ sensors_checks:
     psu_skips: {}
     sensor_skip_per_version: {}
 
+  x86_64-nokia_ixr7220_h6_128-r0:
+    alarms:
+      fan: []
+      power: []
+      temp:
+      - nvme-pci-0400/Composite/temp1_alarm
+      - bnxt_en-pci-0300/temp1/temp1_max_alarm
+      - bnxt_en-pci-0300/temp1/temp1_crit_alarm
+      - bnxt_en-pci-0300/temp1/temp1_emergency_alarm
+    compares:
+      fan: []
+      power: []
+      temp:
+      - - tmp75-i2c-169-4e/temp1/temp1_input
+        - tmp75-i2c-169-4e/temp1/temp1_max
+      - - tmp75-i2c-163-4e/temp1/temp1_input
+        - tmp75-i2c-163-4e/temp1/temp1_max
+      - - lm75-i2c-155-49/temp1/temp1_input
+        - lm75-i2c-155-49/temp1/temp1_max
+      - - lm75-i2c-155-4d/temp1/temp1_input
+        - lm75-i2c-155-4d/temp1/temp1_max
+      - - lm75-i2c-144-48/temp1/temp1_input
+        - lm75-i2c-144-48/temp1/temp1_max
+      - - lm75-i2c-184-48/temp1/temp1_input
+        - lm75-i2c-184-48/temp1/temp1_max
+      - - lm75-i2c-155-4b/temp1/temp1_input
+        - lm75-i2c-155-4b/temp1/temp1_max
+      - - lm75-i2c-181-48/temp1/temp1_input
+        - lm75-i2c-181-48/temp1/temp1_max
+      - - lm75-i2c-175-48/temp1/temp1_input
+        - lm75-i2c-175-48/temp1/temp1_max
+      - - tmp75-i2c-168-4d/temp1/temp1_input
+        - tmp75-i2c-168-4d/temp1/temp1_max
+      - - lm75-i2c-155-4a/temp1/temp1_input
+        - lm75-i2c-155-4a/temp1/temp1_max
+      - - tmp75-i2c-162-4d/temp1/temp1_input
+        - tmp75-i2c-162-4d/temp1/temp1_max
+      - - lm75-i2c-155-48/temp1/temp1_input
+        - lm75-i2c-155-48/temp1/temp1_max
+      - - lm75-i2c-155-4c/temp1/temp1_input
+        - lm75-i2c-155-4c/temp1/temp1_max
+      - - lm75-i2c-178-48/temp1/temp1_input
+        - lm75-i2c-178-48/temp1/temp1_max
+      - - nvme-pci-0400/Composite/temp1_input
+        - nvme-pci-0400/Composite/temp1_max
+      - - bnxt_en-pci-0300/temp1/temp1_input
+        - bnxt_en-pci-0300/temp1/temp1_max
+    non_zero:
+      fan:
+      - h6_fan-i2c-145-32/fan1/fan1_input
+      - h6_fan-i2c-145-32/fan2/fan2_input
+      - h6_fan-i2c-145-32/fan3/fan3_input
+      - h6_fan-i2c-145-32/fan4/fan4_input
+      - h6_fan-i2c-145-32/fan5/fan5_input
+      - h6_fan-i2c-145-32/fan6/fan6_input
+      - h6_fan-i2c-145-32/fan7/fan7_input
+      - h6_fan-i2c-145-32/fan8/fan8_input
+      - h6_fan-i2c-146-33/fan1/fan1_input
+      - h6_fan-i2c-146-33/fan2/fan2_input
+      - h6_fan-i2c-146-33/fan3/fan3_input
+      - h6_fan-i2c-146-33/fan4/fan4_input
+      - h6_fan-i2c-146-33/fan5/fan5_input
+      - h6_fan-i2c-146-33/fan6/fan6_input
+      - h6_fan-i2c-146-33/fan7/fan7_input
+      - h6_fan-i2c-146-33/fan8/fan8_input
+      power: []
+      temp: []
+    psu_skips: {}
+    sensor_skip_per_version: {}
+
   armhf-nokia_ixs7215_52x-r0:
     alarms:
       fan:
