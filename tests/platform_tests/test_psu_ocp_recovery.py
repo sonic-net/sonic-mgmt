@@ -1,0 +1,444 @@
+"""
+PSU output overcurrent (OCP) fault recovery over PMBus.
+
+A PSU that trips its output overcurrent protection latches the fault and stays off
+until AC is cycled, unless its firmware clears the latch when the PMBus OPERATION
+command is cycled off and on. This test induces an OCP fault on one PSU at a time by
+lowering IOUT_OC_WARN_LIMIT / IOUT_OC_FAULT_LIMIT below the measured load, restores
+the limits, recovers the PSU with an OPERATION off/on cycle and verifies it is back
+to power good.
+
+Only PSU models known to support OCP recovery over PMBus are exercised. The PSU is
+accessed with i2ctransfer while its PDDF subtree is detached, using the bus/address
+declared in pddf-device.json.
+"""
+
+import json
+import logging
+import re
+import time
+
+import pytest
+
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers import pmbus
+from tests.common.utilities import wait_until
+from tests.platform_tests.cli.util import get_skip_mod_list
+
+logger = logging.getLogger(__name__)
+
+pytestmark = [
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.topology('any'),
+]
+
+# PSU models whose firmware clears a latched output OCP fault on an OPERATION
+# off/on cycle. Older firmware keeps the fault latched until AC is cycled, so a
+# PSU below min_fw is skipped. rated_power_w is only used to confirm the
+# remaining PSUs can carry the load before one is tripped.
+SUPPORTED_PSU_MODELS = {
+    # Murata 2400W AC. OCP recovery over PMBus was added in FW 0.1.2.
+    "D1U74T-W-2400-12-HB4C": {"min_fw": (0, 1, 2), "rated_power_w": 2400},
+    # AcBel 2400W DC-DC.
+    "NWR002000": {"min_fw": None, "rated_power_w": 2400},
+}
+
+PDDF_DEVICE_JSON_PATH = "/usr/share/sonic/platform/pddf/pddf-device.json"
+PDDFPARSE_TIMEOUT_SEC = 30
+
+# Any of these in STATUS_WORD means the PSU output is not healthy.
+STATUS_WORD_FAULT_MASK = pmbus.STATUS_WORD_OUTPUT_DOWN | pmbus.STATUS_WORD_IOUT_OC_FAULT
+
+FAULT_TIMEOUT_SEC = 15
+RECOVERY_TIMEOUT_SEC = 30
+RESTORE_ATTEMPTS = 3
+# The lowered limit may be at most this fraction of the measured current, so the trip is certain.
+TRIP_MARGIN = 0.75
+PSUD_REFRESH_TIMEOUT_SEC = 90
+LOAD_HEADROOM = 1.25
+
+
+class PsuNotTestable(Exception):
+    """The PSU is healthy but the fault cannot be induced safely or at all right now."""
+
+
+def _read_pddf_device_json(duthost):
+    res = duthost.shell("cat {}".format(PDDF_DEVICE_JSON_PATH), module_ignore_errors=True)
+    if res['rc'] != 0:
+        pytest.skip("{} not found on DUT, PDDF is required".format(PDDF_DEVICE_JSON_PATH))
+    try:
+        return json.loads(res['stdout'])
+    except ValueError as e:
+        raise AssertionError("Failed to parse {}: {}".format(PDDF_DEVICE_JSON_PATH, e)) from e
+
+
+def _pddfparse_subtree(duthost, action, node):
+    """Create or delete a pddf-device.json node and its descendants in the I2C topology.
+    Returns a one-line summary of the outcome; callers verify the result in sysfs."""
+    cmd = "timeout {}s sudo pddfparse.py --{}-subtree {}".format(PDDFPARSE_TIMEOUT_SEC, action, node)
+    res = duthost.shell(cmd, module_ignore_errors=True)
+    summary = " ".join(part for part in ("'{}' rc={}".format(cmd, res['rc']), res['stdout'].strip(),
+                                         res['stderr'].strip()) if part)
+    if res['rc'] != 0:
+        logger.warning(summary)
+    return summary
+
+
+def _psu_client_state(duthost, clients):
+    """{client name: (sysfs name, driver)} for the PSU's declared I2C clients; driver is
+    None for a client with no driver bound, the whole entry is None for an absent client."""
+    state = {}
+    for client in clients:
+        path = "/sys/bus/i2c/devices/{}-{:04x}".format(client['bus'], client['addr'])
+        res = duthost.shell("if [ -e {0}/name ]; then cat {0}/name; readlink {0}/driver; fi".format(path),
+                            module_ignore_errors=True)
+        lines = res['stdout'].splitlines()
+        if not lines:
+            state[client['name']] = None
+        else:
+            state[client['name']] = (lines[0].strip(), lines[1].strip().rsplit('/', 1)[-1] if len(lines) > 1 else None)
+    return state
+
+
+def _detach_psu_subtree(duthost, name, clients):
+    """Delete the PSU's PDDF subtree and fail unless every declared I2C client is gone."""
+    outcome = _pddfparse_subtree(duthost, "delete", name)
+    left = {client: state for client, state in _psu_client_state(duthost, clients).items() if state is not None}
+    pytest_assert(not left, "{}: I2C clients still present after {}: {}".format(name, outcome, left))
+
+
+def _reattach_psu_subtree(duthost, name, clients, state_before):
+    """Recreate the PSU's PDDF subtree and fail unless its I2C clients are back in sysfs
+    exactly as before the test and `show platform psu` reports the PSU OK."""
+    outcome = _pddfparse_subtree(duthost, "create", name)
+    state = _psu_client_state(duthost, clients)
+    pytest_assert(state == state_before, "{}: I2C clients after {}: {}, before the test: {}".format(
+        name, outcome, state, state_before))
+    if not wait_until(PSUD_REFRESH_TIMEOUT_SEC, 5, 0, _psu_reports_ok, duthost, name):
+        pytest.fail("{} did not return to OK in 'show platform psu' within {}s: {}".format(
+            name, PSUD_REFRESH_TIMEOUT_SEC, _get_psu_status(duthost).get(name)))
+
+
+def _get_psu_status(duthost):
+    """{psu name: entry} from `show platform psu --json`."""
+    output = duthost.shell("show platform psu --json")['stdout']
+    try:
+        return {psu['name']: psu for psu in json.loads(output)}
+    except (ValueError, KeyError, TypeError) as e:
+        raise AssertionError("Failed to parse 'show platform psu --json': {}\n{}".format(e, output)) from e
+
+
+def _skip_unless_tooling_present(duthost):
+    """Skip on images without the commands the test drives, before anything is changed on the DUT."""
+    checks = [
+        ("pddfparse.py subtree commands", "sudo pddfparse.py --help | grep -q -- --delete-subtree"),
+        ("i2ctransfer", "which i2ctransfer"),
+        ("show platform psu --json", "show platform psu --json"),
+    ]
+    for what, cmd in checks:
+        if duthost.shell(cmd, module_ignore_errors=True)['rc'] != 0:
+            pytest.skip("{} is not available on the DUT".format(what))
+
+
+def _get_pddf_psu_i2c_clients(pddf_device_data):
+    """{psu name: [client, ...]} for every PSU in pddf-device.json with a PMBus interface.
+    A client is {'itf', 'name', 'bus', 'addr', 'dev_type'} for each interface device
+    with I2C topology info, in the order pddfparse creates them."""
+    psus = {}
+    for name, dev in pddf_device_data.items():
+        if not re.fullmatch(r'PSU\d+', name):
+            continue
+        clients = []
+        for interface in dev.get('i2c', {}).get('interface', []):
+            dev_name = interface.get('dev')
+            topo_info = pddf_device_data.get(dev_name, {}).get('i2c', {}).get('topo_info', {})
+            if not all(key in topo_info for key in ('parent_bus', 'dev_addr', 'dev_type')):
+                continue
+            clients.append({'itf': interface.get('itf'), 'name': dev_name, 'bus': int(topo_info['parent_bus'], 0),
+                            'addr': int(topo_info['dev_addr'], 0), 'dev_type': topo_info['dev_type']})
+        if any(client['itf'] == 'pmbus' for client in clients):
+            psus[name] = clients
+    return psus
+
+
+def _pmbus_client(clients):
+    return next(client for client in clients if client['itf'] == 'pmbus')
+
+
+def _parse_psu_fw_version(text):
+    """(major, minor, patch) from the PDDF psu_fw_version attribute, or None.
+
+    Older pddf_psu drivers report "major.minor.patch". Newer ones report the raw
+    0xD9 payload as hex (e.g. "010100"): byte 0 is patch, byte 1 is minor and
+    bits 0-6 of byte 2 are major.
+    """
+    text = text.strip()
+    if '.' in text:
+        digits = re.findall(r'\d+', text)
+        return tuple(int(d) for d in digits) if digits else None
+    try:
+        data = bytes.fromhex(text)
+    except ValueError:
+        return None
+    return (data[2] & 0x7F, data[1], data[0]) if len(data) >= 3 else None
+
+
+def _get_psu_fw_version(duthost, bus, addr):
+    """Firmware version tuple from the PDDF sysfs attribute, or None if unavailable."""
+    path = "/sys/bus/i2c/devices/{}-{:04x}/psu_fw_version".format(bus, addr)
+    res = duthost.shell("cat {}".format(path), module_ignore_errors=True)
+    if res['rc'] != 0:
+        return None
+    return _parse_psu_fw_version(res['stdout'])
+
+
+def _select_psus(duthost, psu_status, psu_clients):
+    skip_list = get_skip_mod_list(duthost, ['psus'])
+    selected = []
+    for name, clients in sorted(psu_clients.items()):
+        if name in skip_list:
+            logger.info("Skipping %s: listed in the inventory's skip_modules", name)
+            continue
+        status = psu_status.get(name)
+        if status is None:
+            pytest.fail("PDDF PSU {} is not reported by 'show platform psu'".format(name))
+        if status['status'] != 'OK':
+            logger.info("Skipping %s: status is %s", name, status['status'])
+            continue
+        model = (status.get('model') or '').strip()
+        support = SUPPORTED_PSU_MODELS.get(model)
+        if support is None:
+            logger.info("Skipping %s: model '%s' is not known to support OCP recovery over PMBus", name, model)
+            continue
+        if support['min_fw'] is not None:
+            pmbus_client = _pmbus_client(clients)
+            fw_version = _get_psu_fw_version(duthost, pmbus_client['bus'], pmbus_client['addr'])
+            if fw_version is None or fw_version < support['min_fw']:
+                logger.info("Skipping %s: firmware %s is below %s", name, fw_version, support['min_fw'])
+                continue
+        selected.append(name)
+    return selected
+
+
+def _check_remaining_psus_can_carry_load(psu_status, target):
+    """Raise PsuNotTestable unless the other healthy PSUs have enough rated capacity
+    for the current system load. Tripping the target would otherwise take the system down."""
+    healthy = {name: psu for name, psu in psu_status.items() if psu['status'] == 'OK'}
+    pytest_assert(target in healthy, "{} is no longer OK: {}".format(target, psu_status.get(target)))
+
+    load_w = 0.0
+    for name, psu in healthy.items():
+        try:
+            load_w += float(psu['power'])
+        except (TypeError, ValueError):
+            raise PsuNotTestable("{} reports no numeric power ({}); cannot size the load".format(name, psu['power']))
+
+    capacity_w = sum(
+        SUPPORTED_PSU_MODELS.get((psu.get('model') or '').strip(), {}).get('rated_power_w', 0)
+        for name, psu in healthy.items() if name != target)
+    if capacity_w < load_w * LOAD_HEADROOM:
+        raise PsuNotTestable("remaining PSUs ({}W of known capacity) cannot carry {:.0f}W x {} with {} tripped".format(
+            capacity_w, load_w, LOAD_HEADROOM, target))
+
+
+def _low_oc_limit(fault_limit, iout):
+    """IOUT limit word at about half the measured output current, keeping the PSU's
+    own LINEAR11 exponent."""
+    exponent = pmbus.linear11_exponent(fault_limit)
+    mantissa = max(1, int((iout / 2.0) / 2.0 ** exponent))
+    pytest_assert(mantissa <= pmbus.LINEAR11_MAX_MANTISSA,
+                  "Cannot encode an IOUT limit below {:.2f}A with exponent {}".format(iout, exponent))
+    limit = pmbus.linear11_encode(mantissa, exponent)
+    if pmbus.linear11_decode(limit) > iout * TRIP_MARGIN:
+        raise PsuNotTestable("output current {:.2f}A is too low to induce an OCP fault (lowest limit {:.2f}A)".format(
+            iout, pmbus.linear11_decode(limit)))
+    return limit
+
+
+def _write_oc_limits(psu, warn_limit, fault_limit):
+    # Keep warn <= fault throughout: lower warn first, raise fault first.
+    if pmbus.linear11_decode(fault_limit) <= pmbus.linear11_decode(psu.read_word(pmbus.PMBUS_IOUT_OC_FAULT_LIMIT)):
+        psu.write_word(pmbus.PMBUS_IOUT_OC_WARN_LIMIT, warn_limit)
+        psu.write_word(pmbus.PMBUS_IOUT_OC_FAULT_LIMIT, fault_limit)
+    else:
+        psu.write_word(pmbus.PMBUS_IOUT_OC_FAULT_LIMIT, fault_limit)
+        psu.write_word(pmbus.PMBUS_IOUT_OC_WARN_LIMIT, warn_limit)
+    warn_readback = psu.read_word(pmbus.PMBUS_IOUT_OC_WARN_LIMIT)
+    fault_readback = psu.read_word(pmbus.PMBUS_IOUT_OC_FAULT_LIMIT)
+    pytest_assert(pmbus.linear11_equal(warn_readback, warn_limit) and pmbus.linear11_equal(fault_readback, fault_limit),
+                  "{}: IOUT OC limits read back as warn=0x{:04x} fault=0x{:04x}, expected warn=0x{:04x} fault=0x{:04x}"
+                  .format(psu.name, warn_readback, fault_readback, warn_limit, fault_limit))
+
+
+def _restore_oc_limits(psu, warn_limit, fault_limit):
+    """Put the saved limits back, retrying transient PMBus errors, and fail if the PSU
+    does not read them back. Raising the fault limit first keeps warn <= fault."""
+    restored = False
+    for attempt in range(1, RESTORE_ATTEMPTS + 1):
+        if attempt > 1:
+            time.sleep(1)
+        try:
+            psu.write_word(pmbus.PMBUS_IOUT_OC_FAULT_LIMIT, fault_limit)
+            psu.write_word(pmbus.PMBUS_IOUT_OC_WARN_LIMIT, warn_limit)
+            warn_readback = psu.read_word(pmbus.PMBUS_IOUT_OC_WARN_LIMIT)
+            fault_readback = psu.read_word(pmbus.PMBUS_IOUT_OC_FAULT_LIMIT)
+        except pmbus.PmbusError as e:
+            logger.warning("%s: restoring IOUT OC limits failed on attempt %d: %s", psu.name, attempt, e)
+            continue
+        restored = pmbus.linear11_equal(warn_readback, warn_limit) and pmbus.linear11_equal(fault_readback, fault_limit)
+        if restored:
+            break
+        logger.warning("%s: IOUT OC limits read back as warn=0x%04x fault=0x%04x on attempt %d, expected "
+                       "warn=0x%04x fault=0x%04x",
+                       psu.name, warn_readback, fault_readback, attempt, warn_limit, fault_limit)
+    pytest_assert(restored, "{}: IOUT OC limits not restored to warn=0x{:04x} fault=0x{:04x} after {} attempts; "
+                  "the PSU is left with the test limits and its output was not cycled".format(
+                      psu.name, warn_limit, fault_limit, RESTORE_ATTEMPTS))
+
+
+def _recover_with_operation_cycle(psu, operation_on):
+    psu.write_byte(pmbus.PMBUS_OPERATION, pmbus.PMBUS_OPERATION_OFF)
+    time.sleep(1)
+    psu.write_byte(pmbus.PMBUS_OPERATION, operation_on)
+    return wait_until(RECOVERY_TIMEOUT_SEC, 1, 0, psu.output_is_up)
+
+
+def _trip_and_recover(psu):
+    status_word = psu.read_word(pmbus.PMBUS_STATUS_WORD)
+    status_iout = psu.read_byte(pmbus.PMBUS_STATUS_IOUT)
+    logger.info("%s: initial STATUS_WORD=0x%04x STATUS_IOUT=0x%02x", psu.name, status_word, status_iout)
+    pytest_assert(not status_word & STATUS_WORD_FAULT_MASK
+                  and not status_iout & pmbus.STATUS_IOUT_OC_FAULT,
+                  "{}: PSU is not healthy before the test (STATUS_WORD=0x{:04x} STATUS_IOUT=0x{:02x})".format(
+                      psu.name, status_word, status_iout))
+
+    iout = pmbus.linear11_decode(psu.read_word(pmbus.PMBUS_READ_IOUT))
+    orig_warn = psu.read_word(pmbus.PMBUS_IOUT_OC_WARN_LIMIT)
+    orig_fault = psu.read_word(pmbus.PMBUS_IOUT_OC_FAULT_LIMIT)
+    orig_operation = psu.read_byte(pmbus.PMBUS_OPERATION)
+    # Recover with the PSU's own OPERATION value when it has the on bit, so margin bits survive.
+    operation_on = orig_operation if orig_operation & pmbus.PMBUS_OPERATION_ON else pmbus.PMBUS_OPERATION_ON
+    low_limit = _low_oc_limit(orig_fault, iout)
+    logger.info("%s: READ_IOUT=%.2fA, IOUT_OC_WARN_LIMIT=%.2fA (0x%04x), IOUT_OC_FAULT_LIMIT=%.2fA (0x%04x), "
+                "OPERATION=0x%02x, lowering both limits to %.2fA (0x%04x)", psu.name, iout,
+                pmbus.linear11_decode(orig_warn), orig_warn, pmbus.linear11_decode(orig_fault), orig_fault,
+                orig_operation, pmbus.linear11_decode(low_limit), low_limit)
+
+    recovered = None
+    output_down = False
+    try:
+        _write_oc_limits(psu, low_limit, low_limit)
+        tripped = wait_until(FAULT_TIMEOUT_SEC, 1, 0,
+                             lambda: psu.oc_fault_latched() and not psu.output_is_up())
+        status_word = psu.read_word(pmbus.PMBUS_STATUS_WORD)
+        status_iout = psu.read_byte(pmbus.PMBUS_STATUS_IOUT)
+        logger.info("%s: after lowering limits STATUS_WORD=0x%04x STATUS_IOUT=0x%02x",
+                    psu.name, status_word, status_iout)
+        pytest_assert(tripped, "{}: no OCP shutdown within {}s (STATUS_WORD=0x{:04x} STATUS_IOUT=0x{:02x})".format(
+            psu.name, FAULT_TIMEOUT_SEC, status_word, status_iout))
+    finally:
+        # Only cycle the output once the original limits are confirmed back in place.
+        _restore_oc_limits(psu, orig_warn, orig_fault)
+        status_word = psu.read_word(pmbus.PMBUS_STATUS_WORD)
+        status_iout = psu.read_byte(pmbus.PMBUS_STATUS_IOUT)
+        output_down = bool(status_word & pmbus.STATUS_WORD_OUTPUT_DOWN)
+        logger.info("%s: after restoring limits STATUS_WORD=0x%04x STATUS_IOUT=0x%02x",
+                    psu.name, status_word, status_iout)
+        if output_down:
+            recovered = _recover_with_operation_cycle(psu, operation_on)
+        elif status_iout & pmbus.STATUS_IOUT_OC_FAULT:
+            psu.send_byte(pmbus.PMBUS_CLEAR_FAULTS)
+
+    pytest_assert(output_down,
+                  "{}: output came back on its own once limits were restored; OPERATION recovery was not exercised"
+                  .format(psu.name))
+    status_word = psu.read_word(pmbus.PMBUS_STATUS_WORD)
+    status_iout = psu.read_byte(pmbus.PMBUS_STATUS_IOUT)
+    pytest_assert(recovered, "{}: output not back up within {}s of the OPERATION cycle (STATUS_WORD=0x{:04x} "
+                  "STATUS_IOUT=0x{:02x})".format(psu.name, RECOVERY_TIMEOUT_SEC, status_word, status_iout))
+
+    psu.send_byte(pmbus.PMBUS_CLEAR_FAULTS)
+    status_word = psu.read_word(pmbus.PMBUS_STATUS_WORD)
+    status_iout = psu.read_byte(pmbus.PMBUS_STATUS_IOUT)
+    logger.info("%s: after recovery STATUS_WORD=0x%04x STATUS_IOUT=0x%02x", psu.name, status_word, status_iout)
+    pytest_assert(not status_word & STATUS_WORD_FAULT_MASK
+                  and not status_iout & pmbus.STATUS_IOUT_OC_FAULT,
+                  "{}: OCP fault still reported after recovery (STATUS_WORD=0x{:04x} STATUS_IOUT=0x{:02x})".format(
+                      psu.name, status_word, status_iout))
+
+
+def _summarize_psu_status(psu_status):
+    """One line of status/power/current per PSU, e.g. 'PSU1=OK/71.88/5.88 PSU2=NOT PRESENT/N/A/N/A'."""
+    return " ".join("{}={}/{}/{}".format(name, psu.get('status'), psu.get('power'), psu.get('current'))
+                    for name, psu in sorted(psu_status.items()))
+
+
+def _psu_reports_ok(duthost, name):
+    return _get_psu_status(duthost).get(name, {}).get('status') == 'OK'
+
+
+def test_psu_ocp_recovery_over_pmbus(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    For every healthy PSU whose model supports OCP recovery over PMBus:
+    1. Detach its PDDF subtree so the PSU can be driven with i2ctransfer.
+    2. Lower IOUT_OC_WARN_LIMIT / IOUT_OC_FAULT_LIMIT below the measured output
+       current and verify the PSU reports IOUT_OC_FAULT and shuts its output off.
+    3. Restore the original limits.
+    4. Cycle OPERATION off/on and verify the output comes back with power good.
+    5. Reattach the PDDF subtree and verify its I2C clients are bound again and
+       `show platform psu` reports OK. This runs however steps 2 to 4 ended.
+
+    A PSU that cannot be faulted safely (too little headroom on the others) or at
+    all (too little output current) is logged and left alone; the test only skips
+    when that is true of every candidate.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    psu_clients = _get_pddf_psu_i2c_clients(_read_pddf_device_json(duthost))
+    if not psu_clients:
+        pytest.skip("No PSU with a PMBus interface declared in pddf-device.json")
+    _skip_unless_tooling_present(duthost)
+
+    psu_status = _get_psu_status(duthost)
+    selected = _select_psus(duthost, psu_status, psu_clients)
+    if not selected:
+        pytest.skip("No healthy PSU with a model/firmware known to support OCP recovery over PMBus")
+
+    tested = []
+    not_testable = {}
+    for name in selected:
+        clients = psu_clients[name]
+        pmbus_client = _pmbus_client(clients)
+        # Re-read: tripping the previous PSU shifted load onto the others.
+        live_status = _get_psu_status(duthost)
+        logger.info("PSU status/power(W)/current(A) before %s: %s", name, _summarize_psu_status(live_status))
+        dead = [psu for psu in tested if live_status.get(psu, {}).get('status') != 'OK']
+        pytest_assert(not dead, "{} no longer OK after being tripped and recovered earlier in this run: {}".format(
+            dead, {psu: live_status.get(psu) for psu in dead}))
+        try:
+            _check_remaining_psus_can_carry_load(live_status, name)
+        except PsuNotTestable as e:
+            logger.warning("Not testing %s: %s", name, e)
+            not_testable[name] = str(e)
+            continue
+
+        state_before = _psu_client_state(duthost, clients)
+        missing = {client['name']: state_before[client['name']] for client in clients
+                   if state_before[client['name']] is None or state_before[client['name']][0] != client['dev_type']}
+        pytest_assert(not missing, "{}: I2C clients not as declared in pddf-device.json before the test: {}".format(
+            name, missing))
+        try:
+            logger.info("Testing OCP recovery on %s (model %s, i2c bus %d addr 0x%02x)",
+                        name, live_status[name]['model'], pmbus_client['bus'], pmbus_client['addr'])
+            _detach_psu_subtree(duthost, name, clients)
+            _trip_and_recover(pmbus.PmbusPsu(duthost, name, pmbus_client['bus'], pmbus_client['addr']))
+        except PsuNotTestable as e:
+            logger.warning("Not testing %s: %s", name, e)
+            not_testable[name] = str(e)
+            continue
+        finally:
+            _reattach_psu_subtree(duthost, name, clients, state_before)
+        tested.append(name)
+
+    if not tested:
+        pytest.skip("No PSU could be faulted safely: {}".format(not_testable))
+    logger.info("OCP recovery verified on %s", tested)
