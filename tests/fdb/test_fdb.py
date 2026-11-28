@@ -25,6 +25,7 @@ from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig      
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add           # noqa: F401
 from tests.common.helpers.backend_acl import apply_acl_rules, bind_acl_table        # noqa: F401
 from tests.common.fixtures.duthost_utils import ports_list            # noqa: F401
+from tests.common.fixtures.duthost_utils import get_vlan_test_asic
 from tests.common.helpers.portchannel_to_vlan import setup_acl_table  # noqa: F401
 from tests.common.helpers.portchannel_to_vlan import acl_rule_cleanup  # noqa: F401
 from tests.common.helpers.portchannel_to_vlan import vlan_intfs_dict  # noqa: F401
@@ -50,7 +51,8 @@ logger = logging.getLogger(__name__)
 @pytest.fixture(scope="module")
 def get_dummay_mac_count(tbinfo, duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
-    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    asic = get_vlan_test_asic(duthost)
+    cfg_facts = (asic or duthost).config_facts(host=duthost.hostname, source="running")['ansible_facts']
     if "bgp_asn" not in cfg_facts["DEVICE_METADATA"]["localhost"]:
         logger.info("Use dummy mac count {} for BSL test\n".format(DUMMY_MAC_COUNT_SLIM))
         return DUMMY_MAC_COUNT_SLIM
@@ -332,7 +334,7 @@ def setup_active_active_ports(active_active_ports, rand_selected_dut, rand_unsel
 @pytest.mark.po2vlan
 def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, pkt_type,
              toggle_all_simulator_ports_to_rand_selected_tor_m, record_mux_status,              # noqa: F811
-             setup_active_active_ports, get_dummay_mac_count, fanouthosts):  # noqa: F811
+             setup_active_active_ports, get_dummay_mac_count, fanouthosts, tbinfo):  # noqa: F811
 
     # Perform FDB clean up before each test and at the end of the final test
     fdb_cleanup(duthosts, rand_one_dut_hostname, fanouthosts)
@@ -344,14 +346,23 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
     2. verify show mac command on DUT for learned mac.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    conf_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    # On multi-ASIC DUTs only the VLANs of one ASIC are tested, traffic may not cross ASICs
+    asic = get_vlan_test_asic(duthost)
+    conf_facts = (asic or duthost).config_facts(host=duthost.hostname, source="running")['ansible_facts']
 
     # reinitialize data plane due to above changes on PTF interfaces
     ptfadapter.reinit()
 
-    router_mac = duthost.facts['router_mac']
+    if asic is None:
+        router_mac = duthost.facts['router_mac']
+        port_index_map = conf_facts['port_index_map']
+    else:
+        router_mac = asic.get_router_mac()
+        # The per-ASIC port_index_map of config_facts is not guaranteed to match the PTF port indices
+        port_index_map = {k: v for k, v in duthost.get_extended_minigraph_facts(tbinfo)['minigraph_ptf_indices'].items()
+                          if k in conf_facts['PORT']}
 
-    port_index_to_name = {v: k for k, v in list(conf_facts['port_index_map'].items())}
+    port_index_to_name = {v: k for k, v in list(port_index_map.items())}
 
     configured_dummay_mac_count = get_dummay_mac_count
     # Only take interfaces that are in ptf topology
@@ -377,12 +388,12 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
             port_index = []
             if ifname in config_portchannels:
                 for member in config_portchannels[ifname]['members']:
-                    if conf_facts['port_index_map'][member] in available_ports_idx:
-                        port_index.append(conf_facts['port_index_map'][member])
+                    if port_index_map.get(member) in available_ports_idx:
+                        port_index.append(port_index_map[member])
                 if port_index:
                     interface_table[ifname].add(vlan_id)
-            elif conf_facts['port_index_map'][ifname] in available_ports_idx:
-                port_index.append(conf_facts['port_index_map'][ifname])
+            elif port_index_map.get(ifname) in available_ports_idx:
+                port_index.append(port_index_map[ifname])
                 interface_table[ifname].add(vlan_id)
             if port_index:
                 vlan_table[vlan_id].append({'port_index': port_index, 'tagging_mode': tagging_mode})
@@ -404,7 +415,7 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
                 send_recv_eth(duthost, ptfadapter, src_ports, src_mac, dst_ports, dst_mac, src_vlan, dst_vlan)
 
     # Should we have fdb_facts ansible module for this test?
-    fdb_fact = duthost.fdb_facts()['ansible_facts']
+    fdb_fact = (duthost.fdb_facts(namespace=asic.namespace) if asic else duthost.fdb_facts())['ansible_facts']
     logger.info('fdb facts on DUT:\n{}'.format(pprint.pformat(fdb_fact)))
 
     dummy_mac_count = 0
@@ -456,8 +467,12 @@ def test_self_mac_not_learnt(ptfadapter, rand_selected_dut, pkt_type,
         return
 
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
-    port_index = random.choice(list(mg_facts['minigraph_ptf_indices'].values()))
-    self_mac = rand_selected_dut.facts['router_mac']
+    port_name, port_index = random.choice(list(mg_facts['minigraph_ptf_indices'].items()))
+    if rand_selected_dut.is_multi_asic:
+        # Each ASIC has its own router MAC on multi-ASIC DUTs
+        self_mac = rand_selected_dut.get_port_asic_instance(port_name).get_router_mac()
+    else:
+        self_mac = rand_selected_dut.facts['router_mac']
     dummy_mac = "00:22:33:44:33:22"
     if pkt_type == "ethernet":
         send_eth(ptfadapter, port_index, self_mac, dummy_mac, 0)

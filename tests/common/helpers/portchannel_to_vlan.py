@@ -12,6 +12,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa: 
 from tests.common.fixtures.duthost_utils import ports_list   # noqa: F401
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig          # noqa: F401
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add
+from tests.common.fixtures.duthost_utils import get_vlan_test_asic
 from tests.common.helpers.backend_acl import bind_acl_table
 from tests.common.config_reload import config_reload
 from tests.common.utilities import check_skip_release
@@ -77,7 +78,36 @@ def ptf_teardown(ptfhost, ptf_lag_map):
     ptfhost.ptf_nn_agent()
 
 
-def setup_dut_lag(duthost, dut_ports, vlan, src_vlan_id):
+def config_cmd(asic, group, args):
+    """
+    Build a 'config <group> <args>' command, with the ASIC namespace option on multi-ASIC DUTs
+
+    Args:
+        asic: ASIC instance on multi-ASIC DUTs, None on single-ASIC DUTs
+        group: config command group, e.g. 'vlan'
+        args: arguments after the command group
+    """
+    if asic is None:
+        return "config {} {}".format(group, args)
+    return "config {} {} {}".format(group, asic.cli_ns_option, args)
+
+
+def del_member_from_vlan(duthost, vlan_id, member_name, asic=None):
+    if asic is None:
+        duthost.del_member_from_vlan(vlan_id, member_name)
+    else:
+        duthost.command(config_cmd(asic, "vlan", "member del {} {}".format(vlan_id, member_name)))
+
+
+def add_member_to_vlan(duthost, vlan_id, member_name, is_tagged=True, asic=None):
+    if asic is None:
+        duthost.add_member_to_vlan(vlan_id, member_name, is_tagged)
+    else:
+        duthost.command(config_cmd(asic, "vlan", "member add {}{} {}".format(
+            "" if is_tagged else "-u ", vlan_id, member_name)))
+
+
+def setup_dut_lag(duthost, dut_ports, vlan, src_vlan_id, asic=None):
     """
     Setup dut lag
 
@@ -86,34 +116,39 @@ def setup_dut_lag(duthost, dut_ports, vlan, src_vlan_id):
         dut_ports: ports need to configure
         vlan: information about vlan configuration
         src_vlan_id: original vlan id
+        asic: ASIC instance to configure on multi-ASIC DUTs, None on single-ASIC DUTs
 
     Returns:
         information about dut lag
     """
     # Port in acl table can't be added to port channel, and acl table can only be updated by json file
-    duthost.remove_acl_table("EVERFLOW")
-    duthost.remove_acl_table("EVERFLOWV6")
+    if asic is None:
+        duthost.remove_acl_table("EVERFLOW")
+        duthost.remove_acl_table("EVERFLOWV6")
+    else:
+        for acl_table in ["EVERFLOW", "EVERFLOWV6"]:
+            duthost.command("config acl remove table {} {}".format(acl_table, asic.cli_ns_option))
     # Create port channel
-    duthost.shell("config portchannel add {}".format(DUT_LAG_NAME))
+    duthost.shell(config_cmd(asic, "portchannel", "add {}".format(DUT_LAG_NAME)))
 
     lag_port_list = []
     port_list_idx = 0
     # Add ports to port channel
     for port_id, port_name in dut_ports[ATTR_PORT_BEHIND_LAG].items():
         logging.info("add member for port id {} port name {}".format(port_id, port_name))
-        duthost.del_member_from_vlan(src_vlan_id, port_name)
-        duthost.shell("config portchannel member add {} {}".format(DUT_LAG_NAME, port_name))
+        del_member_from_vlan(duthost, src_vlan_id, port_name, asic)
+        duthost.shell(config_cmd(asic, "portchannel", "member add {} {}".format(DUT_LAG_NAME, port_name)))
         lag_port_list.append(port_name)
         port_list_idx += 1
     # Remove ports from vlan
     for port_id, port_name in dut_ports[ATTR_PORT_NO_TEST].items():
         logging.info("delete member from vlan for port id {} port name {}".format(port_id, port_name))
-        duthost.del_member_from_vlan(src_vlan_id, port_name)
+        del_member_from_vlan(duthost, src_vlan_id, port_name, asic)
 
-    duthost.shell("config vlan add {}".format(vlan["id"]))
-    duthost.shell("config interface ip add Vlan{} {}".format(vlan["id"], vlan["ip"]))
-    duthost.add_member_to_vlan(vlan["id"], DUT_LAG_NAME, True)
-    duthost.add_member_to_vlan(src_vlan_id, DUT_LAG_NAME, True)
+    duthost.shell(config_cmd(asic, "vlan", "add {}".format(vlan["id"])))
+    duthost.shell(config_cmd(asic, "interface", "ip add Vlan{} {}".format(vlan["id"], vlan["ip"])))
+    add_member_to_vlan(duthost, vlan["id"], DUT_LAG_NAME, True, asic)
+    add_member_to_vlan(duthost, src_vlan_id, DUT_LAG_NAME, True, asic)
 
     lag_port_map = {}
     lag_port_map[DUT_LAG_NAME] = lag_port_list
@@ -158,7 +193,7 @@ def setup_ptf_lag(ptfhost, ptf_ports, vlan):
     return lag_port_map
 
 
-def setup_dut_ptf(ptfhost, duthost, tbinfo, vlan_intfs_dict):
+def setup_dut_ptf(ptfhost, duthost, tbinfo, vlan_intfs_dict, asic=None):
     """
     Setup dut and ptf based on ports available in dut vlan
 
@@ -166,6 +201,7 @@ def setup_dut_ptf(ptfhost, duthost, tbinfo, vlan_intfs_dict):
         ptfhost: PTF host object
         duthost: DUT host object
         tbinfo: fixture provides information about testbed
+        asic: ASIC instance to use on multi-ASIC DUTs, None on single-ASIC DUTs
 
     Returns:
         information about lag of ptf and dut
@@ -174,7 +210,7 @@ def setup_dut_ptf(ptfhost, duthost, tbinfo, vlan_intfs_dict):
     number_of_test_ports = 4
 
     # Get id of vlan that concludes enough up ports as src_vlan_id, port in this vlan is used for testing
-    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
+    cfg_facts = (asic or duthost).config_facts(host=duthost.hostname, source="running")["ansible_facts"]
     src_vlan_id = get_vlan_id(cfg_facts, number_of_lag_member)
     pytest_require(src_vlan_id != -1, "Can't get usable vlan concluding enough member")
 
@@ -185,9 +221,15 @@ def setup_dut_ptf(ptfhost, duthost, tbinfo, vlan_intfs_dict):
     }
     src_vlan_members = cfg_facts["VLAN_MEMBER"]["Vlan{}".format(src_vlan_id)]
     # Get the port correspondence between DUT and PTF
-    port_index_map = cfg_facts["port_index_map"]
+    if asic is None:
+        port_index_map = cfg_facts["port_index_map"]
+    else:
+        # The per-ASIC port_index_map of config_facts is not guaranteed to match the PTF port indices
+        port_index_map = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
     # Get dut_ports (behind / not behind lag) used for creating dut lag by src_vlan_members and port_index_map
     for port_name, _ in list(src_vlan_members.items()):
+        if asic is not None and port_name not in port_index_map:
+            continue
         port_id = port_index_map[port_name]
         if len(dut_ports[ATTR_PORT_BEHIND_LAG]) < number_of_lag_member:
             if len(dut_ports[ATTR_PORT_BEHIND_LAG]) == 0:
@@ -232,7 +274,7 @@ def setup_dut_ptf(ptfhost, duthost, tbinfo, vlan_intfs_dict):
             vlan['id'] = k
             vlan['ip'] = v['ip']
             break
-    dut_lag_map = setup_dut_lag(duthost, dut_ports, vlan, src_vlan_id)
+    dut_lag_map = setup_dut_lag(duthost, dut_ports, vlan, src_vlan_id, asic)
     ptf_lag_map = setup_ptf_lag(ptfhost, ptf_ports, vlan)
     return dut_lag_map, ptf_lag_map, src_vlan_id
 
@@ -281,7 +323,9 @@ def running_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, 
         ports_list: list of ports
     """
     duthost = duthosts[rand_one_dut_hostname]
-    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    # On multi-ASIC DUTs only the VLAN ports of one ASIC are used, traffic may not cross ASICs
+    asic = get_vlan_test_asic(duthost)
+    cfg_facts = (asic or duthost).config_facts(host=duthost.hostname, source="running")['ansible_facts']
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     vlan_ports_list = []
     config_ports = {k: v for k, v in list(cfg_facts['PORT'].items()) if v.get('admin_status', 'down') == 'up'}
@@ -438,7 +482,8 @@ def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, p
                 pytest.skip("Not supported on SONiC leaf-fanout platform")
 
     duthost = duthosts[rand_one_dut_hostname]
-    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    asic = get_vlan_test_asic(duthost)
+    cfg_facts = (asic or duthost).config_facts(host=duthost.hostname, source="running")['ansible_facts']
     # Skip l2 mode
     if "bgp_asn" not in cfg_facts["DEVICE_METADATA"]["localhost"]:
         yield
@@ -446,7 +491,7 @@ def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, p
     ptf_lag_map = None
     # --------------------- Setup -----------------------
     try:
-        dut_lag_map, ptf_lag_map, src_vlan_id = setup_dut_ptf(ptfhost, duthost, tbinfo, vlan_intfs_dict)
+        dut_lag_map, ptf_lag_map, src_vlan_id = setup_dut_ptf(ptfhost, duthost, tbinfo, vlan_intfs_dict, asic)
 
         vp_list = running_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list)
         populate_fdb(ptfadapter, vp_list, vlan_intfs_dict)
@@ -471,7 +516,8 @@ def has_portchannels(duthosts, rand_one_dut_hostname):
     """
     duthost = duthosts[rand_one_dut_hostname]
     # Retrieve the configuration facts from the DUT
-    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    asic = get_vlan_test_asic(duthost)
+    cfg_facts = (asic or duthost).config_facts(host=duthost.hostname, source="running")['ansible_facts']
     # Check if the portchannel interfaces list or portchannels dictionary is empty
     if not cfg_facts.get("minigraph_portchannel_interfaces", []) or not cfg_facts.get("minigraph_portchannels", {}):
         return False

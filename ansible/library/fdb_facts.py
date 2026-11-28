@@ -13,6 +13,10 @@ description:
 EXAMPLES = '''
 - name: Get fdb facts from DUT
   fdb_facts:
+
+- name: Get fdb facts of one ASIC namespace from a multi-ASIC DUT
+  fdb_facts:
+    namespace: asic0
 '''
 
 # Example of the output
@@ -40,13 +44,17 @@ The output:
 
 class FdbModule(object):
     def __init__(self):
-        self.module = AnsibleModule(argument_spec=dict())
+        self.module = AnsibleModule(argument_spec=dict(
+            namespace=dict(required=False, type='str', default=None),
+        ))
 
     def run(self):
         """
             Main method of the class
         """
         cmd = 'show mac'
+        if self.module.params['namespace']:
+            cmd += ' -n {}'.format(self.module.params['namespace'])
         try:
             rc, out, err = self.module.run_command(
                 cmd, executable='/bin/bash', use_unsafe_shell=True)
