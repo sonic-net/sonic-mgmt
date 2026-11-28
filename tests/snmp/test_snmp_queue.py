@@ -82,14 +82,29 @@ def test_snmp_queues(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
 
             # Check if queue index in QUEUE table in config_db
             # is present in SNMP result
-            if intf in q_interfaces:
+            """if intf in q_interfaces:
                 for queue_idx in q_interfaces[intf]:
                     # queue_idx starts with 0, queue_idx in OID starts with 1
                     # Increment queue_idx by 1 to form the right OID.
                     snmp_q_idx = int(queue_idx) + 1
                     if str(snmp_q_idx) not in v['queues'][direction_type]:
                         pytest.fail("Expected queue index %d not present in \
-                                     SNMP result for interface %s" % (snmp_q_idx, v['name']))
+                                     SNMP result for interface %s" % (snmp_q_idx, v['name']))"""
+            if intf in q_interfaces:
+                for queue_idx in q_interfaces[intf]:
+                    if '-' in str(queue_idx):
+                        start, end = map(int, queue_idx.split('-'))
+                        queue_list = range(start, end + 1)
+                    else:
+                        queue_list = [int(queue_idx)]
+
+                    for q in queue_list:
+                        snmp_q_idx = q + 1
+                        if str(snmp_q_idx) not in v['queues'][direction_type]:
+                            pytest.fail("Expected queue index %d not present in SNMP result for interface %s"
+                                        % (snmp_q_idx, v['name']))
+
+
             # compare number of unicast queues in CLI to the number of queue indexes in
             # SNMP result
             if port_name_to_ns[intf]:
