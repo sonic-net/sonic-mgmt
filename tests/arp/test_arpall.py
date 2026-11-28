@@ -17,6 +17,16 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
+@pytest.fixture
+def ignore_vs_e1000_management_nic_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
+    """Ignore the transient VS management-NIC reset during this GARP test."""
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if loganalyzer and duthost.facts["asic_type"] == "vs":
+        loganalyzer[duthost.hostname].ignore_regex.append(
+            r".*ERR kernel:.* e1000 \S+ eth0: Reset adapter\s*$"
+        )
+
+
 def test_arp_unicast_reply(common_setup_teardown, intfs_for_test, enum_frontend_asic_index):
     duthost, ptfhost, router_mac = common_setup_teardown
     intf1, intf2, intf1_indice, intf2_indice = intfs_for_test
@@ -111,7 +121,8 @@ def test_arp_no_reply_src_out_range(common_setup_teardown, intfs_for_test, enum_
         pytest_assert(ip != '10.10.1.22')
 
 
-def test_arp_garp_no_update(common_setup_teardown, intfs_for_test, enum_frontend_asic_index):
+def test_arp_garp_no_update(common_setup_teardown, intfs_for_test, enum_frontend_asic_index,
+                            ignore_vs_e1000_management_nic_reset):
     duthost, ptfhost, router_mac = common_setup_teardown
     intf1, intf2, intf1_indice, intf2_indice = intfs_for_test
 
