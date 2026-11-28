@@ -1,0 +1,205 @@
+"""
+Unit tests for ``tests/common/helpers/logger_row.py`` against a fake DUT that
+behaves like an older image (every daemon has a CONFIG_DB LOGGER row) or a
+newer one (no row until configured, effective level in STATE_DB LOGGER_TABLE).
+
+Run with --noconftest.
+"""
+
+import fnmatch
+import shlex
+from importlib import util
+from pathlib import Path
+
+import pytest
+
+# Loaded by path: importing the tests.common package pulls in the whole framework.
+_SPEC = util.spec_from_file_location(
+    "logger_row", Path(__file__).resolve().parents[2] / "helpers" / "logger_row.py")
+logger_row = util.module_from_spec(_SPEC)
+_SPEC.loader.exec_module(logger_row)
+
+
+class CommandFailed(Exception):
+    pass
+
+
+class FakeDut(object):
+    """Answers the sonic-db-cli and swssloglevel commands the helper runs,
+    behind any prefix such as "docker exec swss" or "-n asic0". A command
+    fails when broken is set or it contains one of the strings in fail.
+    swssloglevel -p also lists the components in levels, which are in
+    neither DB."""
+
+    def __init__(self, config=None, state=None, broken=False, fail=(), levels=None):
+        self.db = {"CONFIG_DB": dict(config or {}), "STATE_DB": dict(state or {})}
+        self.levels = dict(levels or {})
+        self.broken = broken
+        self.fail = fail
+        self.commands = []
+
+    def shell(self, cmd, module_ignore_errors=False):
+        self.commands.append(cmd)
+        args = shlex.split(cmd)
+        if self.broken or any(f in cmd for f in self.fail):
+            if not module_ignore_errors:
+                raise CommandFailed(cmd)
+            return {"stdout": "", "stdout_lines": [], "rc": 1, "failed": True}
+        out = ""
+        if "swssloglevel" in args and "-p" in args:
+            names = set(k.split("|", 1)[1] for k in self.db["CONFIG_DB"]) | \
+                set(k.split("|", 1)[1] for k in self.db["STATE_DB"])
+            lines = []
+            for name in sorted(names | set(self.levels)):
+                level = self.db["CONFIG_DB"].get("LOGGER|" + name, {}).get("LOGLEVEL") or \
+                    self.db["STATE_DB"].get("LOGGER_TABLE|" + name, {}).get("LOGLEVEL") or self.levels.get(name)
+                if level:
+                    lines.append("{:<30}{}".format(name, level))
+            out = "\n".join(lines)
+        elif "sonic-db-cli" in args:
+            args = args[args.index("sonic-db-cli") + 1:]
+            if args[0] == "-n":
+                args = args[2:]
+            db, op, key = args[0], args[1], args[2]
+            table = self.db[db]
+            if op == "KEYS":
+                out = "\n".join(k for k in sorted(table) if fnmatch.fnmatchcase(k, key))
+            elif op == "EXISTS":
+                out = "1" if key in table else "0"
+            elif op == "HGET":
+                out = table.get(key, {}).get(args[3], "")
+            elif op == "HSET":
+                table.setdefault(key, {})[args[3]] = args[4]
+            elif op == "HDEL":
+                table.get(key, {}).pop(args[3], None)
+            elif op == "DEL":
+                table.pop(key, None)
+        return {"stdout": out, "stdout_lines": out.splitlines()}
+
+
+ROW = {"LOGLEVEL": "NOTICE", "LOGOUTPUT": "SYSLOG"}
+OLD_IMAGE = {"config": {"LOGGER|orchagent": dict(ROW)}}
+NEW_IMAGE = {"state": {"LOGGER_TABLE|orchagent": dict(ROW)}}
+
+
+@pytest.mark.parametrize("image", [OLD_IMAGE, NEW_IMAGE], ids=["old_image", "new_image"])
+@pytest.mark.parametrize("db_cli", ["sonic-db-cli", "sonic-db-cli -n asic0", "docker exec swss sonic-db-cli"])
+def test_restore_leaves_config_db_as_found(image, db_cli):
+    dut = FakeDut(**image)
+    before = {k: dict(v) for k, v in dut.db["CONFIG_DB"].items()}
+
+    saved = logger_row.save_logger_row(dut, "orchagent", db_cli=db_cli)
+    assert saved["level"] == "NOTICE"
+    logger_row.set_log_level(dut, "orchagent", "DEBUG", db_cli=db_cli)
+    assert dut.db["CONFIG_DB"]["LOGGER|orchagent"]["LOGLEVEL"] == "DEBUG"
+
+    logger_row.restore_logger_row(dut, saved)
+    assert dut.db["CONFIG_DB"] == before
+    assert all(c.startswith(db_cli) for c in dut.commands if "sonic-db-cli" in c)
+
+
+def test_old_image_without_row_keeps_restored_level():
+    """An older daemon ignores a deleted row, so the row keeps the saved level."""
+    dut = FakeDut()
+    saved = logger_row.save_logger_row(dut, "orchagent", default="NOTICE")
+    logger_row.set_log_level(dut, "orchagent", "DEBUG")
+    logger_row.restore_logger_row(dut, saved)
+    assert dut.db["CONFIG_DB"] == {"LOGGER|orchagent": {"LOGLEVEL": "NOTICE"}}
+
+
+def test_configured_row_is_kept_with_its_level():
+    dut = FakeDut(config={"LOGGER|orchagent": {"LOGLEVEL": "INFO"}},
+                  state={"LOGGER_TABLE|orchagent": {"LOGLEVEL": "INFO", "LOGOUTPUT": "SYSLOG"}})
+    saved = logger_row.save_logger_row(dut, "orchagent")
+    logger_row.set_log_level(dut, "orchagent", "DEBUG")
+    logger_row.restore_logger_row(dut, saved)
+    assert dut.db["CONFIG_DB"] == {"LOGGER|orchagent": {"LOGLEVEL": "INFO"}}
+
+
+def test_row_without_loglevel_is_restored_without_it():
+    dut = FakeDut(config={"LOGGER|orchagent": {"LOGOUTPUT": "STDERR"}},
+                  state={"LOGGER_TABLE|orchagent": {"LOGLEVEL": "NOTICE", "LOGOUTPUT": "STDERR"}})
+    saved = logger_row.save_logger_row(dut, "orchagent")
+    logger_row.set_log_level(dut, "orchagent", "DEBUG")
+    logger_row.restore_logger_row(dut, saved)
+    assert dut.db["CONFIG_DB"] == {"LOGGER|orchagent": {"LOGOUTPUT": "STDERR"}}
+
+
+def test_row_without_loglevel_and_no_logger_table_is_restored_without_it():
+    dut = FakeDut(config={"LOGGER|bfdsyncd": {"LOGOUTPUT": "SYSLOG"}}, levels={"bfdsyncd": "NOTICE"})
+    saved = logger_row.save_logger_row(dut, "bfdsyncd")
+    logger_row.set_log_level(dut, "bfdsyncd", "DEBUG")
+    logger_row.restore_logger_row(dut, saved)
+    assert dut.db["CONFIG_DB"] == {"LOGGER|bfdsyncd": {"LOGOUTPUT": "SYSLOG"}}
+
+
+def test_configured_level_wins_over_effective_level():
+    # A process that applies a change only on SIGHUP still runs NOTICE while
+    # its row says INFO; restore puts back the configured INFO.
+    dut = FakeDut(config={"LOGGER|xcvrd": {"LOGLEVEL": "INFO"}},
+                  state={"LOGGER_TABLE|xcvrd": {"LOGLEVEL": "NOTICE", "LOGOUTPUT": "SYSLOG"}})
+    saved = logger_row.save_logger_row(dut, "xcvrd")
+    logger_row.set_log_level(dut, "xcvrd", "DEBUG")
+    logger_row.restore_logger_row(dut, saved)
+    assert dut.db["CONFIG_DB"] == {"LOGGER|xcvrd": {"LOGLEVEL": "INFO"}}
+
+
+def test_failed_lookup_raises_rather_than_guessing():
+    """A failed EXISTS must not read as "absent", or restore would delete a real row."""
+    with pytest.raises(CommandFailed):
+        logger_row.save_logger_row(FakeDut(broken=True), "orchagent")
+
+
+def test_level_falls_back_to_swssloglevel_then_default():
+    dut = FakeDut()
+    assert logger_row.get_log_level(dut, "orchagent", default="NOTICE") == "NOTICE"
+    assert logger_row.get_log_level(dut, "orchagent", loglevel_cli=None) is None
+    dut = FakeDut(config={"LOGGER|orchagent": {"LOGLEVEL": "WARN"}})
+    assert logger_row.get_log_level(dut, "orchagent") == "WARN"
+
+
+def test_level_from_swssloglevel_for_component_in_neither_db():
+    dut = FakeDut(levels={"SAI_API_BFD": "SAI_LOG_LEVEL_INFO", "SAI_API_BFD_X": "SAI_LOG_LEVEL_DEBUG"})
+    assert logger_row.get_log_level(dut, "SAI_API_BFD", default="SAI_LOG_LEVEL_NOTICE") == "SAI_LOG_LEVEL_INFO"
+
+
+def test_save_reads_config_db_level_once():
+    dut = FakeDut(**OLD_IMAGE)
+    logger_row.save_logger_row(dut, "orchagent")
+    assert sum("CONFIG_DB HGET" in c for c in dut.commands) == 1
+
+
+@pytest.mark.parametrize("fail", ["STATE_DB HGET", "CONFIG_DB HGET", "swssloglevel -p"])
+def test_failed_level_read_raises(fail):
+    """A failed level read must not fall through to the default, or restore
+    would write the default in place of the level the row held."""
+    with pytest.raises(CommandFailed):
+        logger_row.get_log_level(FakeDut(fail=[fail]), "orchagent", default="NOTICE")
+
+
+def test_sai_category_without_state_row_is_deleted():
+    """A SAI API category has no LOGGER_TABLE row of its own; other keys
+    decide that a deleted row reverts to the default."""
+    dut = FakeDut(**NEW_IMAGE)
+    saved = logger_row.save_logger_row(dut, "SAI_API_ACL", default="SAI_LOG_LEVEL_NOTICE")
+    logger_row.set_log_level(dut, "SAI_API_ACL", "SAI_LOG_LEVEL_DEBUG")
+    dut.db["STATE_DB"].clear()  # the daemon restarted during the test
+    logger_row.restore_logger_row(dut, saved)
+    assert dut.db["CONFIG_DB"] == {}
+
+
+@pytest.mark.parametrize("fail", ["HGET 'LOGGER|", "KEYS"])
+def test_failed_branch_read_raises(fail):
+    """A failed read of the configured level or of LOGGER_TABLE must not read
+    as "none", or restore would HDEL a real LOGLEVEL or write an absent row."""
+    with pytest.raises(CommandFailed):
+        logger_row.save_logger_row(FakeDut(fail=[fail], **OLD_IMAGE), "orchagent")
+
+
+def test_failed_restore_write_does_not_raise():
+    dut = FakeDut(**NEW_IMAGE)
+    saved = logger_row.save_logger_row(dut, "orchagent")
+    logger_row.set_log_level(dut, "orchagent", "DEBUG")
+    dut.broken = True
+    logger_row.restore_logger_row(dut, saved)
+    assert dut.db["CONFIG_DB"] == {"LOGGER|orchagent": {"LOGLEVEL": "DEBUG"}}

@@ -40,6 +40,14 @@
       vars:
         test_match_file: routes_update_match.txt
 
+    - name: Check whether orchagent has a LOGGER row before the test
+      command: "sonic-db-cli CONFIG_DB EXISTS 'LOGGER|orchagent'"
+      register: orchagent_logger_row
+
+    - name: Save the orchagent log level before the test
+      command: "sonic-db-cli CONFIG_DB HGET 'LOGGER|orchagent' LOGLEVEL"
+      register: orchagent_logger_level
+
     - name: Set log level to INFO bo be able to catch route update messages from orchagent
       command: "swssloglevel -l INFO -c orchagent"
 
@@ -85,8 +93,23 @@
     - include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
 
   always:
-    - name: Set log level back to NOTICE
-      command: "swssloglevel -l NOTICE -c orchagent"
+    # Only once the level was saved: a block that failed before that never raised it
+    - name: Set log level back to the saved level
+      command: "swssloglevel -l {{ orchagent_logger_level.stdout | trim or 'NOTICE' }} -c orchagent"
+      when: orchagent_logger_level is defined and orchagent_logger_level is succeeded
+
+    # An absent row means orchagent's default; drop the row the test created
+    - name: Remove the orchagent LOGGER row if the test created it
+      command: "sonic-db-cli CONFIG_DB DEL 'LOGGER|orchagent'"
+      when: orchagent_logger_row is defined and orchagent_logger_row.stdout | trim == "0"
+
+    # A row the test found without LOGLEVEL gets the field removed again
+    - name: Remove the LOGLEVEL the test added to an existing orchagent LOGGER row
+      command: "sonic-db-cli CONFIG_DB HDEL 'LOGGER|orchagent' LOGLEVEL"
+      when: >-
+        orchagent_logger_row is defined and orchagent_logger_row.stdout | trim == "1" and
+        orchagent_logger_level is defined and orchagent_logger_level is succeeded and
+        orchagent_logger_level.stdout | trim == ""
 
 # Test case 2: Verify that routes are not preserved when peer performed normal reboot
 - block:
@@ -99,6 +122,14 @@
     - include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
       vars:
         test_expect_file: routes_update_expect.txt
+
+    - name: Check whether orchagent has a LOGGER row before the test
+      command: "sonic-db-cli CONFIG_DB EXISTS 'LOGGER|orchagent'"
+      register: orchagent_logger_row
+
+    - name: Save the orchagent log level before the test
+      command: "sonic-db-cli CONFIG_DB HGET 'LOGGER|orchagent' LOGLEVEL"
+      register: orchagent_logger_level
 
     - name: Set log level to INFO bo be able to catch route update messages from orchagent
       command: "swssloglevel -l INFO -c orchagent"
@@ -142,5 +173,20 @@
     - include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
 
   always:
-    - name: Set log level back to NOTICE
-      command: "swssloglevel -l NOTICE -c orchagent"
+    # Only once the level was saved: a block that failed before that never raised it
+    - name: Set log level back to the saved level
+      command: "swssloglevel -l {{ orchagent_logger_level.stdout | trim or 'NOTICE' }} -c orchagent"
+      when: orchagent_logger_level is defined and orchagent_logger_level is succeeded
+
+    # An absent row means orchagent's default; drop the row the test created
+    - name: Remove the orchagent LOGGER row if the test created it
+      command: "sonic-db-cli CONFIG_DB DEL 'LOGGER|orchagent'"
+      when: orchagent_logger_row is defined and orchagent_logger_row.stdout | trim == "0"
+
+    # A row the test found without LOGLEVEL gets the field removed again
+    - name: Remove the LOGLEVEL the test added to an existing orchagent LOGGER row
+      command: "sonic-db-cli CONFIG_DB HDEL 'LOGGER|orchagent' LOGLEVEL"
+      when: >-
+        orchagent_logger_row is defined and orchagent_logger_row.stdout | trim == "1" and
+        orchagent_logger_level is defined and orchagent_logger_level is succeeded and
+        orchagent_logger_level.stdout | trim == ""
