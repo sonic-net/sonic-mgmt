@@ -29,9 +29,10 @@ class SignalCleanup():
         # while this one is still clearing; re-entering would sys.exit() out of
         # the cleanup and leave the port asserting PFC.
         signal.signal(signal.SIGTERM, signal.SIG_IGN)
-        self.fanoutPfcStorm.endAllPfcStorm()
-
+        self.fanoutPfcStorm.clearAllPfcBackpressure()
+        # Log before the slow config restore; consumers use this marker as the storm end time.
         logger.debug(self.endMsg)
+        self.fanoutPfcStorm.endAllPfcStorm()
         sys.exit(0)
 
 
@@ -196,6 +197,10 @@ class FanoutPfcStorm():
         else:
             self._bcmshellCmd(f"setreg CHFC2PFC_STATE.{port} PRI_BKP={self.priority}")
 
+    def clearAllPfcBackpressure(self):
+        for intf in self.intfsEnabled:
+            self._clearPfcBackpressure(intf)
+
     def endAllPfcStorm(self):
         '''
         Stop the storm on every interface. Idempotent.
@@ -204,8 +209,7 @@ class FanoutPfcStorm():
         than doing both per interface. The list is emptied only once both are done,
         so a cleanup cut short is still retried by main()'s finally.
         '''
-        for intf in list(self.intfsEnabled):
-            self._clearPfcBackpressure(intf)
+        self.clearAllPfcBackpressure()
         for intf in list(self.intfsEnabled):
             self._restorePfcConfig(intf)
         self.intfsEnabled = []
