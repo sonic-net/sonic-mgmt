@@ -1055,7 +1055,7 @@ def get_tg_topology_leafspine_bgp(dut_type, max_tg_links, nodes, af='all'):
             return False
         while True:
             # TODO : Need to check this - 'leaf-spine', 'spine-leaf'
-            rv = {each: final_rv[each] for each in random.sample(final_rv.keys(), k=int(nodes))}
+            rv = {each: final_rv[each] for each in random.sample(list(final_rv.keys()), k=int(nodes))}
             if 'spine' in str(rv.keys()) and 'leaf' in str(rv.keys()):
                 break
 
@@ -1072,7 +1072,7 @@ def get_tg_topology_leafspine_bgp(dut_type, max_tg_links, nodes, af='all'):
         else:
             st.log("Requested topology not found.")
             return False
-        rv = {each: final_rv[each] for each in random.sample(final_rv.keys(), k=int(nodes))}
+        rv = {each: final_rv[each] for each in random.sample(list(final_rv.keys()), k=int(nodes))}
 
     elif dut_type == 'leaf':
         temp = {}
@@ -1087,7 +1087,7 @@ def get_tg_topology_leafspine_bgp(dut_type, max_tg_links, nodes, af='all'):
         else:
             st.log("Requested topology not found.")
             return False
-        rv = {each: final_rv[each] for each in random.sample(final_rv.keys(), k=int(nodes))}
+        rv = {each: final_rv[each] for each in random.sample(list(final_rv.keys()), k=int(nodes))}
 
     rv = get_leaf_spine_topology_info(rv, af)
     return rv
