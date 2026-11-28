@@ -1,0 +1,31 @@
+{
+    "ACL_RULE": {
+        "POLICER_TABLE|RULE_METER": {
+            "PRIORITY": "9999",
+            "DST_IP": "103.23.2.1/32",
+            "IP_PROTOCOL": "6",
+            "PACKET_ACTION": "FORWARD",
+            "POLICER_ACTION": "test_policer_meter"
+        },
+        "POLICER_TABLE|RULE_METER_V6": {
+            "PRIORITY": "9998",
+            "DST_IPV6": "103:23:2:1::1/128",
+            "NEXT_HEADER": "6",
+            "PACKET_ACTION": "FORWARD",
+            "POLICER_ACTION": "test_policer_meter"
+        },
+        "POLICER_TABLE|RULE_RATE": {
+            "PRIORITY": "9997",
+            "DST_IP": "103.23.2.4/32",
+            "IP_PROTOCOL": "6",
+            "PACKET_ACTION": "FORWARD",
+            "POLICER_ACTION": "test_policer_rate"
+        },
+        "POLICER_TABLE|RULE_RATE_NP": {
+            "PRIORITY": "9996",
+            "DST_IP": "103.23.2.5/32",
+            "IP_PROTOCOL": "6",
+            "PACKET_ACTION": "FORWARD"
+        }
+    }
+}
