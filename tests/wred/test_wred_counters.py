@@ -10,7 +10,7 @@ from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback
 from ptf.mask import Mask
 
 
-pytestmark = [pytest.mark.topology("t0", "t1")]
+pytestmark = [pytest.mark.topology("t0", "t1", "lt2")]
 
 logger = logging.getLogger(__name__)
 
