@@ -19,6 +19,9 @@ ecmp_utils = Ecmp_Utils()
 PTF_VTEP = "100.0.1.10"
 TUNNEL_NAME = "tunnel_v4"
 VNI_BUCKET_SIZE = 1000
+# Used when neither --num_endpoints nor the testbed field is set.
+DEFAULT_NUM_ENDPOINTS = 511
+ENDPOINT_POOL_BASE = IPv4Address("200.1.0.1")
 
 pytestmark = [
     pytest.mark.topology('t0'),
@@ -39,11 +42,37 @@ def get_loopback_ip(cfg_facts):
     pytest.fail("Cannot find IPv4 Loopback0 address in LOOPBACK_INTERFACE")
 
 
-def generate_routes_and_endpoint(vnet_id: int, count: int, endpoint_offset=0):
+def resolve_num_endpoints(cli_value, tbinfo):
+    """Prefer --num_endpoints, then the testbed num_endpoints field."""
+    tb_value = tbinfo.get("num_endpoints") if tbinfo else None
+    for value in (cli_value, tb_value):
+        try:
+            num = int(value)
+        except (TypeError, ValueError):
+            continue
+        if num > 0:
+            return num
+    return DEFAULT_NUM_ENDPOINTS
+
+
+def build_endpoint_pool(num_endpoints):
+    base = int(ENDPOINT_POOL_BASE)
+    return [str(IPv4Address(base + i)) for i in range(num_endpoints)]
+
+
+def ptf_scale_params(setup, **extra):
+    """PTF reads endpoints from the route JSON, not this pool."""
+    params = {key: value for key, value in setup.items() if key != "endpoint_pool"}
+    params.update(extra)
+    return params
+
+
+def generate_routes_and_endpoint(vnet_id, count, endpoint_pool, endpoint_offset=0):
     base = int(IPv4Address(f"30.{vnet_id}.0.0"))
-    endpoint_base = int(IPv4Address(f"100.{vnet_id}.0.0")) + endpoint_offset
-    return [f"{IPv4Address(base + i)}/32" for i in range(count)], \
-           [f"{IPv4Address(endpoint_base + i)}" for i in range(count)]
+    pool_size = len(endpoint_pool)
+    routes = [f"{IPv4Address(base + i)}/32" for i in range(count)]
+    endpoints = [endpoint_pool[(i + endpoint_offset) % pool_size] for i in range(count)]
+    return routes, endpoints
 
 
 def apply_chunk(duthost, payload, config_name):
@@ -201,7 +230,7 @@ def configure_vxlan_switch_with_mac(duthost, vxlan_port, vxlan_sport=None, vxlan
 
 def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
                        tbinfo, num_vnets, routes_per_vnet, vnet_base, vxlan_port, samples_per_vnet,
-                       vxlan_sport=None, vxlan_mask=None):
+                       endpoint_pool, vxlan_sport=None, vxlan_mask=None):
     ports = get_available_vlan_id_and_ports(config_facts, num_vnets)
     pytest_assert(ports and len(ports) >= num_vnets, "Not enough ports for VNET setup")
 
@@ -283,7 +312,7 @@ def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
         vnet_name = f"Vnet{vnet_id}"
         vni = vnet_base + vnet_id
         logger.info(f"Generating {routes_per_vnet} routes for {vnet_name}")
-        routes, endpoints = generate_routes_and_endpoint(vnet_id, routes_per_vnet)
+        routes, endpoints = generate_routes_and_endpoint(vnet_id, routes_per_vnet, endpoint_pool)
         vnet_routes = {
             f"{vnet_name}|{routes[i]}": {"endpoint": endpoints[i]} for i in range(routes_per_vnet)
         }
@@ -349,7 +378,9 @@ def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
         "router_mac": duthost.facts["router_mac"],
         "mac_switch": vxlan_router_mac,
         "samples_per_vnet": samples_per_vnet,
-        "routes_to_test_file_paths": routes_to_test_file_paths
+        "routes_to_test_file_paths": routes_to_test_file_paths,
+        "num_endpoints": len(endpoint_pool),
+        "endpoint_pool": endpoint_pool,
     }
     return setup_params
 
@@ -367,6 +398,8 @@ def vxlan_scale_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, tbinfo,
         config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
         num_vnets = scaled_vnet_params.get("num_vnet")
         routes_per_vnet = scaled_vnet_params.get("num_routes")
+        num_endpoints = resolve_num_endpoints(request.config.option.num_endpoints, tbinfo)
+        endpoint_pool = build_endpoint_pool(num_endpoints)
         samples_per_vnet = request.config.getoption("num_samples")
         vnet_base = 10000
         duts_map = tbinfo["duts_map"]
@@ -375,7 +408,10 @@ def vxlan_scale_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, tbinfo,
         vxlan_sport = request.config.option.vxlan_sport
         vxlan_mask = request.config.option.vxlan_mask
 
-        logger.info(f"Using num_vnets={num_vnets}, routes_per_vnet={routes_per_vnet}")
+        logger.info(
+            f"Using num_vnets={num_vnets}, routes_per_vnet={routes_per_vnet}, "
+            f"num_endpoints={num_endpoints}"
+        )
 
         setup_params = vxlan_setup_config(
             config_facts,
@@ -389,6 +425,7 @@ def vxlan_scale_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, tbinfo,
             vnet_base,
             vxlan_port,
             samples_per_vnet,
+            endpoint_pool,
             vxlan_sport=vxlan_sport,
             vxlan_mask=vxlan_mask
         )
@@ -420,7 +457,7 @@ def test_vxlan_scale_traffic(vxlan_scale_setup_teardown, ptfhost):
         "ptftests",
         "vxlan_traffic_scale.VXLANScaleTest",
         platform_dir="ptftests",
-        params=setup_params,
+        params=ptf_scale_params(setup_params),
         qlen=1000,
         log_file="/tmp/vxlan_traffic_scale.log",
         is_python3=True
@@ -472,7 +509,7 @@ def test_vxlan_scale_config_reload(vxlan_scale_setup_teardown, ptfhost, duthosts
         "ptftests",
         "vxlan_traffic_scale.VXLANScaleTest",
         platform_dir="ptftests",
-        params=setup_params,
+        params=ptf_scale_params(setup_params),
         qlen=1000,
         log_file="/tmp/vxlan_traffic_scale_reload.log",
         is_python3=True
@@ -512,7 +549,9 @@ def test_vxlan_scale_mac_vni(vxlan_scale_setup_teardown, ptfhost):
 
         route_updates = {}
 
-        routes, endpoints = generate_routes_and_endpoint(vnet_id, routes_per_vnet)
+        routes, endpoints = generate_routes_and_endpoint(
+            vnet_id, routes_per_vnet, setup["endpoint_pool"]
+        )
         all_macs_for_vnet = [gen_mac(vnet_id, i) for i in range(routes_per_vnet)]
         all_vnis_for_vnet = [gen_vni(vnet_id, i) for i in range(routes_per_vnet)]
         for i in range(routes_per_vnet):
@@ -565,11 +604,11 @@ def test_vxlan_scale_mac_vni(vxlan_scale_setup_teardown, ptfhost):
     logger.info("All route MAC+VNI updates applied via batch cfggen.")
 
     # ---- Run PTF ----
-    ptf_params = {
-        **setup,
-        "mac_vni_per_vnet": "yes",
-        "vni_batch_size": VNI_BUCKET_SIZE,
-    }
+    ptf_params = ptf_scale_params(
+        setup,
+        mac_vni_per_vnet="yes",
+        vni_batch_size=VNI_BUCKET_SIZE,
+    )
 
     ptf_runner(
         ptfhost,
@@ -588,7 +627,9 @@ def test_vxlan_scale_mac_vni(vxlan_scale_setup_teardown, ptfhost):
         logger.info(f"Building JSON update for {vnet_name}, {routes_per_vnet} routes")
 
         route_updates = {}
-        routes, endpoints = generate_routes_and_endpoint(vnet_id, routes_per_vnet, 1)
+        routes, endpoints = generate_routes_and_endpoint(
+            vnet_id, routes_per_vnet, setup["endpoint_pool"], endpoint_offset=1
+        )
         all_macs_for_vnet = [gen_mac(vnet_id, i, base_mac="52:54:bb") for i in range(routes_per_vnet)]
         all_vnis_for_vnet = [gen_vni(vnet_id, i, offset=1) for i in range(routes_per_vnet)]
         for i in range(routes_per_vnet):
@@ -638,12 +679,12 @@ def test_vxlan_scale_mac_vni(vxlan_scale_setup_teardown, ptfhost):
     logger.info("All route MAC+VNI updates applied via batch cfggen.")
 
     # ---- Run PTF ----
-    ptf_params = {
-        **setup,
-        "mac_vni_per_vnet": "yes",
-        "vni_batch_size": VNI_BUCKET_SIZE,
-        "base_mac": "52:54:bb",
-    }
+    ptf_params = ptf_scale_params(
+        setup,
+        mac_vni_per_vnet="yes",
+        vni_batch_size=VNI_BUCKET_SIZE,
+        base_mac="52:54:bb",
+    )
 
     ptf_runner(
         ptfhost,
