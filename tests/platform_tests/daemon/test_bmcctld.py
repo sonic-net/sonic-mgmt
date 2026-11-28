@@ -9,6 +9,7 @@ Tests cover:
 - Performance and reliability metrics
 """
 
+import math
 import json
 import logging
 import pytest
@@ -135,7 +136,7 @@ def _startup_power_on_observed(lines, is_liquid_cooled):
     startup = "\n".join(lines)
     if is_liquid_cooled:
         return re.search(
-            r"STARTUP: Switch-Host OFFLINE (?:\u2014|-) issuing power_on(?:\s|$)", startup
+            r"STARTUP: Switch-Host OFFLINE (?:\u2014|-) issuing power_on(?:,|\s|$)", startup
         ) is not None
     return re.search(
         r"STARTUP: (?:Switch-Host already ONLINE \(daemon restart\); skipping boot sequence"
@@ -144,19 +145,39 @@ def _startup_power_on_observed(lines, is_liquid_cooled):
     ) is not None
 
 
-def _assert_liquid_cooled_power_on_delay(entries, test_delay):
-    """Require monotonic dispatch evidence; syslog wall time cannot establish the boot delay."""
-    dispatch_times = [
-        int(entry["__MONOTONIC_TIMESTAMP"]) / 1000000 for entry in entries
-        if _startup_power_on_observed([entry.get("MESSAGE", "")], is_liquid_cooled=True)
-    ]
-    pytest_assert(dispatch_times, "Liquid-cooled startup power_on missing from current-boot BMC journal; "
-                  "syslog cannot establish monotonic dispatch timing")
+def _assert_liquid_cooled_power_on_delay(lines, test_delay):
+    """Check startup dispatch uptime from marker-bounded persistent event logs."""
+    dispatch_times = []
+    for line in lines:
+        if not _startup_power_on_observed([line], is_liquid_cooled=True):
+            continue
+
+        match = re.search(
+            r"issuing power_on, boot_uptime=([0-9]+(?:\.[0-9]+)?)s(?:\s|$)",
+            line,
+        )
+        pytest_assert(
+            match is not None,
+            f"Missing or invalid boot_uptime in startup power_on entry: {line}",
+        )
+
+        boot_uptime = float(match.group(1))
+        pytest_assert(
+            math.isfinite(boot_uptime),
+            f"Invalid startup power_on uptime: {line}",
+        )
+        dispatch_times.append(boot_uptime)
+
     pytest_assert(
-        # bmcctld truncates the remaining delay (configured delay minus boot uptime).
+        dispatch_times,
+        "Liquid-cooled startup power_on missing from marker-bounded event.log",
+    )
+    pytest_assert(
+        # bmcctld truncates the remaining delay.
         min(dispatch_times) > test_delay - 1,
-        f"Liquid-cooled startup dispatched power_on at uptime {min(dispatch_times):.3f}s "
-        f"before configured power_on_delay={test_delay}s",
+        f"Liquid-cooled startup dispatched power_on at uptime "
+        f"{min(dispatch_times):.6f}s before configured "
+        f"power_on_delay={test_delay}s",
     )
 
 
@@ -849,14 +870,7 @@ class TestBmcctldDaemon:
                 f"observed STARTUP entries: {b_lines}"
             )
             if is_liquid_cooled:
-                entries = _bmcctld_journal_entries(self.duthost)
-                if not entries:
-                    syslog = self.duthost.shell("sudo zcat -f /var/log/syslog*")['stdout']
-                    pytest_assert(
-                        _startup_power_on_observed(_bmcctld_syslog_messages(syslog), is_liquid_cooled=True),
-                        "Liquid-cooled startup power_on missing from current-boot BMC syslog",
-                    )
-                _assert_liquid_cooled_power_on_delay(entries, test_delay)
+                _assert_liquid_cooled_power_on_delay(b_lines, test_delay)
 
             pytest_assert(wait_host_on(switch_host, timeout=600),
                           "Switch-Host critical services did not recover after chassis power loss")
