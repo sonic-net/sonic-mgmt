@@ -300,7 +300,7 @@ error handling: checks if attribute values are None type or string "None"
 
 def makeTestbed(data, outfile):
     csv_columns = ("# conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,ptf_ipv6,server,vm_base,dut,comment,"
-                   "use_converged_peers")
+                   "use_converged_peers,custom_vm_mem_size,custom_vm_mem_swap_size")
     topology = data
     csv_file = outfile
 
@@ -320,6 +320,8 @@ def makeTestbed(data, outfile):
                 ptf = groupDetails.get("ptf")
                 comment = groupDetails.get("comment")
                 use_converged_peers = str(groupDetails.get("use_converged_peers", False)).lower()
+                custom_vm_mem_size = str(groupDetails.get("custom_vm_mem_size", ""))
+                custom_vm_mem_swap_size = str(groupDetails.get("custom_vm_mem_swap_size", ""))
 
                 # catch empty types
                 if not groupName:
@@ -350,7 +352,8 @@ def makeTestbed(data, outfile):
 
                 row = confName + "," + groupName + "," + topo + "," + ptf_image_name + "," + ptf + \
                     "," + ptf_ip + "," + ptf_ipv6 + "," + server + \
-                    "," + vm_base + "," + dut + "," + comment + "," + use_converged_peers
+                    "," + vm_base + "," + dut + "," + comment + "," + use_converged_peers + \
+                    "," + custom_vm_mem_size + "," + custom_vm_mem_swap_size
                 f.write(row + "\n")
     except IOError:
         print("I/O error: issue creating testbed.yaml")
