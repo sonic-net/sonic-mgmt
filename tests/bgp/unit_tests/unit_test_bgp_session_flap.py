@@ -26,12 +26,26 @@ VPP_MARKS_PATH = (
     / "conditional_mark"
     / "tests_mark_conditions_sonic_vpp.yaml"
 )
+T1_LAG = {
+    "topo": {
+        "name": "t1-lag",
+        "properties": {"topo_is_multi_vrf": True},
+    },
+}
+T0 = {
+    "topo": {
+        "name": "t0",
+        "properties": {"topo_is_multi_vrf": True},
+    },
+}
+
 HELPERS = {
     "get_bgp_session_states",
     "filter_external_bgp_sessions",
     "get_bgp_session_groups",
     "get_external_bgp_session_states",
     "all_bgp_sessions_established",
+    "_is_converged_csonic_t1_lag_host",
     "get_unique_neighbor_hosts",
     "validate_bgp_command_result",
     "restore_neighbor_bgp",
@@ -116,6 +130,15 @@ class FakeNeighbor:
         return self.start_result
 
 
+class FakeCsonicNeighbor(FakeNeighbor):
+    def __init__(self, container_name, vrf=None):
+        super().__init__(hostname=(
+            "{}:{}".format(container_name, vrf) if vrf else container_name
+        ))
+        self.container_name = container_name
+        self.bgp_vrf = vrf
+
+
 @pytest.fixture
 def flap_helpers():
     tree = ast.parse(MODULE_PATH.read_text())
@@ -126,6 +149,7 @@ def flap_helpers():
     namespace = {
         "BGP_POLL_INTERVAL": 10,
         "BGP_SESSION_TIMEOUT": 300,
+        "CsonicHost": FakeCsonicNeighbor,
         "FLAP_THREAD_STOP_TIMEOUT": 2,
         "FLAP_COMPLETION_TIMEOUT": 2,
         "KILL_BGPD_TRIES": 3,
@@ -201,6 +225,36 @@ def test_neighbor_hosts_are_deduplicated_by_hostname(flap_helpers):
     assert neighbors == [first_vm, second_vm]
 
 
+def test_converged_csonic_hosts_are_deduplicated_by_physical_container(
+    flap_helpers,
+):
+    first_prime_vrf1 = FakeCsonicNeighbor("csonic-VM0104", "VrfARISTA01T2")
+    first_prime_vrf2 = FakeCsonicNeighbor("csonic-VM0104", "VrfARISTA03T2")
+    second_prime = FakeCsonicNeighbor("csonic-VM0105", "VrfARISTA01T0")
+
+    neighbors = flap_helpers["get_unique_neighbor_hosts"]([
+        first_prime_vrf1, first_prime_vrf2, second_prime
+    ], T1_LAG)
+
+    assert neighbors == [first_prime_vrf1, second_prime]
+
+
+def test_csonic_t0_and_ordinary_csonic_keep_hostname_deduplication(
+    flap_helpers,
+):
+    first_t0 = FakeCsonicNeighbor("csonic-VM0104", "VrfARISTA01T0")
+    second_t0 = FakeCsonicNeighbor("csonic-VM0104", "VrfARISTA03T0")
+    ordinary = FakeCsonicNeighbor("csonic-VM0105")
+    duplicate_ordinary = FakeCsonicNeighbor("csonic-VM0105")
+
+    assert flap_helpers["get_unique_neighbor_hosts"](
+        [first_t0, second_t0], T0
+    ) == [first_t0, second_t0]
+    assert flap_helpers["get_unique_neighbor_hosts"](
+        [ordinary, duplicate_ordinary], T1_LAG
+    ) == [ordinary]
+
+
 def test_setup_selects_unique_physical_neighbor_hosts():
     tree = ast.parse(MODULE_PATH.read_text())
     setup_node = next(
@@ -223,6 +277,7 @@ def test_setup_selects_unique_physical_neighbor_hosts():
     assert assignment.value.func.id == "get_unique_neighbor_hosts"
     assert assignment.value.args[0].func.attr == "values"
     assert assignment.value.args[0].func.value.id == "tor_neighbors"
+    assert assignment.value.args[1].id == "tbinfo"
 
     setup_info_assignment = next(
         node for node in setup_node.body
