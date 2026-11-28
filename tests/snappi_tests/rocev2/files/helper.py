@@ -544,13 +544,13 @@ def disable_wred(snappi_dut_port_map, queues):
             for intf in ports:                       # ports == {interface: snappi_port}
                 for q in qnums:
                     key = f"QUEUE|{intf}|{q}"
-                    prof = duthost.shell(f'sonic-db-cli CONFIG_DB hget "{key}" wred_profile',
+                    prof = duthost.shell(f'sonic-db-cli -s CONFIG_DB hget "{key}" wred_profile',
                                          module_ignore_errors=True)["stdout"].strip()
                     if not prof:
                         continue
                     saved[duthost][(intf, q)] = prof
-                    duthost.shell(f'sonic-db-cli CONFIG_DB hdel "{key}" wred_profile')
-                    left = duthost.shell(f'sonic-db-cli CONFIG_DB hget "{key}" wred_profile',
+                    duthost.shell(f'sonic-db-cli -s --authenticate CONFIG_DB hdel "{key}" wred_profile')
+                    left = duthost.shell(f'sonic-db-cli -s CONFIG_DB hget "{key}" wred_profile',
                                          module_ignore_errors=True)["stdout"].strip()
                     pytest_assert(not left, f"WRED still set on {duthost.hostname} {key} after hdel")
                     logger.info(f"WRED disabled on {duthost.hostname} {key} (was {prof})")
@@ -564,7 +564,7 @@ def restore_wred(saved):
     """Re-attach the WRED profiles removed by disable_wred()."""
     for duthost, items in (saved or {}).items():
         for (intf, q), prof in items.items():
-            duthost.shell(f'sonic-db-cli CONFIG_DB hset "QUEUE|{intf}|{q}" wred_profile "{prof}"')
+            duthost.shell(f'sonic-db-cli -s --authenticate CONFIG_DB hset "QUEUE|{intf}|{q}" wred_profile "{prof}"')
             logger.info(f"WRED restored on {duthost.hostname} QUEUE|{intf}|{q} -> {prof}")
 
 

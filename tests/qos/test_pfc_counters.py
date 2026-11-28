@@ -23,12 +23,12 @@ logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope='module', autouse=True)
 def enable_flex_port_counter(rand_selected_dut):
-    get_cmd = 'sonic-db-cli CONFIG_DB hget "FLEX_COUNTER_TABLE|PORT" "FLEX_COUNTER_STATUS"'
+    get_cmd = 'sonic-db-cli -s CONFIG_DB hget "FLEX_COUNTER_TABLE|PORT" "FLEX_COUNTER_STATUS"'
     status = rand_selected_dut.shell(get_cmd)['stdout']
     if status == 'enable':
         yield
         return
-    set_cmd = 'sonic-db-cli CONFIG_DB hset "FLEX_COUNTER_TABLE|PORT" "FLEX_COUNTER_STATUS" "{}"'
+    set_cmd = 'sonic-db-cli -s --authenticate CONFIG_DB hset "FLEX_COUNTER_TABLE|PORT" "FLEX_COUNTER_STATUS" "{}"'
     logger.info("Enable flex counter for port")
     rand_selected_dut.shell(set_cmd.format('enable'))
     yield

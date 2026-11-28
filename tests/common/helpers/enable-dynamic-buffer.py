@@ -239,7 +239,7 @@ def start_dynamic_buffer_model(config_db, lossless_pgs, metadata):
 
 
 # Connect to the CONFIG_DB
-db_kwargs = {}
+db_kwargs = {"use_unix_socket_path": True, "authenticate": True}
 config_db = ConfigDBConnector(**db_kwargs)
 config_db.db_connect('CONFIG_DB')
 

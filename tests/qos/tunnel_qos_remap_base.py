@@ -262,7 +262,7 @@ def _lossless_profile_name(dut, port_name, pgs='2-4'):
     """
     Read lossless PG name for given port
     """
-    cmd = "sonic-db-cli APPL_DB hget \'BUFFER_PG_TABLE:{}:{}\' \'profile\'".format(
+    cmd = "sonic-db-cli -s APPL_DB hget \'BUFFER_PG_TABLE:{}:{}\' \'profile\'".format(
         port_name, pgs)
     profile_name = dut.shell(cmd)['stdout']
     pytest_assert(profile_name != "")
