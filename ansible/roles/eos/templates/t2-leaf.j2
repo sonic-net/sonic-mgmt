@@ -127,7 +127,10 @@ router bgp {{ host['bgp']['asn'] }}
  neighbor {{ remote_ip }} remote-as {{ asn }}
  neighbor {{ remote_ip }} maximum-routes 0
  neighbor {{ remote_ip }} description {{ asn }}
+{% if host['bgp']['confed_asn'] is not defined or host['bgp']['confed_peers'] is not defined %}
+{# Confed leaves share a member AS; without allowas-in they drop their own prefixes bounced back by the DUT as confed-external. #}
  neighbor {{ remote_ip }} allowas-in
+{% endif %}
  neighbor {{ remote_ip }} next-hop-self
 {% if remote_ip | ansible.utils.ipv6 %}
  address-family ipv6
