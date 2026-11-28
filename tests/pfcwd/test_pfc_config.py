@@ -20,6 +20,8 @@ CONFIG_TEST_EXPECT_INVALID_DETECT_TIME_RE = ".* Failed to parse PFC Watchdog .* 
 CONFIG_TEST_EXPECT_INVALID_RESTORE_TIME_RE = ".* Failed to parse PFC Watchdog .* restoration_time .*"
 CONFIG_TEST_EXPECT_HW_DETECT_TIME_RANGE_RE = ".* Detection time .* is outside the supported range .*"
 CONFIG_TEST_EXPECT_HW_RESTORE_TIME_RANGE_RE = ".* Restoration time .* is outside the supported range .*"
+# How long an invalid PFC_WD entry stays in CONFIG_DB so that orchagent can consume it and log the error
+INVALID_CFG_HOLD_SEC = 5
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,    # disable automatic fixture and invoke within each test
@@ -122,7 +124,7 @@ def cfg_teardown(duthost):
 
 
 @pytest.fixture(scope='class')
-def cfg_setup(setup_pfc_test, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def cfg_setup(request, setup_pfc_test, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Class level automatic fixture. Prior to the test run, create all the templates
     needed for each individual test and copy them on the DUT.
@@ -135,6 +137,7 @@ def cfg_setup(setup_pfc_test, duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     setup_info = setup_pfc_test
     pfc_wd_test_port = list(setup_info['test_ports'].keys())[0]
+    request.cls.pfc_wd_test_port = pfc_wd_test_port
     hw_limits = get_pfcwd_hw_timer_limits(duthost, pfc_wd_test_port)
     logger.info("Creating json templates for all config tests")
     cfg_params = generate_cfg_templates(pfc_wd_test_port, hw_limits)
@@ -230,7 +233,13 @@ class TestPfcConfig(object):
         loganalyzer.match_regex = []
         with loganalyzer(fail=not expect_errors):
             cmd = "sonic-cfggen -j {}/{}.json --write-to-db".format(DUT_RUN_DIR, syslog_marker)
-            out = duthost.command(cmd)
+            if expect_errors:
+                # An invalid PFC_WD entry fails the YANG validation done before every later test, so
+                # remove it in the same DUT-side command: it must not survive pytest being killed
+                # mid-test. The sleep lets orchagent consume the SET (and log the error) before the DEL.
+                cmd = ("{}; rc=$?; sleep {}; sonic-db-cli CONFIG_DB DEL 'PFC_WD|{}' >/dev/null; exit $rc"
+                       .format(cmd, INVALID_CFG_HOLD_SEC, self.pfc_wd_test_port))
+            out = duthost.shell(cmd, module_ignore_errors=True)
             pytest_assert(out["rc"] == 0, "Failed to execute cmd {}: Error: {}".format(cmd, out["stderr"]))
 
     def test_forward_action_cfg(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
