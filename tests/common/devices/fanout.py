@@ -77,6 +77,8 @@ class FanoutHost(object):
         such method is found, an AttributeError is raised
         """
         if isinstance(interface_name, list):
+            if self.os == 'sonic':
+                interface_name = [self.fanout_port_alias_to_name.get(name, name) for name in interface_name]
             shutdown_multiple = getattr(self.host, "shutdown_multiple", None)
             if callable(shutdown_multiple):
                 return shutdown_multiple(interface_name)
@@ -99,6 +101,8 @@ class FanoutHost(object):
         such method is found, an AttributeError is raised
         """
         if isinstance(interface_name, list):
+            if self.os == 'sonic':
+                interface_name = [self.fanout_port_alias_to_name.get(name, name) for name in interface_name]
             no_shutdown_multiple = getattr(self.host, "no_shutdown_multiple", None)
             if callable(no_shutdown_multiple):
                 return no_shutdown_multiple(interface_name)
