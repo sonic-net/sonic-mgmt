@@ -37,7 +37,8 @@ VRF_SCENARIOS = [
 
 
 @pytest.fixture(scope="module", params=VRF_SCENARIOS, ids=lambda scenario: f"vrf_{scenario['name']}")
-def vrf_config(request, duthost, ptfhost):
+def vrf_config(request, duthosts, rand_one_dut_hostname, ptfhost):
+    duthost = duthosts[rand_one_dut_hostname]
     vrf_cfg = request.param.copy()
     vrf_cfg.update(
         {
