@@ -20,6 +20,7 @@ from tests.packet_trimming.packet_trimming_helper import (
     create_trim_queue_test_buffer_profile, delete_trim_queue_test_buffer_profile,
     delete_buffer_queue_for_trim_queue,
     delete_buffer_queue_for_block_queue, delete_created_block_queue_buffer_profiles,
+    ensure_block_queue_buffer_profile,
     is_queue_level_trim_sent_drop_supported, stop_warm_reboot_traffic)
 
 
@@ -214,6 +215,10 @@ def setup_trimming(duthost, test_params, trim_counter_params, request):
             configure_packet_aging(duthost, disabled=True)
 
     with allure.step("Configure buffer profile for blocked queue and trimmed queue"):
+        for block_profiles in (test_params['trim_buffer_profiles'], trim_counter_params['trim_buffer_profiles']):
+            for block_profile in block_profiles.values():
+                ensure_block_queue_buffer_profile(duthost, block_profile)
+
         # The first interface is uplink interface, use uplink buffer profile
         uplink_port = test_params['egress_ports'][0]
         block_interface = uplink_port['dut_members']
