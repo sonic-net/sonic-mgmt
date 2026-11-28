@@ -7,7 +7,7 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa: F401
 from tests.ptf_runner import ptf_runner
-from .utils import fdb_table_has_dummy_mac_for_interface
+from .utils import fdb_table_has_dummy_mac_for_interface, get_frontend_asics, get_port_ptf_index_map, ns_option
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa: F401
 
 
@@ -52,12 +52,13 @@ class TestFdbMacLearning:
     DUT_INTF_IP = "20.0.0.1"
     DUT_INTF_NETMASK = "24"
 
-    def configureInterfaceIp(self, duthost, dut_intf, action=None):
+    def configureInterfaceIp(self, duthost, asic, dut_intf, action=None):
         """
             Configure interface IP address on the DUT
 
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)
+                asic (SonicAsic): ASIC that owns dut_intf
                 action (str): action to perform, add/remove interface IP
 
             Returns:
@@ -68,7 +69,7 @@ class TestFdbMacLearning:
         interfaceIp = "{}/{}".format(self.DUT_INTF_IP, self.DUT_INTF_NETMASK)
         duthost.shell(argv=[
             "config",
-            "interface",
+            "interface"] + asic.cli_ns_option.split() + [
             "ip",
             action,
             dut_intf,
@@ -117,7 +118,7 @@ class TestFdbMacLearning:
         )
 
     @pytest.fixture(scope="class", autouse=True)
-    def prepare_test(self, duthosts, rand_one_dut_hostname, ptfhost):
+    def prepare_test(self, duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
         """
             Select DUT ports which will be used for the testcase
             Get a mapping of selected DUT ports and ptf ports
@@ -127,21 +128,27 @@ class TestFdbMacLearning:
                 duthosts: Devices under test
                 rand_one_dut_hostname: selected device index
                 ptfhost: PTF instance used
+                tbinfo: testbed information
 
             Yields:
                 DUT to PTF port mapping
                 PTF ports available in topology
                 conf_facts
+                ASIC that owns the selected DUT ports
         """
         duthost = duthosts[rand_one_dut_hostname]
-        # Get 4 UP ports which will be used for the test
-        up_interfaces = []
-        ifs_status = duthost.get_interfaces_status()
-        logging.info("ifs_status {} ".format(ifs_status))
-        for _, interface_info in ifs_status.items():
-            if (r'N\/A' != interface_info['alias']) and (r'N\/A' != interface_info['type']) \
-                    and ('up' == interface_info['oper']) and (interface_info['vlan'] == 'trunk'):
-                up_interfaces.append(interface_info['interface'])
+        # Get 4 UP ports which will be used for the test. On multi-ASIC DUTs the FDB is per ASIC,
+        # so all of them are taken from one ASIC.
+        for asic in get_frontend_asics(duthost):
+            up_interfaces = []
+            ifs_status = duthost.get_interfaces_status(asic.namespace)
+            logging.info("ifs_status {} ".format(ifs_status))
+            for _, interface_info in ifs_status.items():
+                if (r'N\/A' != interface_info['alias']) and (r'N\/A' != interface_info['type']) \
+                        and ('up' == interface_info['oper']) and (interface_info['vlan'] == 'trunk'):
+                    up_interfaces.append(interface_info['interface'])
+            if len(up_interfaces) >= 4:
+                break
 
         if len(up_interfaces) < 4:
             pytest.skip('Test FDB MAC Learning: cannot get enough target port to test: {}'.format(up_interfaces))
@@ -155,8 +162,9 @@ class TestFdbMacLearning:
         logging.info("DUT interfaces selected for running the test are {} ".format(target_ports))
 
         # Get a mapping between selected DUT ports and PTF ports
-        conf_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
-        port_index_to_name = {v: k for k, v in list(conf_facts['port_index_map'].items())}
+        conf_facts = asic.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+        port_index_map = get_port_ptf_index_map(duthost, conf_facts, tbinfo)
+        port_index_to_name = {v: k for k, v in list(port_index_map.items())}
         ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
         target_ports_to_ptf_mapping = [[] for _ in range(len(target_ports))]
         for i in range(len(target_ports)):
@@ -170,9 +178,9 @@ class TestFdbMacLearning:
         dut_ports = conf_facts['port_index_map'].keys()
         logging.info("shutdown all interfaces on DUT")
         for port in dut_ports:
-            duthost.shell("sudo config interface shutdown {}".format(port))
+            duthost.shell("sudo config interface {}shutdown {}".format(ns_option(asic), port))
 
-        yield target_ports_to_ptf_mapping, ptf_ports_available_in_topo, conf_facts
+        yield target_ports_to_ptf_mapping, ptf_ports_available_in_topo, conf_facts, asic
 
         logging.info("reload device %s to recover", duthost.hostname)
         config_reload(duthost, config_source='running_golden_config', safe_reload=True)
@@ -181,12 +189,15 @@ class TestFdbMacLearning:
     def cleanup_arp_fdb(self, duthosts, rand_one_dut_hostname):
         """Cleanup fdb and arp on the selected target DUT."""
         duthost = duthosts[rand_one_dut_hostname]
-        duthost.shell("sonic-clear arp")
+        # ARP tables are per ASIC namespace on multi-ASIC DUTs
+        for asic in get_frontend_asics(duthost):
+            duthost.shell("sonic-clear arp {}".format(asic.cli_ns_option).strip())
         duthost.shell("sonic-clear fdb all")
 
         yield
 
-        duthost.shell("sonic-clear arp")
+        for asic in get_frontend_asics(duthost):
+            duthost.shell("sonic-clear arp {}".format(asic.cli_ns_option).strip())
         duthost.shell("sonic-clear fdb all")
 
     def dynamic_fdb_oper(self, duthost, tbinfo, ptfhost, dut_ptf_ports):
@@ -200,8 +211,9 @@ class TestFdbMacLearning:
         }
         self.__runPtfTest(ptfhost, "fdb_mac_learning_test.FdbMacLearningTest", testParams)
 
-        res = duthost.command('show mac')
-        logging.info("show mac {}".format(res['stdout_lines']))
+        for asic in get_frontend_asics(duthost):
+            res = duthost.command('show mac {}'.format(asic.cli_ns_option).strip())
+            logging.info("show mac {}".format(res['stdout_lines']))
 
     def check_mux_status_consistency(self, duthost, ports):
         """
@@ -232,7 +244,7 @@ class TestFdbMacLearning:
             -populate fdb for the UP port
             -verify that MAC entries connected to shutdown ports not present in MAC table
         """
-        target_ports_to_ptf_mapping, ptf_ports_available_in_topo, _ = prepare_test
+        target_ports_to_ptf_mapping, ptf_ports_available_in_topo, _, asic = prepare_test
 
         # Find MAC addresses for different PTF interfaces to be used in Testcase
         ptf_interfaces_mac_addresses = []
@@ -245,7 +257,7 @@ class TestFdbMacLearning:
 
         # unshut 1 port and populate fdb for that port. make sure fdb entry is populated in mac table
         target_ports = [target_ports_to_ptf_mapping[0][0]]
-        duthost.shell("sudo config interface startup {}".format(target_ports[0]))
+        duthost.shell("sudo config interface {}startup {}".format(ns_option(asic), target_ports[0]))
         self.wait_for_interfaces_ready(duthost, tbinfo, target_ports)
         self.dynamic_fdb_oper(duthost, tbinfo, ptfhost, [target_ports_to_ptf_mapping[0]])
         pytest_assert(wait_until(300, 2, 1, fdb_table_has_dummy_mac_for_interface, duthost,
@@ -259,7 +271,7 @@ class TestFdbMacLearning:
             target_ports_to_ptf_mapping[2][0],
             target_ports_to_ptf_mapping[3][0]
         ]
-        duthost.shell("sudo config interface startup "
+        duthost.shell(f"sudo config interface {ns_option(asic)}startup "
                       f"{target_ports[0]},{target_ports[1]},{target_ports[2]}")
         self.wait_for_interfaces_ready(duthost, tbinfo, target_ports)
         self.dynamic_fdb_oper(duthost, tbinfo, ptfhost, target_ports_to_ptf_mapping[1:])
@@ -271,7 +283,8 @@ class TestFdbMacLearning:
 
         # shutdown last 3 ports and make sure corresponding entries are gone from MAC address table
         for i in range(1, len(target_ports_to_ptf_mapping)):
-            duthost.shell("sudo config interface shutdown {}".format(target_ports_to_ptf_mapping[i][0]))
+            duthost.shell("sudo config interface {}shutdown {}".format(ns_option(asic),
+                                                                       target_ports_to_ptf_mapping[i][0]))
         time.sleep(30)
         for i in range(1, len(target_ports_to_ptf_mapping)):
             pytest_assert(not (fdb_table_has_dummy_mac_for_interface(duthost, target_ports_to_ptf_mapping[i][0])),
@@ -298,23 +311,25 @@ class TestFdbMacLearning:
             Check if the ARP entry on DUT has all details
 
         """
-        target_ports_to_ptf_mapping, ptf_ports_available_in_topo, conf_facts = prepare_test
+        target_ports_to_ptf_mapping, ptf_ports_available_in_topo, conf_facts, asic = prepare_test
         duthost = duthosts[rand_one_dut_hostname]
         dut_interface, ptf_port_index = target_ports_to_ptf_mapping[0]
-        duthost.shell("sudo config interface startup {}".format(dut_interface))
+        duthost.shell("sudo config interface {}startup {}".format(ns_option(asic), dut_interface))
         for vlan in conf_facts['VLAN_MEMBER']:
             for member_interface in conf_facts['VLAN_MEMBER'][vlan]:
                 if (member_interface == dut_interface):
-                    duthost.shell("sudo config vlan member del {} {}".format(vlan[4:], member_interface))
+                    duthost.shell("sudo config vlan {}member del {} {}".format(ns_option(asic), vlan[4:],
+                                                                               member_interface))
         try:
-            self.configureInterfaceIp(duthost, dut_interface, action="add")
+            self.configureInterfaceIp(duthost, asic, dut_interface, action="add")
             self.configureNeighborIp(ptfhost, ptf_ports_available_in_topo[ptf_port_index], action="add")
             time.sleep(2)
             ptfhost.shell("ping {} -c 3 -I {}".format(self.DUT_INTF_IP, self.PTF_HOST_IP), module_ignore_errors=True)
             int_ip_found = any((dut_interface in line and self.DUT_INTF_IP in line)
-                               for line in duthost.command("show ip interface")["stdout_lines"])
+                               for line in duthost.command("show ip interface {}".format(
+                                   asic.cli_ns_option).strip())["stdout_lines"])
             pytest_assert(int_ip_found, "%s is not configured on %s" % (self.DUT_INTF_IP, dut_interface))
-            show_arp = duthost.command('show arp')
+            show_arp = duthost.command('show arp {}'.format(asic.cli_ns_option).strip())
             arp_found = False
             for arp_entry in show_arp['stdout_lines']:
                 items = arp_entry.split()
@@ -324,5 +339,5 @@ class TestFdbMacLearning:
                                   " is incomplete. Interface is missing".format(self.PTF_HOST_IP))
             pytest_assert(arp_found, "ARP entry not found for ip address {}".format(self.PTF_HOST_IP))
         finally:
-            self.configureInterfaceIp(duthost, dut_interface, action="remove")
+            self.configureInterfaceIp(duthost, asic, dut_interface, action="remove")
             self.configureNeighborIp(ptfhost, ptf_ports_available_in_topo[ptf_port_index], action="del")

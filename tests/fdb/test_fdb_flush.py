@@ -7,7 +7,7 @@ import os
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa: F401
 from tests.ptf_runner import ptf_runner
-from .utils import fdb_cleanup
+from .utils import fdb_cleanup, get_frontend_asics, get_vlan_asics, ns_option
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0', 'mx')
@@ -51,14 +51,26 @@ class TestFdbFlush:
             Returns:
                 (int) representing the number of the FDB entries containing th eMAC address
         """
-        return int(duthost.shell("show mac | grep {0} | wc -l".format(mac))["stdout"])
+        return sum(int(duthost.shell("show mac {0}| grep {1} | wc -l".format(ns_option(asic), mac))["stdout"])
+                   for asic in get_frontend_asics(duthost))
 
-    def __loadSwssConfig(self, duthost):
+    def __tmpSwitchConfig(self, asic):
+        """
+            Returns the 'docker cp' destination and the path of the temporary switch.json copy of the ASIC.
+            Multi-ASIC DUTs keep one copy per ASIC namespace.
+        """
+        if asic.namespace:
+            path = "/tmp/switch.json.{}".format(asic.namespace)
+            return path, path
+        return "/tmp", "/tmp/switch.json"
+
+    def __loadSwssConfig(self, duthost, asic):
         """
             Load SWSS configuration on DUT
 
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)
+                asic (SonicAsic): ASIC whose swss container loads the configuration
 
             Raises:
                 asserts if the load SWSS config failed
@@ -69,7 +81,7 @@ class TestFdbFlush:
         duthost.shell(argv=[
             "docker",
             "exec",
-            "swss",
+            asic.get_docker_name("swss"),
             "bash",
             "-c",
             "swssconfig /etc/swss/config.d/switch.json"
@@ -188,27 +200,36 @@ class TestFdbFlush:
         """
         duthost = duthosts[rand_one_dut_hostname]
         fdbAgingTime = 60
+        # Every ASIC with a VLAN has its own swss container and FDB on multi-ASIC DUTs
+        asics = get_vlan_asics(duthost)
 
         self.__deleteTmpSwitchConfig(duthost)
-        duthost.shell(argv=["docker", "cp", "swss:/etc/swss/config.d/switch.json", "/tmp"])
-        duthost.replace(
-            dest='/tmp/switch.json',
-            regexp='"fdb_aging_time": ".*"',
-            replace='"fdb_aging_time": "{0}"'.format(fdbAgingTime),
-            backup=True
-        )
-        duthost.shell(argv=["docker", "cp", "/tmp/switch.json", "swss:/etc/swss/config.d/switch.json"])
-        self.__loadSwssConfig(duthost)
+        for asic in asics:
+            swss = asic.get_docker_name("swss")
+            cpDest, tmpSwitchJson = self.__tmpSwitchConfig(asic)
+            duthost.shell(argv=["docker", "cp", "{}:/etc/swss/config.d/switch.json".format(swss), cpDest])
+            duthost.replace(
+                dest=tmpSwitchJson,
+                regexp='"fdb_aging_time": ".*"',
+                replace='"fdb_aging_time": "{0}"'.format(fdbAgingTime),
+                backup=True
+            )
+            duthost.shell(argv=["docker", "cp", tmpSwitchJson, "{}:/etc/swss/config.d/switch.json".format(swss)])
+            self.__loadSwssConfig(duthost, asic)
 
         yield
 
         duthost.shell("sudo rm {}".format(os.path.join(DUT_WORKING_DIR, FDB_SET_JSON_FILE)), module_ignore_errors=True)
         duthost.shell("sudo rm {}".format(os.path.join(DUT_WORKING_DIR, FDB_DEL_JSON_FILE)), module_ignore_errors=True)
 
-        result = duthost.find(path=["/tmp"], patterns=["switch.json.*"])
-        if result["matched"] > 0:
-            duthost.shell(argv=["docker", "cp", result["files"][0]["path"], "swss:/etc/swss/config.d/switch.json"])
-            self.__loadSwssConfig(duthost)
+        for asic in asics:
+            swss = asic.get_docker_name("swss")
+            _, tmpSwitchJson = self.__tmpSwitchConfig(asic)
+            result = duthost.find(path=["/tmp"], patterns=["{}.*".format(os.path.basename(tmpSwitchJson))])
+            if result["matched"] > 0:
+                duthost.shell(argv=["docker", "cp", result["files"][0]["path"],
+                                    "{}:/etc/swss/config.d/switch.json".format(swss)])
+                self.__loadSwssConfig(duthost, asic)
         self.__deleteTmpSwitchConfig(duthost)
 
     def prepare_test(self, duthosts, rand_one_dut_hostname, fanouthosts):
@@ -226,13 +247,21 @@ class TestFdbFlush:
         # determine target test port
         self.target_port = []
         up_interfaces = []
-        ifs_status = duthost.get_interfaces_status()
-        logging.info("ifs_status {} ".format(ifs_status))
+        # On multi-ASIC DUTs each ASIC has its own VLAN and FDB, so take all target ports from one ASIC
+        self.asic = None
+        for asic in get_vlan_asics(duthost):
+            self.asic = asic
+            up_interfaces = []
+            ifs_status = duthost.get_interfaces_status(asic.namespace)
+            logging.info("ifs_status {} ".format(ifs_status))
 
-        for _, interface_info in ifs_status.items():
-            if (r'N\/A' != interface_info['alias']) and (r'N\/A' != interface_info['type']) \
-                    and ('up' == interface_info['oper']):
-                up_interfaces.append(interface_info['interface'])
+            for _, interface_info in ifs_status.items():
+                if (r'N\/A' != interface_info['alias']) and (r'N\/A' != interface_info['type']) \
+                        and ('up' == interface_info['oper']):
+                    up_interfaces.append(interface_info['interface'])
+
+            if len(up_interfaces) >= 3:
+                break
 
         if len(up_interfaces) < 3:
             pytest.skip('Test FDB Flush: cannot get enough target port to test: {}'.format(up_interfaces))
@@ -268,6 +297,10 @@ class TestFdbFlush:
         # Use 44 in the 5th octet; dynamic FDB MACs use 55 and can collide on larger testbeds.
         mac_addresses = ["00-11-22-33-44-66", "00-11-22-33-44-67", "00-11-22-33-44-68"]
         vlan_id = 1000
+        if duthost.is_multi_asic:
+            # Use the VLAN of the ASIC that owns the target ports
+            vlans = self.asic.config_facts(source="running")['ansible_facts']['VLAN']
+            vlan_id = int(list(vlans.values())[0]['vlanid'])
         fdb_static_set = []
         fdb_static_del = []
 
@@ -332,8 +365,9 @@ class TestFdbFlush:
         elif 'clear' == create_or_clear:
             duthost.command('sonic-clear fdb all')
 
-        res = duthost.command('show mac')
-        logging.info("show mac {} after {}".format(res['stdout_lines'], create_or_clear))
+        for asic in get_frontend_asics(duthost):
+            res = duthost.command('show mac {}'.format(asic.cli_ns_option).strip())
+            logging.info("show mac {} after {}".format(res['stdout_lines'], create_or_clear))
 
     def static_fdb_oper(self, duthost, fdb_oper_file):
         logging.info("fdb_oper_file {} ".format(fdb_oper_file))
@@ -341,7 +375,8 @@ class TestFdbFlush:
         res = duthost.command('ls -al /etc/sonic')
         logging.info("show fdb files {} ".format(res['stdout_lines']))
 
-        duthost.shell("docker exec -i swss swssconfig {}".format(fdb_oper_file), module_ignore_errors=True)
+        duthost.shell("docker exec -i {} swssconfig {}".format(self.asic.get_docker_name("swss"), fdb_oper_file),
+                      module_ignore_errors=True)
 
     @pytest.mark.parametrize("flush_type", FLUSH_TYPES)
     def testFdbFlush(self, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request, flush_type,
@@ -358,13 +393,15 @@ class TestFdbFlush:
 
         if "interface" == flush_type or "mix" == flush_type:
             for port in self.target_port:
-                duthosts[rand_one_dut_hostname].shell("sudo config interface shutdown {}".format(port))
+                duthosts[rand_one_dut_hostname].shell("sudo config interface {}shutdown {}".format(
+                    ns_option(self.asic), port))
 
         # clear dynmaic/static fdb and startup interface anyway
         self.dynamic_fdb_oper(duthosts[rand_one_dut_hostname], tbinfo, ptfhost, 'clear')
         self.static_fdb_oper(duthosts[rand_one_dut_hostname], self.fdb_del_json_file)
         for port in self.target_port:
-            duthosts[rand_one_dut_hostname].shell("sudo config interface startup {}".format(port))
+            duthosts[rand_one_dut_hostname].shell("sudo config interface {}startup {}".format(
+                ns_option(self.asic), port))
 
         # check the core files after test
         self.checkDutCorefiles(duthosts[rand_one_dut_hostname], "after_test")

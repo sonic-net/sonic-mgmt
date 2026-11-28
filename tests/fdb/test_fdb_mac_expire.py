@@ -1,10 +1,12 @@
 import logging
+import os
 import pytest
 import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa: F401  # lgtm [py/unused-import]
 from tests.ptf_runner import ptf_runner
+from .utils import get_frontend_asics, get_vlan_asics, ns_option
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0', 'mx')
@@ -39,14 +41,26 @@ class TestFdbMacExpire:
             Returns:
                 (int) representing the number of the FDB entries containing th eMAC address
         """
-        return int(duthost.shell("show mac | grep {0} | wc -l".format(mac))["stdout"])
+        return sum(int(duthost.shell("show mac {0}| grep {1} | wc -l".format(ns_option(asic), mac))["stdout"])
+                   for asic in get_frontend_asics(duthost))
 
-    def __loadSwssConfig(self, duthost):
+    def __tmpSwitchConfig(self, asic):
+        """
+            Returns the 'docker cp' destination and the path of the temporary switch.json copy of the ASIC.
+            Multi-ASIC DUTs keep one copy per ASIC namespace.
+        """
+        if asic.namespace:
+            path = "/tmp/switch.json.{}".format(asic.namespace)
+            return path, path
+        return "/tmp", "/tmp/switch.json"
+
+    def __loadSwssConfig(self, duthost, asic):
         """
             Load SWSS configuration on DUT
 
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)
+                asic (SonicAsic): ASIC whose swss container loads the configuration
 
             Raises:
                 asserts if the load SWSS config failed
@@ -57,7 +71,7 @@ class TestFdbMacExpire:
         duthost.shell(argv=[
             "docker",
             "exec",
-            "swss",
+            asic.get_docker_name("swss"),
             "bash",
             "-c",
             "swssconfig /etc/swss/config.d/switch.json"
@@ -176,24 +190,33 @@ class TestFdbMacExpire:
         """
         duthost = duthosts[rand_one_dut_hostname]
         fdbAgingTime = request.config.getoption('--fdb_aging_time')
+        # Every ASIC with a VLAN has its own swss container and FDB on multi-ASIC DUTs
+        asics = get_vlan_asics(duthost)
 
         self.__deleteTmpSwitchConfig(duthost)
-        duthost.shell(argv=["docker", "cp", "swss:/etc/swss/config.d/switch.json", "/tmp"])
-        duthost.replace(
-            dest='/tmp/switch.json',
-            regexp='"fdb_aging_time": ".*"',
-            replace='"fdb_aging_time": "{0}"'.format(fdbAgingTime),
-            backup=True
-        )
-        duthost.shell(argv=["docker", "cp", "/tmp/switch.json", "swss:/etc/swss/config.d/switch.json"])
-        self.__loadSwssConfig(duthost)
+        for asic in asics:
+            swss = asic.get_docker_name("swss")
+            cpDest, tmpSwitchJson = self.__tmpSwitchConfig(asic)
+            duthost.shell(argv=["docker", "cp", "{}:/etc/swss/config.d/switch.json".format(swss), cpDest])
+            duthost.replace(
+                dest=tmpSwitchJson,
+                regexp='"fdb_aging_time": ".*"',
+                replace='"fdb_aging_time": "{0}"'.format(fdbAgingTime),
+                backup=True
+            )
+            duthost.shell(argv=["docker", "cp", tmpSwitchJson, "{}:/etc/swss/config.d/switch.json".format(swss)])
+            self.__loadSwssConfig(duthost, asic)
 
         yield
 
-        result = duthost.find(path=["/tmp"], patterns=["switch.json.*"])
-        if result["matched"] > 0:
-            duthost.shell(argv=["docker", "cp", result["files"][0]["path"], "swss:/etc/swss/config.d/switch.json"])
-            self.__loadSwssConfig(duthost)
+        for asic in asics:
+            swss = asic.get_docker_name("swss")
+            _, tmpSwitchJson = self.__tmpSwitchConfig(asic)
+            result = duthost.find(path=["/tmp"], patterns=["{}.*".format(os.path.basename(tmpSwitchJson))])
+            if result["matched"] > 0:
+                duthost.shell(argv=["docker", "cp", result["files"][0]["path"],
+                                    "{}:/etc/swss/config.d/switch.json".format(swss)])
+                self.__loadSwssConfig(duthost, asic)
         self.__deleteTmpSwitchConfig(duthost)
 
     @pytest.mark.parametrize("refresh_type", [DISABLE_REFRESH, REFRESH_DEST_MAC])

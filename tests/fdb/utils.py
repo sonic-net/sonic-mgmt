@@ -7,6 +7,7 @@ import ptf.packet as scapy
 import time
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import wait_until
 
 MAC_STR = "000000000000"
@@ -28,33 +29,101 @@ def IntToMac(intMac):
     return ":".join(re.findall(r'.{2}|.+', hexStr))
 
 
-def get_crm_resources(duthost, resource, status):
+def get_frontend_asics(duthost):
+    """
+    Return the front-end ASICs of the DUT, or the default ASIC instance on a single-ASIC DUT.
+    """
+    return duthost.frontend_asics if duthost.is_multi_asic else [duthost.asic_instance()]
+
+
+def ns_option(asic):
+    """
+    Return the CLI namespace option of the ASIC followed by a space ("-n asic0 ") on a multi-ASIC DUT,
+    or "" on a single-ASIC DUT, so that commands on single-ASIC DUTs are unchanged.
+    """
+    return "{} ".format(asic.cli_ns_option) if asic.cli_ns_option else ""
+
+
+def get_vlan_asics(duthost):
+    """
+    Return the front-end ASICs that have a VLAN configured.
+
+    On multi-ASIC DUTs every ASIC has its own CONFIG_DB, VLANs and FDB, and in isolated topologies the
+    ASICs are not connected to each other. On single-ASIC DUTs the default ASIC instance is returned.
+    """
+    if not duthost.is_multi_asic:
+        return [duthost.asic_instance()]
+    return [asic for asic in duthost.frontend_asics
+            if asic.config_facts(source="running")['ansible_facts'].get('VLAN')]
+
+
+def get_asic_with_vlan(duthost, source="persistent"):
+    """
+    Return (asic, config_facts) of the first front-end ASIC that has a VLAN.
+
+    On single-ASIC DUTs this is the default ASIC instance and the DUT config facts.
+    """
+    for asic in get_frontend_asics(duthost):
+        cfg_facts = asic.config_facts(source=source)['ansible_facts']
+        if not duthost.is_multi_asic or cfg_facts.get('VLAN'):
+            return asic, cfg_facts
+    pytest_assert(False, "No front-end ASIC with a VLAN on {}".format(duthost.hostname))
+
+
+def get_port_ptf_index_map(duthost, cfg_facts, tbinfo):
+    """
+    Return the map of DUT port name -> PTF port index for the ports in cfg_facts.
+
+    On multi-ASIC DUTs the config facts port_index_map of a namespace is generated from its own port names
+    and may not match the PTF port indices, so minigraph_ptf_indices is used instead.
+    """
+    if not duthost.is_multi_asic:
+        return cfg_facts['port_index_map']
+    ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)['minigraph_ptf_indices']
+    return {port: idx for port, idx in ptf_indices.items() if port in cfg_facts.get('PORT', {})}
+
+
+def get_crm_resources(duthost, resource, status, namespace=DEFAULT_NAMESPACE):
     retry_count = 5
     count = 0
-    while len(duthost.get_crm_resources().get("main_resources")) == 0 and count < retry_count:
+    while len(duthost.get_crm_resources(namespace).get("main_resources")) == 0 and count < retry_count:
         logger.debug("CRM resources not fully populated, retry after 2 seconds: count: {}".format(count))
         time.sleep(2)
         count = count + 1
-    pytest_assert(resource in duthost.get_crm_resources().get("main_resources"),
+    pytest_assert(resource in duthost.get_crm_resources(namespace).get("main_resources"),
                   "{} not populated in CRM resources".format(resource))
-    return duthost.get_crm_resources().get("main_resources").get(resource).get(status)
+    return duthost.get_crm_resources(namespace).get("main_resources").get(resource).get(status)
+
+
+def _fdbshow(duthost):
+    """
+    Return the 'fdbshow' output lines of the host. The FDB of a multi-ASIC DUT is kept per ASIC
+    namespace, so 'fdbshow' is run for every front-end ASIC there.
+    """
+    if getattr(duthost, "is_multi_asic", False):
+        cmds = ['fdbshow {}'.format(asic.cli_ns_option) for asic in duthost.frontend_asics]
+    else:
+        cmds = ['fdbshow']
+    output = []
+    for cmd in cmds:
+        res = duthost.command(cmd)
+        logger.info('"{}" output on DUT:\n{}'.format(cmd, pprint.pformat(res['stdout_lines'])))
+        output.extend(res['stdout_lines'])
+    return output
 
 
 def get_fdb_dynamic_mac_count(duthost):
-    res = duthost.command('fdbshow')
-    logger.info('"fdbshow" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
     total_mac_count = 0
-    for output_mac in res['stdout_lines']:
+    for output_mac in _fdbshow(duthost):
         if "dynamic" in output_mac.lower() and BASE_MAC_PREFIX in output_mac.lower():
             total_mac_count += 1
     return total_mac_count
 
 
 def fdb_table_has_dummy_mac_for_interface(duthost, interface, dummy_mac_prefix=""):
-    res = duthost.command('fdbshow')
-    logger.info('"fdbshow" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
-    for output_mac in res['stdout_lines']:
-        if (interface in output_mac and (dummy_mac_prefix in output_mac or dummy_mac_prefix == "")):
+    for output_mac in _fdbshow(duthost):
+        # Match the port column exactly: e.g. Ethernet12 must not match Ethernet128
+        if (interface in output_mac.split() and (dummy_mac_prefix in output_mac or dummy_mac_prefix == "")):
             return True
     return False
 
