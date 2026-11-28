@@ -26,7 +26,7 @@ def pytest_runtest_teardown(item, nextitem):
     """
     failures = []
     crm_threshold_name = RESTORE_CMDS.get("crm_threshold_name")
-    restore_cmd = "sonic-db-cli CONFIG_DB hmset 'CRM|Config' \
+    restore_cmd = "sonic-db-cli -s --authenticate CONFIG_DB hmset 'CRM|Config' \
     {threshold_name}_high_threshold {high} \
     {threshold_name}_low_threshold {low} \
     {threshold_name}_threshold_type percentage"
@@ -84,7 +84,7 @@ def pytest_runtest_teardown(item, nextitem):
 @pytest.fixture(scope="module", autouse=True)
 def crm_thresholds(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    cmd = "sonic-db-cli CONFIG_DB hget \"CRM|Config\" {threshold_name}_{type}_threshold"
+    cmd = "sonic-db-cli -s CONFIG_DB hget \"CRM|Config\" {threshold_name}_{type}_threshold"
     crm_res_list = ["ipv4_route", "ipv6_route", "ipv4_nexthop", "ipv6_nexthop", "ipv4_neighbor", "ipv6_neighbor",
                     "nexthop_group_member", "nexthop_group", "acl_counter", "acl_entry", "fdb_entry"]
     res = {}

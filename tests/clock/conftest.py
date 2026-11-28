@@ -63,7 +63,7 @@ def _get_ntp_config(duthost):
 
 def _get_configured_timezone(duthost):
     exists_output = duthost.command(
-        'sonic-db-cli CONFIG_DB hexists "DEVICE_METADATA|localhost" "timezone"'
+        'sonic-db-cli -s CONFIG_DB hexists "DEVICE_METADATA|localhost" "timezone"'
     )["stdout"].strip().lower()
     assert exists_output in {"0", "1", "false", "true"}, \
         "Unexpected CONFIG_DB HEXISTS output: {!r}".format(exists_output)
@@ -71,7 +71,7 @@ def _get_configured_timezone(duthost):
     value = None
     if exists:
         value = duthost.command(
-            'sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" "timezone"'
+            'sonic-db-cli -s CONFIG_DB hget "DEVICE_METADATA|localhost" "timezone"'
         )["stdout"].rstrip("\r\n")
     return {
         "exists": exists,
@@ -81,9 +81,9 @@ def _get_configured_timezone(duthost):
 
 def _get_timezone_config_restore_command(configured_timezone):
     if not configured_timezone["exists"]:
-        return 'sonic-db-cli CONFIG_DB hdel "DEVICE_METADATA|localhost" "timezone"'
+        return 'sonic-db-cli -s --authenticate CONFIG_DB hdel "DEVICE_METADATA|localhost" "timezone"'
     return (
-        'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" "timezone" {}'
+        'sonic-db-cli -s --authenticate CONFIG_DB hset "DEVICE_METADATA|localhost" "timezone" {}'
         .format(shlex.quote(configured_timezone["value"]))
     )
 
@@ -153,7 +153,7 @@ for candidate in {barrier_timezone_1} {barrier_timezone_2}; do
     fi
 done
 [ -n "$barrier_timezone" ] || exit 1
-sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" "timezone" "$barrier_timezone" || exit 1
+sonic-db-cli -s --authenticate CONFIG_DB hset "DEVICE_METADATA|localhost" "timezone" "$barrier_timezone" || exit 1
 wait_for_timezone "$barrier_timezone" || exit 1
 restore_timezone_config || exit 1
 {wait_for_configured_timezone} || exit 1

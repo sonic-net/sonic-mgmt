@@ -557,7 +557,7 @@ def remove_feature_entry(dut, feature_name):
         dut (SonicHost): The target device
         feature_name (str): feature name (e.g bgp)
     """
-    dut.command('redis-cli -n 4 del "FEATURE|{}"'.format(feature_name))
+    dut.command('sonic-db-cli -s --authenticate CONFIG_DB del "FEATURE|{}"'.format(feature_name))
 
 
 def disable_feature_entry(dut, feature_name):
@@ -689,7 +689,7 @@ def get_copp_trap_capabilities(duthost):
         list: A list of supported trap IDs.
     """
 
-    trap_ids = duthost.shell("sonic-db-cli STATE_DB HGET 'COPP_TRAP_CAPABILITY_TABLE|traps' trap_ids")['stdout']
+    trap_ids = duthost.shell("sonic-db-cli -s STATE_DB HGET 'COPP_TRAP_CAPABILITY_TABLE|traps' trap_ids")['stdout']
     return trap_ids.split(",")
 
 
@@ -764,11 +764,11 @@ def get_trap_hw_status(duthost, namespace):
         dict: A dictionary mapping trap IDs to their hw_status.
     """
     if namespace is None:
-        state_db_cmd = "sonic-db-cli STATE_DB KEYS 'COPP_TRAP_TABLE|*'"
-        trap_data_cmd = "sonic-db-cli STATE_DB HGETALL "
+        state_db_cmd = "sonic-db-cli -s STATE_DB KEYS 'COPP_TRAP_TABLE|*'"
+        trap_data_cmd = "sonic-db-cli -s STATE_DB HGETALL "
     else:
-        state_db_cmd = "sonic-db-cli -n {} STATE_DB KEYS 'COPP_TRAP_TABLE|*'".format(namespace.namespace)
-        trap_data_cmd = "sonic-db-cli -n {} STATE_DB HGETALL ".format(namespace.namespace)
+        state_db_cmd = "sonic-db-cli -s -n {} STATE_DB KEYS 'COPP_TRAP_TABLE|*'".format(namespace.namespace)
+        trap_data_cmd = "sonic-db-cli -s -n {} STATE_DB HGETALL ".format(namespace.namespace)
     state_db_data = duthost.shell(state_db_cmd)["stdout"]
     state_db_data = state_db_data.splitlines()
     hw_status = {}

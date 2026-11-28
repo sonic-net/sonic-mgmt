@@ -353,7 +353,7 @@ def extract_ip_addresses_for_backend_portchannels(dut, dut_asic, version, backen
 
 
 def delete_bfd(asic_number, prefix, dut):
-    command = "sonic-db-cli -n asic{} CONFIG_DB HSET \"STATIC_ROUTE|{}\" bfd 'false'".format(
+    command = "sonic-db-cli -s --authenticate -n asic{} CONFIG_DB HSET \"STATIC_ROUTE|{}\" bfd 'false'".format(
         asic_number, prefix
     ).replace(
         "\\", ""
@@ -364,7 +364,7 @@ def delete_bfd(asic_number, prefix, dut):
 
 
 def add_bfd(asic_number, prefix, dut):
-    command = "sonic-db-cli -n asic{} CONFIG_DB HSET \"STATIC_ROUTE|{}\" bfd 'true'".format(
+    command = "sonic-db-cli -s --authenticate -n asic{} CONFIG_DB HSET \"STATIC_ROUTE|{}\" bfd 'true'".format(
         asic_number, prefix
     ).replace(
         "\\", ""
@@ -505,7 +505,7 @@ def ensure_interfaces_are_up(dut, asic, interfaces):
 def clear_bfd_configs(dut, asic_index, prefix):
     logger.info("Clearing BFD configs on {}".format(dut))
     command = (
-        "sonic-db-cli -n asic{} CONFIG_DB HSET \"STATIC_ROUTE|{}\" bfd 'false'".format(
+        "sonic-db-cli -s --authenticate -n asic{} CONFIG_DB HSET \"STATIC_ROUTE|{}\" bfd 'false'".format(
             asic_index,
             prefix,
         ).replace("\\", "")

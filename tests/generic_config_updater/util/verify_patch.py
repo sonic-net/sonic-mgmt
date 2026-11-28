@@ -292,7 +292,7 @@ def compare_touched_entries(baseline_config, actual_config, patch_data, ignore_f
 
 def get_config_db_field(duthost, key, field):
     """Read a single CONFIG_DB field. Returns '' when the key or field is absent."""
-    cmd = 'sonic-db-cli CONFIG_DB hget "{}" {}'.format(key, field)
+    cmd = 'sonic-db-cli -s CONFIG_DB hget "{}" {}'.format(key, field)
     result = duthost.shell(cmd, module_ignore_errors=True)
     if result['rc'] != 0:
         return ''
@@ -301,7 +301,7 @@ def get_config_db_field(duthost, key, field):
 
 def config_db_key_exists(duthost, key):
     """Check that a CONFIG_DB key exists, without matching on its rendered contents."""
-    cmd = 'sonic-db-cli CONFIG_DB keys "{}"'.format(key)
+    cmd = 'sonic-db-cli -s CONFIG_DB keys "{}"'.format(key)
     result = duthost.shell(cmd, module_ignore_errors=True)
     return result['rc'] == 0 and result['stdout'].strip() == key
 
@@ -349,7 +349,7 @@ def get_lossless_pg_entries(duthost, port, profile_prefix):
     """
     entries = {}
 
-    keys_result = duthost.shell('sonic-db-cli CONFIG_DB keys "BUFFER_PG|{}|*"'.format(port),
+    keys_result = duthost.shell('sonic-db-cli -s CONFIG_DB keys "BUFFER_PG|{}|*"'.format(port),
                                 module_ignore_errors=True)
     if keys_result['rc'] != 0:
         return entries
@@ -375,7 +375,7 @@ def buffer_profile_exists(duthost, profile_name):
 
     expected_key = "BUFFER_PROFILE_TABLE:{}".format(profile_name)
     appl_result = duthost.shell(
-        'sonic-db-cli APPL_DB keys "{}"'.format(expected_key), module_ignore_errors=True)
+        'sonic-db-cli -s APPL_DB keys "{}"'.format(expected_key), module_ignore_errors=True)
     in_appl_db = (appl_result['rc'] == 0
                   and expected_key in appl_result['stdout'].split())
 

@@ -44,7 +44,7 @@ SUBNET_DECAP_TUNNEL_NAME_V6 = "IPINIP_SUBNET_V6"
 @pytest.fixture(scope='module')
 def prepare_subnet_decap_config(rand_selected_dut):
     logger.info("Prepare subnet decap config")
-    rand_selected_dut.shell('sonic-db-cli CONFIG_DB hset "SUBNET_DECAP|subnet_type" \
+    rand_selected_dut.shell('sonic-db-cli -s --authenticate CONFIG_DB hset "SUBNET_DECAP|subnet_type" \
                             "status" "enable" "src_ip" "{}" "src_ip_v6" "{}"'
                             .format(SUBNET_DECAP_SRC_IP_V4, SUBNET_DECAP_SRC_IP_V6))
     rand_selected_dut.shell('sudo config save -y')
@@ -53,7 +53,7 @@ def prepare_subnet_decap_config(rand_selected_dut):
     time.sleep(120)
 
     yield
-    rand_selected_dut.shell('sonic-db-cli CONFIG_DB del "SUBNET_DECAP|subnet_type"')
+    rand_selected_dut.shell('sonic-db-cli -s --authenticate CONFIG_DB del "SUBNET_DECAP|subnet_type"')
     rand_selected_dut.shell('sudo config save -y')
     config_reload(rand_selected_dut, config_source='minigraph')
 
@@ -228,7 +228,7 @@ def get_subnet_decap_tunnel_name(ip_version):
 
 def is_vip_decap_term_programmed(duthost, ip_version, vip_prefix):
     tunnel_name = get_subnet_decap_tunnel_name(ip_version)
-    cmd = 'sonic-db-cli STATE_DB hgetall "TUNNEL_DECAP_TERM_TABLE|{}|{}"'.format(
+    cmd = 'sonic-db-cli -s STATE_DB hgetall "TUNNEL_DECAP_TERM_TABLE|{}|{}"'.format(
         tunnel_name, vip_prefix
     )
     output = duthost.command(cmd, module_ignore_errors=True)["stdout"].strip()
@@ -328,12 +328,12 @@ def setup_IPv4_SLB_connection(rand_selected_dut, ptfhost, prepare_vlan_subnet_te
         content = line.split()
         if len(content) > 0 and content[0] == "PortChannel101":
             neighbor_ip = content[4]
-    duthost.command(f"sonic-db-cli CONFIG_DB hset 'STATIC_ROUTE|default|2.2.0.0/16' \
+    duthost.command(f"sonic-db-cli -s --authenticate CONFIG_DB hset 'STATIC_ROUTE|default|2.2.0.0/16' \
                     nexthop '{neighbor_ip}' ifname 'PortChannel101'")
 
     yield neighbor_ip
 
-    duthost.command("sonic-db-cli CONFIG_DB del 'STATIC_ROUTE|default|2.2.0.0/16'")
+    duthost.command("sonic-db-cli -s --authenticate CONFIG_DB del 'STATIC_ROUTE|default|2.2.0.0/16'")
 
     # withdraw the VIP route
     slb_bgp.withdraw_route(vip_route)
@@ -460,12 +460,12 @@ def setup_IPv6_SLB_connection(rand_selected_dut, ptfhost, prepare_vlan_subnet_te
         content = line.split()
         if len(content) > 0 and content[0] == "PortChannel101":
             neighbor_ip = content[4]
-    duthost.command(f"sonic-db-cli CONFIG_DB hset 'STATIC_ROUTE|default|2::/16' \
+    duthost.command(f"sonic-db-cli -s --authenticate CONFIG_DB hset 'STATIC_ROUTE|default|2::/16' \
                     nexthop '{neighbor_ip}' ifname 'PortChannel101'")
 
     yield neighbor_ip
 
-    duthost.command("sonic-db-cli CONFIG_DB del 'STATIC_ROUTE|default|2::/16'")
+    duthost.command("sonic-db-cli -s --authenticate CONFIG_DB del 'STATIC_ROUTE|default|2::/16'")
 
     # withdraw the VIP route
     slb_bgp.withdraw_route(vip_route)

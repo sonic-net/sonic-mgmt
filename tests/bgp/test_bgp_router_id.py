@@ -27,7 +27,7 @@ VTYSH_SHOW_CMD_KILL_GRACE_SEC = 5
 
 
 def run_config_db_cmd(duthost, enum_asic_index, cmd, module_ignore_errors=True):
-    duthost.shell("{} CONFIG_DB {}".format(get_db_cli_prefix(duthost, enum_asic_index), cmd),
+    duthost.shell("{} --authenticate CONFIG_DB {}".format(get_db_cli_prefix(duthost, enum_asic_index), cmd),
                   module_ignore_errors=module_ignore_errors)
 
 

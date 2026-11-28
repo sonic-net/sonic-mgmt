@@ -41,13 +41,13 @@ def enable_flex_port_counter_macsec(macsec_duthost):
     """Ensure flex counter for PORT is enabled so PFC counters are collected.
     Duplicated from tests/qos/test_pfc_counters.py but modified to use macsec_duthost
     """
-    get_cmd = ('sonic-db-cli CONFIG_DB hget '
+    get_cmd = ('sonic-db-cli -s CONFIG_DB hget '
                '"FLEX_COUNTER_TABLE|PORT" "FLEX_COUNTER_STATUS"')
     status = macsec_duthost.shell(get_cmd)['stdout']
     if status == 'enable':
         yield
         return
-    set_cmd = ('sonic-db-cli CONFIG_DB hset '
+    set_cmd = ('sonic-db-cli -s --authenticate CONFIG_DB hset '
                '"FLEX_COUNTER_TABLE|PORT" "FLEX_COUNTER_STATUS" "{}"')
     logger.info("Enable flex counter for port")
     macsec_duthost.shell(set_cmd.format('enable'))

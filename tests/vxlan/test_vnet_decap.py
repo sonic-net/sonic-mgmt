@@ -143,10 +143,10 @@ def setup(request, duthosts, rand_one_dut_hostname, tbinfo, inner_ip_version, ou
     # Deleting Vnet routes
     ecmp_utils.set_routes_in_dut(duthost, vnet_dest_to_endpoint_map, inner_ip_version_str, "DEL")
     # Deleting the VNet
-    duthost.shell(f"sonic-db-cli CONFIG_DB DEL \"VNET|{vnet}\"")
+    duthost.shell(f"sonic-db-cli -s --authenticate CONFIG_DB DEL \"VNET|{vnet}\"")
     time.sleep(5)
     # Deleting the VxLAN tunnel
-    duthost.shell(f"sonic-db-cli CONFIG_DB DEL \"VXLAN_TUNNEL|{vxlan_tunnel}\"")
+    duthost.shell(f"sonic-db-cli -s --authenticate CONFIG_DB DEL \"VXLAN_TUNNEL|{vxlan_tunnel}\"")
 
 
 def get_inner_ip_packet(vnet_dest, inner_ip_version):
