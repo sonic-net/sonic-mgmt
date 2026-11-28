@@ -14,7 +14,7 @@ from tests.common import utilities
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.portstat_utilities import parse_portstat
 from tests.common.utilities import parse_rif_counters, wait_until
-from tests.ip.ip_util import sum_ifaces_counts
+from tests.ip.ip_util import sum_ifaces_counts, safe_int_counter
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -440,7 +440,7 @@ class TestLinkLocalIPacket:
     def check_portstat_rx_ok(duthost, dut_rx_iface):
         """Check if portstat rx_ok counter has converged to expected packet count."""
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
-        rx_ok = int(portstat_out[dut_rx_iface]["rx_ok"].replace(",", ""))
+        rx_ok = safe_int_counter(portstat_out[dut_rx_iface]["rx_ok"])
         logger.debug(f"portstat rx_ok={rx_ok} on {dut_rx_iface}, expected >= {PKT_NUM}")
         return rx_ok >= PKT_NUM
 
@@ -455,11 +455,15 @@ class TestLinkLocalIPacket:
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
         if rif_support:
             rif_counter_out = parse_rif_counters(duthost.command("show interfaces counters rif")["stdout_lines"])
+            rx_err = safe_int_counter(rif_counter_out[rif_rx_ifaces]["rx_err"]) if rif_rx_ifaces else 0
+            tx_err = sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if out_rif_ifaces else 0
+        else:
+            # No RIF counters exist on unsupported platforms; port counters still apply.
+            rx_err = 0
+            tx_err = 0
 
         # Rx counters Validations
-        rx_drp = int(portstat_out[dut_rx_iface]["rx_drp"].replace(",", ""))
-        rx_err = int(rif_counter_out[rif_rx_ifaces]["rx_err"].replace(",", "")) \
-            if rif_support and rif_rx_ifaces else 0
+        rx_drp = safe_int_counter(portstat_out[dut_rx_iface]["rx_drp"])
         pytest_assert(max(rx_drp, rx_err) <= PKT_NUM_ZERO,
                       f"Dropped packets in rx: rx_drp={rx_drp}, rx_err={rx_err}, expected both <= {PKT_NUM_ZERO}")
 
@@ -472,8 +476,6 @@ class TestLinkLocalIPacket:
         # Tx counters Validation
         tx_ok = sum_ifaces_counts(portstat_out, out_ifaces, "tx_ok")
         tx_drp = sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
-        tx_err = sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") \
-            if rif_support and out_rif_ifaces else 0
         pytest_assert(tx_ok >= PKT_NUM,
                       "Forwarded {} packets in tx, expected >= {}".format(tx_ok, PKT_NUM))
         pytest_assert(max(tx_drp, tx_err) <= PKT_NUM_ZERO,
