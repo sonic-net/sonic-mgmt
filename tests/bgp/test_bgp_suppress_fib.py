@@ -2,6 +2,7 @@ import requests
 import json
 import logging
 import random
+import re
 import ipaddress
 import pytest
 import allure
@@ -24,7 +25,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.tcpdump_sniff_helper import TcpdumpSniffHelper
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports, parse_intf_status
 from tests.bgp.bgp_helpers import restart_bgp_session, get_eth_port, get_exabgp_port, get_vm_name_list, \
-    get_bgp_neighbor_ip, check_route_install_status, validate_route_propagate_status, operate_orchagent, \
+    get_bgp_neighbor_ip, check_route_install_status, validate_route_propagate_status, \
     get_upstream_ptf_intfs, get_eth_name_from_ptf_port, check_bgp_neighbor, check_fib_route
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_ALL_NEIGHBOR_MAP
 
@@ -39,8 +40,6 @@ EXABGP_BASE_PORT = 5000
 EXABGP_BASE_PORT_V6 = 6000
 WITHDRAW = 'withdraw'
 ANNOUNCE = 'announce'
-ACTION_STOP = "stop"
-ACTION_CONTINUE = "continue"
 FORWARD = "FORWARD"
 DROP = "DROP"
 ACTION_IN = "in"
@@ -69,6 +68,13 @@ TRAFFIC_WAIT_TIME = 0.1
 BULK_TRAFFIC_WAIT_TIME = 0.01
 BGP_ROUTE_FLAP_TIMES = 5
 UPDATE_WITHDRAW_THRESHOLD = 5  # consider the switch with low power cpu and a lot of bgp neighbors
+# Interface address added on the DUT and the next-hop that is left without a neighbor entry
+PENDING_NEXTHOP = {
+    IP_VER: ("198.18.26.0/31", "198.18.26.1"),
+    IPV6_VER: ("2001:db8:2664::1/126", "2001:db8:2664::2")
+}
+PENDING_ROUTE_MAP_SEQ = 2
+PENDING_PREFIX_LIST = "SUPPRESS_FIB_PENDING_V{}"
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -165,8 +171,6 @@ def ignore_expected_loganalyzer_errors(duthosts, rand_one_dut_hostname, loganaly
     duthost = duthosts[rand_one_dut_hostname]
     if loganalyzer:
         ignoreRegex = [
-            ".*ERR swss#supervisor-proc-exit-listener:.*Process \'orchagent\' is stuck in namespace \'host\' "
-            "\\(.* minutes\\).*",
             r".* ERR memory_checker: \[memory_checker\] Failed to get container ID of.*",
             r".* ERR memory_checker: \[memory_checker\] cgroup memory usage file.*",
             r".*ERR teamd#teamsyncd: :- readData: netlink reports an error=.*",
@@ -174,56 +178,6 @@ def ignore_expected_loganalyzer_errors(duthosts, rand_one_dut_hostname, loganaly
             r".* ERR monit.*'chrony' process is not running.*"
         ]
         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
-
-
-@pytest.fixture(scope="module", autouse=True)
-def disable_zmq_for_fib_suppress(duthosts):
-    """
-    Disable SYSTEM_DEFAULTS|swss_zmq for the duration of the module.
-    When swss_zmq is enabled, fpmsyncd uses ZMQ instead of Redis
-    ConsumerStateTable to communicate with orchagent. Pausing orchagent
-    (SIGSTOP) blocks ZMQ send, which causes fpmsyncd to time out and
-    prevents route updates from being received - breaking tests that
-    intentionally stop orchagent to simulate route install delays.
-
-    Applied to every DUT in duthosts so multi-DUT topologies where both
-    upstream and downstream orchagent are paused keep ZMQ disabled on each.
-    On multi-ASIC DUTs, reads and writes SYSTEM_DEFAULTS|swss_zmq in every
-    ASIC namespace so each swss instance sees the same setting.
-    Restores the original value at module teardown.
-    """
-    original_status = {}
-    for dut in duthosts:
-        ns_statuses = _get_swss_zmq_status_for_dut(dut)
-        original_status[dut] = ns_statuses
-        logger.info("Original swss_zmq status on {}: {}".format(dut.hostname, ns_statuses))
-
-        if any(status == "enabled" for status in ns_statuses.values()):
-            logger.info("Disabling swss_zmq on {} for suppress-fib tests".format(dut.hostname))
-            for namespace, status in ns_statuses.items():
-                if status == "enabled":
-                    _set_swss_zmq_status_for_namespace(dut, "disabled", namespace)
-            dut.shell('sudo config save -y')
-            config_reload(dut, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-            # LLDP neighbors re-appear only after the remote side sends its next hello
-            # (up to 30 s after reload). config_reload has no LLDP option; wait explicitly.
-            logger.info("Waiting for LLDP neighbors to repopulate after config reload on {}"
-                        .format(dut.hostname))
-            wait_until(90, 5, 0,
-                       lambda d=dut: bool(d.shell(
-                           "show lldp table | grep -v LocalPort | grep -v '^$'",
-                           module_ignore_errors=True)['stdout'].strip()))
-
-    yield
-
-    for dut, ns_statuses in original_status.items():
-        if any(status == "enabled" for status in ns_statuses.values()):
-            logger.info("Restoring swss_zmq status on {}".format(dut.hostname))
-            for namespace, status in ns_statuses.items():
-                if status == "enabled":
-                    _set_swss_zmq_status_for_namespace(dut, "enabled", namespace)
-            dut.shell('sudo config save -y')
-            config_reload(dut, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -381,38 +335,153 @@ def generate_traffic_data(route_list, action):
     return traffic_data_list
 
 
-def is_orchagent_stopped(duthost):
+def _vm_for_exabgp_port(tbinfo, exabgp_port, base_port):
     """
-    Check if process 'orchagent' is stopped
-    Compatible for multi-asic
+    Get the VM whose ExaBGP session listens on the given port
     """
-    out_list = []
-    pids = duthost.shell("pgrep -x orchagent")['stdout'].split()
-    for pid in pids:
-        cmd = 'cat /proc/{}/status | grep State'.format(pid)
-        out = duthost.shell(cmd)['stdout']
-        logger.info('Orchagent process - {}'.format(out))
-        out_list.append(out)
-    return any(ACTION_STOP in state for state in out_list)
+    properties = tbinfo['topo']['properties']
+    if properties.get('topo_is_multi_vrf', False):
+        vm_offsets = properties['convergence_data']['vm_offset_mapping']
+    else:
+        vm_offsets = {vm: info['vm_offset'] for vm, info in properties['topology']['VMs'].items()}
+    return next(vm for vm, offset in vm_offsets.items() if offset == exabgp_port - base_port)
 
 
-@pytest.fixture(scope="function", autouse=True)
-def restore_orchagent(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname, tbinfo, nbrhosts,
-                      get_exabgp_ptf_ports):
+class PendingNexthop(object):
     """
-    Fixture to restore process 'orchagent' in case of unexpected failures in case
-    On both Upstream and Downstream
+    Simulate a route install delay without suspending orchagent.
+    An inbound route-map entry rewrites the next-hop of the test routes to an address on the
+    peer's subnet that has no neighbor entry, so orchagent keeps the routes pending.
+    Resolving the neighbor to the peer's MAC lets the routes install and forward to the peer.
     """
-    duthost_down = duthosts[enum_downstream_dut_hostname]
-    duthost_up = duthosts[enum_upstream_dut_hostname]
-    yield
-    if is_orchagent_stopped(duthost_down):
-        logger.info('Orchagent process stopped, will restore it')
-        operate_orchagent(duthost_down, action=ACTION_CONTINUE)
 
-    if is_orchagent_stopped(duthost_up):
-        logger.info('Orchagent process stopped, will restore it')
-        operate_orchagent(duthost_up, action=ACTION_CONTINUE)
+    def __init__(self, duthost, tbinfo, vrf=DEFAULT):
+        self.duthost = duthost
+        self.tbinfo = tbinfo
+        self.vrf = vrf
+        self.targets = []
+
+    def _ip(self, namespace, cmd, module_ignore_errors=False):
+        netns = "-n {} ".format(namespace) if namespace else ""
+        return self.duthost.shell("sudo ip {}{}".format(netns, cmd), module_ignore_errors=module_ignore_errors)
+
+    def _vtysh(self, namespace, cmds, module_ignore_errors=False):
+        cmd = "vtysh " + " ".join("-c '{}'".format(c) for c in cmds)
+        return self.duthost.shell(self.duthost.get_vtysh_cmd_for_namespace(cmd, namespace),
+                                  module_ignore_errors=module_ignore_errors)
+
+    def _find_peer(self, vm, ip_ver):
+        """
+        Get the VM's BGP peer address, the namespace that owns the session and the peer's interface and MAC.
+        Remote ASICs of a VOQ chassis also have neighbor entries for the peer, so only the owner is queried.
+        """
+        owner = None
+        for asichost in self.duthost.asics:
+            neighbors = asichost.config_facts(source="running", verbose=False)["ansible_facts"].get("BGP_NEIGHBOR", {})
+            if self.vrf in neighbors:
+                neighbors = neighbors[self.vrf]
+            elif self.vrf != DEFAULT:
+                continue
+            owner = next(((str(ipaddress.ip_address(addr)), asichost.namespace) for addr, info in neighbors.items()
+                          if info.get("name") == vm and ipaddress.ip_address(addr).version == ip_ver), None)
+            if owner:
+                break
+        pytest_assert(owner, "No IPv{} BGP neighbor configured for {}".format(ip_ver, vm))
+        peer, namespace = owner
+        out = self._ip(namespace, "-{} neigh show {}".format(ip_ver, peer))["stdout"].split()
+        pytest_assert("lladdr" in out, "No neighbor entry for BGP peer {} of {}".format(peer, vm))
+        return peer, namespace, out[out.index("dev") + 1], out[out.index("lladdr") + 1]
+
+    def hold(self, exabgp_port, exabgp_port_v6, ipv4_route_list, ipv6_route_list):
+        for ip_ver, port, base_port, route_list in [(IP_VER, exabgp_port, EXABGP_BASE_PORT, ipv4_route_list),
+                                                    (IPV6_VER, exabgp_port_v6, EXABGP_BASE_PORT_V6, ipv6_route_list)]:
+            if not route_list:
+                continue
+            vm = _vm_for_exabgp_port(self.tbinfo, port, base_port)
+            peer, namespace, interface, mac = self._find_peer(vm, ip_ver)
+            family, afi = ("ip", "ipv4Unicast") if ip_ver == IP_VER else ("ipv6", "ipv6Unicast")
+            vrf = "" if self.vrf == DEFAULT else "vrf {} ".format(self.vrf)
+            neighbor = json.loads(self._vtysh(namespace, ["show bgp {}neighbors {} json".format(vrf, peer)])["stdout"])
+            route_map = neighbor[peer]["addressFamilyInfo"][afi].get("routeMapForIncomingAdvertisements")
+            pytest_assert(route_map, "No inbound route-map for BGP peer {}".format(peer))
+            existing = self._vtysh(namespace, ["show route-map {}".format(route_map)])["stdout"]
+            pytest_assert(not re.search(r"sequence {}\b".format(PENDING_ROUTE_MAP_SEQ), existing),
+                          "Route-map {} already has sequence {}".format(route_map, PENDING_ROUTE_MAP_SEQ))
+
+            address, nexthop = PENDING_NEXTHOP[ip_ver]
+            prefix_list = PENDING_PREFIX_LIST.format(ip_ver)
+            subnet = ipaddress.ip_interface(address).network
+            # remove() deletes these objects, so they must not exist before the test creates them
+            pytest_assert("prefix-list {}:".format(prefix_list) not in
+                          self._vtysh(namespace, ["show {} prefix-list {}".format(family, prefix_list)])["stdout"],
+                          "Prefix-list {} already exists".format(prefix_list))
+            pytest_assert(not self._ip(namespace, "-{} addr show to {}".format(ip_ver, subnet))["stdout"].strip(),
+                          "Subnet {} is already in use".format(subnet))
+            pytest_assert(not self._ip(namespace, "-{} neigh show {}".format(ip_ver, nexthop))["stdout"].strip(),
+                          "Neighbor {} already exists".format(nexthop))
+            logger.info("Hold routes from {} ({}) pending via next-hop {} on {}".format(vm, peer, nexthop, interface))
+            # Register for cleanup only once the test owns the address
+            self._ip(namespace, "-{} addr add {} dev {}".format(ip_ver, address, interface))
+            self.targets.append((ip_ver, namespace, interface, mac, route_map, family, prefix_list, address, nexthop))
+            prefix_len = max(ipaddress.ip_network(route).prefixlen for route in route_list)
+            networks = ipaddress.collapse_addresses(ipaddress.ip_network(route) for route in route_list)
+            cmds = ["configure terminal"]
+            for seq, network in enumerate(networks, start=1):
+                le = " le {}".format(prefix_len) if network.prefixlen < prefix_len else ""
+                cmds.append("{} prefix-list {} seq {} permit {}{}".format(family, prefix_list, seq * 5, network, le))
+            cmds += ["route-map {} permit {}".format(route_map, PENDING_ROUTE_MAP_SEQ),
+                     "match {} address prefix-list {}".format(family, prefix_list),
+                     ("set ip next-hop {}" if ip_ver == IP_VER else "set ipv6 next-hop global {}").format(nexthop),
+                     "on-match next"]
+            self._vtysh(namespace, cmds)
+
+    def resolve(self):
+        for ip_ver, namespace, interface, mac, _, _, _, _, nexthop in self.targets:
+            logger.info("Resolve next-hop {} to {} on {}".format(nexthop, mac, interface))
+            self._ip(namespace, "-{} neigh replace {} lladdr {} nud permanent dev {}".format(
+                ip_ver, nexthop, mac, interface))
+
+    def check_not_installed(self, ipv4_route_list, ipv6_route_list):
+        """
+        Verify the routes reached APPL_DB via the unresolved next-hop but are not programmed into ASIC_DB
+        """
+        routes = {IP_VER: ipv4_route_list, IPV6_VER: ipv6_route_list}
+        vrf = "" if self.vrf == DEFAULT else "{}:".format(self.vrf)
+        for ip_ver, namespace, interface, _, _, _, _, _, nexthop in self.targets:
+            neighbor = self._ip(namespace, "-{} neigh show {} dev {}".format(ip_ver, nexthop, interface))["stdout"]
+            pytest_assert("lladdr" not in neighbor, "Next-hop {} is resolved: {}".format(nexthop, neighbor))
+            db_cli = "sonic-db-cli {}".format("-n {} ".format(namespace) if namespace else "")
+            for route in routes[ip_ver]:
+                appl_cmd = "{}APPL_DB HGET 'ROUTE_TABLE:{}{}' nexthop".format(db_cli, vrf, route)
+                pytest_assert(wait_until(30, 2, 0,
+                                         lambda: nexthop in self.duthost.shell(appl_cmd)["stdout"].split(",")),
+                              "Route {} is not in APPL_DB via next-hop {}".format(route, nexthop))
+                asic_cmd = "{}ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*\"dest\":\"{}\"*'".format(
+                    db_cli, route)
+                pytest_assert(not self.duthost.shell(asic_cmd)["stdout"].strip(),
+                              "Route {} is programmed into ASIC_DB".format(route))
+
+    def remove(self):
+        """
+        Remove the test configuration; tolerate it being already gone after a config reload,
+        but fail if any of it is left behind
+        """
+        leftovers = []
+        for ip_ver, namespace, interface, _, route_map, family, prefix_list, address, nexthop in self.targets:
+            self._vtysh(namespace, ["configure terminal",
+                                    "no route-map {} permit {}".format(route_map, PENDING_ROUTE_MAP_SEQ),
+                                    "no {} prefix-list {}".format(family, prefix_list)], module_ignore_errors=True)
+            self._ip(namespace, "-{} neigh del {} dev {}".format(ip_ver, nexthop, interface), module_ignore_errors=True)
+            self._ip(namespace, "-{} addr del {} dev {}".format(ip_ver, address, interface), module_ignore_errors=True)
+            if re.search(r"sequence {}\b".format(PENDING_ROUTE_MAP_SEQ),
+                         self._vtysh(namespace, ["show route-map {}".format(route_map)])["stdout"]):
+                leftovers.append("route-map {} sequence {}".format(route_map, PENDING_ROUTE_MAP_SEQ))
+            if self._ip(namespace, "-{} neigh show {} dev {}".format(ip_ver, nexthop, interface))["stdout"].strip():
+                leftovers.append("neighbor {} on {}".format(nexthop, interface))
+            if self._ip(namespace, "-{} addr show dev {} to {}".format(ip_ver, interface, address))["stdout"].strip():
+                leftovers.append("address {} on {}".format(address, interface))
+        self.targets = []
+        pytest_assert(not leftovers, "Failed to remove test configuration: {}".format(", ".join(leftovers)))
 
 
 def get_cfg_facts(duthost):
@@ -832,42 +901,6 @@ def _parse_bgp_suppress_fib_output(stdout):
     return [line.split(':')[-1].strip() for line in stdout.splitlines() if line.strip()]
 
 
-def _read_swss_zmq_status_for_namespace(duthost, namespace=None, module_ignore_errors=True):
-    """Read swss_zmq status from CONFIG_DB for a single ASIC namespace."""
-    cmd = duthost.get_cli_cmd_for_namespace(
-        'sonic-db-cli CONFIG_DB HGET "SYSTEM_DEFAULTS|swss_zmq" "status"',
-        namespace)
-    rets = duthost.shell(cmd, module_ignore_errors=module_ignore_errors)
-    if rets['rc'] != 0:
-        return None
-    return rets['stdout'].strip()
-
-
-def _set_swss_zmq_status_for_namespace(duthost, status, namespace=None):
-    """Write swss_zmq status to CONFIG_DB for a single ASIC namespace."""
-    cmd = duthost.get_cli_cmd_for_namespace(
-        'sonic-db-cli CONFIG_DB HSET "SYSTEM_DEFAULTS|swss_zmq" "status" "{}"'.format(status),
-        namespace)
-    duthost.shell(cmd)
-
-
-def _get_swss_zmq_status_for_dut(duthost, module_ignore_errors=True, fail_on_error=False):
-    """Return swss_zmq status for every ASIC namespace on the DUT ({namespace: status})."""
-    statuses = {}
-    for namespace in duthost.get_asic_namespace_list():
-        status = _read_swss_zmq_status_for_namespace(
-            duthost, namespace=namespace, module_ignore_errors=module_ignore_errors)
-        if status is None:
-            if fail_on_error:
-                pytest_assert(
-                    False,
-                    "Failed to read swss_zmq CONFIG_DB on {} (namespace={})".format(
-                        duthost.hostname, namespace))
-            return None
-        statuses[namespace] = status
-    return statuses
-
-
 def get_bgp_suppress_fib(duthost, module_ignore_errors=True, fail_on_error=False):
     """
     Read suppress-fib-pending via show across all ASIC namespaces.
@@ -1237,9 +1270,10 @@ def test_bgp_route_with_suppress(duthosts, enum_downstream_dut_hostname, enum_up
                     logger.debug("dd")
 
             for exabgp_port, exabgp_port_v6, recv_port in zip(exabgp_port_list, exabgp_port_list_v6, recv_port_list):
+                pending = PendingNexthop(duthost_down, tbinfo, vrf_type)
                 try:
-                    with allure.step("Suspend orchagent process to simulate a route install delay"):
-                        operate_orchagent(duthost_down)
+                    with allure.step("Leave the routes' next-hop unresolved to simulate a route install delay"):
+                        pending.hold(exabgp_port, exabgp_port_v6, ipv4_route_list, ipv6_route_list)
 
                     with allure.step("Announce BGP ipv4 and ipv6 routes to DUT from Downstream VM by ExaBGP - "):
                         announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6)
@@ -1254,6 +1288,9 @@ def test_bgp_route_with_suppress(duthosts, enum_downstream_dut_hostname, enum_up
                                                   exabgp_port_v6,
                                                   tbinfo, nbrhosts, queue=EMPTY, vrf_type=vrf_type)
 
+                    with allure.step("Validate BGP routes are not installed while their next-hop is unresolved"):
+                        pending.check_not_installed(ipv4_route_list, ipv6_route_list)
+
                     with allure.step("Validate BGP ipv4 and ipv6 routes are not announced to Upstream VM peer"):
                         validate_route_propagate(duthost_up, nbrhosts, tbinfo,
                                                  ipv4_route_list, ipv6_route_list, vrf_type,
@@ -1267,12 +1304,8 @@ def test_bgp_route_with_suppress(duthosts, enum_downstream_dut_hostname, enum_up
                         validate_traffic(ptfadapter, [traffic_data_ipv4_drop, traffic_data_ipv6_drop], router_mac,
                                          ptf_interfaces, recv_port)
 
-                    if multi_dut:
-                        with allure.step("Suspend orchagent process on Upstream Node"):
-                            operate_orchagent(duthost_up)
-
-                    with allure.step("Restore orchagent process"):
-                        operate_orchagent(duthost_down, action=ACTION_CONTINUE)
+                    with allure.step("Resolve the routes' next-hop"):
+                        pending.resolve()
 
                     with allure.step("Validate announced BGP ipv4 and ipv6 routes are not in {} state".format(QUEUED)):
                         validate_route_states(duthost_down, ipv4_route_list, ipv6_route_list, exabgp_port,
@@ -1289,12 +1322,6 @@ def test_bgp_route_with_suppress(duthosts, enum_downstream_dut_hostname, enum_up
                     if multi_dut:
                         """ For Multi Dut Scenario """
                         upstream_verification(duthost_up, ipv4_route_list, ipv6_route_list, exabgp_port, exabgp_port_v6,
-                                              tbinfo, nbrhosts, queue=True, vrf_type=vrf_type)
-
-                        with allure.step("Restore orchagent process on Upstream"):
-                            operate_orchagent(duthost_up, action=ACTION_CONTINUE)
-
-                        upstream_verification(duthost_up, ipv4_route_list, ipv6_route_list, exabgp_port, exabgp_port_v6,
                                               tbinfo, nbrhosts, queue=False, vrf_type=vrf_type)
 
                     with allure.step("Validate BGP ipv4 and ipv6 routes are announced to Upstream VM peer"):
@@ -1307,8 +1334,11 @@ def test_bgp_route_with_suppress(duthosts, enum_downstream_dut_hostname, enum_up
                 finally:
                     with allure.step(f"Withdraw BGP ipv4 and ipv6 routes from Downstream VM by ExaBGP - "
                                      f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
-                        announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6,
-                                                  action=WITHDRAW)
+                        try:
+                            announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list,
+                                                      exabgp_port_v6, action=WITHDRAW)
+                        finally:
+                            pending.remove()
 
                     with allure.step("Validate BGP ipv4 and ipv6 routes are withdrawn from Upstream VM peer"):
                         validate_route_propagate(duthost_up, nbrhosts, tbinfo,
@@ -1344,11 +1374,10 @@ def test_bgp_route_without_suppress(duthosts, enum_downstream_dut_hostname, enum
             traffic_data_ipv4_drop, traffic_data_ipv6_drop = generate_route_and_traffic_data[FUNCTION]
 
     for exabgp_port, exabgp_port_v6, recv_port in zip(exabgp_port_list, exabgp_port_list_v6, recv_port_list):
+        pending = PendingNexthop(duthost_down, tbinfo)
         try:
-            with allure.step("Suspend orchagent process to simulate a route install delay"):
-                operate_orchagent(duthost_down)
-                if multi_dut:
-                    operate_orchagent(duthost_up)
+            with allure.step("Leave the routes' next-hop unresolved to simulate a route install delay"):
+                pending.hold(exabgp_port, exabgp_port_v6, ipv4_route_list, ipv6_route_list)
 
             with allure.step(f"Announce BGP ipv4 and ipv6 routes to DUT from Downstream VM by ExaBGP - "
                              f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
@@ -1368,10 +1397,11 @@ def test_bgp_route_without_suppress(duthosts, enum_downstream_dut_hostname, enum
                 validate_route_propagate(duthost_up, nbrhosts, tbinfo, ipv4_route_list,
                                          ipv6_route_list)
 
-            with allure.step("Restore orchagent process"):
-                operate_orchagent(duthost_down, action=ACTION_CONTINUE)
-                if multi_dut:
-                    operate_orchagent(duthost_up, action=ACTION_CONTINUE)
+            with allure.step("Validate BGP routes are not installed while their next-hop is unresolved"):
+                pending.check_not_installed(ipv4_route_list, ipv6_route_list)
+
+            with allure.step("Resolve the routes' next-hop"):
+                pending.resolve()
 
             with allure.step("Validate announced BGP ipv4 and ipv6 routes are in {} state".format(OFFLOADED)):
                 validate_route_states(duthost_down, ipv4_route_list, ipv6_route_list, exabgp_port, exabgp_port_v6,
@@ -1392,8 +1422,11 @@ def test_bgp_route_without_suppress(duthosts, enum_downstream_dut_hostname, enum
         finally:
             with allure.step(f"Withdraw BGP ipv4 and ipv6 routes from Downstream VM by ExaBGP - "
                              f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
-                announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6,
-                                          action=WITHDRAW)
+                try:
+                    announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6,
+                                              action=WITHDRAW)
+                finally:
+                    pending.remove()
 
 
 def test_bgp_route_with_suppress_negative_operation(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname,
@@ -1421,9 +1454,10 @@ def test_bgp_route_with_suppress_negative_operation(duthosts, enum_downstream_du
                 config_bgp_suppress_fib(duthost_up, loganalyzer=loganalyzer)
 
         for exabgp_port, exabgp_port_v6, recv_port in zip(exabgp_port_list, exabgp_port_list_v6, recv_port_list):
+            pending = PendingNexthop(duthost_down, tbinfo)
             try:
-                with allure.step("Suspend orchagent process to simulate a route install delay"):
-                    operate_orchagent(duthost_down)
+                with allure.step("Leave the routes' next-hop unresolved to simulate a route install delay"):
+                    pending.hold(exabgp_port, exabgp_port_v6, ipv4_route_list, ipv6_route_list)
 
                 with allure.step(f"Announce BGP ipv4 and ipv6 routes to DUT from Downstream VM by ExaBGP - "
                                  f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
@@ -1482,19 +1516,14 @@ def test_bgp_route_with_suppress_negative_operation(duthosts, enum_downstream_du
                     validate_traffic(ptfadapter, [traffic_data_ipv4_drop, traffic_data_ipv6_drop], router_mac,
                                      ptf_interfaces, recv_port)
 
-                with allure.step("Validate static route traffic could be forwarded to Downstream VM"):
-                    static_routes = generate_routes(STATIC_ROUTE_PREFIX)
-                    static_traffic_data = [generate_traffic_data(static_routes, FORWARD)[0]]
-                    static_ptf_recvport = {4: ptf_interfaces}
-                    validate_traffic(ptfadapter, [static_traffic_data], router_mac,
-                                     ptf_interfaces, static_ptf_recvport)
+                with allure.step("Validate static route is installed into FIB while BGP routes are pending"):
+                    check_route_install_status(duthost_down,
+                                               STATIC_ROUTE_PREFIX_V6 if is_v6_topo else STATIC_ROUTE_PREFIX,
+                                               ip_ver=IPV6_VER if is_v6_topo else IP_VER, check_point=OFFLOADED,
+                                               asic_namespace=namespace)
 
-                if multi_dut:
-                    with allure.step("Suspend orchagent process on Upstream Node"):
-                        operate_orchagent(duthost_up)
-
-                with allure.step("Restore orchagent process"):
-                    operate_orchagent(duthost_down, action=ACTION_CONTINUE)
+                with allure.step("Resolve the routes' next-hop"):
+                    pending.resolve()
 
                 with allure.step("Validate announced BGP ipv4 and ipv6 routes are not in {} state".format(QUEUED)):
                     validate_route_states(duthost_down, ipv4_route_list, ipv6_route_list, exabgp_port, exabgp_port_v6,
@@ -1508,12 +1537,6 @@ def test_bgp_route_with_suppress_negative_operation(duthosts, enum_downstream_du
                 if multi_dut:
                     """ For Multi Dut Scenario """
                     upstream_verification(duthost_up, ipv4_route_list, ipv6_route_list, exabgp_port, exabgp_port_v6,
-                                          tbinfo, nbrhosts, queue=True)
-
-                    with allure.step("Restore orchagent process on Upstream"):
-                        operate_orchagent(duthost_up, action=ACTION_CONTINUE)
-
-                    upstream_verification(duthost_up, ipv4_route_list, ipv6_route_list, exabgp_port, exabgp_port_v6,
                                           tbinfo, nbrhosts, queue=False)
 
                 with allure.step("Validate BGP ipv4 and ipv6 routes are announced to Upstream VM peer"):
@@ -1526,8 +1549,11 @@ def test_bgp_route_with_suppress_negative_operation(duthosts, enum_downstream_du
             finally:
                 with allure.step(f"Withdraw BGP ipv4 and ipv6 routes from Downstream VM by ExaBGP - "
                                  f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
-                    announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6,
-                                              action=WITHDRAW)
+                    try:
+                        announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6,
+                                                  action=WITHDRAW)
+                    finally:
+                        pending.remove()
     finally:
         with allure.step("Delete static route and remove redistribute to BGP"):
             remove_static_route_and_redistribute(duthost_down, is_v6_topo, asic_namespace=namespace)
@@ -1560,6 +1586,7 @@ def test_credit_loop(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_h
             traffic_data_ipv4_drop, traffic_data_ipv6_drop = generate_route_and_traffic_data[FUNCTION]
 
     for exabgp_port, exabgp_port_v6, recv_port in zip(exabgp_port_list, exabgp_port_list_v6, recv_port_list):
+        pending = PendingNexthop(duthost_down, tbinfo)
         try:
             with allure.step("Disable bgp suppress-fib-pending function"):
                 config_bgp_suppress_fib(duthost_down, False, validate_result=True, loganalyzer=loganalyzer)
@@ -1575,8 +1602,8 @@ def test_credit_loop(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_h
                            fargs=[ptfadapter, [traffic_data_ipv4_forward, traffic_data_ipv6_forward], router_mac,
                                   ptf_interfaces, ptf_interfaces, True], tries=3, delay=2)
 
-            with allure.step("Suspend orchagent process to simulate a route install delay"):
-                operate_orchagent(duthost_up)
+            with allure.step("Leave the routes' next-hop unresolved to simulate a route install delay"):
+                pending.hold(exabgp_port, exabgp_port_v6, ipv4_route_list, ipv6_route_list)
 
             with allure.step(f"Announce BGP ipv4 and ipv6 routes to DUT from Downstream VM by ExaBGP - "
                              f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
@@ -1590,6 +1617,9 @@ def test_credit_loop(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_h
                 ptf_interfaces = get_upstream_ptf_intfs(mg_facts, tbinfo)
                 validate_traffic(ptfadapter, [traffic_data_ipv4_forward, traffic_data_ipv6_forward], router_mac,
                                  ptf_interfaces, ptf_interfaces, loop_back=True)
+
+            with allure.step("Resolve the routes' next-hop"):
+                pending.resolve()
 
             with allure.step("Config bgp suppress-fib-pending function"):
                 config_bgp_suppress_fib(duthost_up, validate_result=True, loganalyzer=loganalyzer)
@@ -1611,8 +1641,11 @@ def test_credit_loop(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_h
         finally:
             with allure.step(f"Withdraw BGP ipv4 and ipv6 routes from Downstream VM by ExaBGP - "
                              f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
-                announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6,
-                                          action=WITHDRAW)
+                try:
+                    announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6,
+                                              action=WITHDRAW)
+                finally:
+                    pending.remove()
 
 
 def test_suppress_fib_stress(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname, tbinfo, nbrhosts,
@@ -1624,9 +1657,9 @@ def test_suppress_fib_stress(duthosts, enum_downstream_dut_hostname, enum_upstre
     Steps:
     1. Enable BGP suppress-fib-pending at the downstream DUT.
     2. Do BGP route flap to stress the route processing pipeline.
-    3. Suspend orchagent to simulate a route install delay.
+    3. Leave the routes' next-hop unresolved to simulate a route install delay.
     4. Announce routes and verify they are held in queued state (blackholing).
-    5. Restore orchagent and verify routes transition to offloaded state and traffic is forwarded.
+    5. Resolve the next-hop and verify routes transition to offloaded state and traffic is forwarded.
     """
     duthost_down = duthosts[enum_downstream_dut_hostname]
     duthost_up = duthosts[enum_upstream_dut_hostname]
@@ -1646,6 +1679,7 @@ def test_suppress_fib_stress(duthosts, enum_downstream_dut_hostname, enum_upstre
         config_bgp_suppress_fib(duthost_down, loganalyzer=loganalyzer)
 
     for exabgp_port, exabgp_port_v6, recv_port in zip(exabgp_port_list, exabgp_port_list_v6, recv_port_list):
+        pending = PendingNexthop(duthost_down, tbinfo)
         try:
             with allure.step("Do BGP route flap to stress the route processing pipeline"):
                 flap_time = BGP_ROUTE_FLAP_TIMES if completeness_level == "thorough" else 1
@@ -1653,12 +1687,12 @@ def test_suppress_fib_stress(duthosts, enum_downstream_dut_hostname, enum_upstre
                                            ptf_ip, ipv4_route_list, exabgp_port,
                                            ipv6_route_list, exabgp_port_v6, flap_time=flap_time)
 
-            with allure.step("Verify stress routes are fully withdrawn before pausing orchagent"):
+            with allure.step("Verify stress routes are fully withdrawn before holding the next-hop"):
                 validate_route_propagate(duthost_up, nbrhosts, tbinfo,
                                          ipv4_route_list, ipv6_route_list, exist=False)
 
-            with allure.step("Suspend orchagent process to simulate a route install delay"):
-                operate_orchagent(duthost_down)
+            with allure.step("Leave the routes' next-hop unresolved to simulate a route install delay"):
+                pending.hold(exabgp_port, exabgp_port_v6, ipv4_route_list, ipv6_route_list)
 
             with allure.step(f"Announce BGP ipv4 and ipv6 routes to DUT from T0 VM by ExaBGP - "
                              f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
@@ -1677,8 +1711,8 @@ def test_suppress_fib_stress(duthosts, enum_downstream_dut_hostname, enum_upstre
                 validate_traffic(ptfadapter, [traffic_data_ipv4_drop, traffic_data_ipv6_drop],
                                  router_mac_up, ptf_interfaces, recv_port)
 
-            with allure.step("Restore orchagent process"):
-                operate_orchagent(duthost_down, action=ACTION_CONTINUE)
+            with allure.step("Resolve the routes' next-hop"):
+                pending.resolve()
 
             with allure.step("Verify the BGP routes are in offloaded state in the DUT routing table"):
                 validate_route_states(duthost_down, ipv4_route_list, ipv6_route_list, exabgp_port,
@@ -1695,11 +1729,11 @@ def test_suppress_fib_stress(duthosts, enum_downstream_dut_hostname, enum_upstre
         finally:
             with allure.step(f"Withdraw BGP ipv4 and ipv6 routes from T0 VM by ExaBGP - "
                              f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
-                announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list,
-                                          exabgp_port_v6, action=WITHDRAW)
-
-            if is_orchagent_stopped(duthost_down):
-                operate_orchagent(duthost_down, action=ACTION_CONTINUE)
+                try:
+                    announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list,
+                                              exabgp_port_v6, action=WITHDRAW)
+                finally:
+                    pending.remove()
 
 
 def test_suppress_fib_performance(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname, tbinfo, nbrhosts,
