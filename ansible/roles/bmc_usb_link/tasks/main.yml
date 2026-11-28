@@ -1,0 +1,52 @@
+---
+- name: Validate BMC USB link opt-in
+  assert:
+    that:
+      - bmc_usb_link_enabled is boolean
+    fail_msg: bmc_usb_link_enabled must be a YAML boolean
+
+- name: Provision the Switch-Host BMC USB link
+  become: true
+  when: bmc_usb_link_enabled
+  block:
+    - name: Validate explicit BMC USB link settings
+      assert:
+        that:
+          - bmc_usb_link_interface is defined
+          - bmc_usb_link_address is defined
+          - bmc_usb_link_interface is string
+          - bmc_usb_link_address is string
+          - bmc_usb_link_interface is match('^usb[0-9]{1,12}$')
+          - bmc_usb_link_address is match('^[0-9.]+/[0-9]+$')
+        fail_msg: Set an exclusive usbN interface and IPv4 link-local host CIDR in host_vars
+
+    - name: Check platform, address and existing interface ownership
+      script: >-
+        bmc_usb_link.py --check
+        {{ bmc_usb_link_interface | quote }} {{ bmc_usb_link_address | quote }}
+      changed_when: false
+      check_mode: false
+
+    - name: Install BMC USB link helper
+      copy:
+        src: bmc_usb_link.py
+        dest: /usr/local/sbin/sonic-bmc-usb-link
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Install BMC USB link service
+      template:
+        src: sonic-bmc-usb-link.service.j2
+        dest: /etc/systemd/system/sonic-bmc-usb-link.service
+        owner: root
+        group: root
+        mode: '0644'
+
+    # A running oneshot does not reapply lost addresses when merely started.
+    - name: Enable and reapply BMC USB link configuration
+      systemd:
+        name: sonic-bmc-usb-link.service
+        daemon_reload: true
+        enabled: true
+        state: restarted
