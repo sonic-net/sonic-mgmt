@@ -280,6 +280,17 @@ def get_system_leak_status(duthost):
     return redis_hget(duthost, STATE_DB, 'SYSTEM_LEAK_STATUS|system', 'device_leak_status')
 
 
+def is_real_leak_present(duthost):
+    """True if SYSTEM_LEAK_STATUS|system reports an active leak that is not a test leak.
+
+    A leak left by an earlier injection (test_leak=Enabled) does not count. When the
+    test_leak field is absent, an active status is treated as a real leak."""
+    status = get_system_leak_status(duthost)
+    if status not in ('MINOR', 'MAJOR', 'CRITICAL'):
+        return False
+    return redis_hget(duthost, STATE_DB, 'SYSTEM_LEAK_STATUS|system', 'test_leak') != 'Enabled'
+
+
 def set_system_leak_status(duthost, status):
     """HSET SYSTEM_LEAK_STATUS|system device_leak_status."""
     redis_hset(duthost, STATE_DB, 'SYSTEM_LEAK_STATUS|system', device_leak_status=status)

@@ -1,10 +1,18 @@
 import logging
 from abc import ABC, abstractmethod
 
-from tests.common.helpers.liquid_leakage_control_test_helper import LiquidLeakageMocker
+from tests.common.helpers.liquid_leakage_control_test_helper import (
+    LiquidLeakageMocker,
+    get_liquid_cooling_update_interval,
+)
+from tests.common.helpers.platform_api import leak_sensor_test
 from tests.common.platform.bmc_utils import get_sensor_data, get_system_leak_status
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
+
+# Used only when the DUT does not define liquid_cooling_update_interval
+DEFAULT_POLL_INTERVAL_SEC = 0.5
 
 VALID_SENSOR_STATES = ('None', 'MINOR', 'CRITICAL', 'FAULT')
 
@@ -107,6 +115,14 @@ class LiquidLeakageMockerBMC(LiquidLeakageMocker, ABC):
         """
         pass
 
+    def supports_sensor_state(self, index, state):
+        """
+        Return True if the sensor can be set to the requested state.
+
+        Mockers that can inject any state on any sensor need not override this.
+        """
+        return True
+
     def deinit(self):
         """Restore all sensors on teardown, then chain to the base mocker."""
         self.restore_all_sensors()
@@ -143,3 +159,76 @@ class LiquidLeakageMockerBMC(LiquidLeakageMocker, ABC):
             return int(str(raw).strip())
         except (TypeError, ValueError):
             return None
+
+
+class LeakTestApiInjector(LiquidLeakageMockerBMC):
+    """
+    Vendor-independent BMC liquid leakage mocker.
+
+    Injects leaks through the platform leak test API (LeakageSensorTestBase,
+    reached via LiquidCoolingBase.get_leak_sensor_test()) using the platform
+    API server on the DUT. Injected leaks are flagged as test leaks, so no
+    mitigation action is taken by the platform.
+    """
+
+    def __init__(self, dut, conn):
+        self.conn = conn
+        self._probe_cache = {}
+        super().__init__(dut)
+
+    @staticmethod
+    def is_supported(conn):
+        """Return True if the platform exposes the leak test API."""
+        try:
+            return bool(leak_sensor_test.is_leak_test_supported(conn))
+        except Exception as e:
+            logger.info("Leak test platform API not available: %r", e)
+            return False
+
+    def restore_all_sensors(self):
+        """Withdraw every injected test leak, forcing per-sensor withdrawal if the bulk clear fails."""
+        if leak_sensor_test.clear_test_leaks(self.conn) is True:
+            return
+        logger.warning("clear_test_leaks() did not return True, withdrawing test leaks per sensor")
+        still_enabled = []
+        for name in self.sensor_names:
+            leak_sensor_test.set_test_leak(self.conn, name, False)
+            if leak_sensor_test.is_test_leak_enabled(self.conn, name) is not False:
+                still_enabled.append(name)
+        if still_enabled or leak_sensor_test.clear_test_leaks(self.conn) is not True:
+            raise RuntimeError("Failed to clear test leaks on sensor(s): {}".format(still_enabled))
+
+    def supports_sensor_state(self, index, state):
+        """Some platforms accept only a fixed severity per sensor; ask the common platform API helper."""
+        if state == 'None':
+            return True
+        name = self.get_sensor_name(index)
+        if name not in self._probe_cache:
+            self._probe_cache[name] = leak_sensor_test.get_supported_test_leak_severities(self.conn, name)
+            if self._probe_cache[name]:
+                # Let thermalctld observe the probe withdrawal so it is not mistaken for the real injection.
+                # The poll interval comes from the DUT's pmon_daemon_control.json.
+                poll_interval = get_liquid_cooling_update_interval(self.dut) or DEFAULT_POLL_INTERVAL_SEC
+                settled = wait_until(2 * poll_interval + 10, poll_interval, 0,
+                                     lambda: not self.get_sensor_status(index)[0])
+                if not settled:
+                    logger.warning("Sensor %s still reports a leak after the probe was withdrawn", name)
+        return state in self._probe_cache[name]
+
+    def set_sensor_state(self, index, state):
+        """
+        Inject or withdraw a test leak on a sensor by index.
+
+        :param index: Leak sensor index.
+        :param state: One of 'None', 'MINOR', or 'CRITICAL'.
+        """
+        self._validate_sensor_state(state)
+        if state == 'FAULT':
+            raise ValueError("The leak test platform API cannot inject a sensor fault")
+        name = self.get_sensor_name(index)
+        if state == 'None':
+            ok = leak_sensor_test.set_test_leak(self.conn, name, False)
+        else:
+            ok = leak_sensor_test.set_test_leak(self.conn, name, True, severity=state)
+        if ok is not True:
+            raise RuntimeError("set_test_leak({}, state={}) failed, returned {!r}".format(name, state, ok))
