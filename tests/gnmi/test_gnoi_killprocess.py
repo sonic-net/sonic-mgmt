@@ -7,12 +7,36 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import is_container_running
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.ptf_gnoi import SIGNAL_TERM
+from tests.common.ptf_grpc import PtfGrpcError
+from tests.gnmi.helper import set_gnoi_client_role
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology("any"),
 ]
+
+
+@pytest.mark.disable_loganalyzer
+@pytest.mark.parametrize(
+    "role,code",
+    [
+        pytest.param("gnoi_readonly", "PermissionDenied", id="readonly"),
+        pytest.param("gnoi_readwrite", "Unimplemented", id="readwrite"),
+    ],
+)
+def test_gnoi_killprocess_authorization(gnmi_tls, role, code):  # noqa: F811
+    """Probe auth before unsupported PID validation, without stopping a service.
+
+    PermissionDenied requires sonic-gnmi #807. This is not a backend execution test.
+    """
+    set_gnoi_client_role(gnmi_tls, role)
+    gnmi_tls.grpc.configure_max_time(30)
+    request = {"pid": 2147483647, "signal": "SIGNAL_TERM"}
+    with pytest.raises(PtfGrpcError, match=r"\bCode: {}\b".format(code)) as error:
+        gnmi_tls.grpc.call_unary("gnoi.system.System", "KillProcess", request)
+    if code == "Unimplemented":
+        assert "Pid option is not implemented" in str(error.value)
 
 
 @pytest.mark.parametrize(
