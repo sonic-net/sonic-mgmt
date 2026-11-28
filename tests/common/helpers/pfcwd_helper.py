@@ -64,6 +64,20 @@ class TrafficPorts(object):
         self.topo = topo
         self.config_facts = config_facts
         self.ip_version = ip_version
+        # Drop interfaces PFC watchdog cannot run on (e.g. service ports), without mutating the caller's mg_facts
+        self.mg_facts = dict(self.mg_facts)
+        for key in ('minigraph_interfaces', 'minigraph_portchannel_interfaces', 'minigraph_vlan_sub_interfaces'):
+            if key in self.mg_facts:
+                self.mg_facts[key] = [item for item in self.mg_facts[key] if self._pfc_enabled(item['attachto'])]
+
+    def _pfc_enabled(self, port):
+        """True if PFC is enabled in PORT_QOS_MAP on the port, all Port-Channel members, or the sub-interface parent"""
+        port_qos_map = self.config_facts.get('PORT_QOS_MAP')
+        if not port_qos_map:
+            return True
+        port = port.split('.')[0]
+        members = self.pc_info[port]['members'] if port in self.pc_info else [port]
+        return all(port_qos_map.get(member, {}).get('pfc_enable') for member in members)
 
     def _l3_addr_count(self, mg_facts_key):
         """Number of entries under mg_facts_key carrying an address of self.ip_version"""
@@ -248,8 +262,9 @@ class TrafficPorts(object):
         # In Python2, dict.values() returns list object, but in Python3 returns an iterable but not indexable object.
         # So that convert to list explicitly.
         vlan_details = list(self.vlan_info.values())[0]
-        # Filter(remove) PortChannel interfaces from VLAN members list
-        vlan_members = [port for port in vlan_details['members'] if 'PortChannel' not in port]
+        # Filter(remove) PortChannel interfaces and ports without PFC from VLAN members list
+        vlan_members = [port for port in vlan_details['members']
+                        if 'PortChannel' not in port and self._pfc_enabled(port)]
 
         vlan_type = vlan_details.get('type')
         vlan_id = vlan_details['vlanid']
