@@ -154,11 +154,12 @@ function read_csv
   dut=${line_arr[9]//;/,}
   duts=${dut//[\[\] ]/}
   inv_name=${line_arr[10]}
+  use_converged_peers=
 }
 
 function read_yaml
 {
-  content=$(python -c "from __future__ import print_function; import yaml; print('+'.join(str(tb) for tb in yaml.safe_load(open('$tbfile')) if '$1'==tb['conf-name']))")
+  content=$(python -c "from __future__ import print_function; import yaml; print('+'.join(str(tb) for tb in yaml.safe_load(open('$tbfile')) if '$1'==tb['conf-name']))") || return $?
 
   IFS=$'+' read -r -a tb_lines <<< $content
   linecount=${#tb_lines[@]}
@@ -166,11 +167,11 @@ function read_yaml
   if [ $linecount == 0 ]
   then
     echo "Couldn't find testbed name '$1'"
-    exit
+    return 1
   elif [ $linecount -gt 1 ]
   then
     echo "Find more than one testbed name in $tbfile"
-    exit
+    return 1
   else
     echo found testbed $1
   fi
@@ -179,7 +180,7 @@ function read_yaml
   line_arr=($1)
   for attr in group-name topo ptf_image_name ptf ptf_ip ptf_ipv6 ptf_extra_mgmt_ip netns_mgmt_ip server vm_base dut inv_name auto_recover comment servers upstream_neighbor_groups downstream_neighbor_groups use_converged_peers;
   do
-    value=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('$attr', None))")
+    value=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('$attr', None))") || return $?
     [ "$value" == "None" ] && value=
     line_arr=("${line_arr[@]}" "$value")
   done
@@ -192,22 +193,54 @@ function read_yaml
   ptf_ipv6=${line_arr[6]}
   ptf_extra_mgmt_ip=${line_arr[7]}
   if [ ! -z "$ptf_extra_mgmt_ip" ]; then
-    ptf_extra_mgmt_ip=$(python -c "from __future__ import print_function; print(','.join(eval(\"$ptf_extra_mgmt_ip\")))")
+    ptf_extra_mgmt_ip=$(python -c "from __future__ import print_function; print(','.join(eval(\"$ptf_extra_mgmt_ip\")))") || return $?
   fi
   netns_mgmt_ip=${line_arr[8]}
   server=${line_arr[9]}
   vm_base=${line_arr[10]}
   dut=${line_arr[11]}
-  duts=$(python -c "from __future__ import print_function; print(','.join(eval(\"$dut\")))")
+  duts=$(python -c "from __future__ import print_function; print(','.join(eval(\"$dut\")))") || return $?
   inv_name=${line_arr[12]}
   servers=${line_arr[15]}
   upstream_neighbor_groups=${line_arr[16]}
   downstream_neighbor_groups=${line_arr[17]}
   use_converged_peers=${line_arr[18]}
   # Remove the dpu duts by the keyword 'dpu' in the dut name
-  duts=$(echo $duts | sed "s/,[^,]*dpu[^,]*//g")
+  duts=$(echo $duts | sed "s/,[^,]*dpu[^,]*//g") || return $?
+}
 
-  converge_topo_if_needed "$topo" "$use_converged_peers"
+function validate_csonic_t1_lag_mode
+{
+    local action="$1"
+    local topo="$2"
+    local use_converged_peers="$3"
+
+    if [[ "$vm_type" != "csonic" || "$topo" != "t1-lag" ]]; then
+        return
+    fi
+
+    case "$action" in
+        remove-topo|stop-topo-vms|disconnect-vms)
+            if [[ "${use_converged_peers,,}" == "true" ]]; then
+                normalized_use_converged_peers=True
+            fi
+            return
+            ;;
+    esac
+
+    case "${use_converged_peers,,}" in
+        true)
+            normalized_use_converged_peers=True
+            ;;
+        ""|false)
+            echo "cSONiC topo='t1-lag' requires use_converged_peers=True; unconverged cSONiC T1-LAG is not supported." >&2
+            return 1
+            ;;
+        *)
+            echo "Invalid use_converged_peers='$use_converged_peers'; expected true or false." >&2
+            return 1
+            ;;
+    esac
 }
 
 function converge_topo_if_needed
@@ -222,8 +255,8 @@ function converge_topo_if_needed
 
     # Keep the cSONiC path independent from the established cEOS path below.
     if [[ "$use_converged_peers" == "True" && "$vm_type" == "csonic" ]]; then
-        if [[ "$topo" != "t0" ]]; then
-            echo "cSONiC converged peers currently support topo=t0 only; skipping topo '$topo'."
+        if [[ "$topo" != "t0" && "$topo" != "t1-lag" ]]; then
+            echo "cSONiC converged peers currently support topo=t0 and t1-lag only; skipping topo '$topo'."
             return
         fi
         echo "use_converged_peers is true, converging cSONiC topo..."
@@ -241,8 +274,9 @@ function converge_topo_if_needed
     fi
 
     if [[ "$use_converged_peers" == "True" ]]; then
-        # cSONiC T0 is handled by its dedicated branch above. This branch keeps
-        # the existing cEOS renderer strict: SONiC-VS and cisco neighbors have
+        # Supported cSONiC topologies are handled by their dedicated branch
+        # above. This branch keeps the existing cEOS renderer strict: SONiC-VS
+        # and cisco neighbors have
         # no equivalent render path, so reshaping their topology would make the
         # DUT minigraph disagree with the deployed peers.
         if [[ "$vm_type" != "ceos" ]]; then
@@ -266,14 +300,26 @@ function converge_topo_if_needed
 
 function read_file
 {
+  testbed_name="$1"
+  local validate_only="${2:-false}"
   echo reading
 
   if [[ $tbfile == *.csv ]]
   then
-    read_csv ${testbed_name}
+    read_csv ${testbed_name} || return $?
   elif [[ $tbfile == *.yaml ]]
   then
-    read_yaml ${testbed_name}
+    read_yaml ${testbed_name} || return $?
+  fi
+
+  normalized_use_converged_peers=
+  validate_csonic_t1_lag_mode "$subcmd" "$topo" "$use_converged_peers" || return $?
+  if [[ -n "$normalized_use_converged_peers" ]]; then
+    use_converged_peers="$normalized_use_converged_peers"
+  fi
+
+  if [[ "$validate_only" != "true" && $tbfile == *.yaml ]]; then
+    converge_topo_if_needed "$topo" "$use_converged_peers"
   fi
 }
 
@@ -597,7 +643,7 @@ function remove_topo
   shift
   echo "Removing topology for testbed '${testbed_name}'"
 
-  read_file ${testbed_name}
+  read_file ${testbed_name} || return $?
 
   remove_keysight_api_server=0
   for i in "$@"
@@ -660,6 +706,9 @@ function remove_topo
 
 function redeploy_topo()
 {
+    if [[ "$vm_type" == "csonic" ]]; then
+        read_file "$1" true || return $?
+    fi
     remove_topo "$@" || true
     echo "Sleep 60 seconds ..."
     sleep 60
@@ -754,6 +803,7 @@ function refresh_dut
         -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
         -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
         -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" -e force_stop_sonic_vm="yes" \
+        -e use_converged_peers="$use_converged_peers" \
         -e upstream_neighbor_groups="$upstream_neighbor_groups" -e downstream_neighbor_groups="$downstream_neighbor_groups" \
         $ansible_options "$@"
 
