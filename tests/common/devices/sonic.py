@@ -2305,16 +2305,18 @@ Totals               6450                 6449
                 pass
         return up_ip_ports
 
-    def get_supported_speeds(self, interface_name):
+    def get_supported_speeds(self, interface_name, namespace=DEFAULT_NAMESPACE):
         """Get supported speeds for a given interface
 
         Args:
             interface_name (str): Interface name
+            namespace (str): ASIC namespace, or None for the host database
 
         Returns:
             list: A list of supported speed strings or None
         """
-        cmd = 'sonic-db-cli STATE_DB HGET \"PORT_TABLE|{}\" \"{}\"'.format(interface_name, 'supported_speeds')
+        ns_option = "-n {}".format(namespace) if namespace else ""
+        cmd = 'sonic-db-cli {} STATE_DB HGET "PORT_TABLE|{}" "supported_speeds"'.format(ns_option, interface_name)
         supported_speeds = self.shell(cmd)['stdout'].strip()
         return None if not supported_speeds else supported_speeds.split(',')
 
@@ -2376,16 +2378,18 @@ Totals               6450                 6449
         self.shell(cmd)
         return True
 
-    def get_speed(self, interface_name):
+    def get_speed(self, interface_name, namespace=DEFAULT_NAMESPACE):
         """Get interface speed
 
         Args:
             interface_name (str): Interface name
+            namespace (str): ASIC namespace, or None for the host database
 
         Returns:
             str: SONiC style interface speed value. E.g, 1G=1000, 10G=10000, 100G=100000.
         """
-        cmd = 'sonic-db-cli STATE_DB HGET \"PORT_TABLE|{}\" \"{}\"'.format(interface_name, 'speed')
+        ns_option = "-n {}".format(namespace) if namespace else ""
+        cmd = 'sonic-db-cli {} STATE_DB HGET "PORT_TABLE|{}" "speed"'.format(ns_option, interface_name)
         speed = self.shell(cmd)['stdout'].strip()
         return speed
 
@@ -2791,14 +2795,18 @@ Totals               6450                 6449
         res = self.shell('sudo config interface fec {} {}'.format(portname, state))
         return res['rc'] == 0
 
-    def count_portlanes(self, portname):
-        out = self.shell('redis-cli -n 4 HGET "PORT|{}" "lanes"'.format(portname))
+    def count_portlanes(self, portname, namespace=DEFAULT_NAMESPACE):
+        """Count port lanes in CONFIG_DB, optionally within an ASIC namespace."""
+        ns_option = "-n {}".format(namespace) if namespace else ""
+        out = self.shell('sonic-db-cli {} CONFIG_DB HGET "PORT|{}" "lanes"'.format(ns_option, portname))
         assert_exit_non_zero(out)
         lanes = out["stdout_lines"][0].split(',')
         return len(lanes)
 
-    def get_sfp_type(self, portname):
-        out = self.shell('redis-cli -n 6 HGET "TRANSCEIVER_INFO|{}" "type"'.format(portname))
+    def get_sfp_type(self, portname, namespace=DEFAULT_NAMESPACE):
+        """Get the transceiver type in STATE_DB, optionally within an ASIC namespace."""
+        ns_option = "-n {}".format(namespace) if namespace else ""
+        out = self.shell('sonic-db-cli {} STATE_DB HGET "TRANSCEIVER_INFO|{}" "type"'.format(ns_option, portname))
         assert_exit_non_zero(out)
         sfp_type = re.search(r'[QO]?SFP-?[\d\w]{0,3}', out["stdout_lines"][0]).group()
         return sfp_type
