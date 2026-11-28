@@ -449,13 +449,17 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     try:
         console_obj = console_thread_res.get(timeout=console_wait_max_seconds)
     except Exception as e:
-        logger.warning(f"Console connection timed out or failed: {e}, proceeding with reboot anyway")
-        console_obj = None
+        logger.warning(f"Console connection timed out or failed: {e}, waiting for console setup before reboot")
+        # A console server can send input on connect, outside the client write guard.
+        reboot_started_event.set()
+        console_thread_res.wait()
+        try:
+            console_obj = console_thread_res.get()
+        except Exception as console_error:
+            logger.warning(f"Console setup finished with an error: {console_error}, rebooting without console logs")
+            console_obj = None
 
-    # The reboot is about to start. Signal any console worker still running its
-    # session preparation (the get(timeout=) above did not cancel it) to stop
-    # writing to the DUT: a late login/wake-up CR must not land in the bootloader
-    # autoboot window and trap the DUT -- the exact race this fix guards against.
+    # Console setup has finished; block further serial input during reboot.
     reboot_started_event.set()
 
     # Capture a monotonic timestamp on the test host right before issuing the reboot.
