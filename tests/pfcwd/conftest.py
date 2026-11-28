@@ -13,6 +13,10 @@ from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.cisco_data import is_cisco_device, check_dshell_ready
 from tests.common.helpers.pfcwd_helper import is_pfcwd_hw_recovery_enabled
 from tests.common.utilities import str2bool, wait_until
+from tests.common.helpers.pfcwd_helper import HARDWARE, NATIVE, SOFTWARE, get_pfcwd_recovery_mode
+from tests.common.helpers.pfcwd_recovery import SOFTWARE_STATE, RecoveryModeUnsupported, \
+    available_recovery_modes, native_recovery_mode, recovery_state, restore_recovery_mode, set_recovery_mode
+from tests.common.helpers.sonic_db import redis_hdel
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +46,92 @@ def pytest_addoption(parser):
                      help='Save results of pfc timer accuracy test to file')
 
 
+@pytest.hookimpl(trylast=True)
+def pytest_generate_tests(metafunc):
+    """Parametrize over modes at session scope; native or hardware-only keeps ids unchanged; suffix stays last."""
+    requested = metafunc.config.pfcwd_recovery_modes
+    if 'pfcwd_recovery_mode' in metafunc.fixturenames and requested not in ([NATIVE], [HARDWARE]):
+        metafunc.parametrize('pfcwd_recovery_mode', requested, indirect=True, scope='session',
+                             ids=['recovery_{}'.format(mode) for mode in requested])
+
+
+# The pfcwd_recovery_mode session fixture itself lives in tests/conftest.py: setup_pfc_test
+# (shared with the qos suite) depends on it, so it must resolve outside tests/pfcwd too.
+@pytest.fixture(scope="session")
+def pfcwd_recovery_session(duthosts, pfcwd_recovery_mode):
+    """
+    Per-DUT native mechanism (read once, after clearing any stale override), the
+    DUTs switched in this session and the switches that failed. Restores the
+    switched DUTs at session end. Reads nothing in a native run.
+    """
+    state = {"native": {}, "switched": set(), "failed": set(), "unsupported": {}}
+    if pfcwd_recovery_mode == NATIVE:
+        yield state
+        return
+    for duthost in duthosts.frontend_nodes:
+        state["native"][duthost.hostname] = native_recovery_mode(duthost)
+        logger.info("%s: native PFC watchdog recovery is %s", duthost.hostname, state["native"][duthost.hostname])
+
+    yield state
+
+    failures = []
+    for duthost in duthosts.frontend_nodes:
+        if duthost.hostname in state["switched"]:
+            try:
+                restore_recovery_mode(duthost)
+            except Exception as exc:
+                failures.append("{}: {}".format(duthost.hostname, exc))
+    if failures:
+        pytest.fail("PFC watchdog recovery mechanism not restored:\n" + "\n".join(failures))
+
+
+@pytest.fixture(scope="module", autouse=True)
+def pfcwd_recovery_mode_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                              pfcwd_recovery_mode, pfcwd_recovery_session):
+    """Put the DUT into this phase's mechanism, or skip the module if it cannot run it."""
+    if pfcwd_recovery_mode == NATIVE:
+        return
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    native = pfcwd_recovery_session["native"][duthost.hostname]
+    if pfcwd_recovery_mode not in available_recovery_modes(duthost, native):
+        pytest.skip("{} recovery is not available on {} (native: {})".format(
+            pfcwd_recovery_mode, duthost.hostname, native))
+    key = (duthost.hostname, pfcwd_recovery_mode)
+    if key in pfcwd_recovery_session["unsupported"]:
+        pytest.skip(pfcwd_recovery_session["unsupported"][key])
+    if key in pfcwd_recovery_session["failed"]:
+        pytest.fail("switching {} to {} recovery already failed in this session".format(*key))
+    if pfcwd_recovery_mode != native:
+        pfcwd_recovery_session["switched"].add(duthost.hostname)
+        try:
+            set_recovery_mode(duthost, pfcwd_recovery_mode)
+        except RecoveryModeUnsupported as exc:
+            pfcwd_recovery_session["unsupported"][key] = str(exc)
+            pytest.skip(str(exc))
+        except Exception:
+            pfcwd_recovery_session["failed"].add(key)
+            raise
+
+
+@pytest.fixture(autouse=True)
+def pfcwd_recovery_mode_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname, pfcwd_recovery_mode,
+                              pfcwd_recovery_session):
+    """Keep the phase label honest across the config reloads and reboots the modules do."""
+    if pfcwd_recovery_mode == NATIVE:
+        return
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if pfcwd_recovery_mode == SOFTWARE and duthost.hostname in pfcwd_recovery_session["switched"]:
+        # Forced software: the full read-back, so an unpublished mechanism or a return of DLR init fails too.
+        state = recovery_state(duthost)
+        if state != SOFTWARE_STATE:
+            pytest.fail("{} is not running forced software recovery: {}".format(duthost.hostname, state))
+        return
+    running = get_pfcwd_recovery_mode(duthost)
+    if running != pfcwd_recovery_mode:
+        pytest.fail("{} is running {} recovery but this phase is {}".format(
+            duthost.hostname, running, pfcwd_recovery_mode))
+
+
 @pytest.fixture(scope="module")
 def two_queues(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
     """
@@ -68,7 +158,7 @@ def two_queues(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fan
 
 
 @pytest.fixture(scope="module")
-def fake_storm(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def fake_storm(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, pfcwd_recovery_mode_setup):
     """
     Enable/disable fake storm based on platform and input parameters
 
@@ -76,6 +166,8 @@ def fake_storm(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         request: pytest request object
         duthosts: AnsibleHost instance for multi DUT
         enum_rand_one_per_hwsku_frontend_hostname: hostname of DUT
+        pfcwd_recovery_mode_setup: not read; orders this after the phase's mode switch and
+            recomputes it per phase, so hardware recovery never inherits a cached fake storm
 
     Returns:
         fake_storm: False/True
@@ -238,7 +330,8 @@ def set_pfc_timer_cisco_8000(duthost, script, asic_to_ports):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def save_and_restore_pfcwd_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def save_and_restore_pfcwd_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                  pfcwd_recovery_mode_setup):
     """
     Fixture that saves PFCWD configuration before each test and restores it after
 
@@ -274,14 +367,17 @@ def save_and_restore_pfcwd_config(duthosts, enum_rand_one_per_hwsku_frontend_hos
     # Stop current PFCWD
     duthost.shell("pfcwd stop", module_ignore_errors=True)
 
-    if pfcwd_config:
-        # Restore POLL_INTERVAL if it exists
-        if "GLOBAL" in pfcwd_config and "POLL_INTERVAL" in pfcwd_config["GLOBAL"]:
-            poll_interval = pfcwd_config["GLOBAL"]["POLL_INTERVAL"]
-            cmd = "pfcwd interval {}".format(poll_interval)
-            duthost.shell(cmd, module_ignore_errors=True)
-            logger.info("Restored POLL_INTERVAL to {}".format(poll_interval))
+    original_global = (pfcwd_config or {}).get('GLOBAL', {})
+    if 'POLL_INTERVAL' in original_global:
+        poll_interval = original_global['POLL_INTERVAL']
+        cmd = "pfcwd interval {}".format(poll_interval)
+        duthost.shell(cmd, module_ignore_errors=True)
+        logger.info("Restored POLL_INTERVAL to {}".format(poll_interval))
+    elif redis_hdel(duthost, "CONFIG_DB", "PFC_WD|GLOBAL", "POLL_INTERVAL").get("stdout", "").strip() == "1":
+        # A software phase on a hardware-default device adds a POLL_INTERVAL the device never had.
+        logger.info("Removed the POLL_INTERVAL this run introduced")
 
+    if pfcwd_config:
         # Restore per-port PFCWD settings
         # Group ports by their configuration (action, detection_time, restoration_time)
         config_groups = {}

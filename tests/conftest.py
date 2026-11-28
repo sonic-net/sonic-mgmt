@@ -57,7 +57,7 @@ from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.helpers.dut_utils import encode_dut_and_container_name
 from tests.common.helpers.parallel_utils import ParallelCoordinator, ParallelStatus, ParallelRunContext
 from tests.common.helpers.pfcwd_helper import TrafficPorts, select_test_ports, set_pfc_timers, \
-    is_pfcwd_hw_recovery_enabled
+    is_pfcwd_hw_recovery_enabled, HARDWARE, SOFTWARE, NATIVE
 from tests.common import constants
 from tests.common.system_utils import docker
 from tests.common.testbed import TestbedInfo
@@ -195,6 +195,11 @@ def pytest_addoption(parser):
                      help="Log IPinIP protocol distribution and ASIC_DB hash/ECMP diagnostics")
     parser.addoption("--qos_swap_syncd", action="store", type=str2bool, default=True,
                      help="Swap syncd container with syncd-rpc container")
+
+    # pfcwd: registered at the root so run_tests.sh -e reaches the prepare step too.
+    parser.addoption("--pfcwd-recovery-modes", action="store", default="native", type=str,
+                     help="PFC watchdog recovery mechanisms the pfcwd suite runs under: 'native' (the one the DUT "
+                          "boots into, default) or a comma separated list of hardware,software")
 
     # Kubernetes master options
     parser.addoption("--kube_master", action="store", default=None, type=str,
@@ -474,6 +479,15 @@ def pytest_addoption(parser):
 
 
 def pytest_configure(config):
+    # Parsed here rather than in the pfcwd conftest because mode-sensitive fixtures shared
+    # with other suites (setup_pfc_test) read it through the pfcwd_recovery_mode fixture.
+    option = config.getoption('--pfcwd-recovery-modes')
+    requested = list(dict.fromkeys(m.strip().lower() for m in option.split(',') if m.strip()))
+    if requested != [NATIVE] and (not requested or any(mode not in (HARDWARE, SOFTWARE) for mode in requested)):
+        raise pytest.UsageError('--pfcwd-recovery-modes takes {!r} or a comma separated list of {} and {}, '
+                                'got {!r}'.format(NATIVE, HARDWARE, SOFTWARE, option))
+    config.pfcwd_recovery_modes = requested
+
     if config.getoption("enable_macsec"):
         topo = config.getoption("topology")
         if topo is not None and "t2" in topo:
@@ -4010,9 +4024,22 @@ def ip_version(request):
     return request.param
 
 
+@pytest.fixture(scope="session")
+def pfcwd_recovery_mode(request):
+    """
+    The PFC watchdog recovery mechanism the current phase of the run covers, or NATIVE.
+
+    The pfcwd conftest parametrizes it (session scope) for tests under tests/pfcwd only.
+    Mode-sensitive fixtures must depend on it so a phase switch recomputes them instead
+    of reusing a value cached under the other mechanism.
+    """
+    return getattr(request, "param", None) or request.config.pfcwd_recovery_modes[0]
+
+
 @pytest.fixture(scope="module")
 def setup_pfc_test(
     duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo, ip_version,     # noqa F811
+    pfcwd_recovery_mode,
 ):
     """
     Sets up all the parameters needed for the PFC Watchdog tests
@@ -4021,6 +4048,8 @@ def setup_pfc_test(
         duthost: AnsibleHost instance for DUT
         ptfhost: AnsibleHost instance for PTF
         conn_graph_facts: fixture that contains the parsed topology info
+        pfcwd_recovery_mode: not read; the dependency recomputes this module-scoped setup
+            (and everything cached from it) when the pfcwd suite switches recovery phases
 
     Yields:
         setup_info: dictionary containing pfc timers, generated test ports and selected test ports
