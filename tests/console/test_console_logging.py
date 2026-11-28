@@ -300,15 +300,18 @@ def emit_console_marker(duthost, creds, line):
     try:
         client = create_ssh_client(ip, "{}:{}".format(user, line), password)
         ensure_console_session_up(client, line)
-        # SwitchCpu getty often needs CRs before a login prompt appears.
+        # Wake the far end. A previous console user may have left a shell
+        # logged in; either getty or that shell can echo the marker.
         for _ in range(3):
             client.send('\r')
             time.sleep(0.5)
-        index = client.expect([r'[Ll]ogin:', pexpect.TIMEOUT], timeout=10)
-        if index == 1:
+        shell_prompt = r'(?m)^[\w.-]+@[\w.-]+(?::[^\r\n]*)?[#$][ \t]*$'
+        index = client.expect([r'[Ll]ogin:', shell_prompt, pexpect.TIMEOUT], timeout=10)
+        if index == 2:
             pytest.fail(
-                "Precondition failure, not a logging defect: no login prompt on console "
+                "Precondition failure, not a logging defect: no login or shell prompt on console "
                 "line {} after waking the far end".format(line))
+        logger.info("Console line %s is at a %s prompt", line, 'login' if index == 0 else 'shell')
         client.send(marker)
         # Drain first so echoed marker bytes reach the log before Ctrl-U erase chars.
         time.sleep(MARKER_DRAIN_SEC)
