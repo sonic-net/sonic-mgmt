@@ -267,10 +267,10 @@
   - debug: msg="{{ duts_mgmt_port }}"
 
   - include_tasks: add_ceos_list.yml
-    when: vm_type is defined and vm_type == "ceos" and 'bmc' not in topo
+    when: vm_type is defined and vm_type == "ceos" and VM_targets | length > 0 and 'bmc' not in topo
 
   - include_tasks: add_csonic_list.yml
-    when: vm_type is defined and (vm_type == "csonic") and 'bmc' not in topo
+    when: vm_type is defined and (vm_type == "csonic") and VM_targets | length > 0 and 'bmc' not in topo
 
   # starting the simulator below is a no-op while a previous one still runs, so it would keep serving the old topology
   - name: Stop nic simulator
@@ -315,7 +315,7 @@
     # network, so bind is skipped. On servers with a Linux mgmt bridge (default), bind must run so
     # add_mgmt_port_to_docker attaches a veth from the bridge into the PTF netns (vms_exists is
     # False here, so all VM/port binding inside bind is skipped — only mgmt setup happens).
-    when: not enable_async and ("bmc" not in topo or not (ptf_use_docker_network | default(false)))
+    when: (not enable_async or VM_targets | length == 0) and ("bmc" not in topo or not (ptf_use_docker_network | default(false)))
 
   - name: Bind topology {{ topo }} to VMs. base vm = {{ VM_base }} (async mode)
     loop: "{{ VM_targets|flatten(levels=1) }}"
@@ -462,6 +462,7 @@
     include_tasks: patch_exabgp.yml
     when:
       - topo != 'fullmesh'
+      - topo != 'generic'
       - not 'ptf' in topo
       - not 'cable' in topo
       - not 'bmc' in topo
@@ -470,6 +471,7 @@
     include_tasks: announce_routes.yml
     when:
       - topo != 'fullmesh'
+      - topo != 'generic'
       - not 'ptf' in topo
       - not 'cable' in topo
       - not 'bmc' in topo
@@ -499,4 +501,4 @@
   - shell: rm -f {{ root_path }}/images/docker-ptf.tar
   run_once: yes
   become: yes
-  when: vm_type is defined and vm_type == "vsonic" and ptf_on_neighbor is defined and ptf_on_neighbor|bool == true
+  when: topo != 'generic' and vm_type is defined and vm_type == "vsonic" and ptf_on_neighbor is defined and ptf_on_neighbor|bool == true

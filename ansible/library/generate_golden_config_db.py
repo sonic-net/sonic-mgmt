@@ -12,6 +12,7 @@ import json
 import os
 import re
 import ipaddress
+import tempfile
 
 from ansible.module_utils.basic import AnsibleModule
 from sonic_py_common import device_info, multi_asic
@@ -26,6 +27,7 @@ Description:
         golden_config_db.json. This module is to generate required /etc/sonic/golden_config_db.json
     Input:
         topo_name: Name of current topo
+        port_config_file: Explicit generated port map; port_config then produces a complete configuration for reload
 '''
 
 GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
@@ -177,6 +179,9 @@ class GenerateGoldenConfigDBModule(object):
     def __init__(self):
         self.module = AnsibleModule(argument_spec=dict(topo_name=dict(required=True, type='str'),
                                     port_index_map=dict(required=False, type='dict', default=None),
+                                    port_config=dict(required=False, type='dict', default={}),
+                                    port_config_file=dict(required=False, type='path', default=None),
+                                    service_ports=dict(required=False, type='list', elements='str', default=[]),
                                     port_speeds=dict(required=False, type='dict', default=None),
                                     port_override_from_links=dict(required=False, type='bool', default=False),
                                     macsec_profile=dict(required=False, type='str', default=None),
@@ -199,8 +204,17 @@ class GenerateGoldenConfigDBModule(object):
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
+        self.port_config = self.module.params['port_config']
+        self.port_config_file = self.module.params['port_config_file']
+        self.service_ports = self.module.params['service_ports']
         self.port_speeds = self.module.params['port_speeds']
         self.port_override_from_links = self.module.params['port_override_from_links']
+        if self.port_config and not self.port_config_file:
+            self.module.fail_json(msg="port_config requires port_config_file")
+        if self.port_config and self.port_override_from_links:
+            self.module.fail_json(msg="port_config cannot be combined with port_override_from_links")
+        if self.service_ports and not set(self.service_ports).issubset((self.port_config or {}).get("PORT", {})):
+            self.module.fail_json(msg="service_ports must be present in the generated PORT configuration")
         self.macsec_profile = self.module.params['macsec_profile']
         self.num_asics = self.module.params['num_asics']
         self.hwsku = self.module.params['hwsku']
@@ -328,15 +342,56 @@ class GenerateGoldenConfigDBModule(object):
         gold_config_db.update(dhcp_server_config_obj)
         return gold_config_db
 
-    def generate_full_lossy_golden_config_db(self):
-        rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
+    def _get_minigraph_config(self):
+        command = ["sonic-cfggen", "-H", "-m", "-j", "/etc/sonic/init_cfg.json", "--print-data"]
+        if self.port_config_file:
+            command.extend(["-p", self.port_config_file])
+        rc, out, err = self.module.run_command(command)
         if rc != 0:
             self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
+        return json.loads(out)
 
-        # Generate config table from init_cfg.ini
-        ori_config_db = json.loads(out)
+    def generate_generic_qos_config(self, config):
+        """Render native QoS/buffers using selected cables before loading the configuration."""
+        platform_dir, _ = device_info.get_paths_to_platform_and_hwsku_dirs()
+        hwsku_dir = os.path.join(platform_dir, self.hwsku)
+        with tempfile.TemporaryDirectory(prefix="generic-qos-") as directory:
+            config_path = os.path.join(directory, "config.json")
+            template_path = os.path.join(directory, "buffers.j2")
+            buffers_path = os.path.join(directory, "buffers.json")
+            qos_path = os.path.join(directory, "qos.json")
+            render_config = json.loads(config)
+            # Native templates use all ports when no neighbor table is supplied.
+            if render_config.get("DEVICE_NEIGHBOR") == {}:
+                del render_config["DEVICE_NEIGHBOR"]
+            with open(config_path, "w") as config_file:
+                json.dump(render_config, config_file)
+            with open(template_path, "w") as template_file:
+                template_file.write(
+                    "{% macro cable_length(port_name) %}"
+                    "{{ CABLE_LENGTH['AZURE'][port_name] }}{% endmacro %}\n"
+                    "{% include 'buffers.json.j2' %}\n")
+            command = [
+                "sonic-cfggen", "-j", config_path, "-T", hwsku_dir,
+                "-t", template_path + "," + buffers_path,
+                "-t", os.path.join(hwsku_dir, "qos.json.j2") + "," + qos_path,
+                "-y", device_info.get_sonic_version_file(),
+            ]
+            rc, _, err = self.module.run_command(command)
+            if rc != 0:
+                self.module.fail_json(msg="Failed to generate native Generic QoS/buffers: {}".format(err))
+            rendered = json.loads(config)
+            for path in (buffers_path, qos_path):
+                with open(path) as generated:
+                    rendered.update(json.load(generated))
+            if rendered.get("CABLE_LENGTH") != self.port_config["CABLE_LENGTH"]:
+                self.module.fail_json(msg="Native QoS/buffer templates replaced generated cable lengths")
+            return json.dumps(rendered, indent=4)
 
-        golden_config_db = {}
+    def generate_full_lossy_golden_config_db(self):
+        ori_config_db = self._get_minigraph_config()
+
+        golden_config_db = ori_config_db if self.port_config else {}
         if "DEVICE_METADATA" in ori_config_db:
             golden_config_db["DEVICE_METADATA"] = ori_config_db["DEVICE_METADATA"]
             if ("localhost" in golden_config_db["DEVICE_METADATA"] and
@@ -1070,16 +1125,14 @@ class GenerateGoldenConfigDBModule(object):
         return json.dumps(ori_config_db, indent=4)
 
     def generate_default_init_config_db(self):
-        rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
-        if rc != 0:
-            self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
+        ori_config_db = self._get_minigraph_config()
 
-        # Generate config table from init_cfg.ini
-        ori_config_db = json.loads(out)
-
-        golden_config_db = {}
+        golden_config_db = ori_config_db if self.port_config else {}
         if "DEVICE_METADATA" in ori_config_db:
             golden_config_db["DEVICE_METADATA"] = ori_config_db["DEVICE_METADATA"]
+
+        if self.port_config:
+            golden_config_db["PORT"] = ori_config_db.get("PORT", {})
 
         # Set buffer_model to traditional to prevent regression, as it is currently
         # hardcoded here:
@@ -1418,6 +1471,8 @@ class GenerateGoldenConfigDBModule(object):
         platform's port_config file explicitly to get the same pristine
         render.
         """
+        if self.port_config_file:
+            return self._get_minigraph_config().get('PORT', {})
         cmd = "sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data"
         try:
             port_config_path = device_info.get_path_to_port_config_file()
@@ -1533,6 +1588,18 @@ class GenerateGoldenConfigDBModule(object):
         else:
             config = self.generate_default_init_config_db()
 
+        if self.port_config:
+            config_dict = json.loads(config)
+            native_ports = config_dict.get("PORT", {})
+            config_dict.update(copy.deepcopy(self.port_config))
+            for name, row in config_dict.get("PORT", {}).items():
+                if name in self.service_ports:
+                    continue
+                for field in ("autoneg", "fec"):
+                    if field in native_ports.get(name, {}):
+                        row[field] = native_ports[name][field]
+            config = json.dumps(config_dict, indent=4)
+
         # set switch-host admin_up by default for BMC
         if "bmc" in self.topo_name:
             config = self.set_switch_host_admin_up_config(config)
@@ -1603,6 +1670,14 @@ class GenerateGoldenConfigDBModule(object):
             if not dm.get("platform") and self.platform:
                 dm["platform"] = self.platform
             config = json.dumps(config_dict, indent=4)
+
+        if self.port_config:
+            if self.service_ports:
+                config_dict = json.loads(config)
+                for name in self.service_ports:
+                    config_dict["PORT"][name] = copy.deepcopy(self.port_config["PORT"][name])
+                config = json.dumps(config_dict, indent=4)
+            config = self.generate_generic_qos_config(config)
 
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
             temp_file.write(config)

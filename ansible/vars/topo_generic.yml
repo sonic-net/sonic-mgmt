@@ -1,0 +1,16 @@
+# add-topo fills host_interfaces from the calculated DUT ports and existing lab VLANs.
+topology:
+  host_interfaces: []
+  DUT:
+    vlan_configs:
+      default_vlan_config: one_vlan_a
+      one_vlan_a:
+        Vlan1000:
+          id: 1000
+          tag: 1000
+          prefix: 192.168.0.1/21
+          prefix_v6: fc02:1000::1/64
+          intfs: []
+configuration_properties:
+  common:
+    dut_type: ToRRouter

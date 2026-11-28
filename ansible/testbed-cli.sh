@@ -116,6 +116,8 @@ function usage
   echo "        --dry-run             Preview changes without writing"
   echo
   echo "You should define your topology in testbed YAML file"
+  echo "For Generic HWSKU, add a separate named entry in that file with topo: generic."
+  echo "Use the normal add-topo, deploy-mg and remove-topo commands with that testbed name."
   echo
   exit
 }
@@ -464,12 +466,13 @@ function wait_parallel_processes() {
   local -n pids_ref=$2
   local server_count=$3
   local log_timestamp=$4
+  local result=0
 
   # Wait for all parallel processes to complete
   if [[ "$parallel_execution" == "true" ]]; then
     for i in $(seq 0 $(($server_count-1))); do
       if [[ -n "${pids_ref[$i]}" ]]; then
-        wait ${pids_ref[$i]}
+        wait ${pids_ref[$i]} || result=$?
       fi
     done
 
@@ -490,6 +493,7 @@ function wait_parallel_processes() {
       fi
     done
   fi
+  return "$result"
 }
 
 function add_topo
@@ -549,12 +553,12 @@ function add_topo
       pids[$i]=$!
     else
       # Serial execution: run synchronously
-      eval "$ansible_cmd"
+      eval "$ansible_cmd" || return $?
     fi
   done
 
   # Wait for all parallel processes to complete
-  wait_parallel_processes "add" pids "$server_count" "$log_timestamp"
+  wait_parallel_processes "add" pids "$server_count" "$log_timestamp" || return $?
 
   # Execute fanout connection and cleanup steps
   for i in $(seq 0 $(($server_count-1)))
@@ -570,7 +574,7 @@ function add_topo
     fi
 
     if [[ "$ptf_imagename" != "docker-keysight-api-server" ]]; then
-      ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $fanout_options "$@"
+      ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $fanout_options "$@" || return $?
     fi
 
     if [[ $topo == *"t2"* ]]; then
@@ -648,12 +652,12 @@ function remove_topo
       pids[$i]=$!
     else
       # Serial execution: run synchronously
-      eval "$ansible_cmd"
+      eval "$ansible_cmd" || return $?
     fi
   done
 
   # Wait for all parallel processes to complete
-  wait_parallel_processes "remove" pids "$server_count" "$log_timestamp"
+  wait_parallel_processes "remove" pids "$server_count" "$log_timestamp" || return $?
 
   echo Done
 }

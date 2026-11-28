@@ -140,6 +140,7 @@
     append: yes
     groups: libvirt
   become: yes
+  when: topo | default('') != 'generic' or is_vs_testbed | default(false) | bool
 
 # ---- Async flag ----
 - name: Initialize async flag
@@ -192,12 +193,14 @@
         permissions: x
         state: present
       become: yes
-      when: package_installation | bool
+      when:
+        - package_installation | bool
+        - topo | default('') != 'generic' or is_vs_testbed | default(false) | bool
 
 # ---- VM setup ----
 - name: Require veos or SONiC or cisco VMs by default
   set_fact:
-    vm_required: true
+    vm_required: "{{ topo | default('') != 'generic' }}"
 
 - name: veos or SONiC or cisco VMs not needed when setting up Kubernetes master
   set_fact:
@@ -219,11 +222,19 @@
     - ptf_imagename is defined
     - ptf_imagename == "docker-ptf-anvl"
 
+- name: Initialize Generic PTF-only context
+  set_fact:
+    VM_hosts: []
+    VM_targets: []
+    vm_properties: {}
+  when: topo | default('') == 'generic'
+
 - name: Retrieve a list of the defined VMs
   virt: command=list_vms
         uri=qemu:///system
   register: vm_list_defined
   become: true
+  when: topo | default('') != 'generic' or is_vs_testbed | default(false) | bool
 
 - name: Retrieve a list of the running VMs
   virt: command=list_vms
@@ -231,6 +242,7 @@
         state=running
   register: vm_list_running
   become: true
+  when: topo | default('') != 'generic' or is_vs_testbed | default(false) | bool
 
 - name: Set vm_state_string according to ansible version
   set_fact:
@@ -246,6 +258,7 @@
         state={{ vm_state_string }}
   register: vm_list_paused
   become: true
+  when: topo | default('') != 'generic' or is_vs_testbed | default(false) | bool
 
 - name: Require VMs as CEOS by default
   set_fact:

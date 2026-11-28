@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.port_layout import expand_modes, generate_port_config
 import json
 import re
 import os
@@ -84,8 +85,9 @@ class SonicPortAliasMap():
 
     """
 
-    def __init__(self, hwsku):
+    def __init__(self, hwsku, ports=None):
         self.hwsku = hwsku
+        self.ports = ports
         # platform.json/hwsku.json carry a speed for every port, so those are platform defaults
         # rather than the explicit per-port overrides port_config.ini optionally provides.
         self.speed_is_platform_default = False
@@ -102,6 +104,26 @@ class SonicPortAliasMap():
                 if key in PLATFORM_KEYS:
                     return value
         return None
+
+    def generate_config(self, connections, vlan_map, min_subports, current_ports=None):
+        from portconfig import BreakoutCfg, get_port_config
+
+        platform = self.get_platform_type()
+        platform_dir = os.path.join(FILE_PATH, platform)
+        with open(os.path.join(platform_dir, PLATFORM_JSON)) as source:
+            capabilities = json.load(source)
+        hwsku_dir = os.path.join(platform_dir, self.hwsku)
+        path = self.get_portconfig_path()
+        if path is None:
+            raise ValueError("Cannot find installed port configuration for " + self.hwsku)
+        base_ports, _, _ = get_port_config(hwsku=self.hwsku, platform=platform, port_config_file=path)
+        with open(os.path.join(hwsku_dir, "pg_profile_lookup.ini")) as source:
+            lookup = source.read()
+        result = generate_port_config(
+            expand_modes(capabilities, BreakoutCfg), lookup, base_ports, connections, vlan_map, min_subports,
+            current_ports=current_ports)
+        result.update(platform=platform, hwsku=self.hwsku)
+        return result
 
     def get_portconfig_path(self, slotid=None, asic_id=None):
         platform = self.get_platform_type()
@@ -150,7 +172,10 @@ class SonicPortAliasMap():
 
         (ports, _, _) = parse_platform_json_file(hwsku_json_path, platform_json_path)
         self.speed_is_platform_default = True
+        return self._get_portmap_from_ports(ports, asic_id, include_internal, hostname, switchid, card_type)
 
+    def _get_portmap_from_ports(self, ports, asic_id=None, include_internal=False,
+                                hostname=None, switchid=None, card_type=None):
         aliases = []
         front_panel_aliases = []
         inband_aliases = []
@@ -211,6 +236,9 @@ class SonicPortAliasMap():
 
     def get_portmap(self, asic_id=None, include_internal=False,
                     hostname=None, switchid=None, slotid=None, card_type=None):
+        if self.ports is not None:
+            return self._get_portmap_from_ports(
+                self.ports, asic_id, include_internal, hostname, switchid, card_type)
         aliases = []
         front_panel_aliases = []
         inband_aliases = []
@@ -362,12 +390,28 @@ def main():
             hostname=dict(type='str', required=False),
             switchids=dict(type='list', required=False),
             slotid=dict(type='str', required=False),
-            sort_by_index=dict(type='bool', required=False, default=True)
+            sort_by_index=dict(type='bool', required=False, default=True),
+            generate_config=dict(type='bool', default=False),
+            device_conn=dict(type='dict', default={}),
+            vlan_map=dict(type='dict', default={}),
+            port_config=dict(type='dict', default=None),
+            min_subports=dict(type='int', default=0)
         ),
         supports_check_mode=True
     )
     m_args = module.params
     try:
+        if m_args['generate_config']:
+            rc, out, err = module.run_command(["sonic-cfggen", "-d", "--var-json", "PORT"])
+            if rc != 0:
+                module.fail_json(msg="Failed to read running ports for Generic service-port preservation: " + err)
+            current_ports = json.loads(out)
+            if not isinstance(current_ports, dict) or not current_ports:
+                module.fail_json(msg="Running PORT configuration is missing for Generic service-port preservation")
+            result = SonicPortAliasMap(m_args['hwsku']).generate_config(
+                m_args['device_conn'], m_args['vlan_map'], m_args['min_subports'], current_ports=current_ports)
+            module.exit_json(ansible_facts={'port_config': result})
+            return
         aliases = []  # list of port aliases
         front_panel_aliases = []  # list of (front panel port aliases, port indexes)
         portmap = {}  # name to alias map
@@ -403,7 +447,7 @@ def main():
                                             'sysports': sysports,
                                             'port_index_map': indexmap})
             return
-        allmap = SonicPortAliasMap(m_args['hwsku'])
+        allmap = SonicPortAliasMap(m_args['hwsku'], m_args['port_config'])
         switchids = None
         slotid = None
         if 'switchids' in m_args and m_args['switchids'] is not None and len(m_args['switchids']):

@@ -1,4 +1,7 @@
 <DeviceMiniGraph xmlns="Microsoft.Search.Autopilot.Evolution" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+{% if topo == 'generic' %}
+{% set device_conn = generic_minigraph_device_conn %}
+{% endif %}
 {% if 'cable' not in topo and 'vm' in vm_topo_config %}
 {% set vms=vm_topo_config['vm'].keys() | sort %}
 {% endif %}

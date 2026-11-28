@@ -272,9 +272,26 @@
       sort_by_index: false
     when: switch_type is defined and switch_type == "voq" and type == "kvm"
 
+  - name: Use the generated Generic DUT configuration
+    set_fact:
+      port_config: "{{ vm_topo_config['DUT']['port_config'] }}"
+      port_config_file: /etc/sonic/port_config_generic.ini
+      sort_by_index: false
+      neighbor_eosvm_mgmt: {}
+    when: topo == 'generic' and init_cfg_profile is not defined
+
+  - name: Install generated Generic port configuration
+    copy:
+      content: "{{ port_config.port_config_ini }}"
+      dest: "{{ port_config_file }}"
+      mode: "0644"
+    become: true
+    when: topo == 'generic' and init_cfg_profile is not defined and deploy | default(false) | bool
+
   - name: find interface name mapping and individual interface speed if defined from dut
     port_alias:
       hwsku: "{{ hwsku }}"
+      port_config: "{{ port_config.config.PORT if port_config is defined and topo == 'generic' else omit }}"
       card_type: "{{ card_type | default('fixed') }}"
       hostname: "{{ inventory_hostname | default('') }}"
       switchids: "{{ switchids | default([]) }}"
@@ -285,6 +302,7 @@
   - name: find interface name mapping and individual interface speed if defined with local data
     port_alias:
       hwsku: "{{ hwsku }}"
+      port_config: "{{ port_config.config.PORT if port_config is defined and topo == 'generic' else omit }}"
       num_asic: "{{ num_asics }}"
       card_type: "{{ card_type | default('fixed') }}"
       hostname: "{{ inventory_hostname | default('') }}"
@@ -293,6 +311,16 @@
       sort_by_index: "{{ sort_by_index | default(true) }}"
     delegate_to: localhost
     when: (deploy is not defined or deploy|bool == false) and not (is_bmc_topo | bool)
+
+  - name: Use generated Generic minigraph connection view
+    set_fact:
+      generic_minigraph_device_conn: >-
+        {{ device_conn | combine({inventory_hostname:
+          device_conn[inventory_hostname] | dict2items |
+          selectattr('key', 'in', port_config.port_vlan_map | map('int') |
+            map('extract', port_alias) | map('extract', port_alias_map) | list) |
+          items2dict}) }}
+    when: topo == 'generic' and init_cfg_profile is not defined
 
   - name: find and generate fabric ASIC information
     fabric_info:
@@ -406,7 +434,7 @@
     when: vm_file is not defined
 
   - set_fact:
-      VM_topo: "{% if 'ptf' in topo %}False{% else %}True{% endif %}"
+      VM_topo: "{% if 'ptf' in topo or topo == 'generic' %}False{% else %}True{% endif %}"
       remote_dut: "{{ ansible_ssh_host }}"
 
   - name: gather testbed VM information
@@ -614,16 +642,19 @@
           src: 'templates/docker_http_proxy.j2'
           dest: '/etc/systemd/system/docker.service.d/http-proxy.conf'
           force: yes
+        register: docker_proxy_config
 
       - name: restart docker service, let docker proxy takes effect
         systemd:
           state: restarted
           daemon_reload: yes
           name: docker
+        when: docker_proxy_config.changed
 
       - name: Wait 60s for docker containers to restart
         pause:
           seconds: 60
+        when: docker_proxy_config.changed
     become: true
     when: proxy_env is defined and deploy is defined and deploy|bool == true
 
@@ -668,12 +699,6 @@
           bgp_confd_asn: "{{ hostvars[inventory_hostname]['configuration_properties']['common']['dut_confed_asn'] | default(None) }}"
           bgp_confd_peers: "{{ hostvars[inventory_hostname]['configuration_properties']['common']['dut_confed_peers'] | default(None) }}"
 
-      - name: saved original minigraph file in SONiC DUT(ignore errors when file does not exist)
-        shell: mv /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.orig
-        become: true
-        ignore_errors: true
-        when: init_cfg_profile is not defined
-
       - name: Determine if configuring IPv6-only management (based on use_ipv6_mgmt flag, not current ansible_host)
         set_fact:
             sonic_mgmt_ipv6: "{{ use_ipv6_mgmt is defined and use_ipv6_mgmt|bool == true }}"
@@ -707,10 +732,22 @@
       - debug: msg="tacacs_servers {{ tacacs_servers }}"
 
       - name: create new minigraph file for SONiC device
-        template: src=templates/minigraph_template.j2
-                  dest=/etc/sonic/minigraph.xml
+        template:
+          src: templates/minigraph_template.j2
+          dest: /etc/sonic/minigraph.xml
+          backup: true
+        register: minigraph_render
         become: true
         when: init_cfg_profile is not defined
+
+      - name: Preserve the previous minigraph as the original backup
+        copy:
+          remote_src: true
+          src: "{{ minigraph_render.backup_file }}"
+          dest: /etc/sonic/minigraph.xml.orig
+          mode: preserve
+        become: true
+        when: init_cfg_profile is not defined and minigraph_render.backup_file is defined
 
       - block:
         - name: Load variables from vars/init_cfg_profiles.yml
@@ -950,6 +987,9 @@
       - name: Generate golden_config_db.json
         generate_golden_config_db:
           topo_name: "{{ topo }}"
+          port_config: "{{ port_config.config if topo == 'generic' else omit }}"
+          port_config_file: "{{ port_config_file if topo == 'generic' else omit }}"
+          service_ports: "{{ port_config.service_ports if topo == 'generic' else omit }}"
           port_index_map: "{{ port_index_map | default({}) }}"
           port_speeds: "{{ (lab_csv_result.stdout | from_json).port_speeds if (port_override_from_links | default(false) | bool) and lab_csv_result is defined and lab_csv_result.rc == 0 else omit }}"
           port_override_from_links: "{{ port_override_from_links | default(false) | bool }}"
@@ -967,7 +1007,7 @@
           console_ports: "{{ device_serial_link[inventory_hostname] | default(omit) if 'c0' in topo else omit }}"
           enabled_dpu_indices: "{{ (testbed_facts.enabled_dpus[inventory_hostname] | map(attribute='dpu_index') | list) if (testbed_facts.enabled_dpus is defined and inventory_hostname in testbed_facts.enabled_dpus) else omit }}"
           lacp_fast_rate: "{{ lacp_fast_rate | default(false) }}"
-          device_conn: "{{ device_conn[inventory_hostname] | default({}) }}"
+          device_conn: "{{ generic_minigraph_device_conn[inventory_hostname] if topo == 'generic' else device_conn[inventory_hostname] | default({}) }}"
         become: true
         when: enable_macsec is not defined and init_cfg_profile is not defined
 
@@ -1051,12 +1091,29 @@
           - hwsku is defined
           - hwsku == 'cisco-8101-p4-32x100-vs'
           - not (use_ipv6_mgmt|default(false)|bool)
-        when: init_cfg_profile is not defined
+        when: init_cfg_profile is not defined and topo != 'generic'
 
       - name: SONiC config reload to pick up config_db.json
         command: config reload -y
         become: yes
         when: init_cfg_profile is defined
+
+      - name: Load generated Generic configuration without changing startup
+        command: config reload -y /etc/sonic/golden_config_db.json
+        become: true
+        async: "{{ 300 if use_ipv6_mgmt | default(false) | bool else 0 }}"
+        poll: "{{ 0 if use_ipv6_mgmt | default(false) | bool else 15 }}"
+        register: generic_reload
+        when: topo == 'generic' and init_cfg_profile is not defined
+
+      - name: Use IPv6 management after Generic reload
+        set_fact:
+          ansible_host: "{{ ansible_hostv6 | default(ansible_host, true) }}"
+        when: topo == 'generic' and init_cfg_profile is not defined and use_ipv6_mgmt | default(false) | bool
+
+      - name: Reconnect after Generic IPv6 management transition
+        meta: reset_connection
+        when: topo == 'generic' and init_cfg_profile is not defined and use_ipv6_mgmt | default(false) | bool
 
       - name: Wait for switch to become reachable again
         become: false
@@ -1071,6 +1128,36 @@
           delay: 10
           timeout: 600
         changed_when: false
+
+      - name: Wait for generated Generic reload to complete
+        async_status:
+          jid: "{{ generic_reload.ansible_job_id }}"
+        register: generic_reload_status
+        until: generic_reload_status.finished | bool
+        retries: 30
+        delay: 10
+        become: true
+        when: topo == 'generic' and init_cfg_profile is not defined and use_ipv6_mgmt | default(false) | bool
+
+      - name: Read loaded Generic default PFC watchdog policy
+        command:
+          argv:
+            - sonic-cfggen
+            - -d
+            - -v
+            - "DEVICE_METADATA.localhost.get('default_pfcwd_status', 'enable')"
+        register: generic_pfcwd_policy
+        changed_when: false
+        become: true
+        when: topo == 'generic' and init_cfg_profile is not defined
+
+      - name: Start default PFC watchdog for Generic topology
+        command: pfcwd start_default
+        become: true
+        when:
+          - topo == 'generic'
+          - init_cfg_profile is not defined
+          - generic_pfcwd_policy.stdout | trim | lower == 'enable'
 
       - name: Validate breakout config params
         assert:
