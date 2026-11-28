@@ -619,6 +619,7 @@ class BGPTest(PolicyTest):
         PolicyTest.__init__(self)
         test_params = testutils.test_params_get()
         self.packet_size = int(test_params.get('packet_size', 100))
+        self.tcp_sport = int(test_params.get('tcp_sport', 1234))
 
     def runTest(self):
         self.log("BGPTest with packet size: {}".format(self.packet_size))
@@ -636,6 +637,7 @@ class BGPTest(PolicyTest):
             ip_dst=dst_ip,
             ip_src=src_ip,
             ip_ttl=1,
+            tcp_sport=self.tcp_sport,
             tcp_dport=179
         )
 
