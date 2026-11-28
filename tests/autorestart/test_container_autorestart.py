@@ -15,6 +15,7 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common import config_reload
+from tests.common import dhcp_relay_utils
 from tests.common.helpers.dut_utils import get_disabled_container_list
 
 logger = logging.getLogger(__name__)
@@ -50,6 +51,15 @@ SINGLE_CONTAINER_TEST_TIMEOUT_SECS = 2400
 # on a slow/modular topology -- completes well within this; if recovery itself
 # exceeds it, something is badly wrong and we just log and fail the case anyway.
 RECOVERY_RELOAD_TIMEOUT_SECS = 600
+
+
+def get_internal_idle_relay_type(duthost):
+    """Return the explicit internal idle mode selected by the SONiC relay flag."""
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
+    device_metadata = config_facts["DEVICE_METADATA"]["localhost"]
+    if device_metadata.get("has_sonic_dhcpv4_relay", "False") == "True":
+        return "sonic"
+    return "isc-internal-idle"
 
 
 class ContainerAutorestartTimeout(BaseException):
@@ -133,15 +143,7 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname, tb
             dhcp_server_hosts.append(hostname)
             duthost.shell("config feature state %s enabled" % DHCP_SERVER)
             duthost.shell("sudo config feature autorestart %s enabled" % DHCP_SERVER)
-            duthost.shell("sudo systemctl restart %s.service" % DHCP_RELAY)
-            pytest_require(
-                wait_until(120, 1, 1,
-                           is_supervisor_program_running,
-                           duthost,
-                           DHCP_RELAY,
-                           "dhcp-relay:dhcprelayd"),
-                "dhcp-relay:dhcprelayd is not running"
-            )
+            dhcp_relay_utils.restart_dhcp_service(duthost, [get_internal_idle_relay_type(duthost)])
     yield
     # Config reload should set the auto restart back to state before test started
     for hostname in selected_rand_one_per_hwsku_hostname:
@@ -149,10 +151,6 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname, tb
         config_reload(duthost, config_source='config_db', safe_reload=True, wait_for_bgp=True)
         if hostname in dhcp_server_hosts:
             duthost.shell("docker rm %s" % DHCP_SERVER, module_ignore_errors=True)
-
-
-def is_supervisor_program_running(duthost, container_name, program_name):
-    return "RUNNING" in duthost.shell(f"docker exec {container_name} supervisorctl status {program_name}")["stdout"]
 
 
 def enable_autorestart(duthost):
