@@ -3,7 +3,7 @@ import logging
 from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 'm0', 'mx', 'm1', 'uma', 'lma'),
+    pytest.mark.topology('t0', 't1', 'm0', 'mx', 'm1', 'uma', 'lma', 'lt2'),
 ]
 
 logger = logging.getLogger(__name__)
