@@ -48,6 +48,8 @@ For single-ASIC DUT hosts, no changes were made to the paths, ensuring compatibi
 - test_ipv6.py --> test_ip_bgp.py
 Previously, this test case verified paths only for IPv6 BGP neighbors. It has been expanded to run repeatedly for both IPv4 and IPv6 BGP neighbor types. As a result, the test suite file has been renamed to test_ip_bgp.py to reflect its broader scope.
 
+Administrative shutdown is verified on the DUT by matching the exact neighbor address and `Idle (Admin)` on the same BGP summary row. The test checks the command's exit status so missing captured stdout cannot cause a false failure; missing neighbors and other BGP states still fail.
+
 ### Test PRs
 
 Above changes were added via Test PRs:

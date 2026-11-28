@@ -178,10 +178,11 @@ def ip_neighbor_admin_change(duthost, namespace=None, ip_version=6):
         expect_op_success(duthost, output)
 
         ip_type = "ip" if ip_version == 4 else 'ipv6'
-        cmds = "show {} bgp su | grep -w {}".format(ip_type, ip_neighbor_address)
-        output = duthost.shell(cmds)
-        pytest_assert(not output['rc'] and "Idle (Admin)" in output['stdout'],
-                      "BGP Neighbor with addr {} failed to admin down.".format(ip_neighbor_address))
+        cmds = r"show {} bgp su | grep -Eq '^[[:space:]]*{}[[:space:]].*Idle \(Admin\)'".format(
+            ip_type, re.escape(ip_neighbor_address))
+        output = duthost.shell(cmds, module_ignore_errors=True)
+        pytest_assert(not output['rc'],
+                      "BGP Neighbor with addr {} failed to admin down. Result: {}".format(ip_neighbor_address, output))
     finally:
         delete_tmpfile(duthost, tmpfile)
 
