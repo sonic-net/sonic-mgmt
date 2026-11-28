@@ -12,11 +12,12 @@ request surface.
 """
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import sys
 import time
-from collections.abc import Generator, Iterable
+from collections.abc import Generator, Iterable, Iterator
 from enum import Enum
 
 import grpc
@@ -78,6 +79,18 @@ class PygnmiClientCallError(PygnmiClientError):
     """Validation or RPC execution errors (bad args, server-side failures)."""
 
 
+# Errors that _map_error() turns into PygnmiClientError subclasses.
+_GNMI_ERRORS = (grpc.RpcError, grpc.FutureTimeoutError, gNMIException, TimeoutError, PygnmiClientError)
+
+
+def _close_silently(client: gNMIclient) -> None:
+    """Close a pygnmi client, ignoring errors; its close() raises if connect() never created a channel."""
+    try:
+        client.close()
+    except Exception as exc:
+        logger.debug("Ignoring gNMIclient close error: %s", exc)
+
+
 def _normalize_paths(paths: str | dict | Iterable) -> list:
     """
     Coerce a path argument into a list of path entries.
@@ -128,8 +141,7 @@ class PygnmiClient:
 
     def __init__(self, host: str, port: int, plaintext: bool = False,
                  ca_cert: str = None, client_cert: str = None,
-                 client_key: str = None, timeout: int = 30,
-                 connect: bool = True):
+                 client_key: str = None, timeout: int = 30):
         """
         Initialize PygnmiClient.
 
@@ -143,15 +155,10 @@ class PygnmiClient:
             client_key: Path to the client private key (required unless plaintext).
             timeout: Per-call gRPC deadline in seconds, also used as the default
                 per-update wait for POLL/ONCE collection.
-            connect: If True (default), open and close a probe channel now so
-                bad target/cert data fails fast. Set False to construct without
-                connecting (e.g. for request-building/validation only).
 
         Raises:
             PygnmiClientCallError: If mTLS mode is requested but cert paths are
                 missing or do not exist on disk.
-            PygnmiClientConnectionError: If connect is True and the initial
-                connection or mTLS handshake fails.
         """
         self.host = host
         self.port = port
@@ -160,14 +167,10 @@ class PygnmiClient:
         self.client_cert = client_cert
         self.client_key = client_key
         self.timeout = timeout
-        self._client = None
         if not self.plaintext:
             self._validate_cert_paths()
         logger.info("Initialized PygnmiClient: host=%s, port=%s, plaintext=%s",
                     self.host, self.port, self.plaintext)
-        if connect:
-            self._ensure_client()
-            self.close()
 
     def _validate_cert_paths(self) -> None:
         """
@@ -203,40 +206,50 @@ class PygnmiClient:
             kwargs["path_key"] = self.client_key
         return gNMIclient(**kwargs)
 
-    def _ensure_client(self) -> gNMIclient:
+    @contextlib.contextmanager
+    def _rpc(self, op: str) -> Iterator[gNMIclient]:
         """
-        Open (or re-open) the gNMIclient channel for the current call.
+        Open a new gNMIclient channel for one gNMI operation, as a ``with`` block.
 
-        Every public RPC closes the channel in a ``finally`` block before
-        returning (see the class docstring on fork safety), so the cached
-        client never outlives a single call; this helper transparently opens
-        a fresh channel on the next one.
+        Each operation owns its channel and closes it before returning (see the
+        class docstring on fork safety), so an operation never closes another's
+        channel, e.g. a set() during an open subscription.
 
-        Returns:
-            The connected ``gNMIclient`` for this instance.
+        Args:
+            op: Name of the gNMI operation (e.g. "get"), for error messages.
+
+        Yields:
+            A connected ``gNMIclient``, closed when the block exits.
+
+        Raises:
+            PygnmiClientError: For any gRPC/gNMI error from connecting or from
+                the ``with`` block, mapped by ``_map_error``. pygnmi's TypeError
+                from its swallowed connect() probe becomes
+                PygnmiClientConnectionError.
         """
-        if self._client is None:
+        try:
             client = self._build_client()
-            client.connect()
-            self._client = client
-        return self._client
-
-    def close(self) -> None:
-        """Close the gNMIclient channel if one is open."""
-        if self._client is not None:
+            # pygnmi's connect() can raise after it has opened the channel.
             try:
-                self._client.close()
+                client.connect()
+            except TypeError as exc:
+                _close_silently(client)
+                # pygnmi's connect() tests `"supported_encodings" in` the result of its own
+                # capabilities() probe, which is None whenever pygnmi swallowed the probe's error.
+                raise PygnmiClientConnectionError(
+                    f"gnmi connect failed: {exc!r}; "
+                    "see the preceding pygnmi log messages for the underlying error") from exc
+            except BaseException:
+                _close_silently(client)
+                raise
+            try:
+                yield client
             finally:
-                self._client = None
-
-    def __enter__(self) -> "PygnmiClient":
-        """Open the channel and return the client for context-manager use."""
-        self._ensure_client()
-        return self
-
-    def __exit__(self, exc_type, exc, tb) -> None:
-        """Close the channel on context-manager exit."""
-        self.close()
+                client.close()
+        except PygnmiClientError:
+            raise
+        except _GNMI_ERRORS as exc:
+            raise self._map_error(exc, op) from exc
 
     def _map_error(self, exc: Exception, op: str) -> PygnmiClientError:
         """
@@ -255,12 +268,15 @@ class PygnmiClient:
         """
         if isinstance(exc, PygnmiClientError):
             return exc
+        # pygnmi wraps the RPC errors of capabilities()/get()/set() (and so of
+        # connect()'s probe); classify by the RPC status, but keep pygnmi's message.
+        rpc_error = exc.orig_exc if isinstance(exc, gNMIException) else exc
         if isinstance(exc, TimeoutError):
             return PygnmiClientTimeoutError(f"gnmi {op} timed out after {self.timeout}s: {exc}")
         if isinstance(exc, grpc.FutureTimeoutError):
-            return PygnmiClientConnectionError(f"gnmi {op} connection timed out: {exc}")
-        if isinstance(exc, grpc.RpcError):
-            code = exc.code()
+            return PygnmiClientConnectionError(f"gnmi {op} connection timed out after {self.timeout}s")
+        if isinstance(rpc_error, grpc.RpcError):
+            code = rpc_error.code()
             if code == grpc.StatusCode.DEADLINE_EXCEEDED:
                 return PygnmiClientTimeoutError(f"gnmi {op} timed out: {exc}")
             if code in (grpc.StatusCode.UNAVAILABLE, grpc.StatusCode.UNAUTHENTICATED):
@@ -283,15 +299,18 @@ class PygnmiClient:
         Raises:
             PygnmiClientConnectionError: If the target is unreachable or mTLS fails.
             PygnmiClientTimeoutError: If the RPC exceeds the configured deadline.
-            PygnmiClientCallError: If the server returns an error.
+            PygnmiClientCallError: If the server returns an error, or pygnmi
+                returns no response.
         """
-        try:
-            return self._ensure_client().capabilities()
-        except (grpc.RpcError, grpc.FutureTimeoutError, gNMIException,
-                TimeoutError, PygnmiClientError) as exc:
-            raise self._map_error(exc, "capabilities") from exc
-        finally:
-            self.close()
+        with self._rpc("capabilities") as gc:
+            result = gc.capabilities()
+        # pygnmi swallows non-RPC errors (and empty responses) with a bare except
+        # and returns None; the root cause is only in pygnmi's own log output.
+        if result is None:
+            raise PygnmiClientCallError(
+                "gnmi capabilities returned no response; "
+                "see the preceding pygnmi log messages for the underlying error")
+        return result
 
     def get(self, paths: str | dict | Iterable,
             datatype: GetDataType = GetDataType.ALL,
@@ -323,15 +342,9 @@ class PygnmiClient:
         paths = _normalize_paths(paths)
         if not paths:
             raise PygnmiClientCallError("get requires at least one path")
-        try:
-            gc = self._ensure_client()
+        with self._rpc("get") as gc:
             return gc.get(path=paths, prefix=prefix, datatype=str(datatype),
                           encoding=str(encoding), target=target)
-        except (grpc.RpcError, grpc.FutureTimeoutError, gNMIException,
-                TimeoutError, PygnmiClientError) as exc:
-            raise self._map_error(exc, "get") from exc
-        finally:
-            self.close()
 
     def set(self, update: list | None = None, replace: list | None = None,
             delete: list | None = None,
@@ -354,22 +367,22 @@ class PygnmiClient:
             results).
 
         Raises:
-            PygnmiClientCallError: If none of update/replace/delete is provided
-                or the server returns an error.
+            PygnmiClientCallError: If none of update/replace/delete is provided,
+                the server returns an error, or pygnmi cannot parse the response.
             PygnmiClientConnectionError: If the target is unreachable or mTLS fails.
             PygnmiClientTimeoutError: If the RPC exceeds the configured deadline.
         """
         if not any([update, replace, delete]):
             raise PygnmiClientCallError("set requires at least one of update, replace, delete")
-        try:
-            gc = self._ensure_client()
-            return gc.set(update=update, replace=replace, delete=delete,
-                          prefix=prefix, encoding=str(encoding), target=target)
-        except (grpc.RpcError, grpc.FutureTimeoutError, gNMIException,
-                TimeoutError, PygnmiClientError) as exc:
-            raise self._map_error(exc, "set") from exc
-        finally:
-            self.close()
+        with self._rpc("set") as gc:
+            result = gc.set(update=update, replace=replace, delete=delete,
+                            prefix=prefix, encoding=str(encoding), target=target)
+        # pygnmi returns None when it cannot parse the SetResponse.
+        if result is None:
+            raise PygnmiClientCallError(
+                "gnmi set returned an unparseable SetResponse; "
+                "see the preceding pygnmi log messages")
+        return result
 
     # --- subscribe (connection binding + bounded collection) -----------------
 
@@ -506,6 +519,11 @@ class PygnmiClient:
                 raise PygnmiClientCallError("poll_count must be > 0")
             if poll_interval < 0:
                 raise PygnmiClientCallError("poll_interval must be >= 0")
+        elif mode == SubscribeMode.STREAM:
+            if collect_seconds <= 0:
+                raise PygnmiClientCallError("collect_seconds must be > 0")
+            if count is not None and count <= 0:
+                raise PygnmiClientCallError("count must be > 0")
 
         request = self._build_subscribe_request(
             paths, mode, stream_mode, sample_interval, heartbeat_interval,
@@ -533,73 +551,79 @@ class PygnmiClient:
             PygnmiClientTimeoutError: If a per-call deadline fires or ONCE never
                 sends sync_response.
         """
-        subscriber = None
-        close_subscriber = None
-        try:
-            gc = self._ensure_client()
-            subscriber = gc.subscribe2(subscribe=request, target=target,
-                                       extension=extension)
-            close_subscriber = self._prepare_subscription_shutdown(subscriber)
-            if mode == SubscribeMode.ONCE:
-                yield from self._iter_once(subscriber)
-            elif mode == SubscribeMode.POLL:
-                yield from self._iter_poll(subscriber, poll_count, poll_interval)
-            else:
-                yield from self._iter_stream(subscriber, collect_seconds, count)
+        with self._subscribe(request, target, extension) as subscriber:
+            try:
+                if mode == SubscribeMode.ONCE:
+                    yield from self._iter_once(subscriber)
+                elif mode == SubscribeMode.POLL:
+                    yield from self._iter_poll(subscriber, poll_count, poll_interval)
+                else:
+                    yield from self._iter_stream(subscriber, collect_seconds, count)
+            except _GNMI_ERRORS:
+                # A failed Subscribe RPC is reported from subscriber.error below.
+                if subscriber.error is None:
+                    raise
             # pygnmi's receiver thread stores a failed Subscribe RPC in subscriber.error and exits,
             # so the iterators above only see an empty queue: STREAM ends early, POLL/ONCE time out.
+            # Check before the with block exits: closing the channel cancels the RPC, and pygnmi
+            # stores that expected CANCELLED in subscriber.error too.
             if subscriber.error is not None:
+                # Mapped here, not by _rpc: pygnmi stores any Exception, not only gRPC/gNMI ones.
                 raise self._map_error(subscriber.error, "subscribe") from subscriber.error
-        except (grpc.RpcError, grpc.FutureTimeoutError, gNMIException,
-                TimeoutError, PygnmiClientError) as exc:
-            if subscriber is not None and subscriber.error is not None:
-                exc = subscriber.error
-            raise self._map_error(exc, "subscribe") from exc
-        finally:
-            if close_subscriber is not None:
-                close_subscriber()
-            else:
-                self.close()
 
-    def _prepare_subscription_shutdown(self, subscriber):
-        """Return a closer that drains pygnmi's receiver thread without noise.
+    @contextlib.contextmanager
+    def _subscribe(self, request, target, extension):
+        """
+        Open a pygnmi subscriber on its own channel, as a ``with`` block.
+
+        Yields:
+            The pygnmi subscriber returned by ``subscribe2``. When the block
+            exits, the channel is closed and the receiver thread is stopped.
+        """
+        with self._rpc("subscribe") as gc:
+            subscriber = gc.subscribe2(subscribe=request, target=target,
+                                       extension=extension)
+            try:
+                yield subscriber
+            finally:
+                self._close_subscription(gc, subscriber)
+
+    def _close_subscription(self, gc, subscriber):
+        """Stop pygnmi's receiver thread without noise.
 
         pygnmi 0.8.15 cannot cancel its internal Subscribe call directly. Its
         subscriber closes only the request iterator, leaving the receive thread
-        blocked until the channel closes. Marking that wrapper-owned shutdown
-        lets us ignore only its expected terminal RPC error and join the thread
-        before returning to the test.
+        blocked until the channel closes. Closing the channel makes the thread
+        raise a terminal RPC error; ignore only that expected error and join the
+        thread before returning to the test.
         """
         thread = getattr(subscriber, "_subscribe_thread", None)
-        closing = [False]
 
+        # Installed only now: an error before shutdown still reaches the original hook. The thread
+        # looks the hook up when it dies, so replacing it on the running thread works.
         if thread is not None and hasattr(thread, "_invoke_excepthook"):
             invoke_excepthook = thread._invoke_excepthook
 
             def invoke_subscription_excepthook(thread):
                 error = sys.exc_info()[1]
-                if closing[0] and self._is_expected_subscription_shutdown(error):
+                if self._is_expected_subscription_shutdown(error):
                     logger.debug("Ignoring expected gNMI subscription shutdown: %s", error)
                     return
                 invoke_excepthook(thread)
 
             thread._invoke_excepthook = invoke_subscription_excepthook
 
-        def close_subscriber():
-            closing[0] = True
-            # Close the channel first: the receiver thread exits only then, and subscriber.close()
-            # waits up to 1s for it.
-            try:
-                self.close()
-            finally:
-                subscriber.close()
-                if thread is not None:
-                    thread.join(self.timeout)
-                    if thread.is_alive():
-                        raise PygnmiClientTimeoutError(
-                            "gNMI subscription receiver did not stop after channel close")
-
-        return close_subscriber
+        # Close the channel first: the receiver thread exits only then, and subscriber.close()
+        # waits up to 1s for it.
+        try:
+            gc.close()
+        finally:
+            subscriber.close()
+            if thread is not None:
+                thread.join(self.timeout)
+                if thread.is_alive():
+                    raise PygnmiClientTimeoutError(
+                        "gNMI subscription receiver did not stop after channel close")
 
     @staticmethod
     def _is_expected_subscription_shutdown(error):
@@ -623,21 +647,16 @@ class PygnmiClient:
         Args:
             subscriber: The pygnmi subscriber yielded by ``subscribe2``.
             collect_seconds: Wall-clock collection window, in seconds. The
-                remaining window is used as the per-update timeout.
+                remaining window is used as the per-update timeout. Validated
+                eagerly in ``subscribe()`` before the RPC is opened.
             count: Optional cap on the number of notifications; None yields for
-                the full window.
+                the full window. Validated eagerly in ``subscribe()`` before the
+                RPC is opened.
 
         Yields:
             pygnmi notification dicts gathered before the count or window bound
             was reached.
-
-        Raises:
-            PygnmiClientCallError: If collect_seconds <= 0 or count is non-positive.
         """
-        if collect_seconds <= 0:
-            raise PygnmiClientCallError("collect_seconds must be > 0")
-        if count is not None and count <= 0:
-            raise PygnmiClientCallError("count must be > 0")
         collected = 0
         deadline = time.monotonic() + collect_seconds
         while True:

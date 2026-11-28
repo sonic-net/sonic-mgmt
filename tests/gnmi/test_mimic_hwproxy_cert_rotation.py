@@ -109,7 +109,6 @@ def test_mimic_hwproxy_cert_rotation(
                     ca_cert="gnmiCA.pem",
                     client_cert="gnmiclient.crt",
                     client_key="gnmiclient.key",
-                    connect=False,
                 )
                 msg = client.capabilities()
                 assert "sonic-db" in [model["name"] for model in msg["supported_models"]], msg
