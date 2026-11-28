@@ -618,6 +618,15 @@ def test_static_route_warmboot(localhost, rand_selected_dut, rand_unselected_dut
         reboot(duthost, localhost, reboot_type='warm', wait_warmboot_finalizer=True, safe_reboot=True)
 
 
+def orchagent_ready_for_warmboot(duthost):
+    """Check whether orchagent has drained pending tasks before warm reboot."""
+    result = duthost.shell(
+        "docker exec -i swss /usr/bin/orchagent_restart_check -w 1000 -r 1",
+        module_ignore_errors=True
+    )
+    return result["rc"] == 0
+
+
 @pytest.mark.disable_loganalyzer
 def test_static_route_ecmp_warmboot(localhost, rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo,
                                    setup_standby_ports_on_rand_unselected_tor, # noqa F811
@@ -641,6 +650,12 @@ def test_static_route_ecmp_warmboot(localhost, rand_selected_dut, rand_unselecte
                               prefix, nexthop_count=3,
                               is_route_flow_counter_supported_flag=is_route_flow_counter_supported,
                               ipv6=ipv6):
+        # Wait for neighbor work triggered by ARP cleanup to drain before warmboot.
+        pytest_assert(
+            wait_until(60, 5, 0, orchagent_ready_for_warmboot, duthost),
+            "Orchagent did not become ready for warm reboot after static route setup"
+        )
+
         # Save config and perform warmboot
         duthost.shell('config save -y')
         reboot(duthost, localhost, reboot_type='warm', wait_warmboot_finalizer=True, safe_reboot=True)
