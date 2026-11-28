@@ -80,5 +80,11 @@ class TestRedfishServiceRoot:
             "Systems.@odata.id must be '/redfish/v1/Systems', got: {!r}".format(systems_link)
         )
 
+        chassis_link = body.get("Chassis", {}).get("@odata.id", "")
+        pytest_assert(
+            chassis_link == "/redfish/v1/Chassis",
+            "Chassis.@odata.id must be '/redfish/v1/Chassis', got: {!r}".format(chassis_link)
+        )
+
         links = body.get("Links", {})
         pytest_assert("Sessions" in links, "Links.Sessions is missing from {} response".format(SERVICE_ROOT))

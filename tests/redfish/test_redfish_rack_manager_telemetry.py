@@ -41,7 +41,13 @@ from tests.redfish.redfish_utils import (
     assert_field_nonempty,
     assert_no_content,
     assert_redfish_error,
+    assert_bridge_down_response,
     assert_status_ok,
+    BRIDGE_RECOVERY_TIMEOUT,
+    BRIDGE_SERVICE,
+    BRIDGE_STATE_TIMEOUT,
+    supervisor,
+    wait_for_program,
 )
 
 logger = logging.getLogger(__name__)
@@ -71,17 +77,10 @@ PERSIST_TIMEOUT = 20
 PERSIST_POLL = 1
 # Settle time before asserting that a rejected request wrote nothing.
 NO_WRITE_SETTLE = 3
-BRIDGE_STATE_TIMEOUT = 30
-BRIDGE_RECOVERY_TIMEOUT = 60
 # bmcweb rejects OEM action bodies above this size before forwarding them.
 MAX_BODY_BYTES = 64 * 1024
 # isoUtcNow() in the bridge: ISO 8601 UTC with microseconds.
 TIMESTAMP_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
-
-BMCWEB_CONTAINER = "redfish"
-BRIDGE_PROGRAM = "sonic-dbus-bridge"
-# Acceptable answers while the bridge is down; see test_submit_telemetry_bridge_unavailable.
-BRIDGE_DOWN_STATUSES = (401, 500, 503)
 
 # Documented reference payload (oem-extension/README.md, section 4.3).
 TELEMETRY_PAYLOAD = {
@@ -286,14 +285,6 @@ def _assert_nothing_persisted(bmc_duthost):
     pytest_assert(not keys, "{} must stay empty, found: {}".format(DATA_TABLE, sorted(keys)))
 
 
-def _bridge_in_state(bmc_duthost, state):
-    res = bmc_duthost.shell(
-        "docker exec {} supervisorctl status {}".format(BMCWEB_CONTAINER, BRIDGE_PROGRAM),
-        module_ignore_errors=True,
-    )
-    return state in res["stdout"]
-
-
 @pytest.fixture(scope="module")
 def telemetry_target(redfish_client):
     """Resolve the SubmitTelemetry action target from the Manager resource.
@@ -483,36 +474,30 @@ class TestRedfishRackManagerTelemetry:
         and the telemetry forward, so which call fails first decides the
         status: 503 ServiceTemporarilyUnavailable (forward), or 500/401 if
         the user lookup fails first. Either way bmcweb must answer promptly
-        with no 2xx, and nothing may reach STATE_DB. After the bridge is
-        restarted the next POST must succeed and persist.
+        with no 2xx, and nothing may reach STATE_DB. A 503 must carry
+        Retry-After, which is what tells the Rack Manager when to retry.
+        After the bridge is restarted the next POST must succeed and persist.
         """
-        bmc_duthost.shell("docker exec {} supervisorctl stop {}".format(BMCWEB_CONTAINER, BRIDGE_PROGRAM))
+        supervisor(bmc_duthost, "stop", BRIDGE_SERVICE)
         try:
             pytest_assert(
-                wait_until(BRIDGE_STATE_TIMEOUT, 2, 0, _bridge_in_state, bmc_duthost, "STOPPED"),
-                "{} did not reach STOPPED within {}s".format(BRIDGE_PROGRAM, BRIDGE_STATE_TIMEOUT)
+                wait_for_program(bmc_duthost, BRIDGE_SERVICE, "STOPPED", BRIDGE_STATE_TIMEOUT),
+                "{} did not reach STOPPED within {}s".format(BRIDGE_SERVICE, BRIDGE_STATE_TIMEOUT)
             )
             try:
                 response = redfish_client.post(telemetry_target, json=TELEMETRY_PAYLOAD)
             except requests.exceptions.RequestException as e:
                 raise AssertionError("bmcweb did not answer SubmitTelemetry while {} was stopped: {}".format(
-                    BRIDGE_PROGRAM, e)) from e
+                    BRIDGE_SERVICE, e)) from e
             logger.info("POST with bridge stopped -> {} {!r}".format(response.status_code, response.text[:300]))
-            pytest_assert(
-                response.status_code in BRIDGE_DOWN_STATUSES,
-                "Expected one of {} with {} stopped, got: {}".format(
-                    BRIDGE_DOWN_STATUSES, BRIDGE_PROGRAM, response.status_code)
-            )
+            assert_bridge_down_response(response, telemetry_target)
             _assert_nothing_persisted(bmc_duthost)
         finally:
-            bmc_duthost.shell(
-                "docker exec {} supervisorctl start {}".format(BMCWEB_CONTAINER, BRIDGE_PROGRAM),
-                module_ignore_errors=True,
-            )
+            supervisor(bmc_duthost, "start", BRIDGE_SERVICE)
 
         pytest_assert(
-            wait_until(BRIDGE_STATE_TIMEOUT, 2, 0, _bridge_in_state, bmc_duthost, "RUNNING"),
-            "{} did not return to RUNNING within {}s".format(BRIDGE_PROGRAM, BRIDGE_STATE_TIMEOUT)
+            wait_for_program(bmc_duthost, BRIDGE_SERVICE, "RUNNING", BRIDGE_STATE_TIMEOUT),
+            "{} did not return to RUNNING within {}s".format(BRIDGE_SERVICE, BRIDGE_STATE_TIMEOUT)
         )
 
         def _telemetry_accepted():
@@ -521,6 +506,6 @@ class TestRedfishRackManagerTelemetry:
         pytest_assert(
             wait_until(BRIDGE_RECOVERY_TIMEOUT, 2, 0, _telemetry_accepted),
             "SubmitTelemetry did not recover within {}s of restarting {}".format(
-                BRIDGE_RECOVERY_TIMEOUT, BRIDGE_PROGRAM)
+                BRIDGE_RECOVERY_TIMEOUT, BRIDGE_SERVICE)
         )
         _assert_records(bmc_duthost, TELEMETRY_EXPECTED)

@@ -31,7 +31,7 @@ import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.sonic_db import CONFIG_DB, redis_hgetall
+from tests.common.helpers.sonic_db import CONFIG_DB, STATE_DB, redis_hgetall, redis_keys
 from tests.redfish.redfish_utils import (
     assert_field_contains,
     assert_field_equals,
@@ -62,6 +62,8 @@ LEAK_DETECTION_PATH = LEAK_DETECTION_TEMPLATE.format(CHASSIS_ID)
 CANONICAL_LEAK_DETECTORS_PATH = CANONICAL_LEAK_DETECTORS_TEMPLATE.format(CHASSIS_ID)
 DEPRECATED_LEAK_DETECTORS_PATH = DEPRECATED_LEAK_DETECTORS_TEMPLATE.format(CHASSIS_ID)
 LEAK_DETECTOR_COLLECTIONS = [CANONICAL_LEAK_DETECTORS_PATH, DEPRECATED_LEAK_DETECTORS_PATH]
+# thermalctld publishes one row per leak sensor, and each row is one detector.
+LEAK_SENSOR_KEY_GLOB = "LIQUID_COOLING_INFO|*"
 
 DEVICE_METADATA_KEY = "DEVICE_METADATA|localhost"
 # Redfish identity field -> DEVICE_METADATA fields sonic-dbus-bridge reads for it, in precedence order.
@@ -198,7 +200,7 @@ class TestRedfishChassis:
         )
         logger.info("Verified %s: %s", LEAK_DETECTION_PATH, body)
 
-    def test_leak_detector_collections_serve_same_detectors(self, redfish_client):
+    def test_leak_detector_collections_serve_same_detectors(self, redfish_client, bmc_duthost):
         """
         Both LeakDetectors collection forms list the platform's detectors, each in its own URI form.
 
@@ -206,6 +208,8 @@ class TestRedfishChassis:
         D-Bus objects: each must answer with a LeakDetectorCollection whose
         @odata.id is the URI it was asked for, whose members live under that
         URI and whose count matches, and the two must name the same detectors.
+        Those are the sensors thermalctld published in STATE_DB, so two empty
+        collections on a platform that has leak sensors fail.
         """
         detector_ids = {}
         for collection in LEAK_DETECTOR_COLLECTIONS:
@@ -229,6 +233,13 @@ class TestRedfishChassis:
         pytest_assert(
             detector_ids[CANONICAL_LEAK_DETECTORS_PATH] == detector_ids[DEPRECATED_LEAK_DETECTORS_PATH],
             "The two LeakDetectors collections must list the same detectors, got: {}".format(detector_ids)
+        )
+        sensors = sorted(key.split("|", 1)[1] for key in redis_keys(bmc_duthost, STATE_DB, LEAK_SENSOR_KEY_GLOB))
+        pytest_assert(
+            detector_ids[CANONICAL_LEAK_DETECTORS_PATH] == sensors,
+            "{} must list one detector per {} row: detectors={} sensors={}".format(
+                CANONICAL_LEAK_DETECTORS_PATH, LEAK_SENSOR_KEY_GLOB, detector_ids[CANONICAL_LEAK_DETECTORS_PATH],
+                sensors)
         )
         logger.info("Verified both LeakDetectors collections serve %s", detector_ids[CANONICAL_LEAK_DETECTORS_PATH])
 

@@ -41,6 +41,7 @@ from tests.redfish.redfish_utils import (
     HOST_FINAL_POWER_STATES,
     assert_no_content,
     assert_status_ok,
+    command_keys,
     host_is_settled_on,
 )
 
@@ -56,7 +57,6 @@ MANAGER_PATH = "/redfish/v1/Managers/bmc"
 SUBMIT_ALERT_ACTION = "#SONiC.SubmitAlert"
 
 COMMAND_TABLE = "RACK_MANAGER_COMMAND"
-COMMAND_KEY_GLOB = "{}|*".format(COMMAND_TABLE)
 HOST_STATE_KEY = "HOST_STATE|switch-host"
 MODULE_INFO_KEY = "CHASSIS_MODULE_TABLE|SWITCH-HOST"
 
@@ -92,10 +92,6 @@ CRITICAL_LEAK_PAYLOAD = {"redfish_alert_data": {"LeakDetected": {"Severity": "Cr
 CLEARED_LEAK_PAYLOAD = {"redfish_alert_data": {"LeakDetected": {"Severity": "Normal"}}}
 
 
-def _command_keys(bmc_duthost):
-    return set(redis_keys(bmc_duthost, STATE_DB, COMMAND_KEY_GLOB))
-
-
 def _device_power_state(bmc_duthost):
     """HOST_STATE|switch-host device_power_state as bmcctld publishes it (pmon-bmc-design.md 2.2.1)."""
     return redis_hgetall(bmc_duthost, STATE_DB, HOST_STATE_KEY).get("device_power_state")
@@ -110,10 +106,10 @@ def _post_reset_on(redfish_client):
 def _wait_for_new_command(bmc_duthost, keys_before):
     """Wait for exactly one new RACK_MANAGER_COMMAND row and return (key, fields)."""
     pytest_assert(
-        wait_until(COMMAND_ROW_TIMEOUT, POLL, 0, lambda: _command_keys(bmc_duthost) - keys_before),
+        wait_until(COMMAND_ROW_TIMEOUT, POLL, 0, lambda: command_keys(bmc_duthost) - keys_before),
         "No new {} row within {}s of the reset".format(COMMAND_TABLE, COMMAND_ROW_TIMEOUT)
     )
-    new_keys = _command_keys(bmc_duthost) - keys_before
+    new_keys = command_keys(bmc_duthost) - keys_before
     pytest_assert(len(new_keys) == 1, "One reset must create one command row, got: {}".format(sorted(new_keys)))
     key = new_keys.pop()
     fields = redis_hgetall(bmc_duthost, STATE_DB, key)
@@ -145,7 +141,7 @@ def _assert_command_outcome(key, fields, status, result):
 
 def _run_reset_to_completion(redfish_client, bmc_duthost):
     """POST ResetType=On and return (key, terminal_row) once bmcctld has consumed it."""
-    keys_before = _command_keys(bmc_duthost)
+    keys_before = command_keys(bmc_duthost)
     _post_reset_on(redfish_client)
     key, _ = _wait_for_new_command(bmc_duthost, keys_before)
     return key, _wait_for_terminal(bmc_duthost, key)
@@ -266,7 +262,7 @@ class TestRedfishPmonInteraction:
         history, so it stays available for audit. HOST_STATE must be left
         unchanged.
         """
-        keys_before = _command_keys(bmc_duthost)
+        keys_before = command_keys(bmc_duthost)
         logger.info("{} rows before: {}".format(COMMAND_TABLE, len(keys_before)))
 
         _post_reset_on(redfish_client)
@@ -354,7 +350,7 @@ class TestRedfishPmonInteraction:
         proving the restarted daemon re-subscribed to the command table.
         """
         pid_before = bmcctld_running
-        keys_before = _command_keys(bmc_duthost)
+        keys_before = command_keys(bmc_duthost)
         host_state_before = redis_hgetall(bmc_duthost, STATE_DB, HOST_STATE_KEY)
         logger.info("{} pid {} and {} before restart: {}".format(
             BMCCTLD, pid_before, HOST_STATE_KEY, host_state_before))
@@ -380,7 +376,7 @@ class TestRedfishPmonInteraction:
                 HOST_STATE_KEY, expected_power, expected_status, host_state_after)
         )
 
-        spurious = _command_keys(bmc_duthost) - keys_before
+        spurious = command_keys(bmc_duthost) - keys_before
         pytest_assert(not spurious,
                       "{} restart must not create command rows, got: {}".format(BMCCTLD, sorted(spurious)))
         pytest_assert(_device_power_state(bmc_duthost) == HOST_POWERED_ON,

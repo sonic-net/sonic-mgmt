@@ -24,6 +24,7 @@ import requests
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+from tests.redfish.redfish_utils import BRIDGE_SERVICE
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,6 @@ SERVICE_ROOT = "/redfish/v1"
 SUBSCRIPTIONS_PATH = "/redfish/v1/EventService/Subscriptions"
 REDFISH_CONTAINER = "redfish"
 REDFISH_SERVICE = "redfish"
-BRIDGE_SERVICE = "sonic-dbus-bridge"
 
 # Collections bmcweb fills from ObjectMapper lookups against sonic-dbus-bridge
 # that the rack manager interface touches: leak detectors under Chassis, the OEM actions

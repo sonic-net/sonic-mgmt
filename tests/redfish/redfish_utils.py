@@ -1,6 +1,7 @@
 """
 Shared Redfish test utilities for SONiC BMC Redfish API tests.
 """
+import email.utils
 import ipaddress
 import logging
 import os
@@ -13,6 +14,7 @@ from cryptography import x509
 
 from tests.common.cert_utils import TlsCertificateGenerator
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.sonic_db import STATE_DB, redis_del, redis_hgetall, redis_keys
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -201,6 +203,52 @@ def assert_redfish_error(response, status, message, message_args=None, prop=None
             "MessageArgs must be {!r}, got: {!r}".format(
                 message_args, [i.get("MessageArgs") for i in matched])
         )
+
+
+def assert_retry_after(response, path):
+    """Assert a 503 carries a Retry-After header in either RFC 9110 form.
+
+    The value is delay-seconds (a non-negative integer) or an HTTP-date. The
+    sonic-redfish only promises the header, so any valid value is accepted.
+    Returns the header value as sent.
+    """
+    value = response.headers.get("Retry-After")
+    pytest_assert(
+        value is not None,
+        "HTTP 503 from {} must carry Retry-After, got headers: {}".format(path, dict(response.headers))
+    )
+    value = value.strip()
+    # isdigit() alone also accepts digits int() rejects, such as superscripts.
+    if value.isascii() and value.isdigit():
+        return value
+    try:
+        parsed = email.utils.parsedate_to_datetime(value)
+    except (TypeError, ValueError):
+        parsed = None
+    pytest_assert(
+        parsed is not None,
+        "Retry-After from {} must be delay-seconds or an HTTP-date, got: {!r}".format(path, value)
+    )
+    return value
+
+
+def assert_bridge_down_response(response, path):
+    """Assert the answer to a request made while sonic-dbus-bridge is off the bus.
+
+    Only the 503 the forward itself produces carries Retry-After. A 401 or 500
+    from the mTLS user lookup leaves the header unchecked, which is logged as
+    a warning so a run where it was never verified can be found.
+    """
+    pytest_assert(
+        response.status_code in BRIDGE_DOWN_STATUSES,
+        "Expected one of {} from {} with {} stopped, got: {} body={!r}".format(
+            BRIDGE_DOWN_STATUSES, path, BRIDGE_SERVICE, response.status_code, response.text[:300])
+    )
+    if response.status_code == 503:
+        logger.info("503 from %s carries Retry-After: %s", path, assert_retry_after(response, path))
+    else:
+        logger.warning("Retry-After not verified: %s answered %s with %s stopped, not 503",
+                       path, response.status_code, BRIDGE_SERVICE)
 
 
 def best_effort(fn, *args, **kwargs):
@@ -491,6 +539,58 @@ def reset_to_bootstrap(duthost, snapshot, saved=()):
 PRIVILEGED_PATH = "{}/Managers".format(REDFISH_ROOT)
 
 BRIDGE_SERVICE = "sonic-dbus-bridge"
+BRIDGE_STATE_TIMEOUT = 30
+BRIDGE_RECOVERY_TIMEOUT = 60
+# With the bridge off the bus the mTLS user lookup can fail before a request is
+# forwarded, so 500 or 401 are as valid as the 503 the forward itself produces.
+BRIDGE_DOWN_STATUSES = (401, 500, 503)
+
+BMCCTLD = "bmcctld"
+BMCCTLD_TIMEOUT = 120
+
+# Host power commands sonic-dbus-bridge publishes in STATE_DB for bmcctld.
+COMMAND_KEY_GLOB = "RACK_MANAGER_COMMAND|*"
+# status values bmcctld leaves on a command it has finished with.
+COMMAND_TERMINAL_STATUSES = ("DONE", "FAILED")
+COMMAND_ROW_TIMEOUT = 30
+COMMAND_DONE_TIMEOUT = 60
+
+
+def is_bmcctld_running(duthost):
+    """True when bmcctld is RUNNING in the pmon container."""
+    status, _ = duthost.get_pmon_daemon_status(BMCCTLD)
+    return status == "RUNNING"
+
+
+def command_keys(duthost):
+    """The RACK_MANAGER_COMMAND keys in STATE_DB."""
+    return set(redis_keys(duthost, STATE_DB, COMMAND_KEY_GLOB))
+
+
+def command_done(duthost, key):
+    """True once bmcctld has completed or failed the command row `key`."""
+    return redis_hgetall(duthost, STATE_DB, key).get("status") in COMMAND_TERMINAL_STATUSES
+
+
+def wait_for_new_commands_done(duthost, keys_before):
+    """Wait for an accepted reset's command row to be published and finished by a running bmcctld.
+
+    The bridge publishes the row after bmcweb has answered, and bmcctld writes
+    its status when it finishes, so a row deleted earlier than that would be
+    missed or written back.
+    """
+    def _new_keys():
+        return command_keys(duthost) - keys_before
+
+    return (wait_until(COMMAND_ROW_TIMEOUT, 1, 0, _new_keys)
+            and wait_until(COMMAND_DONE_TIMEOUT, 2, 0, lambda: all(command_done(duthost, key) for key in _new_keys())))
+
+
+def remove_new_commands(duthost, keys_before):
+    """Delete every RACK_MANAGER_COMMAND row created since `keys_before` was read."""
+    for key in command_keys(duthost) - keys_before:
+        logger.info("Removing %s: %s", key, redis_hgetall(duthost, STATE_DB, key))
+        redis_del(duthost, STATE_DB, key)
 
 
 def supervisor(duthost, action, program):
