@@ -514,6 +514,28 @@ def __check_vlan_member(duthost, vlan_id, vlan_member, removed=False):
     return vlan_name in out
 
 
+def __check_fdb_entries_removed(duthost, vlan_id, vlan_member):
+    keys = duthost.shell(
+        'redis-cli -n 6 --scan --pattern "FDB_TABLE|Vlan{}:*"'.format(vlan_id)
+    )["stdout_lines"]
+
+    for key in keys:
+        port = duthost.shell('redis-cli -n 6 hget "{}" port'.format(key))["stdout"]
+        if port == vlan_member:
+            return False
+
+    return True
+
+
+def clear_fdb_entries(duthost, vlan_id, vlan_member):
+    """Clear dynamic FDB entries and wait for the VLAN member state to drain."""
+    duthost.shell("sonic-clear fdb all")
+    pytest_assert(
+        wait_until(10, 1, 0, __check_fdb_entries_removed, duthost, vlan_id, vlan_member),
+        "FDB entries for Vlan{} member {} were not cleared".format(vlan_id, vlan_member)
+    )
+
+
 def remove_vlan(duthost, vlan_id):
     """
     Remove VLANs configuraation on DUT
