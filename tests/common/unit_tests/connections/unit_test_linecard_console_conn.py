@@ -11,6 +11,10 @@ MODULE_PATH = (
     / "connections"
     / "linecard_console_conn.py"
 )
+# The module imports tests.common.connections.pexpect_console_conn.
+REPO_ROOT = str(Path(__file__).resolve().parents[4])
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
 try:
     import_module("pexpect")
 except ImportError:
