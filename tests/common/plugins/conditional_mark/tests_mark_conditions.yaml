@@ -5934,6 +5934,15 @@ test_vs_chassis_setup.py:
       - *lossyTopos
 
 #######################################
+#####         transceiver         #####
+#######################################
+transceiver/cdb_firmware_upgrade/test_firmware_download.py::test_firmware_download_zero_filled_binary:
+  skip:
+    reason: "The module validates the image only at Complete Firmware Download, so the inactive bank is not left untouched, and the cleanup CDB abort fails, see https://github.com/sonic-net/sonic-mgmt/issues/29541"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/29541 and 'nvidia' in platform"
+
+#######################################
 #####         upgrade_path        #####
 #######################################
 upgrade_path:
