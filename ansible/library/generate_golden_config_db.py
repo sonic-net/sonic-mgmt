@@ -1136,6 +1136,15 @@ class GenerateGoldenConfigDBModule(object):
                 msg="Invalid zebra_nexthop value '{}': must be 'enabled' or 'disabled'".format(zebra_nexthop))
         ori_config_db = json.loads(config)
         if self.num_asics > 1:
+            for asic in range(self.num_asics):
+                asicName = "asic{}".format(asic)
+                if asicName not in ori_config_db or \
+                        "DEVICE_METADATA" not in ori_config_db[asicName] or \
+                        "localhost" not in ori_config_db[asicName]["DEVICE_METADATA"]:
+                    # If any of the ASIC namespaces don't already have DEVICE_METADATA|localhost defined
+                    # then adding it here for the zebra_nexthop will override all the other fields
+                    # from DEVICE_METADATA|localhost that are extracted from the minigraph
+                    return config
             ori_config_db = self._update_config_db_in_ns(
                 ori_config_db, "DEVICE_METADATA/localhost",
                 {"zebra_nexthop": zebra_nexthop})
