@@ -338,7 +338,8 @@ def test_aggregate_bbr_required_inactive_persists_bgp_restart(
 # used by other reboot-based tests in the repo).
 @pytest.mark.disable_loganalyzer
 def test_aggregate_persists_warm_reboot(
-    duthosts, rand_one_dut_hostname, localhost, bgp_neighbors
+    duthosts, rand_one_dut_hostname, localhost, bgp_neighbors,
+    skip_if_warm_reboot_unsupported
 ):
     """
     TC 5.5: Aggregate address config survives warm reboot.
