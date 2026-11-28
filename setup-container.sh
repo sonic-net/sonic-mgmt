@@ -49,6 +49,7 @@ FORCE_REMOVAL="${NO_PARAM}"
 VERBOSE_LEVEL="${VERBOSE_MIN}"
 SILENT_HOOK="&> /dev/null"
 ENABLE_DEBUG=0
+CHECK_KVM_HOST=0
 
 # Sonic-mgmt remote debug feature
 DEBUG_PORT_START_RANGE=50000
@@ -117,6 +118,7 @@ function show_help_and_exit() {
     echo "  -x                   show execution details"
     echo "  -h                   display this help and exit"
     echo "  --enable-debug       enable debug mode"
+    echo "  --check-kvm-host     check local KVM host services before container creation or reuse"
     echo
     echo "Examples:"
     echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master"
@@ -414,6 +416,8 @@ ARGS=()
 for arg in "$@"; do
     if [[ "$arg" == "--enable-debug" ]]; then
         ENABLE_DEBUG=1
+    elif [[ "$arg" == "--check-kvm-host" ]]; then
+        CHECK_KVM_HOST=1
     else
         ARGS+=("$arg")
     fi
@@ -486,6 +490,14 @@ fi
 
 if ! docker info &> /dev/null; then
     exit_failure "unable to access Docker daemon: make sure ${USER} is a member of the docker group"
+fi
+
+if [[ "${CHECK_KVM_HOST}" -eq 1 ]]; then
+    sudo bash "${SCRIPT_DIR}/ansible/roles/vm_set/files/check_kvm_host.sh" || {
+        kvm_host_check_status=$?
+        log_error "KVM host service health check failed"
+        exit "${kvm_host_check_status}"
+    }
 fi
 
 if docker ps -a --format "{{.Names}}" | grep -q "^${CONTAINER_NAME}$"; then
