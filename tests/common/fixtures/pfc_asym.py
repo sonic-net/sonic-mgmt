@@ -16,7 +16,7 @@ RUN_PLAYBOOK = os.path.realpath(os.path.join(os.path.dirname(__file__), "../../s
 OS_ROOT_DIR = "/root"
 TESTS_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), "../.."))
 ANSIBLE_ROOT = pathlib.Path(os.getenv("ANSIBLE_CONFIG",
-                                      pathlib.Path(__file__).resolve().parent.joinpath("../../ansible")))
+                                      pathlib.Path(__file__).resolve().parent.joinpath("../../../ansible")))
 
 
 ARP_RESPONDER = os.path.join(TESTS_ROOT, "scripts/arp_responder.py")

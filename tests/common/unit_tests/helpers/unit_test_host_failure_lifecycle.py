@@ -256,7 +256,9 @@ def test_pytest_outcomes_in_late_cleanup_preserve_original_error(run_lifecycle, 
         errors = "\n".join(report["longrepr"] for report in result.reports)
         assert "earlier module cleanup failed" in errors
         assert result.events.index("module-earlier-error") < result.events.index("finalize-module")
-        assert result.events.index("finalize-module") < result.events.index("module-sibling-cleanup")
+        # The sibling shares no dependency with module_probe, so pytest may tear either down first;
+        # what matters is that it still runs after the earlier module cleanup failed.
+        assert result.events.index("module-earlier-error") < result.events.index("module-sibling-cleanup")
         assert result.events.count("module-sibling-cleanup") == 1
         for scope in ("module", "session"):
             assert scope + " ordinary cleanup error" in errors

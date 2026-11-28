@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CONDITIONS_FILE = 'common/plugins/conditional_mark/tests_mark_conditions*.yaml'
 ANSIBLE_CONFIG_PATH = pathlib.Path(os.getenv("ANSIBLE_CONFIG",
-                                             pathlib.Path(__file__).resolve().parent.joinpath("../../../ansible")))
+                                             pathlib.Path(__file__).resolve().parent.joinpath("../../../../ansible")))
 ASIC_NAME_PATH = ANSIBLE_CONFIG_PATH.joinpath("group_vars/sonic/variables")
 ANSIBLE_LIBRARY_PATH = ANSIBLE_CONFIG_PATH.joinpath("library")
 MARK_CONDITIONS_CONSTANTS = {

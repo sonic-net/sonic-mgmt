@@ -76,7 +76,7 @@ def get_graph_facts(duthost, localhost, hostnames):
     hostnames - can be either a single DUT or a list of multiple DUTs
     """
     ansible_config_path = pathlib.Path(os.getenv("ANSIBLE_CONFIG",
-                                                 pathlib.Path(__file__).resolve().parent.joinpath("../../ansible")))
+                                                 pathlib.Path(__file__).resolve().parent.joinpath("../../../ansible")))
     lab_conn_graph_path = os.path.join(ansible_config_path, "files/")
 
     inv_files = duthost.host.options["inventory_manager"]._sources

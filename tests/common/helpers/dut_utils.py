@@ -34,7 +34,7 @@ CONSOLE_RECONNECT_BACKOFF_SECS = 12
 
 # Ansible config files
 LAB_CONNECTION_GRAPH_PATH = pathlib.Path(
-    os.getenv("ANSIBLE_CONFIG", pathlib.Path(__file__).resolve().parent.joinpath("../../ansible"))).joinpath("files")
+    os.getenv("ANSIBLE_CONFIG", pathlib.Path(__file__).resolve().parent.joinpath("../../../ansible"))).joinpath("files")
 
 BASI_PATH = os.path.dirname(os.path.abspath(__file__))
 
