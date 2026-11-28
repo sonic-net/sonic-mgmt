@@ -46,6 +46,7 @@ UPSTREAM_NEIGHBOR_MAP = {
     "lt2": "ut2",
     "t1-isolated-d128": "t0",
     "t1-isolated-d32": "t0",
+    "t0-evpn-l3mh": "t2",
     "c0": "m1",
     "lrh": "urh",
     "urh": "rwa",

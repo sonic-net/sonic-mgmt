@@ -116,6 +116,10 @@ def run(inst, config=None):
 @pytest.mark.parametrize("metadata, hwsku, platform, expected", [
     # DPU switch -> disabled
     ({"switch_type": "dpu"}, "Arista-7060X6-64PE-C256S2", "x86_64-arista_7060x6_64pe", "disabled"),
+    # EVPN L3 multihoming dT0 -> disabled
+    ({"type": "ToRRouter", "subtype": "L3EvpnMH"}, "Cisco-8122X-O128S2", "x86_64-8122x_64ef_o-r0", "disabled"),
+    # Another device subtype -> enabled
+    ({"type": "ToRRouter", "subtype": "DualToR"}, "Cisco-8122X-O128S2", "x86_64-8122x_64ef_o-r0", "enabled"),
     # Lossy Arista hwskus -> disabled
     ({"type": "LeafRouter"}, "Arista-7060X6-64PE-B-C512S2", "x86_64-arista_7060x6_64pe_b", "disabled"),
     ({"type": "LeafRouter"}, "Arista-7060X6-64PE-B-C448O16", "x86_64-arista_7060x6_64pe_b", "disabled"),

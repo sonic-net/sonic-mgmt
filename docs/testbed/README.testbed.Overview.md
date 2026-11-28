@@ -80,6 +80,7 @@ The T0 type topology has different variations. The differences are just the numb
 * t0-118
 * t0-120
 * t0-backend
+* t0-evpn-l3mh
 * t0-standalone-32
 * t0-standalone-64
 * t0-standalone-128
@@ -87,6 +88,12 @@ The T0 type topology has different variations. The differences are just the numb
 * t0-isolated-*
 
 Below are details of some of the T0 variations:
+
+#### Variation t0-evpn-l3mh
+
+Two DUTs act as the only VTEPs. Each of three PTF server PortChannels has a link to both DUTs, and two T2 neighbors carry EVPN routes between them. The DUT port indices and the PTF team members are defined separately in [the topology](../../ansible/vars/topo_t0-evpn-l3mh.yml).
+
+Use a DUT image that generates EVPN L3 multihoming configuration for the `L3EvpnMH` device subtype. Rendering the minigraph alone does not enable EVPN on an image without that support.
 
 #### Variation t0
 

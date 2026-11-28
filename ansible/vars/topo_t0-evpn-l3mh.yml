@@ -1,0 +1,171 @@
+# topo_t0-evpn-l3mh.yml
+#
+# Two dT0 DUTs running EVPN L3 multihoming (L3MH) with an L3VNI only: no L2VNI
+# is mapped to the server VLAN. The two DUTs are the only VTEPs. Based on the
+# BGP EVPN multihoming test plan (sonic-net/sonic-mgmt#26752).
+#
+# Per DUT (port indices are local to each DUT). Every server attaches to both
+# DUTs, which give its PortChannel the same ESI:
+#   0  PortChannel1  Server-0 (ESI-A)
+#   1  PortChannel2  Server-1 (ESI-B)
+#   2  PortChannel3  ESI-C, where the host-mobility cases move a host
+#   4  PortChannel101 to ARISTA01T2
+#   5  PortChannel102 to ARISTA02T2
+# PTF port = DUT port on DUT0, 64 + DUT port on DUT1. ptf_portchannel_config
+# gives the PTF teams, one per server NIC, each with a member to each DUT.
+#
+# BGP: single-hop eBGP over the PortChannel /31s to two T2 neighbors, which also
+# relay the default route injected from the PTF. The IPv4 sessions carry IPv4
+# unicast and EVPN, the IPv6 sessions IPv6 unicast. The T2s pass EVPN routes
+# between the DUTs with the DUT VTEP as next hop.
+#
+# The minigraph renders the ports, PortChannels, Vlan1000 and the T2 BGP sessions,
+# and makes each DUT an L3EvpnMH device: DUT.device_subtype, DUT.vni, LACP fallback
+# on the server PortChannels and DUT.evpn_mh_timers. A DUT image that supports the
+# subtype generates the rest of the EVPN multihoming configuration from the
+# minigraph: the VTEP on Loopback0, the L3VNI in the default VRF, an Ethernet
+# Segment per server PortChannel (both DUTs derive the same ESI), the anycast
+# gateway on Vlan1000 and BGP EVPN.
+
+topology:
+  dut_num: 2
+  host_interfaces:
+    - 0.0@0
+    - 0.1@1
+    - 0.2@2
+    - 1.0@64
+    - 1.1@65
+    - 1.2@66
+  VMs:
+    ARISTA01T2:
+      vlans:
+        - 0.4@4
+        - 1.4@68
+      vm_offset: 0
+    ARISTA02T2:
+      vlans:
+        - 0.5@5
+        - 1.5@69
+      vm_offset: 1
+  DUT:
+    loopback:
+      ipv4:
+        - 10.1.0.32/32
+        - 10.1.0.33/32
+      ipv6:
+        - FC00:1::32/128
+        - FC00:1::33/128
+    portchannel_config:             # fallback: LACP fallback (<Fallback>)
+      PortChannel1:
+        intfs: [0]
+        fallback: true
+      PortChannel2:
+        intfs: [1]
+        fallback: true
+      PortChannel3:
+        intfs: [2]
+        fallback: true
+    # PTF teams; portchannel_config above gives each DUT's PortChannels.
+    ptf_portchannel_config:
+      PortChannel1:                 # Server-0
+        intfs: [0, 64]
+      PortChannel2:                 # Server-1
+        intfs: [1, 65]
+      PortChannel3:                 # host-mobility target
+        intfs: [2, 66]
+    vlan_configs:
+      default_vlan_config: one_vlan_a
+      one_vlan_a:
+        Vlan1000:
+          id: 1000
+          intfs: []
+          portchannels: ['PortChannel1', 'PortChannel2', 'PortChannel3']
+          prefix: 192.168.0.1/24
+          prefix_v6: fc02:1000::1/64
+          tag: 1000
+    device_subtype: L3EvpnMH        # <SubType>
+    vni: 10200                      # DPG <VNI>: the L3VNI
+    evpn_mh_timers:                 # EvpnMh* properties: EVPN_MH_GLOBAL|default
+      startup_delay: 30
+      mac_holdtime: 5
+      neigh_holdtime: 5
+
+configuration_properties:
+  common:
+    dut_asn: 65100
+    dut_type: ToRRouter
+    swrole: spine
+    podset_number: 200
+    tor_number: 16
+    tor_subnet_number: 2
+    max_tor_subnet_number: 16
+    tor_subnet_size: 128
+    spine_asn: 65534
+    leaf_asn_start: 64600
+    tor_asn_start: 65100
+    failure_rate: 0
+    nhipv4: 10.10.246.254
+    nhipv6: FC0A::FF
+
+configuration:
+  ARISTA01T2:
+    properties:
+    - common
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+        - 10.0.0.56
+        - FC00::71
+        - 10.0.1.56
+        - FC00::1:71
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.29/32
+        ipv6: 2064:100::1d/128
+      Ethernet1:
+        lacp: 1
+        dut_index: 0
+      Ethernet2:
+        lacp: 2
+        dut_index: 1
+      Port-Channel1:
+        ipv4: 10.0.0.57/31
+        ipv6: fc00::72/126
+      Port-Channel2:
+        ipv4: 10.0.1.57/31
+        ipv6: fc00::1:72/126
+    bp_interface:
+      ipv4: 10.10.246.29/24
+      ipv6: fc0a::1d/64
+
+  ARISTA02T2:
+    properties:
+    - common
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+        - 10.0.0.58
+        - FC00::75
+        - 10.0.1.58
+        - FC00::1:75
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.30/32
+        ipv6: 2064:100::1e/128
+      Ethernet1:
+        lacp: 1
+        dut_index: 0
+      Ethernet2:
+        lacp: 2
+        dut_index: 1
+      Port-Channel1:
+        ipv4: 10.0.0.59/31
+        ipv6: fc00::76/126
+      Port-Channel2:
+        ipv4: 10.0.1.59/31
+        ipv6: fc00::1:76/126
+    bp_interface:
+      ipv4: 10.10.246.30/24
+      ipv6: fc0a::1e/64
