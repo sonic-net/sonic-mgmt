@@ -60,11 +60,53 @@ It also exercises BMC-only cold reboot with an explicit nonzero delay, verifies
 positive delay-bypass and host-isolation evidence, and checks configuration
 restoration on success and failures. Failed or malformed delay snapshots must
 abort before configuration changes, cleanup, or reboot.
-Physical startup behavior still requires a BMC chassis with a wired PDU.
+For `test_bmcctld_power_on_delay`, a PDU remains preferred. Without a controller,
+SKUs in `PSU_SYSTEM_POWER_CYCLE_HWSKUS` can use the shared `power_cycle_via_psu()`
+workaround. `check_power_cycle_via_psu()` validates the allowlist and
+platform API without cycling the devices, before changing the delay. Unlisted
+SKUs without a PDU skip. Both paths retain power-loss reboot causes, changed boot
+IDs for both devices, marker-bounded startup logs, boot-relative liquid-cooling
+delay, configuration persistence/restoration, and host health checks. Both paths
+wait for BMC readiness before restoring configuration, including after a failed cycle.
+The regressions cover fallback routing and failures without touching hardware.
+Physical startup behavior requires a BMC chassis with a wired PDU or a verified
+full-system PSU-cycle implementation on an allowlisted SKU.
 
 ```bash
 python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
   tests/common/unit_tests/unit_test_bmcctld_startup.py -q
+```
+
+## BMC critical-process recovery regression
+
+`unit_test_critical_process_bmc_recovery.py` exercises the shared `power_cycle_via_psu()` helper
+and process-monitoring fixture without Linux or testbed dependencies. On
+`bmc-dual-mgmt`, a PDU takes precedence. Without a PDU, the system power-cycle
+workaround applies only to exact `hwsku` entries in
+`tests/common/platform/bmc_utils.py::PSU_SYSTEM_POWER_CYCLE_HWSKUS`, currently
+`['Arista-7060XE7-64PRS']`. Add future supported SKUs to that shared list; both
+fixture routing and helper validation use it. Admission resolves one recovery
+route before destructive work; configured PDU lookup failures do not select a
+fallback. Recovery requires a callable
+`SWITCH-HOST.do_system_power_cycle()`, checked before the destructive database
+test. Unlisted SKUs and missing SKU metadata retain ordinary software reboot
+recovery without probing the platform API. No unified chassis API or new platform
+package is required.
+
+The chassis operation must power-cycle both the BMC and switch host. Recovery
+requires changed boot IDs from both devices, not just reachable SSH. The unit
+tests cover capability checks, pre-test rejection, restart evidence, disconnects,
+PDU routing, exact SKU allowlisting and future list additions, the frozen recovery
+route, and preserved direct OS/VS recovery and post-reboot health gates. They do
+not establish hardware power-cycle support; that requires vendor implementation
+and a physical testbed. The log-format override avoids integration-only log
+metadata when running the direct-reboot regressions without conftest.
+
+```bash
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/unit_test_critical_process_bmc_recovery.py \
+  tests/common/unit_tests/unit_test_critical_process_direct_reboot.py \
+  -o log_format='%(levelname)s:%(message)s' -q
 ```
 
 ## PTF daily TACACS provisioning regression

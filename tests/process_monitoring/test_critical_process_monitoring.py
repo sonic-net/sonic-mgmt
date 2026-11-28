@@ -18,6 +18,8 @@ from tests.common import config_reload
 from tests.common.vs_data import is_vs_device
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
+from tests.common.platform.bmc_utils import (
+    PSU_SYSTEM_POWER_CYCLE_HWSKUS, check_power_cycle_via_psu, power_cycle_via_psu)
 from tests.common.reboot import REBOOT_TYPE_COLD, reboot_ctrl_dict, wait_for_shutdown, wait_for_startup
 from tests.common.utilities import get_plt_reboot_ctrl, wait_until, kill_process_by_pid, pdu_reboot
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, NAMESPACE_PREFIX
@@ -79,6 +81,10 @@ def _admit_database_recovery(duthost, tbinfo, get_pdu_controller):
                           and callable(getattr(controller, "turn_on_outlet", None)),
                           "PDU controller does not expose power-cycle operations")
             method = "pdu"
+        elif (tbinfo.get('topo', {}).get('name') == 'bmc-dual-mgmt'
+              and duthost.facts.get('hwsku') in PSU_SYSTEM_POWER_CYCLE_HWSKUS):
+            check_power_cycle_via_psu(duthost)
+            method = "psu"
         else:
             # This route verifies BMC/DUT OS recovery only. It does not claim
             # the paired-device system-cycle qualification requested by #29262.
@@ -758,9 +764,17 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
         # Special handling for database container - reboot the DUT
         if is_testing_database:
             logger.info("Database container was tested - rebooting the DUT...")
+            tc_name = os.environ.get("PYTEST_CURRENT_TEST", "").split(" ")[0]
+            plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, tc_name, REBOOT_TYPE_COLD)
+            timeout = plt_reboot_ctrl.get("timeout", reboot_ctrl_dict[REBOOT_TYPE_COLD]["timeout"])
+            if duthost.facts.get("modular_chassis"):
+                timeout = max(timeout, 420)
 
             # Check if this is a virtual switch (KVM) testbed
-            if recovery.method == "vs":
+            if recovery.method == "psu":
+                timeout = max(timeout, 1200)
+                power_cycle_via_psu(duthost, localhost, startup_timeout=timeout)
+            elif recovery.method == "vs":
                 num_asics = duthost.facts.get("num_asic", 1)
                 if num_asics > 1:
                     # Multi-ASIC VS: after killing the global database container, SSH
@@ -791,12 +805,6 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
             logger.info("Waiting for DUT to boot up after reboot...")
             # Wait for DUT to come back up after reboot. Like tests.common.reboot.reboot(), use the
             # cold reboot timeout and its platform override (plt_reboot_dict) from the inventory.
-            tc_name = os.environ.get("PYTEST_CURRENT_TEST", "").split(" ")[0]
-            plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, tc_name, REBOOT_TYPE_COLD)
-            timeout = plt_reboot_ctrl.get("timeout", reboot_ctrl_dict[REBOOT_TYPE_COLD]["timeout"])
-            if duthost.facts.get("modular_chassis"):
-                timeout = max(timeout, 420)
-
             # Wait for SSH to come back up
             wait_for_startup(duthost, localhost, delay=10, timeout=timeout)
             pytest_assert(wait_until(120, 5, 0, _boot_id_changed, duthost, recovery.boot_id),
