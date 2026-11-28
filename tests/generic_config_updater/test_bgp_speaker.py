@@ -39,7 +39,7 @@ def vlan_intf_ip_ranges(rand_selected_dut, tbinfo):
             ip_rangev6 = vlan_interface['subnet']
         if ip_range and ip_rangev6:
             return ip_range, ip_rangev6
-    pytest_assert(True, "Required ip_range and ip_rangev6 to start the test")
+    pytest_assert(False, "Required ip_range and ip_rangev6 to start the test")
 
 
 @pytest.fixture(scope="module")
@@ -55,7 +55,7 @@ def lo_intf_ips(rand_selected_dut, tbinfo):
             ipv6 = lo_interface['addr']
         if ip and ipv6:
             return ip, ipv6
-    pytest_assert(True, "Required ipv4 and ipv6 to start the test")
+    pytest_assert(False, "Required ipv4 and ipv6 to start the test")
 
 
 @pytest.fixture(autouse=True)
