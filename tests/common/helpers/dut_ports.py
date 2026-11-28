@@ -30,7 +30,7 @@ def get_duthost_with_name(duthosts, dut_name):
     return
 
 
-def get_vlan_interfaces_dict(duthost, tbinfo):
+def get_vlan_interfaces_dict(duthost, tbinfo, asic=None):
     """
     Helper function to organize VLAN interface information from minigraph and config facts
     into a structured dictionary separating IPv4 and IPv6 addresses per VLAN.
@@ -38,6 +38,7 @@ def get_vlan_interfaces_dict(duthost, tbinfo):
     Args:
         mg_facts (dict): Minigraph facts containing VLAN interface information
         config_facts (dict): Config facts containing VLAN interface configuration
+        asic: optional ASIC instance; if set, minigraph and config facts are read from the namespace of this ASIC
 
     Returns:
         dict: Structured dictionary with VLAN interfaces organized by IPv4/IPv6 addresses
@@ -74,8 +75,9 @@ def get_vlan_interfaces_dict(duthost, tbinfo):
             }
         }
     """
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    cfg_host = duthost if asic is None else asic
+    mg_facts = cfg_host.get_extended_minigraph_facts(tbinfo)
+    config_facts = cfg_host.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     result = {}
 
     # Group interfaces by VLAN
@@ -111,18 +113,20 @@ def get_vlan_interfaces_dict(duthost, tbinfo):
     return result
 
 
-def get_vlan_interface_list(duthost):
+def get_vlan_interface_list(duthost, asic=None):
     """
     Helper function to get list of VLANs configured on the device.
 
     Args:
         mg_facts (dict): Minigraph facts containing VLAN interface information
+        asic: optional ASIC instance; if set, return the VLANs configured in the namespace of this ASIC
 
     Returns:
         list: List of VLAN names (e.g. ["Vlan1000"] or ["Vlan1000", "Vlan2000"])
     """
     vlans = set()
-    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    cfg_host = duthost if asic is None else asic
+    config_facts = cfg_host.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     for vlan_interface in config_facts['VLAN_INTERFACE']:
         vlans.add(vlan_interface)
     return sorted(list(vlans))
@@ -164,12 +168,13 @@ def get_vlan_interface_info(duthost, tbinfo, vlan_name, ip_version="ipv4"):
     return result
 
 
-def get_secondary_subnet(duthost, tbinfo):
+def get_secondary_subnet(duthost, tbinfo, asic=None):
     """
     Check if any VLAN interface has a secondary subnet configured.
 
     Args:
         tbinfo: Testbed information dictionary
+        asic: optional ASIC instance; if set, only check the VLANs configured in the namespace of this ASIC
 
     Returns:
         tuple: (has_secondary, vlan_name, ip_version, interface_info)
@@ -178,7 +183,7 @@ def get_secondary_subnet(duthost, tbinfo):
         - ip_version: IP version ("ipv4" or "ipv6") of the secondary subnet
         - interface_info: Configuration dict for the secondary subnet
     """
-    vlan_interfaces_dict = get_vlan_interfaces_dict(duthost, tbinfo)
+    vlan_interfaces_dict = get_vlan_interfaces_dict(duthost, tbinfo, asic)
 
     # Initialize return values
     for vlan_name, ip_versions in vlan_interfaces_dict.items():
