@@ -724,7 +724,7 @@ class TestBmcctldDaemon:
                       f"Chassis.is_liquid_cooled() must return a boolean, got {is_liquid_cooled!r}")
 
         orig_delay = self.duthost.shell(
-            "sonic-db-cli CONFIG_DB HGET 'CHASSIS_MODULE|SWITCH-HOST' power_on_delay"
+            "sonic-db-cli -s CONFIG_DB HGET 'CHASSIS_MODULE|SWITCH-HOST' power_on_delay"
         )['stdout'].strip()
         pytest_assert(not orig_delay or orig_delay.isdigit(),
                       f"Invalid original power_on_delay: {orig_delay!r}")
@@ -738,7 +738,7 @@ class TestBmcctldDaemon:
                 self.duthost.shell(f"config chassis modules power-on-delay SWITCH-HOST {orig_delay}")
             else:
                 self.duthost.shell(
-                    "sonic-db-cli CONFIG_DB HDEL 'CHASSIS_MODULE|SWITCH-HOST' power_on_delay")
+                    "sonic-db-cli -s CONFIG_DB HDEL 'CHASSIS_MODULE|SWITCH-HOST' power_on_delay")
             self.duthost.shell("sudo config save -y")
 
         with _restore_on_exit(restore_delay, f"original power_on_delay={orig_delay!r}"):
@@ -746,7 +746,7 @@ class TestBmcctldDaemon:
                 f"config chassis modules power-on-delay SWITCH-HOST {test_delay}"
             )
             readback = self.duthost.shell(
-                "sonic-db-cli CONFIG_DB HGET 'CHASSIS_MODULE|SWITCH-HOST' power_on_delay"
+                "sonic-db-cli -s CONFIG_DB HGET 'CHASSIS_MODULE|SWITCH-HOST' power_on_delay"
             ).get('stdout', '').strip()
             pytest_assert(readback == str(test_delay),
                           f"CONFIG_DB power_on_delay read-back expected {test_delay}, got {readback!r}")
@@ -824,7 +824,7 @@ class TestBmcctldDaemon:
             pytest_assert(CAUSE_POWER_LOSS in bmc_cause,
                           f"BMC reboot cause must be power loss, got {bmc_cause!r}")
             readback = self.duthost.shell(
-                "sonic-db-cli CONFIG_DB HGET 'CHASSIS_MODULE|SWITCH-HOST' power_on_delay"
+                "sonic-db-cli -s CONFIG_DB HGET 'CHASSIS_MODULE|SWITCH-HOST' power_on_delay"
             )['stdout'].strip()
             pytest_assert(readback == str(test_delay), "power_on_delay did not persist across chassis power loss")
 
@@ -983,11 +983,11 @@ def bmcctld_check_daemon_status(duthosts, enum_rand_one_per_hwsku_hostname):
 
 def _bmcctld_collect_data(duthost):
     keys = duthost.shell(
-        'sonic-db-cli STATE_DB KEYS "{}"'.format(BMCCTLD_DB_KEY_PATTERN)
+        'sonic-db-cli -s STATE_DB KEYS "{}"'.format(BMCCTLD_DB_KEY_PATTERN)
     )['stdout_lines']
     dev_data = {}
     for k in keys:
-        data = duthost.shell('sonic-db-cli STATE_DB HGETALL "{}"'.format(k))['stdout']
+        data = duthost.shell('sonic-db-cli -s STATE_DB HGETALL "{}"'.format(k))['stdout']
         dev_data[k] = data
     return {'keys': sorted(keys), 'data': dev_data}
 

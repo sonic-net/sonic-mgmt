@@ -157,7 +157,7 @@ class TestPerComponentPollingIntervals:
 
         # Verify the sensor exists in STATE_DB
         check_result = duthost.shell(
-            'sonic-db-cli STATE_DB EXISTS "TEMPERATURE_INFO|{}"'.format(fast_thermal_name),
+            'sonic-db-cli -s STATE_DB EXISTS "TEMPERATURE_INFO|{}"'.format(fast_thermal_name),
             module_ignore_errors=True
         )
         if check_result["rc"] != 0 or check_result["stdout"].strip() == "0":
@@ -181,7 +181,7 @@ class TestPerComponentPollingIntervals:
         timestamps = []
         for _ in range(num_samples):
             ts = duthost.shell(
-                'sonic-db-cli STATE_DB HGET "TEMPERATURE_INFO|{}" timestamp'.format(
+                'sonic-db-cli -s STATE_DB HGET "TEMPERATURE_INFO|{}" timestamp'.format(
                     fast_thermal_name),
                 module_ignore_errors=True
             )
@@ -223,7 +223,7 @@ class TestPerComponentPollingIntervals:
 
                 # Check sensor exists
                 slow_check = duthost.shell(
-                    'sonic-db-cli STATE_DB EXISTS "TEMPERATURE_INFO|{}"'.format(slow_thermal_name),
+                    'sonic-db-cli -s STATE_DB EXISTS "TEMPERATURE_INFO|{}"'.format(slow_thermal_name),
                     module_ignore_errors=True
                 )
                 if slow_check["rc"] == 0 and slow_check["stdout"].strip() != "0":
@@ -231,7 +231,7 @@ class TestPerComponentPollingIntervals:
                     slow_unique = []
                     for _ in range(min(num_samples, 5)):
                         ts = duthost.shell(
-                            'sonic-db-cli STATE_DB HGET "TEMPERATURE_INFO|{}" timestamp'.format(
+                            'sonic-db-cli -s STATE_DB HGET "TEMPERATURE_INFO|{}" timestamp'.format(
                                 slow_thermal_name),
                             module_ignore_errors=True
                         )
@@ -276,7 +276,7 @@ class TestPerComponentPollingIntervals:
 
         # Get a fan name from FAN_INFO
         fan_keys_result = duthost.shell(
-            'sonic-db-cli STATE_DB KEYS "FAN_INFO|*"',
+            'sonic-db-cli -s STATE_DB KEYS "FAN_INFO|*"',
             module_ignore_errors=True
         )
         if fan_keys_result["rc"] != 0 or not fan_keys_result["stdout"].strip():
@@ -296,7 +296,7 @@ class TestPerComponentPollingIntervals:
         timestamps = []
         for _ in range(num_samples):
             ts = duthost.shell(
-                'sonic-db-cli STATE_DB HGET "{}" timestamp'.format(fan_key),
+                'sonic-db-cli -s STATE_DB HGET "{}" timestamp'.format(fan_key),
                 module_ignore_errors=True
             )
             if ts["rc"] == 0 and ts["stdout"].strip():
@@ -348,7 +348,7 @@ class TestPerComponentPollingIntervals:
 
         # Get a PSU name from PSU_INFO
         psu_keys_result = duthost.shell(
-            'sonic-db-cli STATE_DB KEYS "PSU_INFO|*"',
+            'sonic-db-cli -s STATE_DB KEYS "PSU_INFO|*"',
             module_ignore_errors=True
         )
         if psu_keys_result["rc"] != 0 or not psu_keys_result["stdout"].strip():
@@ -368,7 +368,7 @@ class TestPerComponentPollingIntervals:
         timestamps = []
         for _ in range(num_samples):
             ts = duthost.shell(
-                'sonic-db-cli STATE_DB HGET "{}" timestamp'.format(psu_key),
+                'sonic-db-cli -s STATE_DB HGET "{}" timestamp'.format(psu_key),
                 module_ignore_errors=True
             )
             if ts["rc"] == 0 and ts["stdout"].strip():
@@ -427,7 +427,7 @@ class TestPerComponentPollingIntervals:
 
         # Get any thermal sensor
         temp_keys = duthost.shell(
-            'sonic-db-cli STATE_DB KEYS "TEMPERATURE_INFO|*"',
+            'sonic-db-cli -s STATE_DB KEYS "TEMPERATURE_INFO|*"',
             module_ignore_errors=True
         )
         if temp_keys["rc"] != 0 or not temp_keys["stdout"].strip():
@@ -447,7 +447,7 @@ class TestPerComponentPollingIntervals:
         timestamps = []
         for _ in range(num_samples):
             ts = duthost.shell(
-                'sonic-db-cli STATE_DB HGET "{}" timestamp'.format(sensor_key),
+                'sonic-db-cli -s STATE_DB HGET "{}" timestamp'.format(sensor_key),
                 module_ignore_errors=True
             )
             if ts["rc"] == 0 and ts["stdout"].strip():

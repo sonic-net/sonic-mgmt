@@ -243,7 +243,7 @@ class DirectRebootControls(unittest.TestCase):
             elif boundary == 'startup':
                 self.ns['wait_for_startup'].side_effect = TimeoutError('no bounded startup')
             elif boundary == 'database':
-                self.failed_ping = 'sonic-db-cli PING'
+                self.failed_ping = 'sonic-db-cli -s PING'
             elif boundary == 'critical':
                 self.ns['ensure_all_critical_processes_running'].side_effect = RuntimeError('critical not ready')
             elif boundary == 'postcheck':
@@ -386,7 +386,7 @@ class DirectRebootControls(unittest.TestCase):
             self.reboot_error = disconnect
             self.boot = AFTER
             if boundary == 'database':
-                self.failed_ping = 'sonic-db-cli PING'
+                self.failed_ping = 'sonic-db-cli -s PING'
             elif boundary == 'critical':
                 self.ns['ensure_all_critical_processes_running'].side_effect = RuntimeError(
                     'critical process not ready')
@@ -484,7 +484,7 @@ class DirectRebootControls(unittest.TestCase):
         self.ns['config_reload'].assert_not_called()
 
     def test_all_asic_ping_and_config_gates_retained(self):
-        for missing, failed in [('redis1/', None), (None, 'sonic-db-cli -n asic1 PING')]:
+        for missing, failed in [('redis1/', None), (None, 'sonic-db-cli -s -n asic1 PING')]:
             self.setUp()
             self.dut.facts['num_asic'] = 2
             self.missing_file, self.failed_ping = missing, failed

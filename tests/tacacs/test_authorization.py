@@ -1,4 +1,5 @@
 import logging
+from tests.common.helpers.redis_reader import redis_reader_cli
 import sys
 
 import paramiko
@@ -297,13 +298,18 @@ def test_authorization_tacacs_only(
                                 tacacs_creds,
                                 check_tacacs,  # noqa: F811
                                 remote_user_client,
-                                remote_rw_user_client):
+                                remote_rw_user_client,
+                                request):
 
     check_authorization_tacacs_only(
                                     duthosts,
                                     enum_rand_one_per_hwsku_hostname,
                                     tacacs_creds,
                                     remote_user_client)
+
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    use_tcp = request.config.getoption("--redis-protection-mode", default=None) != "enforce"
+    redis_cli = redis_reader_cli(use_tcp=use_tcp)
 
     # check commands used by scripts
     commands = [
@@ -324,7 +330,7 @@ def test_authorization_tacacs_only(
         "show lldp table",
         "show reboot-cause",
         "configlet --help",
-        "sonic-db-cli  CONFIG_DB HGET \"FEATURE|macsec\" state"
+        f'{redis_cli} CONFIG_DB HGET "FEATURE|macsec" state'
     ]
 
     frontend_commands = [
@@ -336,7 +342,6 @@ def test_authorization_tacacs_only(
         "show interfaces status"
     ]
 
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     if duthost.sonichost.is_frontend_node():
         commands.extend(frontend_commands)
     commands.append("show feature status gnmi")
@@ -350,7 +355,7 @@ def test_authorization_tacacs_only(
         "sudo dmesg -D",
         "sudo sonic-cfggen --print-data",
         "sudo config list-checkpoints",
-        "redis-cli -n 4 keys \\*"
+        "{} CONFIG_DB keys \\*".format(redis_cli)
     ]
 
     for subcommand in rw_commands:

@@ -18,7 +18,7 @@ pytestmark = [
 SHOW_EEPOMR_CMDS = ["show interface transceiver eeprom -d",
                     "sudo sfputil show eeprom -d"]
 SHOW_INTF_STATUS_CMDS = "show interface status"
-REDIS_CLI_TRANSCEIVER_TYPE = 'sonic-db-cli STATE_DB hget "TRANSCEIVER_INFO|{}" "type"'
+REDIS_CLI_TRANSCEIVER_TYPE = 'sonic-db-cli -s STATE_DB hget "TRANSCEIVER_INFO|{}" "type"'
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -81,7 +81,7 @@ def test_check_sfp_eeprom_with_option_dom(rand_selected_dut, show_eeprom_cmd, sf
 
                 if is_cpo_supported:
                     with allure.step("Check {} identifier type".format(intf)):
-                        cmd = f'sonic-db-cli STATE_DB hget "TRANSCEIVER_INFO|{intf}" "type"'.format(intf)
+                        cmd = f'sonic-db-cli -s STATE_DB hget "TRANSCEIVER_INFO|{intf}" "type"'.format(intf)
                         transceiver_type = rand_selected_dut.command(cmd)["stdout"]
                         assert transceiver_type == CPO_PORT_TYPE, f"Transceiver type in state DBis not {CPO_PORT_TYPE}"
                         assert intf_status_dict[intf]["type"] == CPO_PORT_TYPE, \

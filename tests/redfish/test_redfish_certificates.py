@@ -142,7 +142,7 @@ def local_serial(path):
 def restore_session_port(duthost, port):
     """Put the Redfish port back to the one the session started on."""
     if port == DEFAULT_PORT:
-        duthost.shell('sonic-db-cli CONFIG_DB hdel "{}" port'.format(REDFISH_CONFIG_TABLE),
+        duthost.shell('sonic-db-cli -s CONFIG_DB hdel "{}" port'.format(REDFISH_CONFIG_TABLE),
                       module_ignore_errors=True)
     else:
         db_set(duthost, "CONFIG_DB", REDFISH_CONFIG_TABLE, port=str(port))
@@ -1027,9 +1027,9 @@ class TestRedfishConfiguredPaths:
         sit where the REST API server reads them. Configuring the paths later
         provisions it without a restart.
         """
-        bmc_duthost.shell('sonic-db-cli CONFIG_DB del "{}"'.format(REDFISH_CERTS_TABLE),
+        bmc_duthost.shell('sonic-db-cli -s CONFIG_DB del "{}"'.format(REDFISH_CERTS_TABLE),
                           module_ignore_errors=True)
-        bmc_duthost.shell('sonic-db-cli CONFIG_DB del "{}"'.format(REDFISH_CONFIG_TABLE),
+        bmc_duthost.shell('sonic-db-cli -s CONFIG_DB del "{}"'.format(REDFISH_CONFIG_TABLE),
                           module_ignore_errors=True)
         pytest_assert(unprovision(bmc_duthost),
                       "Device did not come up with no Redfish configuration")
@@ -1072,7 +1072,7 @@ class TestRedfishConfiguredPort:
 
     def test_default_port_is_443(self, bmc_duthost):
         """With no port configured, the API is published on the standard port."""
-        bmc_duthost.shell('sonic-db-cli CONFIG_DB del "{}"'.format(REDFISH_CONFIG_TABLE),
+        bmc_duthost.shell('sonic-db-cli -s CONFIG_DB del "{}"'.format(REDFISH_CONFIG_TABLE),
                           module_ignore_errors=True)
         pytest_assert(restart_service(bmc_duthost), "Device did not restart")
         pytest_assert(listening_port(bmc_duthost) == DEFAULT_PORT,
