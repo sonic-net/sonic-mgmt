@@ -130,7 +130,10 @@ class DHCPTest(DataplaneBaseTest):
     REMOTE_ID_SUBOPTION = 2
     LINK_SELECTION_SUBOPTION = 5
     SERVER_ID_OVERRIDE_SUBOPTION = 11
-    VRF_NAME_SUBOPTION = 151
+    # RFC 6607 — DHCPv4 Virtual Subnet Selection Sub-option
+    VIRTUAL_SUBNET_SELECTION_SUBOPTION = 151
+    # RFC 6607 — DHCPv4 Virtual Subnet Selection Control Sub-option
+    VIRTUAL_SUBNET_SELECTION_CONTROL_SUBOPTION = 152
     MAX_HOP_COUNT = 16
 
     def __init__(self):
@@ -249,17 +252,23 @@ class DHCPTest(DataplaneBaseTest):
                 self.option82 += struct.pack('BB', self.SERVER_ID_OVERRIDE_SUBOPTION, 4)
                 self.option82 += server_id_override
 
-            # Sub-option 151 (VRF Name) is included if any VRF type is specified.
-            # It conveys the client VRF name to the DHCP server.
+            # DHCPv4 Virtual Subnet Selection (VSS) sub-option (RFC 6607), gated on server_vrf
+            # in PTF (--server-vrf relay config). The value identifies the client's VRF
+            # (client-facing interface), via client_vrf, not the server-side VRF name.
             # Structure:
-            #  Byte 0: Suboption number, always set to 151
-            #  Byte 1: Length of VRF name + 1 (to pad with a null byte)
-            #  Bytes 2+: Null byte followed by the UTF-8 encoded VRF name
+            #  Byte 0: Suboption number (VIRTUAL_SUBNET_SELECTION_SUBOPTION, 151)
+            #  Byte 1: Length of VSS data
+            #  Bytes 2+: Leading null byte followed by the UTF-8 encoded client VRF name
             if self.server_vrf:
-                vrf_data = self.client_vrf
-                vrf_bytes = '\x00' + vrf_data
-                self.option82 += struct.pack('BB', self.VRF_NAME_SUBOPTION, len(vrf_bytes))
-                self.option82 += vrf_bytes.encode('utf-8')
+                vss_data = self.client_vrf
+                vss_bytes = '\x00' + vss_data
+                self.option82 += struct.pack(
+                    'BB', self.VIRTUAL_SUBNET_SELECTION_SUBOPTION, len(vss_bytes))
+                self.option82 += vss_bytes.encode('utf-8')
+                # DHCPv4 Virtual Subnet Selection Control sub-option (RFC 6607): length 0,
+                # paired with VSS on relayed requests to indicate a VSS sub-option is present.
+                self.option82 += struct.pack(
+                    'BB', self.VIRTUAL_SUBNET_SELECTION_CONTROL_SUBOPTION, 0)
 
         # In 'dual' testing mode, vlan ip is stored as suboption 5 of option 82.
         # It consists of the following:
