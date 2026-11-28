@@ -7,6 +7,8 @@ import logging
 from socket import IPPROTO_GRE, IPPROTO_TCP
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.sonic_db import AsicDbCli, SonicDbCli
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -170,66 +172,69 @@ ERSPAN_DEFAULT_DIRECTION = "rx"
 
 
 def remove_mirror_session(duthost, session_name):
-    '''Remove a mirror session, ignoring errors if it does not exist.'''
-    duthost.command(
-        'config mirror_session remove {}'.format(session_name),
-        module_ignore_errors=True)
+    '''Wait for this session's source bindings to detach in ASIC_DB before deleting the export.'''
+    for (port, direction), entry in sample_bindings(duthost).items():
+        if entry['mirror_session'] == session_name:
+            duthost.command('config mirror_session sample remove {} {} {}'.format(session_name, port, direction))
+            wait_for_sample_binding(duthost, port, direction, enabled=False)
+    if config_db_key_exists(duthost, 'MIRROR_SESSION|' + session_name):
+        duthost.command('config mirror_session remove {}'.format(session_name))
 
 
-def get_mirror_session_config_db_field(duthost, session_name, field):
-    '''Return a CONFIG_DB MIRROR_SESSION field value (empty string when unset).'''
+def sample_bindings(duthost):
+    db = SonicDbCli(duthost, 'CONFIG_DB')
+    keys = db.get_keys('PORT_MIRROR_SAMPLE|*', raise_error_when_not_found=False)
+    return {tuple(key.split('|')[1:]): db.hget_all(key) for key in keys if key}
+
+
+def wait_for_sample_binding(duthost, port, direction, enabled=True):
+    '''The export can be active before the source attachment is programmed.'''
+    asic = AsicDbCli(duthost)
+    oid = SonicDbCli(duthost, 'COUNTERS_DB').hget_key_value('COUNTERS_PORT_NAME_MAP', port)
+    stages = {'rx': ['INGRESS'], 'tx': ['EGRESS'], 'both': ['INGRESS', 'EGRESS']}[direction]
+
+    def ready():
+        fields = asic.hget_all('{}:{}'.format(asic.ASIC_PORT_TABLE, oid))
+        for stage in stages:
+            prefix = 'SAI_PORT_ATTR_' + stage
+            sample = fields.get(prefix + '_SAMPLEPACKET_ENABLE', 'oid:0x0')
+            mirror = fields.get(prefix + '_SAMPLE_MIRROR_SESSION', '0:null')
+            if enabled and (sample == 'oid:0x0' or not mirror.startswith('1:oid:')):
+                return False
+            if not enabled and (sample != 'oid:0x0' or mirror not in ('0:', '0:null')):
+                return False
+        return bool(fields)
+
+    pytest_assert(wait_until(30, 1, 0, ready), 'Sample binding {} {} did not converge (enabled={})'.format(
+        port, direction, enabled))
+
+
+def config_db_key_exists(duthost, key):
+    '''Return True if the CONFIG_DB key exists.'''
     output = duthost.shell(
-        'redis-cli -n 4 hget "MIRROR_SESSION|{}" "{}"'.format(session_name, field))
-    return output['stdout'].strip()
-
-
-def mirror_session_config_db_exists(duthost, session_name):
-    '''Return True if the CONFIG_DB MIRROR_SESSION key for session_name exists.'''
-    output = duthost.shell(
-        'redis-cli -n 4 exists "MIRROR_SESSION|{}"'.format(session_name))
+        'redis-cli -n 4 exists "{}"'.format(key))
     return output['stdout'].strip() == '1'
 
 
 def assert_mirror_session_config_db_fields(duthost, session_name, expected_fields):
-    '''Assert each CONFIG_DB MIRROR_SESSION field matches its expected value.'''
+    '''Assert export fields; None means the field must be absent, not just empty.'''
+    fields = SonicDbCli(duthost, 'CONFIG_DB').hget_all('MIRROR_SESSION|' + session_name)
     for field, expected in expected_fields.items():
-        actual = get_mirror_session_config_db_field(duthost, session_name, field)
+        actual = fields.get(field)
         pytest_assert(
-            actual == str(expected),
+            actual == expected,
             "CONFIG_DB MIRROR_SESSION|{} field '{}' should be {!r}, got {!r}".format(
-                session_name, field, str(expected), actual))
+                session_name, field, expected, actual))
 
 
-def create_erspan_session_config(duthost, session_name, sample_rate=None,
-                                 truncate_size=None, source_port=None,
-                                 direction=None, module_ignore_errors=False):
-    '''
-    Create an ERSPAN mirror session via the config CLI using the shared ERSPAN_*
-    endpoint constants.
-
-    A leftover session with the same name (e.g. from a previously crashed run) is
-    removed first so the create always starts from a clean slate.
-
-    source_port / direction are appended as positional CLI args when provided
-    (direction is only appended together with source_port, matching the CLI's
-    positional order). sample_rate / truncate_size are appended as --flags only
-    when not None (note that 0 IS appended, since the CLI accepts 0 to mean
-    "disabled"). When module_ignore_errors is True the non-zero rc is returned
-    instead of raising, so negative tests can inspect it.
-
-    Returns the duthost.command result dict.
-    '''
-    if direction is not None and source_port is None:
-        raise ValueError(
-            'direction is only applied together with source_port; pass source_port too')
-    remove_mirror_session(duthost, session_name)
+def create_erspan_session_config(duthost, session_name, source_port, direction, sample_rate=None,
+                                 truncate_size=None, module_ignore_errors=False):
+    '''Create a destination-only export, then return the result of the binding CLI (also used by negative tests).'''
     cmd = 'config mirror_session erspan add {} {} {} {} {} {} {}'.format(
         session_name, ERSPAN_SRC_IP, ERSPAN_DST_IP,
         ERSPAN_DSCP, ERSPAN_TTL, ERSPAN_GRE_TYPE, ERSPAN_QUEUE)
-    if source_port is not None:
-        cmd += ' {}'.format(source_port)
-        if direction is not None:
-            cmd += ' {}'.format(direction)
+    duthost.command(cmd)
+    cmd = 'config mirror_session sample add {} {} {}'.format(session_name, source_port, direction)
     if sample_rate is not None:
         cmd += ' --sample_rate {}'.format(sample_rate)
     if truncate_size is not None:

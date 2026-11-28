@@ -11,6 +11,9 @@ from contextlib import ExitStack
 from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
 from tests.common.utilities import skip_release, wait_until
 from tests.common.helpers.assertions import pytest_assert as _pytest_assert
+from tests.common.helpers.dut_utils import restart_service_with_startlimit_guard
+from tests.common.platform.interface_utils import get_dut_interfaces_status, wait_ports_oper_status
+from tests.common.platform.processes_utils import get_docker_started_at, wait_critical_processes
 from erspan_helpers import (   # noqa F401
     ERSPAN_SESSION_NAME,
     ERSPAN_SRC_IP,
@@ -23,6 +26,9 @@ from erspan_helpers import (   # noqa F401
     MIRROR_GRE_METADATA_LEN,
     remove_mirror_session,
     create_erspan_session_config,
+    config_db_key_exists,
+    sample_bindings,
+    wait_for_sample_binding,
 )
 
 logger = logging.getLogger(__name__)
@@ -411,8 +417,45 @@ def sampling_direction(request, erspan_capabilities):
     return direction
 
 
+def _restart_sampling_runtime(duthost, up_ports, bgp_neighbors):
+    '''The sampling mode is owned by orchagent for the lifetime of the process.'''
+    before = get_docker_started_at(duthost, 'swss')
+    restart_service_with_startlimit_guard(duthost, 'swss')
+    wait_critical_processes(duthost)
+    after = get_docker_started_at(duthost, 'swss')
+    _pytest_assert(before and after and after != before, f'swss restart not confirmed: {before!r} -> {after!r}')
+    pending = wait_ports_oper_status(duthost, up_ports, 'up', 300, poll_interval_sec=5)
+    _pytest_assert(not pending, 'Ports did not recover after swss restart: {}'.format(pending))
+    _pytest_assert(wait_until(300, 10, 0, duthost.check_bgp_session_state_all_asics, bgp_neighbors),
+                   'Established BGP neighbors did not recover after swss restart')
+
+
+@pytest.fixture(scope='module')
+def sampled_mirror_cli(rand_selected_dut):
+    if rand_selected_dut.is_multi_asic:
+        pytest.skip('ERSPAN sampling session setup currently requires a single-ASIC DUT')
+    result = rand_selected_dut.command('config mirror_session sample --help', module_ignore_errors=True)
+    output = result['stderr'] + result['stdout']
+    if result['rc'] and "No such command 'sample'" in output:
+        pytest.skip('Image does not support per-port sampled ERSPAN')
+    _pytest_assert(result['rc'] == 0, output)
+    if config_db_key_exists(rand_selected_dut, 'SFLOW|global'):
+        pytest.skip('Sampled bindings require SFLOW|global to be absent, even when disabled')
+    if sample_bindings(rand_selected_dut):
+        pytest.skip('Preserving pre-existing sampled mirror bindings')
+
+    up_ports = [port for port, status in get_dut_interfaces_status(rand_selected_dut).items() if status['oper'] == 'up']
+    bgp_neighbors = rand_selected_dut.get_bgp_neighbors_per_asic(state='established')
+    _restart_sampling_runtime(rand_selected_dut, up_ports, bgp_neighbors)
+    yield
+    # Per-test cleanup has run. Only these two CONFIG_DB tables select the mode on restart.
+    _pytest_assert(not sample_bindings(rand_selected_dut), 'Sampled mirror bindings remain at module teardown')
+    _pytest_assert(not config_db_key_exists(rand_selected_dut, 'SFLOW|global'), 'Unexpected SFLOW|global at teardown')
+    _restart_sampling_runtime(rand_selected_dut, up_ports, bgp_neighbors)
+
+
 @pytest.fixture
-def mirror_session_cleanup(duthosts, rand_one_dut_hostname):
+def mirror_session_cleanup(duthosts, rand_one_dut_hostname, sampled_mirror_cli):
     '''Register mirror-session names for guaranteed removal at teardown.
 
     A lightweight alternative to per-test try/finally remove_mirror_session boilerplate for
@@ -425,6 +468,8 @@ def mirror_session_cleanup(duthosts, rand_one_dut_hostname):
     session_names = []
 
     def register(session_name):
+        if config_db_key_exists(duthost, 'MIRROR_SESSION|' + session_name):
+            pytest.skip('Preserving existing mirror session {}'.format(session_name))
         session_names.append(session_name)
         return session_name
 
@@ -450,7 +495,7 @@ def erspan_config_source(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module")
-def erspan_ports(duthosts, rand_one_dut_hostname, tbinfo):
+def erspan_ports(duthosts, rand_one_dut_hostname, tbinfo, sampled_mirror_cli):
     '''Discover existing routed paths using the common active-interface API.'''
     duthost = duthosts[rand_one_dut_hostname]
     # Session CLI/STATE_DB operations below are single-ASIC scoped.
@@ -495,9 +540,9 @@ def setup_erspan_route(duthosts, rand_one_dut_hostname, erspan_ports):
 
 
 @pytest.fixture
-def erspan_session(request, duthosts, rand_one_dut_hostname, erspan_ports):
+def erspan_session(request, duthosts, rand_one_dut_hostname, erspan_ports, mirror_session_cleanup):
     '''
-    Create and teardown an ERSPAN mirror session with optional sample_rate/truncate_size.
+    Create and teardown an export and source binding with a sample rate and optional truncation.
 
     Usage:
         @pytest.mark.parametrize('erspan_session', [{'sample_rate': 256}], indirect=True)
@@ -505,7 +550,7 @@ def erspan_session(request, duthosts, rand_one_dut_hostname, erspan_ports):
     '''
     duthost = duthosts[rand_one_dut_hostname]
     params = getattr(request, 'param', {}) or {}
-    sample_rate = params.get('sample_rate')
+    sample_rate = params['sample_rate']
     truncate_size = params.get('truncate_size')
     src_port = erspan_ports['source']['name']
     direction = params.get('direction', ERSPAN_DEFAULT_DIRECTION)
@@ -514,11 +559,9 @@ def erspan_session(request, duthosts, rand_one_dut_hostname, erspan_ports):
         pytest.skip('TX/BOTH ERSPAN dataplane tests require a single-member routed mirror source')
     metadata_len = request.getfixturevalue('erspan_gre_metadata_len')
     # Check eligibility before configuring routes.
+    mirror_session_cleanup(ERSPAN_SESSION_NAME)
     request.getfixturevalue('setup_erspan_route')
-    request.addfinalizer(lambda: remove_mirror_session(duthost, ERSPAN_SESSION_NAME))
 
-    # create_erspan_session_config pre-cleans any leftover same-named session, then
-    # creates it with the requested direction / sampling / truncation parameters.
     logger.info(
         "Creating ERSPAN session %s on %s (direction=%s, sample_rate=%s, truncate_size=%s)",
         ERSPAN_SESSION_NAME, src_port, direction, sample_rate, truncate_size)
@@ -566,9 +609,11 @@ def erspan_session(request, duthosts, rand_one_dut_hostname, erspan_ports):
         ready,
         "Mirror session {} not active or monitor_port not in {}; STATE_DB: {}".format(
             ERSPAN_SESSION_NAME, sorted(expected_monitors), state_dump))
+    wait_for_sample_binding(duthost, src_port, direction)
 
     yield {
         'session_name': ERSPAN_SESSION_NAME,
+        'source_port': src_port,
         'source_index': erspan_ports['source']['index'],
         'gre_egress_indices': collector['indices'],
         'tx_ingress_index': erspan_ports['tx_ingress']['index'],

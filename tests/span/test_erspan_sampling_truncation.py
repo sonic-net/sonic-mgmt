@@ -16,7 +16,10 @@ from erspan_helpers import (
     collect_erspan_packets,
     create_erspan_session_config,
     assert_mirror_session_config_db_fields,
-    mirror_session_config_db_exists,
+    config_db_key_exists,
+    remove_mirror_session,
+    sample_bindings,
+    wait_for_sample_binding,
 )
 
 logger = logging.getLogger(__name__)
@@ -30,8 +33,6 @@ DEFAULT_TRUNCATE_SIZE = 128
 DEFAULT_SAMPLE_RATE = 50000
 SAMPLING_TRUNCATION_PACKET_SIZE = 1500
 
-# Number of probe packets for truncation checks
-TRUNCATION_PROBE_COUNT = 1000
 # Batch sends and raise the ptf_nn_agent socket send timeout
 SEND_BATCH_SIZE = 1000
 SEND_SOCKET_TIMEOUT_MS = 30000
@@ -132,13 +133,20 @@ def test_switch_capability_reported_boolean(erspan_capabilities, capability_key)
 
 CREATE_CONFIG_DB_CASES = [
     pytest.param({"sample_rate": DEFAULT_SAMPLE_RATE}, False, id="sample_rate"),
-    pytest.param({"truncate_size": DEFAULT_TRUNCATE_SIZE}, True, id="truncate_size"),
     pytest.param(
         {"sample_rate": DEFAULT_SAMPLE_RATE, "truncate_size": DEFAULT_TRUNCATE_SIZE},
         True,
         id="sample_rate_and_truncate_size",
     ),
 ]
+
+
+def _expected_bindings(session, port, direction, sample_rate, truncate_size=None):
+    fields = {'mirror_session': session, 'sample_rate': str(sample_rate), 'admin_state': 'up'}
+    if truncate_size is not None:
+        fields['truncate_size'] = str(truncate_size)
+    directions = ('rx', 'tx') if direction == 'both' else (direction,)
+    return {(port, d): fields for d in directions}
 
 
 @pytest.mark.parametrize('sampling_direction', ['rx', 'tx', 'both'], indirect=True)
@@ -153,15 +161,13 @@ def test_create_erspan_session_config_fields(
         create_kwargs,
         requires_truncation):
     '''
-    Verify sampling/truncation flags and the direction are written to the CONFIG_DB
-    MIRROR_SESSION entry.
+    Verify sampling/truncation is on the binding, not on the shared export.
     '''
     if requires_truncation:
         request.getfixturevalue("skip_if_truncation_unsupported")
 
     duthost = duthosts[rand_one_dut_hostname]
     session_name = mirror_session_cleanup("test_create_config")
-    expected = dict(create_kwargs, direction=sampling_direction.upper())
 
     create_erspan_session_config(
         duthost, session_name,
@@ -169,7 +175,10 @@ def test_create_erspan_session_config_fields(
         direction=sampling_direction,
         **create_kwargs)
 
-    assert_mirror_session_config_db_fields(duthost, session_name, expected)
+    assert_mirror_session_config_db_fields(duthost, session_name, {
+        'type': 'ERSPAN', 'src_port': None, 'direction': None, 'sample_rate': None, 'truncate_size': None})
+    assert sample_bindings(duthost) == _expected_bindings(
+        session_name, erspan_config_source, sampling_direction, **create_kwargs)
 
 
 @pytest.mark.parametrize('sampling_direction', ['rx', 'tx', 'both'], indirect=True)
@@ -180,7 +189,7 @@ def test_remove_erspan_session_with_sampling(
         mirror_session_cleanup,
         sampling_direction):
     '''
-    Verify removing a sampled session deletes its CONFIG_DB MIRROR_SESSION key.
+    Verify removing the binding leaves the export available for separate removal.
     '''
     duthost = duthosts[rand_one_dut_hostname]
     session_name = mirror_session_cleanup("test_remove_session")
@@ -188,82 +197,55 @@ def test_remove_erspan_session_with_sampling(
         duthost, session_name, sample_rate=256,
         source_port=erspan_config_source,
         direction=sampling_direction)
+    assert sample_bindings(duthost) == _expected_bindings(session_name, erspan_config_source, sampling_direction, 256)
+    duthost.command('config mirror_session sample remove {} {} {}'.format(
+        session_name, erspan_config_source, sampling_direction))
+    wait_for_sample_binding(duthost, erspan_config_source, sampling_direction, enabled=False)
+    assert not sample_bindings(duthost)
+    assert config_db_key_exists(duthost, 'MIRROR_SESSION|' + session_name)
     duthost.command('config mirror_session remove {}'.format(session_name))
     pytest_assert(
-        not mirror_session_config_db_exists(duthost, session_name),
+        not config_db_key_exists(duthost, 'MIRROR_SESSION|' + session_name),
         "MIRROR_SESSION|{} should not exist after removal".format(session_name)
     )
 
 
-@pytest.mark.parametrize("invalid_rate", [1])
-def test_invalid_sample_rate_rejected(duthosts, rand_one_dut_hostname, mirror_session_cleanup, invalid_rate):
+@pytest.mark.parametrize("invalid_rate", [None, 0, 1], ids=['missing', 'zero', 'one'])
+def test_invalid_sample_rate_rejected(duthosts, rand_one_dut_hostname, mirror_session_cleanup,
+                                      erspan_config_source, invalid_rate):
     '''
-    Verify the CLI rejects an out-of-range sample_rate (non-zero exit code).
-
-    Steps: attempt to create a session with an invalid sample_rate; assert rc != 0.
+    Truncation does not make the sampling rate optional; 0 and 1 are invalid, too.
     '''
     duthost = duthosts[rand_one_dut_hostname]
     session_name = mirror_session_cleanup("test_invalid_sr")
     result = create_erspan_session_config(
-        duthost, session_name, sample_rate=invalid_rate, module_ignore_errors=True)
+        duthost, session_name, erspan_config_source, 'rx', sample_rate=invalid_rate,
+        truncate_size=DEFAULT_TRUNCATE_SIZE, module_ignore_errors=True)
     pytest_assert(
-        result['rc'] != 0,
-        "CLI should reject invalid sample_rate={} but command succeeded".format(invalid_rate)
+        result['rc'] != 0 and '--sample_rate' in result['stderr'],
+        "Expected a sample_rate error for {}, got {}".format(invalid_rate, result['stderr'])
     )
+    assert not sample_bindings(duthost)
 
 
-@pytest.mark.parametrize("invalid_size", [32, 63, 9217])
-def test_invalid_truncate_size_rejected(duthosts, rand_one_dut_hostname, mirror_session_cleanup, invalid_size):
+@pytest.mark.parametrize("invalid_size", [0, 32, 63, 9217])
+def test_invalid_truncate_size_rejected(duthosts, rand_one_dut_hostname, mirror_session_cleanup,
+                                        erspan_config_source, invalid_size):
     '''
     Verify the CLI rejects an out-of-range truncate_size (non-zero exit code).
 
-    Steps: attempt to create a session with an invalid truncate_size; assert rc != 0.
+    Steps: attempt to add a binding with an invalid truncate_size; assert rc != 0.
     '''
     duthost = duthosts[rand_one_dut_hostname]
     session_name = mirror_session_cleanup("test_invalid_ts")
     result = create_erspan_session_config(
-        duthost, session_name, truncate_size=invalid_size, module_ignore_errors=True)
+        duthost, session_name, erspan_config_source, 'rx', sample_rate=2,
+        truncate_size=invalid_size, module_ignore_errors=True)
     pytest_assert(
-        result['rc'] != 0,
-        "CLI should reject invalid truncate_size={} but command succeeded".format(invalid_size)
+        result['rc'] != 0 and '--truncate_size' in result['stderr'],
+        "Expected a truncate_size error for {}, got {}".format(invalid_size, result['stderr'])
     )
-
-
-def test_sample_rate_zero_disables_sampling(duthosts, rand_one_dut_hostname, mirror_session_cleanup):
-    """
-    Verify sample_rate=0 is accepted and semantically equivalent to omitting the flag:
-    the field MUST NOT be written to CONFIG_DB. orchagent treats absence as "no sampling".
-    """
-    duthost = duthosts[rand_one_dut_hostname]
-    session_name = mirror_session_cleanup("test_sr_zero")
-    result = create_erspan_session_config(
-        duthost, session_name, sample_rate=0, module_ignore_errors=True)
-    pytest_assert(
-        result["rc"] == 0,
-        "CLI should accept sample_rate=0 (disabled), got rc={} stderr={}".format(
-            result["rc"], result.get("stderr", "")
-        )
-    )
-    assert_mirror_session_config_db_fields(duthost, session_name, {"sample_rate": ""})
-
-
-def test_truncate_size_zero_disables_truncation(duthosts, rand_one_dut_hostname, mirror_session_cleanup):
-    """
-    Verify truncate_size=0 is accepted and semantically equivalent to omitting the flag:
-    the field MUST NOT be written to CONFIG_DB, and orchagent treats absence as "no
-    truncation".
-    """
-    duthost = duthosts[rand_one_dut_hostname]
-    session_name = mirror_session_cleanup("test_ts_zero")
-    result = create_erspan_session_config(
-        duthost, session_name, truncate_size=0, module_ignore_errors=True)
-    pytest_assert(
-        result["rc"] == 0,
-        "CLI should accept truncate_size=0 (disabled), got rc={} stderr={}".format(
-            result["rc"], result.get("stderr", "")
-        )
-    )
-    assert_mirror_session_config_db_fields(duthost, session_name, {"truncate_size": ""})
+    assert not sample_bindings(duthost)
 
 
 @pytest.mark.parametrize('sampling_direction', ['rx', 'tx', 'both'], indirect=True)
@@ -275,12 +257,7 @@ def test_show_mirror_session_displays_new_columns(
         skip_if_truncation_unsupported,
         sampling_direction):
     '''
-    Verify 'show mirror_session' lists sample_rate and truncate_size in the
-    session's own row.
-
-    Steps: create a session with sample_rate=512, truncate_size=128 and the parametrized
-    direction; run 'show mirror_session'; locate the session row; assert 512 and 128
-    are in its fields.
+    Verify 'show mirror_session sample' lists the policy once per source and direction.
     '''
     duthost = duthosts[rand_one_dut_hostname]
     session_name = mirror_session_cleanup("test_show_cols")
@@ -288,23 +265,11 @@ def test_show_mirror_session_displays_new_columns(
         duthost, session_name, sample_rate=512, truncate_size=128,
         source_port=erspan_config_source,
         direction=sampling_direction)
-    output = duthost.shell("show mirror_session")['stdout']
-    rows = [ln for ln in output.splitlines()
-            if ln.split() and ln.split()[0] == session_name]
-    pytest_assert(
-        len(rows) == 1,
-        "Expected exactly one '{}' row in show mirror_session, got:\n{}".format(
-            session_name, output)
-    )
-    fields = rows[0].split()
-    pytest_assert(
-        '512' in fields,
-        "Session row should list sample_rate 512, row: {!r}".format(rows[0])
-    )
-    pytest_assert(
-        '128' in fields,
-        "Session row should list truncate_size 128, row: {!r}".format(rows[0])
-    )
+    rows = duthost.show_and_parse('show mirror_session sample')
+    actual = [(r['source port'], r['direction'], r['admin state'], r['sample rate'], r['truncate size'])
+              for r in rows if r['mirror session'] == session_name]
+    directions = ('rx', 'tx') if sampling_direction == 'both' else (sampling_direction,)
+    assert sorted(actual) == [(erspan_config_source, direction, 'up', '512', '128') for direction in directions]
 
 
 @pytest.mark.parametrize('sampling_direction', ['rx', 'tx', 'both'], indirect=True)
@@ -317,7 +282,7 @@ def test_erspan_sampling_config_high_rate(
     '''
     Verify a sample_rate (1:50000) is accepted and stored in CONFIG_DB.
 
-    Steps: create a session with --sample_rate 50000 and the parametrized direction;
+    Steps: add a binding with --sample_rate 50000 and the parametrized direction;
     assert CONFIG_DB sample_rate == 50000.
     '''
     duthost = duthosts[rand_one_dut_hostname]
@@ -326,19 +291,19 @@ def test_erspan_sampling_config_high_rate(
         duthost, session_name, sample_rate=DEFAULT_SAMPLE_RATE,
         source_port=erspan_config_source,
         direction=sampling_direction)
-    assert_mirror_session_config_db_fields(
-        duthost, session_name, {"sample_rate": DEFAULT_SAMPLE_RATE})
+    assert sample_bindings(duthost) == _expected_bindings(
+        session_name, erspan_config_source, sampling_direction, DEFAULT_SAMPLE_RATE)
 
 
 @pytest.mark.parametrize(
     "erspan_session, pktlen",
     [
-        ({'truncate_size': 128}, 1500),
-        ({'truncate_size': 256}, 1500),
-        ({'truncate_size': 128}, 64),
-        ({'truncate_size': 256}, 64),
-        ({'truncate_size': 128}, 128),
-        ({'truncate_size': 256}, 256),
+        ({'sample_rate': 2, 'truncate_size': 128}, 1500),
+        ({'sample_rate': 2, 'truncate_size': 256}, 1500),
+        ({'sample_rate': 2, 'truncate_size': 128}, 64),
+        ({'sample_rate': 2, 'truncate_size': 256}, 64),
+        ({'sample_rate': 2, 'truncate_size': 128}, 128),
+        ({'sample_rate': 2, 'truncate_size': 256}, 256),
     ],
     ids=[
         'truncate128-pktlen1500',
@@ -358,20 +323,16 @@ def test_erspan_truncation_packet_size(
         erspan_session,
         pktlen):
     '''
-    Verify truncation with 1:1 mirroring for frames below, at and above the limit.
+    Verify truncation with 1:2 sampling for frames below, at and above the limit.
 
-    Require one matching mirror per probe and validate every frame's length
+    Check the sampled count and validate every mirrored frame's length
     against the encapsulation model and tolerance.
     '''
     truncate_size = erspan_session['truncate_size']
     packets = _send_sampled_traffic_and_collect(
         ptfadapter, erspan_session, erspan_session['source_index'],
-        pktlen=pktlen, count=TRUNCATION_PROBE_COUNT, timeout=5)
-    pytest_assert(
-        len(packets) == TRUNCATION_PROBE_COUNT,
-        "Expected {} matching ERSPAN packets for 1:1 mirroring, got {} "
-        "(pktlen={}, truncate_size={})".format(
-            TRUNCATION_PROBE_COUNT, len(packets), pktlen, truncate_size))
+        pktlen=pktlen)
+    _assert_sampled_count(len(packets), erspan_session['sample_rate'])
 
     for pkt_bytes in packets:
         _assert_mirror_len(len(pkt_bytes), pktlen, truncate_size)
@@ -596,7 +557,7 @@ def test_erspan_session_remove_stops_mirroring(
     inject_port = ptfadapter.dataplane.port_to_tuple(src_port)
     src_mac = ptfadapter.dataplane.get_mac(*inject_port)
 
-    duthost.command('config mirror_session remove {}'.format(erspan_session['session_name']))
+    remove_mirror_session(duthost, erspan_session['session_name'])
 
     probe = erspan_session['probes'][src_port]
     inner_pkt = testutils.simple_tcp_packet(
