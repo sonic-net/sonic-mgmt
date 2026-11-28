@@ -13,6 +13,7 @@ from cryptography import x509
 
 from tests.common.cert_utils import TlsCertificateGenerator
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.sonic_db import CONFIG_DB, redis_hexists
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -324,9 +325,11 @@ def snapshot_redfish_config(duthost):
     snapshot = {}
     for table, fields in OWNED_FIELDS.items():
         for field in fields:
-            command = 'sonic-db-cli CONFIG_DB {{}} "{}" {}'.format(table, field)
-            exists = duthost.shell(command.format("hexists"))["stdout"].strip() == "1"
-            snapshot[table, field] = duthost.shell(command.format("hget"))["stdout"].rstrip("\n") if exists else None
+            if redis_hexists(duthost, CONFIG_DB, table, field):
+                command = 'sonic-db-cli CONFIG_DB hget "{}" {}'.format(table, field)
+                snapshot[table, field] = duthost.shell(command)["stdout"].rstrip("\n")
+            else:
+                snapshot[table, field] = None
     return snapshot
 
 

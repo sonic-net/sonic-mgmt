@@ -87,10 +87,12 @@ class Device:
         if words[0] == "sonic-db-cli":
             _, db, action, key, *args = words
             assert db == "CONFIG_DB"
+            action = action.lower()
             table, row = key.split("|")
             fields = self.config.get(table, {}).get(row, {})
             if action == "hexists":
-                output = str(int(args[0] in fields))
+                # Like sonic-db-cli: True/False, not redis-cli's 1/0.
+                output = str(args[0] in fields)
             elif action == "hget":
                 output = fields.get(args[0], "")
             elif action == "hset":
@@ -142,6 +144,8 @@ def utility_namespace():
     namespace = {"pytest": pytest, "pytest_assert": require, "pyrequire": require,
                  "logger": Mock(), "os": os, "shlex": shlex,
                  "wait_until": lambda timeout, interval, delay, fn, *args: fn(*args)}
+    namespace.update(CONFIG_DB="CONFIG_DB", DEFAULT_NAMESPACE=None, SonicAsic=type("SonicAsic", (), {}))
+    load_nodes(TESTS / "common/helpers/sonic_db.py", namespace, {"_run_sonic_db_cli", "redis_hexists"})
     load_nodes(TESTS / "redfish/redfish_utils.py", namespace)
     return namespace
 
@@ -545,7 +549,7 @@ def test_all_redfish_fixture_dependents_have_compatible_scopes():
 def test_config_read_failure_does_not_become_missing_state():
     ns = utility_namespace()
     device = Device()
-    device.fail_command = 'sonic-db-cli CONFIG_DB hexists "REDFISH|certs" server_crt'
+    device.fail_command = "sonic-db-cli CONFIG_DB HEXISTS 'REDFISH|certs' server_crt"
     with pytest.raises(RuntimeError, match="injected failure"):
         ns["snapshot_redfish_config"](device)
 

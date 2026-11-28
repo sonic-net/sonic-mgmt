@@ -341,6 +341,28 @@ def redis_keys(duthost, db, pattern):
     return out.split('\n') if out else []
 
 
+def redis_hexists(duthost, db, key, field):
+    """Return whether the hash at `key` has `field`.
+
+    sonic-db-cli prints HEXISTS as True/False, unlike EXISTS or redis-cli (1/0).
+    A missing key or field returns False. Unlike the other helpers in this
+    section, a failed read raises: callers act on False, e.g. by deleting the
+    field on restore.
+
+    Raises:
+        RuntimeError: if the command fails or prints anything but True/False.
+    """
+    r = _run_sonic_db_cli(
+        duthost,
+        "{db} HEXISTS {key} {field}".format(db=db, key=shlex.quote(str(key)), field=shlex.quote(str(field)))
+    )
+    out = (r.get('stdout', '') or '').strip()
+    if r.get('rc', 0) != 0 or out not in ('True', 'False'):
+        raise RuntimeError("sonic-db-cli {} HEXISTS {} {}: rc={}, stdout={!r}, stderr={!r}".format(
+            db, key, field, r.get('rc'), out, (r.get('stderr', '') or '').strip()))
+    return out == 'True'
+
+
 class AsicDbCli(SonicDbCli):
     """
     Class to interface with the ASICDB on a host.
