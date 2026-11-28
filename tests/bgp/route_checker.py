@@ -489,6 +489,15 @@ def verify_current_routes_announced_to_neighs(dut_host, neigh_hosts, orig_routes
         "Verifying all the original routes(ipv{}) are announced to bgp neighbors".format(ip_ver))
     cur_routes_on_all_nbrs.update(
         parse_routes_on_neighbors(dut_host, neigh_hosts, ip_ver, exp_community))
+    if exp_community:
+        # When exp_community is given, the current routes only contain routes carrying one of the
+        # expected communities, and each value is the matched community, not the full community
+        # string recorded in the original routes. The values are therefore never comparable, so
+        # compare the prefix sets only: equal sets mean every original route now carries the
+        # expected community.
+        orig_prefixes = {nbr: set(routes) for nbr, routes in orig_routes_on_all_nbrs.items()}
+        cur_prefixes = {nbr: set(routes) for nbr, routes in cur_routes_on_all_nbrs.items()}
+        return cur_prefixes == orig_prefixes
     # Compare current routes after TSB with original routes advertised to neighbors
     if cur_routes_on_all_nbrs != orig_routes_on_all_nbrs:
         return False
