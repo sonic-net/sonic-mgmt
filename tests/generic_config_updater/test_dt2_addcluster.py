@@ -37,6 +37,7 @@ See test_dt2_addcluster_workflow() docstring for detailed explanation.
 """
 
 import json
+import shlex
 import logging
 import os
 import tempfile
@@ -50,6 +51,7 @@ from tests.common.gu_utils import apply_patch, generate_tmpfile, delete_tmpfile
 from tests.common.utilities import wait_until
 from tests.generic_config_updater.util.generate_patch import (
     generate_config_patch,
+    escape_json_pointer,
     is_front_panel_port,
     extract_mirror_acl_ports,
     AUTOGEN_BUFFER_PG_PROFILE_PREFIX,
@@ -65,6 +67,10 @@ from tests.generic_config_updater.util.verify_patch import (
     get_lossless_pg_entries,
     buffer_profile_exists,
     expected_lossless_profile_name,
+    buffer_pg_priorities,
+    normalize_config,
+    normalize_profile_reference,
+    validate_lossless_pg_baseline,
 )
 
 from .util.process_minigraph import MinigraphRefactor
@@ -434,6 +440,12 @@ def setup_env(duthosts, rand_one_dut_hostname):
     if duthost.get_facts().get("modular_chassis"):
         pytest.skip("This test is for single-ASIC dt2 devices only; use test_multiasic_addcluster for modular chassis")
 
+    model = duthost.shell('sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" buffer_model',
+                          module_ignore_errors=True)
+    pytest_assert(model['rc'] == 0, "Unable to determine buffer model before configuration changes")
+    if model['stdout'].strip().lower() not in ('', 'traditional'):
+        pytest.skip("This testcase verifies traditional buffers only; other models need model-aware verification")
+
     for path in (MINIGRAPH_BACKUP, DUT_GOLDEN_OVERRIDE):
         pytest_assert(not duthost.stat(path=path)["stat"]["exists"],
                       f"Refusing to overwrite a leftover restoration artifact: {path}")
@@ -446,6 +458,10 @@ def setup_env(duthosts, rand_one_dut_hostname):
     logger.info("Preserving pre-test configuration in %s", backup_dir)
     duthost.shell(f"cp -p {config_db} {saved_config}")
     duthost.shell(f"sonic-cfggen -d --print-data > {running_config}")
+    validate_snapshot = (
+        "python3 -c 'import json, sys; "
+        "sys.exit(0 if isinstance(json.load(sys.stdin), dict) else 1)' < {}".format(shlex.quote(running_config)))
+    duthost.shell(validate_snapshot, verbose=False)
 
     try:
         yield
@@ -457,6 +473,7 @@ def setup_env(duthosts, rand_one_dut_hostname):
                 duthost.shell(f"cp -p {MINIGRAPH_BACKUP} {MINIGRAPH}")
                 # Minigraph reload saved the without-T1 state; load the full pre-test
                 # snapshot instead, including tables that minigraph cannot represent.
+                duthost.shell(validate_snapshot, verbose=False)
                 duthost.shell(f"cp {running_config} {config_db}")
                 logger.info("Restoring pre-test running configuration")
                 config_reload(duthost, config_source="config_db", safe_reload=True)
@@ -521,7 +538,7 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
     logger.info(f"Backing up current minigraph from {MINIGRAPH} to {MINIGRAPH_BACKUP}")
     if not duthost.stat(path=MINIGRAPH)["stat"]["exists"]:
         pytest.fail(f"{MINIGRAPH} not found on DUT")
-    duthost.shell(f"sudo cp {MINIGRAPH} {MINIGRAPH_BACKUP}")
+    duthost.shell(f"sudo cp -p {MINIGRAPH} {MINIGRAPH_BACKUP}")
 
     # Step 1.1: Reload minigraph to ensure clean state.
     #
@@ -565,10 +582,34 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
     dut_config_path = os.path.join(dut_dir, "all.json")
     full_config_path = os.path.join(local_dir, "dt2-all.json")
     os.makedirs(os.path.dirname(full_config_path), exist_ok=True)
-    duthost.shell(f"show runningconfiguration all > {dut_config_path}")
-    duthost.fetch(src=dut_config_path, dest=full_config_path, flat=True)
+
+    def capture_config(dut_path, local_path):
+        duthost.shell(f"show runningconfiguration all > {dut_path}")
+        duthost.fetch(src=dut_path, dest=local_path, flat=True)
+        duthost.shell(f"rm -f {dut_path}")
+        with open(local_path) as f:
+            return normalize_config(json.load(f))
+
+    def baseline_buffers_ready():
+        config = capture_config(dut_config_path, full_config_path)
+        ports = set(neighbor_interfaces) | {
+            port for port, fields in config.get('PORT_QOS_MAP', {}).items()
+            if is_front_panel_port(port) and fields.get('pfc_enable')
+            and config.get('PORT', {}).get(port, {}).get('admin_status') == 'up'
+            and port in config.get('CABLE_LENGTH', {}).get('AZURE', {})
+        }
+        try:
+            validate_lossless_pg_baseline(config, ports)
+            return True
+        except ValueError as error:
+            logger.info("Waiting for a complete with-T1 buffer baseline: %s", error)
+            return False
+
+    pytest_assert(wait_until(300, 20, 0, baseline_buffers_ready),
+                  "Incomplete with-T1 BUFFER_PG baseline; refusing to remove the neighbor")
+    with open(full_config_path) as f:
+        baseline_config = normalize_config(json.load(f))
     logger.info(f"Saved full configuration backup to {full_config_path}")
-    duthost.shell(f"rm -f {dut_config_path}")
 
     # Step 3: Modify minigraph to remove target T1 neighbor
     logger.info(f"Modifying minigraph to remove {target_t1}")
@@ -620,10 +661,17 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
     logger.info(f"Capturing running configuration without {target_t1}")
     dut_config_path = os.path.join(dut_dir, "all-without-t1.json")
     no_t1_config_path = os.path.join(local_dir, "dt2-all-without-t1.json")
-    duthost.shell(f"show runningconfiguration all > {dut_config_path}")
-    duthost.fetch(src=dut_config_path, dest=no_t1_config_path, flat=True)
+    needs_pg_table = any(
+        not normalize_profile_reference(fields.get('profile')).startswith(AUTOGEN_BUFFER_PG_PROFILE_PREFIX)
+        for fields in baseline_config.get('BUFFER_PG', {}).values())
+
+    def reduced_buffers_ready():
+        config = capture_config(dut_config_path, no_t1_config_path)
+        return not needs_pg_table or 'BUFFER_PG' in config
+
+    pytest_assert(wait_until(300, 20, 0, reduced_buffers_ready),
+                  "BUFFER_PG table is absent from the reduced snapshot; refusing a whole-table patch")
     logger.info(f"Saved configuration without {target_t1} to {no_t1_config_path}")
-    duthost.shell(f"rm -f {dut_config_path}")
 
     # Step 6: Generate GCU patch (diff between with-T1 and without-T1 configs)
     # For single-ASIC, the config structure is flat (no namespace nesting at top level)
@@ -775,48 +823,32 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
     # No namespace args needed for single-ASIC.
     # -------------------------------------------------------------------------
 
-    # Equivalence check, before any per-table checks.
-    #
-    # The test round-trips through a real minigraph reload precisely so that a
-    # known-good "with T1" configuration is available. Comparing against it is the
-    # only check that proves the patch reproduces that state; verifying that entries
-    # merely exist would pass a patch carrying the wrong speed, MTU or BGP AS, or one
-    # that clobbered an existing ACL binding.
-    #
-    # The comparison is scoped to the entries the patch touched, so unrelated
-    # background churn in the running configuration cannot make this flaky.
-    logger.info("Comparing patched configuration against the with-T1 baseline")
-    after_patch_config_path = os.path.join(local_dir, "dt2-all-after-patch.json")
-    dut_config_path = os.path.join(dut_dir, "all-after-patch.json")
-    duthost.shell(f"show runningconfiguration all > {dut_config_path}")
-    duthost.fetch(src=dut_config_path, dest=after_patch_config_path, flat=True)
-    duthost.shell(f"rm -f {dut_config_path}")
-
     with open(full_config_path) as f:
-        baseline_config = json.load(f)
-    with open(after_patch_config_path) as f:
-        after_patch_config = json.load(f)
+        baseline_config = normalize_config(json.load(f))
+    with open(no_t1_config_path) as f:
+        reduced_config = normalize_config(json.load(f))
+
+    # Filtering can remove the entire BUFFER_PG operation. Keep its expectations
+    # independently, including changed PGs on ports with no PORT operation.
+    pg_ports = front_panel_ports | {
+        key.rsplit('|', 1)[0]
+        for config, other in ((baseline_config, reduced_config), (reduced_config, baseline_config))
+        for key, fields in config.get('BUFFER_PG', {}).items()
+        if normalize_profile_reference(fields.get('profile')).startswith(AUTOGEN_BUFFER_PG_PROFILE_PREFIX)
+        and fields != other.get('BUFFER_PG', {}).get(key)
+    }
+    expected_pg_priorities = validate_lossless_pg_baseline(baseline_config, pg_ports)
 
     # Everything here -- the patch paths, patch_cable_length_ports(), and the CONFIG_DB
     # key "CABLE_LENGTH|AZURE" -- assumes CABLE_LENGTH holds exactly one profile named
-    # AZURE, which Kumaresh confirmed is the case. Assert it rather than assume it, so a
-    # device that ever carries a second profile fails here instead of silently skipping
-    # the ports under it.
+    # AZURE. Assert it rather than assume it, so a device that ever carries a second
+    # profile fails here instead of silently skipping the ports under it.
     baseline_cable_profiles = set(baseline_config.get('CABLE_LENGTH', {}))
     pytest_assert(
         baseline_cable_profiles == {'AZURE'},
         "Expected CABLE_LENGTH to contain exactly one profile named 'AZURE', found {}. "
         "Cable-length paths and lossless BUFFER_PG verification assume the single-AZURE "
         "layout; a different layout needs both updated.".format(sorted(baseline_cable_profiles)))
-
-    differences = compare_touched_entries(baseline_config, after_patch_config, patch_data)
-    pytest_assert(
-        not differences,
-        "Configuration after applying the patch does not match the baseline captured "
-        "with {} present. The patch applied, but did not reproduce the intended state.\n"
-        "{}".format(target_t1, "\n".join(differences)))
-    logger.info("Patched configuration matches the with-T1 baseline for all %d touched entries",
-                sum(len(keys) for keys in patch_touched_entries(patch_data).values()))
 
     # Verify port configuration
     if not ports_to_check:
@@ -912,17 +944,16 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
         # Step 9b: the lossless BUFFER_PG entries the patch deliberately did not carry
         # must now exist, created by buffermgrd from PORT speed + CABLE_LENGTH on link-up.
         #
-        # This is the check that closes the silent-failure gap. Up to this point a port
-        # with a missing, zero, or unsupported cable length looks completely healthy:
-        # apply returned rc=0, the port is up, BGP is established and the config matches
-        # the baseline -- while the port carries no lossless buffers at all.
+        # Link-up alone does not establish that the required priorities have
+        # correctly sized buffers.
         logger.info("Verifying auto-generated lossless BUFFER_PG entries")
+        lossless_ports = front_panel_ports | set(expected_pg_priorities)
 
         # An absent cable length is a failure, not a skip. Only the explicit "0m"
         # sentinel means "this port intentionally has no lossless PG" -- treating a
         # missing entry the same way would skip exactly the port most likely to be broken.
         ports_without_cable_length = sorted(
-            port for port in front_panel_ports
+            port for port in lossless_ports
             if not get_config_db_field(duthost, "CABLE_LENGTH|AZURE", port))
         pytest_assert(
             not ports_without_cable_length,
@@ -935,15 +966,25 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
         # cable length has the wrong headroom, and checking only for "some lossless PG"
         # would pass it.
         expected_profiles = {}
-        for port in sorted(front_panel_ports):
+        zero_cable_ports = set()
+        for port in sorted(lossless_ports):
             cable_length = get_config_db_field(duthost, "CABLE_LENGTH|AZURE", port)
             if cable_length == '0m':
+                pytest_assert(
+                    not expected_pg_priorities.get(port),
+                    "Port {} has cable length 0m but the baseline requires lossless BUFFER_PG "
+                    "priorities {}.".format(port, sorted(expected_pg_priorities[port])))
                 # Legal, and deliberately not a failure -- but a T1-facing uplink with no
                 # lossless buffers is worth seeing in the log, since "0m by mistake" and
                 # "0m on purpose" look identical from here.
                 logger.warning("Port %s has cable length 0m, so it gets no lossless "
-                               "BUFFER_PG. Skipping its lossless buffer checks.", port)
+                               "BUFFER_PG. Verifying their absence.", port)
+                zero_cable_ports.add(port)
                 continue
+            pytest_assert(
+                expected_pg_priorities.get(port),
+                "Baseline has no auto-generated lossless BUFFER_PG priorities for port {}; "
+                "cannot verify regenerated priority coverage.".format(port))
             speed = get_config_db_field(duthost, "PORT|{}".format(port), 'speed')
             pytest_assert(
                 speed,
@@ -963,20 +1004,37 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
 
         def check_lossless_pgs_created():
             ports_without_lossless_pg.clear()
+            for port in sorted(zero_cable_ports):
+                try:
+                    found = get_lossless_pg_entries(
+                        duthost, port, AUTOGEN_BUFFER_PG_PROFILE_PREFIX, strict=True)
+                except ValueError as error:
+                    ports_without_lossless_pg[port] = str(error)
+                else:
+                    if found:
+                        ports_without_lossless_pg[port] = "unexpected lossless PGs on zero-cable port: {}".format(found)
             for port, expected in sorted(expected_profiles.items()):
                 found = get_lossless_pg_entries(
                     duthost, port, AUTOGEN_BUFFER_PG_PROFILE_PREFIX)
+                priorities = buffer_pg_priorities(found)
                 if not found:
                     ports_without_lossless_pg[port] = "no lossless PG (expected {})".format(expected)
+                elif priorities != expected_pg_priorities[port]:
+                    ports_without_lossless_pg[port] = "priorities {} (expected {})".format(
+                        sorted(priorities), sorted(expected_pg_priorities[port]))
+                elif any(profile != expected for profile in found.values()):
+                    ports_without_lossless_pg[port] = "profiles {} (expected {})".format(found, expected)
+                elif not all(buffer_profile_exists(duthost, expected)):
+                    ports_without_lossless_pg[port] = "profile {} missing from CONFIG_DB or APPL_DB".format(expected)
             return not ports_without_lossless_pg
 
         pytest_assert(
             wait_until(300, 20, 0, check_lossless_pgs_created),
-            "Lossless BUFFER_PG entries were never created for port(s) {}. buffermgrd "
+            "Lossless BUFFER_PG priorities/profiles did not converge for port(s) {}. buffermgrd "
             "generates these from PORT speed and CABLE_LENGTH once the port is up; the patch "
-            "intentionally does not carry them. Their absence means the port is forwarding "
-            "without lossless buffers even though the patch applied cleanly and the port is "
-            "up. Likely causes: CABLE_LENGTH missing or wrong for the port, or no "
+            "intentionally does not carry them. Missing or incorrect coverage leaves the "
+            "intended priorities without correctly sized buffers. Likely causes: "
+            "CABLE_LENGTH missing or wrong for the port, or no "
             "pg_profile_lookup.ini row for this speed/cable-length pair.".format(
                 ports_without_lossless_pg))
 
@@ -987,6 +1045,15 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
         profiles_missing = {}
         for port, expected in sorted(expected_profiles.items()):
             found = get_lossless_pg_entries(duthost, port, AUTOGEN_BUFFER_PG_PROFILE_PREFIX)
+            pytest_assert(
+                found,
+                "No lossless BUFFER_PG entries found for port {} during final verification "
+                "(expected {}).".format(port, expected))
+            priorities = buffer_pg_priorities(found)
+            pytest_assert(
+                priorities == expected_pg_priorities[port],
+                "Lossless BUFFER_PG priorities for port {} changed during final verification: "
+                "found {}, expected {}.".format(port, sorted(priorities), sorted(expected_pg_priorities[port])))
             for pg_key, profile in sorted(found.items()):
                 if profile != expected:
                     wrong_profile[pg_key] = "{} (expected {})".format(profile, expected)
@@ -997,6 +1064,14 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
                         profile,
                         "present" if in_config_db else "MISSING",
                         "present" if in_appl_db else "MISSING")
+
+        for port in sorted(zero_cable_ports):
+            found = get_lossless_pg_entries(
+                duthost, port, AUTOGEN_BUFFER_PG_PROFILE_PREFIX, strict=True)
+            pytest_assert(
+                not found,
+                "Unexpected lossless BUFFER_PG entries on zero-cable port {} during final verification: {}.".format(
+                    port, found))
 
         pytest_assert(
             not wrong_profile,
@@ -1013,6 +1088,37 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
 
         logger.info("Lossless BUFFER_PG entries present and correctly sized for %d port(s)",
                     len(expected_profiles))
+
+    # Read a fresh snapshot after convergence; generated PGs are verification-only
+    # expectations and must never be added to the patch sent to GCU.
+    logger.info("Comparing converged configuration against the with-T1 baseline")
+    after_patch_config_path = os.path.join(local_dir, "dt2-all-after-patch.json")
+    dut_config_path = os.path.join(dut_dir, "all-after-patch.json")
+    duthost.shell(f"show runningconfiguration all > {dut_config_path}")
+    duthost.fetch(src=dut_config_path, dest=after_patch_config_path, flat=True)
+    duthost.shell(f"rm -f {dut_config_path}")
+    with open(after_patch_config_path) as f:
+        after_patch_config = json.load(f)
+
+    verification_pg_keys = {
+        key for config in (baseline_config, normalize_config(after_patch_config))
+        for key, fields in config.get('BUFFER_PG', {}).items()
+        if key.rsplit('|', 1)[0] in pg_ports
+        and normalize_profile_reference(fields.get('profile')).startswith(AUTOGEN_BUFFER_PG_PROFILE_PREFIX)
+    }
+    verification_patch = patch_data + [
+        {'op': 'add' if key in baseline_config.get('BUFFER_PG', {}) else 'remove',
+         'path': '/BUFFER_PG/' + escape_json_pointer(key)}
+        for key in sorted(verification_pg_keys)
+    ]
+    differences = compare_touched_entries(baseline_config, after_patch_config, verification_patch)
+    pytest_assert(
+        not differences,
+        "Configuration after applying the patch does not match the baseline captured "
+        "with {} present. The patch applied, but did not reproduce the intended state.\n"
+        "{}".format(target_t1, "\n".join(differences)))
+    logger.info("Patched configuration and regenerated PGs match the with-T1 baseline for all %d checked entries",
+                sum(len(keys) for keys in patch_touched_entries(verification_patch).values()))
 
     # Step 10: Verify BGP sessions establish
     #
