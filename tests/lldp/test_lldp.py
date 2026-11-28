@@ -412,22 +412,14 @@ def verify_lldp_table(duthost, intf_status_output, test_name=""):
                 ifaces.add(interface)
         return ifaces
 
-    lldp_table_interfaces = set()
-
-    def _eth0_in_lldp_table():
-        nonlocal lldp_table_interfaces
-        lldp_table_interfaces = _parse_lldp_table()
-        return 'eth0' in lldp_table_interfaces
-
-    # On virtual/KVM testbeds, eth0 has no LLDP neighbor so it won't appear in the LLDP table
-    if is_virtual_platform(duthost):
-        lldp_table_interfaces = _parse_lldp_table()
-        if 'eth0' not in lldp_table_interfaces:
-            logger.info("eth0 not in LLDP table (expected on virtual/KVM testbed){}"
-                        .format(context))
+    # show lldp table is a remote-neighbor table: eth0 appears only when the
+    # management path delivers LLDP frames. Log presence/absence; do not assert.
+    # DUT-side coverage that lldpd manages eth0 is in verify_lldpcli_interfaces.
+    lldp_table_interfaces = _parse_lldp_table()
+    if 'eth0' in lldp_table_interfaces:
+        logger.info("eth0 present in LLDP table{}".format(context))
     else:
-        pytest_assert(wait_until(10, 1, 0, _eth0_in_lldp_table),
-                      "eth0 is missing from LLDP table{}".format(context))
+        logger.info("eth0 not in LLDP table (no management LLDP neighbor){}".format(context))
 
     logger.info("LLDP table interfaces{}: {}".format(context, sorted(lldp_table_interfaces)))
     logger.info("LLDP table interfaces in total: {}".format(len(lldp_table_interfaces)))
@@ -579,14 +571,11 @@ def verify_lldpctl_facts(duthost, enum_frontend_asic_index, intf_status_output, 
         skip_interface_pattern_list=["Ethernet-BP", "Ethernet-IB"] + internal_port_list
     )['ansible_facts']
 
-    # Verify eth0 is in lldpctl_facts (only on physical testbeds)
-    if is_virtual_platform(duthost):
-        if 'eth0' not in lldpctl_facts.get('lldpctl', {}):
-            logger.info("eth0 not in lldpctl_facts (expected on virtual/KVM testbed){}"
-                        .format(context))
+    # lldpctl_facts is a neighbor table: eth0 is present only with a mgmt LLDP peer.
+    if 'eth0' in lldpctl_facts.get('lldpctl', {}):
+        logger.info("eth0 present in lldpctl_facts{}".format(context))
     else:
-        pytest_assert('eth0' in lldpctl_facts.get('lldpctl', {}),
-                      "eth0 is missing from lldpctl_facts{}".format(context))
+        logger.info("eth0 not in lldpctl_facts (no management LLDP neighbor){}".format(context))
 
     # Get interfaces from lldpctl_facts (excluding eth0)
     lldpctl_facts_interfaces = set(lldpctl_facts.get('lldpctl', {}).keys()) - {'eth0'}
