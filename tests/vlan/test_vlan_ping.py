@@ -20,29 +20,30 @@ pytestmark = [
 ]
 
 
-def static_neighbor_entry(duthost, dic, oper, ip_version="both"):
+def static_neighbor_entry(duthost, dic, oper, ip_version="both", namespace=None):
     """
     Performs addition or deletion of static entries of ipv4 and v6 neighbors in DUT based on 'oper' parameter
     """
+    sudo = "sudo ip netns exec {} ".format(namespace) if namespace else "sudo "
     for member in list(dic.values()):
         if ip_version in ["4", "both"] and 'ipv4' in member:
             if oper == "add":
                 logger.debug("adding ipv4 static arp entry for ip %s on DUT" % (member['ipv4']))
-                duthost.shell("sudo arp -s {0} {1}".format(member['ipv4'], member['mac']))
+                duthost.shell(sudo + "arp -s {0} {1}".format(member['ipv4'], member['mac']))
             elif oper == "del":
                 logger.debug("deleting ipv4 static arp entry for ip %s on DUT" % (member['ipv4']))
-                duthost.shell("sudo arp -d {0}".format(member['ipv4']))
+                duthost.shell(sudo + "arp -d {0}".format(member['ipv4']))
 
         if ip_version in ["6", "both"] and 'ipv6' in member:
             if oper == "add":
                 logger.debug("adding ipv6 static arp entry for ip %s on DUT" % (member['ipv6']))
                 duthost.shell(
-                    "sudo ip -6 neigh replace {0} lladdr {1} dev Vlan{2}".format(member['ipv6'], member['mac'],
-                                                                                 member['Vlanid']))
+                    sudo + "ip -6 neigh replace {0} lladdr {1} dev Vlan{2}".format(member['ipv6'], member['mac'],
+                                                                                   member['Vlanid']))
             elif oper == "del":
                 logger.debug("deleting ipv6 static arp entry for ip %s on DUT" % (member['ipv6']))
-                duthost.shell("sudo ip -6 neigh del {0} lladdr {1} dev Vlan{2}".format(member['ipv6'], member['mac'],
-                                                                                       member['Vlanid']))
+                duthost.shell(sudo + "ip -6 neigh del {0} lladdr {1} dev Vlan{2}".format(member['ipv6'], member['mac'],
+                                                                                         member['Vlanid']))
             else:
                 logger.debug("unknown operation")
         else:
@@ -62,6 +63,16 @@ def _portchannel_netdev_name(nbr_host, index):
     return 'PortChannel{}'.format(index)
 
 
+def _select_vlan_asic(duthost):
+    """Return (asic, running config facts) of the first front-end ASIC with a VLAN of 2 or more members."""
+    for asic in duthost.frontend_asics or duthost.asics:
+        cfg_facts = asic.config_facts(source="running")['ansible_facts']
+        for vlan_name, members in cfg_facts.get('VLAN_MEMBER', {}).items():
+            if len(members) >= 2 and vlan_name in cfg_facts.get('VLAN_INTERFACE', {}):
+                return asic, cfg_facts
+    pytest.fail("No ASIC has a VLAN with 2 or more members")
+
+
 @pytest.fixture(scope='module')
 def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, lower_tor_host):   # noqa: F811
     """
@@ -69,10 +80,21 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
     Teardown:   Removing all added ipv4 and ipv6 neighbors
     """
     vm_host_info = {}
+    duthost = duthosts[rand_one_dut_hostname]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+
+    # The ASICs of a multi-ASIC DUT may not be connected to each other, so use the VLAN and a VM of one ASIC
+    asic, asic_cfg_facts, asic_vm_names = None, None, None
+    if duthost.is_multi_asic:
+        asic, asic_cfg_facts = _select_vlan_asic(duthost)
+        asic_vm_names = {nbr['name'] for port, nbr in mg_facts['minigraph_neighbors'].items()
+                         if port in asic_cfg_facts.get('PORT', {})}
 
     vm_name, vm_info = None, None
     topo_type = tbinfo["topo"]["type"]
     for nbr_name, nbr_info in list(nbrhosts.items()):
+        if asic_vm_names is not None and nbr_name not in asic_vm_names:
+            continue
         if topo_type != "m0" or (topo_type == "m0" and "M1" in nbr_name):
             vm_name = nbr_name
             vm_info = nbr_info
@@ -108,8 +130,6 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
 
     output = vm_info['host'].command("ip addr show dev {}".format(dev_name))
     vm_host_info["mac"] = output['stdout_lines'][1].split()[1]
-    duthost = duthosts[rand_one_dut_hostname]
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     if "dualtor-aa" in tbinfo["topo"]["name"]:
         idx = duthosts.index(duthost)
         unselected_duthost = duthosts[1 - idx]
@@ -123,7 +143,13 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
                         unslctd_mg_facts['mg_ptf_idx'][port] = map[str(index)]
         except (ValueError, KeyError):
             pass
-    my_cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    if asic:
+        my_cfg_facts = asic_cfg_facts
+        dut_info = {'namespace': asic.namespace,
+                    'router_mac': my_cfg_facts['DEVICE_METADATA']['localhost']['mac'].lower()}
+    else:
+        my_cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+        dut_info = {'namespace': None, 'router_mac': duthost.facts['router_mac']}
     ptfhost_info = {}
     ip4 = None
     ip6 = None
@@ -157,7 +183,8 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
                                     ifaces_list.append(mg_facts['minigraph_ptf_indices'][iface])
                     else:
                         for intf in mg_facts['minigraph_neighbors']:
-                            if 'T1' in mg_facts['minigraph_neighbors'][intf]['name']:
+                            peer_name = mg_facts['minigraph_neighbors'][intf]['name']
+                            if 'T1' in peer_name and (asic is None or peer_name == vm_name):
                                 ifaces_list.append(mg_facts['minigraph_ptf_indices'][intf])
                 vm_host_info['port_index_list'] = ifaces_list
             break
@@ -234,10 +261,10 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
             ptfhost_info[member]["ipv6"] = str(ips_in_vlan_v6[ipv6_assign_idx])
             ipv6_assign_idx += 1
 
-    yield vm_host_info, ptfhost_info
+    yield vm_host_info, ptfhost_info, dut_info
 
     logger.info("Removing all added ipv4 and ipv6 neighbors")
-    flush_permanent_neighbors(duthost)
+    flush_permanent_neighbors(duthost, namespace=dut_info['namespace'])
 
 
 def verify_icmp_packet(dut_mac, src_port, dst_port, ptfadapter, tbinfo,
@@ -302,7 +329,9 @@ def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname, ptfadapter,
     test for checking connectivity of statically added ipv4 and ipv6 arp entries
     """
     duthost = duthosts[rand_one_dut_hostname]
-    vmhost_info, ptfhost_info = vlan_ping_setup
+    vmhost_info, ptfhost_info, dut_info = vlan_ping_setup
+    router_mac = dut_info['router_mac']
+    namespace = dut_info['namespace']
     device2 = dict(list(ptfhost_info.items())[1:])
     device1 = dict(list(ptfhost_info.items())[:1])
     # use mac addr of vlan interface in case of dualtor
@@ -319,47 +348,47 @@ def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname, ptfadapter,
 
     # initial setup and checking connectivity, try to break in more chunks
     logger.info("initializing setup for ipv4 and ipv6")
-    static_neighbor_entry(duthost, ptfhost_info, "add")
+    static_neighbor_entry(duthost, ptfhost_info, "add", namespace=namespace)
     logger.info("Checking connectivity to ptf ports")
 
     for member in ptfhost_info:
         # Test IPv4 connectivity if VM has IPv4
         if 'ipv4' in vmhost_info:
             if 'dualtor' in tbinfo["topo"]["name"]:
-                verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member],
+                verify_icmp_packet(router_mac, ptfhost_info[member],
                                    vmhost_info, ptfadapter, tbinfo, vlan_mac, dtor_ul=True, is_ipv6=False)
-                verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member],
+                verify_icmp_packet(router_mac, vmhost_info, ptfhost_info[member],
                                    ptfadapter, tbinfo, vlan_mac, dtor_dl=True, is_ipv6=False)
             else:
-                verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member], vmhost_info,
+                verify_icmp_packet(router_mac, ptfhost_info[member], vmhost_info,
                                    ptfadapter, tbinfo, is_ipv6=False)
-                verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member],
+                verify_icmp_packet(router_mac, vmhost_info, ptfhost_info[member],
                                    ptfadapter, tbinfo, is_ipv6=False)
 
         # Test IPv6 connectivity if VM has IPv6
         if 'ipv6' in vmhost_info:
             if 'dualtor' in tbinfo["topo"]["name"]:
-                verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member],
+                verify_icmp_packet(router_mac, ptfhost_info[member],
                                    vmhost_info, ptfadapter, tbinfo, vlan_mac, dtor_ul=True, is_ipv6=True)
-                verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member],
+                verify_icmp_packet(router_mac, vmhost_info, ptfhost_info[member],
                                    ptfadapter, tbinfo, vlan_mac, dtor_dl=True, is_ipv6=True)
             else:
-                verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member], vmhost_info,
+                verify_icmp_packet(router_mac, ptfhost_info[member], vmhost_info,
                                    ptfadapter, tbinfo, is_ipv6=True)
-                verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member],
+                verify_icmp_packet(router_mac, vmhost_info, ptfhost_info[member],
                                    ptfadapter, tbinfo, is_ipv6=True)
 
     # flushing and re-adding ipv6 static arp entry
-    static_neighbor_entry(duthost, ptfhost_info, "del", "6")
-    static_neighbor_entry(duthost, dict(reversed(list(ptfhost_info.items()))), "add", "6")
+    static_neighbor_entry(duthost, ptfhost_info, "del", "6", namespace=namespace)
+    static_neighbor_entry(duthost, dict(reversed(list(ptfhost_info.items()))), "add", "6", namespace=namespace)
 
     # flushing and re-adding ipv4 static arp entry for 2nd ptf host
-    static_neighbor_entry(duthost, device2, "del", "4")
-    static_neighbor_entry(duthost, device2, "add", "4")
+    static_neighbor_entry(duthost, device2, "del", "4", namespace=namespace)
+    static_neighbor_entry(duthost, device2, "add", "4", namespace=namespace)
 
     # flushing and re-adding ipv4 static arp entry for 1st ptf host
-    static_neighbor_entry(duthost, device1, "del", "4")
-    static_neighbor_entry(duthost, device1, "add", "4")
+    static_neighbor_entry(duthost, device1, "del", "4", namespace=namespace)
+    static_neighbor_entry(duthost, device1, "add", "4", namespace=namespace)
 
     # Checking for connectivity
     logger.info("Check connectivity to both ptfhost")
@@ -367,25 +396,25 @@ def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname, ptfadapter,
         # Test IPv4 connectivity if VM has IPv4
         if 'ipv4' in vmhost_info:
             if 'dualtor' in tbinfo["topo"]["name"]:
-                verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member],
+                verify_icmp_packet(router_mac, ptfhost_info[member],
                                    vmhost_info, ptfadapter, tbinfo, vlan_mac, dtor_ul=True, is_ipv6=False)
-                verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member],
+                verify_icmp_packet(router_mac, vmhost_info, ptfhost_info[member],
                                    ptfadapter, tbinfo, vlan_mac, dtor_dl=True, is_ipv6=False)
             else:
-                verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member], vmhost_info,
+                verify_icmp_packet(router_mac, ptfhost_info[member], vmhost_info,
                                    ptfadapter, tbinfo, is_ipv6=False)
-                verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member],
+                verify_icmp_packet(router_mac, vmhost_info, ptfhost_info[member],
                                    ptfadapter, tbinfo, is_ipv6=False)
 
         # Test IPv6 connectivity if VM has IPv6
         if 'ipv6' in vmhost_info:
             if 'dualtor' in tbinfo["topo"]["name"]:
-                verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member],
+                verify_icmp_packet(router_mac, ptfhost_info[member],
                                    vmhost_info, ptfadapter, tbinfo, vlan_mac, dtor_ul=True, is_ipv6=True)
-                verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member],
+                verify_icmp_packet(router_mac, vmhost_info, ptfhost_info[member],
                                    ptfadapter, tbinfo, vlan_mac, dtor_dl=True, is_ipv6=True)
             else:
-                verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member], vmhost_info,
+                verify_icmp_packet(router_mac, ptfhost_info[member], vmhost_info,
                                    ptfadapter, tbinfo, is_ipv6=True)
-                verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member],
+                verify_icmp_packet(router_mac, vmhost_info, ptfhost_info[member],
                                    ptfadapter, tbinfo, is_ipv6=True)
