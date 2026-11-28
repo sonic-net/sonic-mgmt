@@ -65,7 +65,7 @@ def check_ip_rule_exist(duthost, address, check_exist):
 def test_forced_mgmt_route_add_and_remove_by_mgmt_port_status(
                                     duthosts,
                                     enum_rand_one_per_hwsku_hostname,
-                                    backup_restore_config):                             # noqa: F401
+                                    request):
     """
     Check when mgmt. port is up, then forced mgmt route added to route table.
     When mgmt. port is down (oper down), then forced mgmt route removed from route table.
@@ -95,6 +95,9 @@ def test_forced_mgmt_route_add_and_remove_by_mgmt_port_status(
     # Skip if port is already in use
     if 'eth1' in config_db_port:
         pytest.skip("Skip test_forced_mgmt_route_add_and_remove_by_mgmt_port_status, port in use")
+
+    # Skipped devices must not run the fixture's config reload at teardown.
+    request.getfixturevalue("backup_restore_config")
 
     # Add eth1 to mgmt interface and port
     ipv4_forced_mgmt_address = "172.17.1.1/24"
