@@ -10,6 +10,7 @@ Semantics (applied in apply_diff_assertion_mask):
 """
 
 from dataclasses import dataclass, field
+from decimal import Decimal, InvalidOperation
 from enum import Enum
 from typing import Any, Dict, List, Union
 
@@ -50,6 +51,8 @@ class ValueSpecMode(Enum):
     REGEX = "regex"
     # `value` is a tuple of accepted literals.
     ONE_OF = "one_of"
+    # Numeric sides must differ by at most `value` percent of the smaller magnitude.
+    APPROX_EQUAL = "approx_equal"
 
 
 @dataclass(frozen=True)
@@ -67,7 +70,7 @@ class KeyMatch:
 class ValueSpec:
     """Expected value on one side of a warm/cold pair.
 
-    Use the `literal`/`null`/`any_`/`regex`/`one_of` classmethod
+    Use the `literal`/`null`/`any_`/`regex`/`one_of`/`approx_equal` classmethod
     factories to build instances so mode/value stay consistent.
     """
 
@@ -95,8 +98,26 @@ class ValueSpec:
         # Frozen dataclass requires a hashable default, so store as a tuple.
         return cls(ValueSpecMode.ONE_OF, tuple(values))
 
+    @classmethod
+    def approx_equal(cls, tolerance_pct) -> "ValueSpec":
+        """Compare finite numbers (including numeric strings) across sides.
+
+        Accept an inclusive percentage tolerance (0.02 means 0.02%) relative
+        to the smaller absolute magnitude, so comparison is symmetric. Zero
+        only matches zero. Only applicable to field-level diffs, where both
+        sides must be present.
+        """
+        try:
+            tolerance_pct = Decimal(str(tolerance_pct))
+        except InvalidOperation as exc:
+            raise ValueError("tolerance_pct must be a finite non-negative percentage") from exc
+        if not tolerance_pct.is_finite() or tolerance_pct < 0:
+            raise ValueError("tolerance_pct must be a finite non-negative percentage")
+        return cls(ValueSpecMode.APPROX_EQUAL, tolerance_pct)
+
     def __str__(self) -> str:
-        if self.mode in (ValueSpecMode.LITERAL, ValueSpecMode.REGEX, ValueSpecMode.ONE_OF):
+        if self.mode in (ValueSpecMode.LITERAL, ValueSpecMode.REGEX, ValueSpecMode.ONE_OF,
+                         ValueSpecMode.APPROX_EQUAL):
             return f"{self.mode.value}:{self.value!r}"
         return self.mode.value
 
@@ -111,6 +132,9 @@ class FieldExpectation:
     `field_match` picks which field name(s) this expectation covers.
     `after_warmboot` / `after_coldboot` describe what the diff's warm and
     cold sides should look like for the expectation to apply.
+    An `approx_equal(tolerance_pct)` spec compares its side numerically to the
+    opposite side with a percentage tolerance; use `any_()` there if no
+    additional constraint is needed.
     """
 
     field_match: KeyMatch
@@ -218,6 +242,25 @@ _ARISTA_ASSERTION_MASK = {
         ),
     ],
     DBType.STATE: [
+        # Uncapped containers report host RAM as their Docker memory limit.
+        # Small boot-time kernel reservation differences can move host RAM
+        # across docker stats' display rounding boundaries. procdockerstatsd
+        # converts that display back to bytes, amplifying the difference.
+        # For example, on an 8 GiB Arista-7060CX-32S-D48C8 HwSku, a 4 KiB
+        # reservation difference crossed the 7.740/7.741 GiB boundary and
+        # appeared as a 1,073,742-byte (~0.01292%) limit difference.
+        # Use a 0.02% allowance that scales with RAM size while still
+        # rejecting larger changes or missing/non-numeric limits.
+        TopLevelKeyBothValueDiffExpectation(
+            key_match=KeyMatch(mode=KeyMatchMode.PREFIX, pattern="DOCKER_STATS|"),
+            fields=[
+                FieldExpectation(
+                    field_match=KeyMatch(mode=KeyMatchMode.EXACT, pattern="MEM_LIMIT_BYTES"),
+                    after_warmboot=ValueSpec.approx_equal(tolerance_pct=0.02),
+                    after_coldboot=ValueSpec.any_(),
+                ),
+            ],
+        ),
         # PROCESS_STATS|<seq> entries are synthesized by
         # _diff_state_db_process_stats: every PID-paired CMD that exists on
         # only one side becomes its own one-sided top-level diff. CMD-string

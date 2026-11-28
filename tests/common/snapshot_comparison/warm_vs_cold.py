@@ -3,6 +3,7 @@
 import json
 import logging
 import re
+from decimal import Decimal, InvalidOperation
 from typing import Dict, List, Tuple
 from tests.common.db_comparison import DBType, SnapshotDiff
 from tests.common.snapshot_comparison.warm_vs_cold_assertion_mask import (
@@ -480,7 +481,7 @@ def _key_matches(key_match, candidate: str) -> bool:
     return False
 
 
-def _value_matches(value_spec, actual) -> bool:
+def _value_matches(value_spec, actual, opposite_actual=None) -> bool:
     if value_spec.mode == ValueSpecMode.ANY:
         return True
     if value_spec.mode == ValueSpecMode.NULL:
@@ -491,6 +492,18 @@ def _value_matches(value_spec, actual) -> bool:
         return actual is not None and re.fullmatch(value_spec.value, str(actual)) is not None
     if value_spec.mode == ValueSpecMode.ONE_OF:
         return actual in value_spec.value
+    if value_spec.mode == ValueSpecMode.APPROX_EQUAL:
+        try:
+            actual = Decimal(str(actual))
+            opposite_actual = Decimal(str(opposite_actual))
+        except InvalidOperation:
+            return False
+        return (
+            actual.is_finite()
+            and opposite_actual.is_finite()
+            and abs(actual - opposite_actual) * 100
+            <= min(abs(actual), abs(opposite_actual)) * value_spec.value
+        )
     return False
 
 
@@ -534,8 +547,8 @@ def _entry_matches_expectation(expectation, content) -> bool:
             cold_actual = field_diff.get(AFTER_COLDBOOT)
             covered = any(
                 _key_matches(fe.field_match, field_name)
-                and _value_matches(fe.after_warmboot, warm_actual)
-                and _value_matches(fe.after_coldboot, cold_actual)
+                and _value_matches(fe.after_warmboot, warm_actual, cold_actual)
+                and _value_matches(fe.after_coldboot, cold_actual, warm_actual)
                 for fe in expectation.fields
             )
             if not covered:
