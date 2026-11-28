@@ -501,6 +501,11 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                 pytest.fail("ipv{} lo interface not found".format('6' if is_v6_topo else '4'))
 
             neighbor_intf = random.choice(local_interfaces)
+            # On multi-ASIC DUTs the VLAN, its BGP instance and its DBs live in the namespace of
+            # the ASIC that owns the member port, so BGP peers must be configured and checked there.
+            vlan_namespace = None
+            if duthost.is_multi_asic:
+                vlan_namespace = duthost.get_port_asic_instance(neighbor_intf).namespace
             for neighbor_addr in neighbor_addresses:
                 conn = {}
                 conn["local_intf"] = vlan_intf_name
@@ -510,6 +515,8 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                 if is_backend_topo and is_vlan_tagged:
                     conn["neighbor_intf"] += (constants.VLAN_SUB_INTERFACE_SEPARATOR + vlan_id)
                 conn["loopback_ip"] = loopback_ip
+                if vlan_namespace:
+                    conn["namespace"] = vlan_namespace
                 connections.append(conn)
 
             ptfhost.remove_ip_addresses()  # In case other case did not cleanup IP address configured on PTF interface
