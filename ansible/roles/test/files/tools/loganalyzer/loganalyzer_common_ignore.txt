@@ -530,6 +530,10 @@ r, ".* ERR syncd\d*#syncd: :- initAttrData: PORT_PHY_SERDES_ATTR: port_serdes_ri
 # Ignore loganalyzer add marker logs in case the test name matches an error pattern
 r, ".*INFO.*ansible.*loganalyzer.py.*--action add.*marker.*"
 
+# journalctl NSS lookup can run before management connectivity recovers.
+r, ".* ERR journalctl: tac_connect_single: connection to [^ ]+:49 failed: Network is unreachable\s*$"
+r, ".* ERR journalctl: nss_tacplus: failed to connect TACACS\+ server [^ ,]+:49, ret=-9: Network is unreachable\s*$"
+
 # ignore journalctl tac_connect_single and nss_tacplus errors during config reload
 # TACACS+ is temporarily unreachable while the SONiC network stack restarts
 r, ".* ERR journalctl: tac_connect_single: connection failed with .*Transport endpoint is not connected"
