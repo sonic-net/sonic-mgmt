@@ -473,29 +473,38 @@ def arp_responder(ptfhost, testbed_params, tbinfo, setup_counters):
     else:
         arp_responder_conf = {"eth%s" % k: v for k, v in list(vlan_host_map.items())}
 
-    logging.info("Copying ARP responder topology to PTF")
-    with open(ARP_RESPONDER_DEFAULT_CONFIG, "w") as ar_config:
-        json.dump(arp_responder_conf, ar_config)
-    ptfhost.copy(src=ARP_RESPONDER_DEFAULT_CONFIG, dest=ARP_RESPONDER_DEFAULT_CONFIG)
+    ready_file = "/tmp/arp_responder_drop_counters.ready"
+    try:
+        logging.info("Copying ARP responder topology to PTF")
+        with open(ARP_RESPONDER_DEFAULT_CONFIG, "w") as ar_config:
+            json.dump(arp_responder_conf, ar_config)
+        ptfhost.copy(src=ARP_RESPONDER_DEFAULT_CONFIG, dest=ARP_RESPONDER_DEFAULT_CONFIG)
 
-    logging.info("Copying ARP responder to PTF container")
+        logging.info("Copying ARP responder to PTF container")
 
-    logging.info("Copying ARP responder config file")
-    ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": "-e"})
-    ptfhost.template(src="templates/arp_responder.conf.j2",
-                     dest="/etc/supervisor/conf.d/arp_responder.conf")
+        logging.info("Copying ARP responder config file")
+        ptfhost.host.options["variable_manager"].extra_vars.update({
+            "arp_responder_args": "-e --ready-file {}".format(ready_file)
+        })
+        ptfhost.template(src="templates/arp_responder.conf.j2",
+                         dest="/etc/supervisor/conf.d/arp_responder.conf")
 
-    logging.info("Refreshing supervisor and starting ARP responder")
-    ptfhost.shell("supervisorctl reread && supervisorctl update")
-    ptfhost.shell("supervisorctl restart arp_responder")
+        logging.info("Refreshing supervisor and starting ARP responder")
+        ptfhost.shell("supervisorctl reread && supervisorctl update")
+        # Stop any previous instance before removing its readiness marker.
+        ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
+        ptfhost.file(path=ready_file, state="absent")
+        ptfhost.shell("supervisorctl start arp_responder")
+        ptfhost.wait_for(path=ready_file, state="present", timeout=60)
 
-    yield vlan_host_map
-
-    logging.info("Stopping ARP responder")
-    ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
-    # Drop the rendered config we wrote earlier in this fixture so the next
-    # arp_responder invocation cannot inherit our IP/MAC mapping by default.
-    ptfhost.file(path=ARP_RESPONDER_DEFAULT_CONFIG, state="absent")
+        yield vlan_host_map
+    finally:
+        logging.info("Stopping ARP responder")
+        ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
+        # Remove readiness and config files even if startup fails, so the next
+        # invocation cannot inherit a stale marker or our IP/MAC mapping.
+        for path in (ready_file, ARP_RESPONDER_DEFAULT_CONFIG):
+            ptfhost.file(path=path, state="absent")
 
 
 @pytest.fixture
