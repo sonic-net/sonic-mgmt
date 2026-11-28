@@ -11,7 +11,7 @@ from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback
 
 
 pytestmark = [
-    pytest.mark.topology('t1'),     # BGP Sentinel is limited to t1 only
+    pytest.mark.topology('t1', 'lt2'),
 ]
 
 logger = logging.getLogger(__name__)
