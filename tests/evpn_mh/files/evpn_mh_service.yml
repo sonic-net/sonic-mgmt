@@ -1,0 +1,114 @@
+schema_version: 1
+
+# Protocol and endpoint intent only. Physical DUT ports, PTF indexes, VM
+# addresses, management data and credentials are resolved from unmodified
+# dualtor-aa facts at runtime and are intentionally absent here.
+evpn_mh_service:
+  overlay_asn: 65100
+  remote_overlay_asn: 64600
+  l2vni: 5010
+  remote_l2vni: 5020
+  l3vni: 5030
+  l3vni_vlan: 30
+  vrf: Vrf01
+  mh_vlan: 10
+  remote_vlan: 20
+  anycast_gateway_mac: "00:11:22:33:44:11"
+  mh_ipv4_prefix: "10.212.10.0/24"
+  remote_ipv4_prefix: "10.212.20.0/24"
+  mh_ipv6_prefix: "2001:db8:10::/64"
+  remote_ipv6_prefix: "2001:db8:20::/64"
+
+  # Cases that exercise one Ethernet Segment use this selection explicitly.
+  primary_test_segment: es_h2
+
+  ethernet_segments:
+    es_h2:
+      endpoint: h2
+      leaf_roles: [mh_leaf0, mh_leaf1]
+      redundancy_mode: all-active
+      esi: "03:00:44:33:22:11:00:00:00:64"
+      vlan: 10
+      l2vni: 5010
+      portchannel: PortChannel100
+      system_mac: "00:44:33:22:11:00"
+      ptf_member_roles: [h2_leg0, h2_leg1]
+      ptf_bond_interface: bond-evpn-mh
+      ptf_host_interface: evpn-h2
+      ptf_system_mac: "02:00:00:00:00:02"
+
+    es_h1:
+      endpoint: h1
+      leaf_roles: [mh_leaf0, mh_leaf1]
+      redundancy_mode: all-active
+      esi: "03:00:44:33:22:11:01:00:00:69"
+      vlan: 10
+      l2vni: 5010
+      portchannel: PortChannel105
+      system_mac: "00:44:33:22:11:01"
+      ptf_member_roles: [h1_leg0, h1_leg1]
+      ptf_bond_interface: bond-evpn-h1
+      ptf_host_interface: evpn-h1
+      ptf_system_mac: "02:00:00:00:00:01"
+
+  single_homed_endpoints:
+    sh1:
+      dut_role: mh_leaf0
+      ptf_port_role: sh1
+      vlan: 10
+      l2vni: 5010
+      stock_vlan: 1000
+      stock_mux_cable_type: active-active
+
+  endpoints:
+    h1:
+      attachment_role: es_h1
+      ptf_port_role: bond-evpn-h1
+      vlan: 10
+      mac: "00:00:00:00:00:01"
+      ipv4: "10.212.10.1"
+      gateway_ipv4: "10.212.10.10"
+      ipv6: "2001:db8:10::1"
+      gateway_ipv6: "2001:db8:10::10"
+    h2:
+      attachment_role: es_h2
+      ptf_port_role: bond-evpn-mh
+      vlan: 10
+      mac: "00:00:00:00:00:02"
+      ipv4: "10.212.10.2"
+      gateway_ipv4: "10.212.10.10"
+      ipv6: "2001:db8:10::2"
+      gateway_ipv6: "2001:db8:10::10"
+    h3:
+      attachment_role: remote_leaf
+      ptf_port_role: backplane
+      vlan: 10
+      tagged_vlan: 10
+      mac: "00:00:00:00:02:03"
+      ipv4: "10.212.10.3"
+      gateway_ipv4: "10.212.10.10"
+      ipv6: "2001:db8:10::3"
+      gateway_ipv6: "2001:db8:10::10"
+    h4:
+      attachment_role: remote_leaf
+      ptf_port_role: backplane
+      vlan: 20
+      tagged_vlan: 20
+      mac: "00:00:00:00:02:04"
+      ipv4: "10.212.20.4"
+      gateway_ipv4: "10.212.20.10"
+      ipv6: "2001:db8:20::4"
+      gateway_ipv6: "2001:db8:20::10"
+    sh1:
+      attachment_role: mh_leaf0
+      ptf_port_role: sh1
+      vlan: 10
+      mac: "00:00:00:00:00:05"
+      ipv4: "10.212.10.5"
+      gateway_ipv4: "10.212.10.10"
+      ipv6: "2001:db8:10::5"
+      gateway_ipv6: "2001:db8:10::10"
+
+  l3_orphan_endpoint:
+    mac: "02:00:00:14:13:9a"
+    ipv4: "10.212.20.2"
