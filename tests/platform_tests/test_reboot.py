@@ -179,6 +179,15 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
             expected_pattern = reboot_ctrl_dict.get(
                 reboot_type, {}
             ).get('cause', 'N/A')
+            # wait_until counts a raised poll (e.g. DUT unreachable) as False, so the cause may match only now.
+            if actual_type == reboot_type:
+                pytest.fail(
+                    "Reboot cause after '{}' reboot was not confirmed within {}s: polls of 'show reboot-cause' "
+                    "raised (see wait_until errors) or the cause was set late. "
+                    "A later read matched the expected pattern '{}': '{}'"
+                    .format(reboot_type, MAX_WAIT_TIME_FOR_REBOOT_CAUSE,
+                            expected_pattern, raw_output)
+                )
             pytest.fail(
                 "Reboot cause mismatch after '{}' reboot. "
                 "Expected pattern: '{}', actual type: '{}', "
