@@ -1,0 +1,69 @@
+- name: Validate exact inventory identities before contacting devices
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  tasks:
+    - name: Require every requested DUT and leaf to exist in inventory
+      assert:
+        that:
+          - item in groups['all']
+        fail_msg: "Generic collection host {{ item }} is absent from the supplied inventory."
+      loop: "{{ generic_requests.keys() | list }}"
+
+- name: Collect installed generic planning inputs without device configuration changes
+  hosts: "{{ generic_requests.keys() | list }}"
+  connection: ssh
+  gather_facts: false
+  any_errors_fatal: true
+  tasks:
+    - name: Require a SONiC shell connection
+      assert:
+        that:
+          - (ansible_connection | default('ssh')) in ['ssh', 'paramiko', 'local', 'multi_passwd_ssh']
+        fail_msg: >-
+          Generic collection requires SONiC shell access (ssh, paramiko, local, or multi_passwd_ssh),
+          not {{ ansible_connection | default('ssh') }}.
+
+    - name: Select existing SONiC fanout login settings in repository precedence order
+      set_fact:
+        ansible_ssh_user: "{{ lookup('vars', item + '_user') }}"
+        ansible_ssh_pass: "{{ lookup('vars', item + '_password') }}"
+      loop:
+        - fanout_sonic
+        - fanout_tacacs_sonic
+        - fanout_tacacs
+      when:
+        - inventory_hostname == generic_peer
+        - "'fanout' in group_names"
+        - (item + '_user') in vars
+        - (item + '_password') in vars
+      no_log: true
+
+    - name: Read installed metadata and assets through the SONiC shell
+      raw: >-
+        python3 -c {{ lookup('file', playbook_dir + '/scripts/collect_generic_device.py') | quote }}
+        {{ '--platform' if 'platform.json' in generic_requests[inventory_hostname] else '' }}
+        {{ '--lookup' if 'pg_profile_lookup.ini' in generic_requests[inventory_hostname] else '' }}
+      register: generic_collected
+      changed_when: false
+      failed_when: false
+      no_log: true
+
+    - name: Report collection errors without treating missing assets as optional
+      assert:
+        that:
+          - generic_collected.rc == 0
+        fail_msg: "Read-only collection failed on {{ inventory_hostname }}: {{ generic_collected.stderr }}"
+
+    - name: Save the collection response on the controller only
+      copy:
+        content: "{{ generic_collected.stdout }}"
+        dest: "{{ generic_collection_dir }}/{{ inventory_hostname }}.json"
+        mode: "0600"
+      delegate_to: localhost
+      become: false
+      vars:
+        ansible_connection: local
+        ansible_python_interpreter: "{{ ansible_playbook_python }}"
+      no_log: true

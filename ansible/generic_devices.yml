@@ -1,0 +1,190 @@
+- name: Reject incomplete device inventory before any remote phase
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  tasks:
+    - name: Require both exact device identities
+      assert:
+        that:
+          - generic_dut != generic_peer
+          - generic_dut in groups['all']
+          - generic_peer in groups['all']
+          - generic_hosts == [generic_dut, generic_peer]
+        fail_msg: "Both distinct generic device identities must exist in the supplied inventory."
+
+- name: Generic preparation/rendering or operator-authorized complete-configuration deployment
+  hosts: "{{ generic_hosts }}"
+  connection: ssh
+  gather_facts: false
+  any_errors_fatal: true
+  vars:
+    generic_role: "{{ 'dut' if inventory_hostname == generic_dut else 'peer' }}"
+  tasks:
+    - name: Select existing SONiC fanout credentials
+      set_fact:
+        ansible_ssh_user: "{{ lookup('vars', item + '_user') }}"
+        ansible_ssh_pass: "{{ lookup('vars', item + '_password') }}"
+      loop:
+        - fanout_sonic
+        - fanout_tacacs_sonic
+        - fanout_tacacs
+      when:
+        - inventory_hostname == generic_peer
+        - "'fanout' in group_names"
+        - (item + '_user') in vars
+        - (item + '_password') in vars
+      no_log: true
+
+    - name: Prepare mappings or render without configuration changes
+      when: generic_action in ['prepare', 'render']
+      block:
+        - name: Allocate private temporary device-stage directory
+          tempfile:
+            state: directory
+            prefix: "sonic-generic-{{ generic_action }}-"
+          register: generic_render_directory
+
+        - name: Copy device helper and non-secret scenario request
+          copy:
+            src: "{{ item.src }}"
+            dest: "{{ generic_render_directory.path }}/{{ item.dest }}"
+            mode: "0600"
+          loop:
+            - src: "{{ playbook_dir }}/scripts/generic_config.py"
+              dest: generic_config.py
+            - src: "{{ playbook_dir }}/scripts/map_breakout_links.py"
+              dest: map_breakout_links.py
+            - src: "{{ generic_local_dir }}/{{ generic_role }}-request.json"
+              dest: request.json
+          no_log: true
+
+        - name: Prepare mappings or render configuration using installed assets
+          command:
+            argv:
+              - python3
+              - "{{ generic_render_directory.path }}/generic_config.py"
+              - --action
+              - "{{ generic_action }}"
+              - --request
+              - "{{ generic_render_directory.path }}/request.json"
+              - --output
+              - "{{ generic_render_directory.path }}/response.json"
+          changed_when: false
+          register: generic_render_result
+          failed_when: false
+          no_log: true
+
+        - name: Report preparation or rendering errors explicitly
+          assert:
+            that:
+              - generic_render_result.rc == 0
+            fail_msg: "Generic {{ generic_action }} failed on {{ inventory_hostname }}: {{ generic_render_result.stderr }}"
+
+        - name: Fetch private device response
+          fetch:
+            src: "{{ generic_render_directory.path }}/response.json"
+            dest: "{{ generic_local_dir }}/{{ generic_role }}-response.json"
+            flat: true
+          no_log: true
+      always:
+        - name: Remove only this invocation's temporary device-stage directory
+          file:
+            path: "{{ generic_render_directory.path }}"
+            state: absent
+          when: generic_render_directory.path is defined
+
+    - name: Stage or execute an explicitly requested deployment action
+      when: generic_action not in ['prepare', 'render']
+      become: true
+      vars:
+        generic_device_dir: "/var/lib/sonic-generic/{{ generic_scenario_id }}/{{ generic_role }}"
+      block:
+        - name: Allocate private scenario backup directory
+          file:
+            path: "{{ generic_device_dir }}"
+            state: directory
+            mode: "0700"
+          when: generic_action == 'stage'
+
+        - name: Stage helpers and private device configuration
+          copy:
+            src: "{{ item.src }}"
+            dest: "{{ generic_device_dir }}/{{ item.dest }}"
+            mode: "0600"
+          loop:
+            - src: "{{ playbook_dir }}/scripts/generic_config.py"
+              dest: generic_config.py
+            - src: "{{ playbook_dir }}/scripts/map_breakout_links.py"
+              dest: map_breakout_links.py
+            - src: "{{ playbook_dir }}/scripts/generic_device_action.py"
+              dest: generic_device_action.py
+            - src: "{{ generic_local_dir }}/{{ generic_role }}-request.json"
+              dest: request.json
+          when: generic_action == 'stage'
+          no_log: true
+
+        - name: Snapshot or save device configuration
+          command:
+            argv:
+              - python3
+              - "{{ generic_device_dir }}/generic_device_action.py"
+              - --action
+              - "{{ generic_action }}"
+              - --directory
+              - "{{ generic_device_dir }}"
+          when: generic_action in ['stage', 'save']
+          changed_when: generic_action in ['stage', 'save']
+          register: generic_phase_result
+          failed_when: false
+          no_log: true
+
+        - name: Require the requested non-reload phase to succeed
+          assert:
+            that: generic_phase_result.rc == 0
+            fail_msg: "Generic {{ generic_action }} failed on {{ inventory_hostname }}: {{ generic_phase_result.stderr }}"
+          when: generic_action in ['stage', 'save']
+
+        - name: Start authorized reload or rollback independently of SSH lifetime
+          command:
+            argv:
+              - python3
+              - "{{ generic_device_dir }}/generic_device_action.py"
+              - --action
+              - "{{ generic_action }}"
+              - --directory
+              - "{{ generic_device_dir }}"
+          async: 900
+          poll: 0
+          register: generic_reload_job
+          when: generic_action in ['apply', 'rollback']
+          no_log: true
+
+        - name: Wait for SSH after reload
+          wait_for_connection:
+            delay: 10
+            timeout: 600
+          when: generic_action in ['apply', 'rollback']
+
+        - name: Wait for the private reload result
+          async_status:
+            jid: "{{ generic_reload_job.ansible_job_id }}"
+          register: generic_reload_result
+          until: generic_reload_result.finished | bool
+          failed_when: false
+          retries: 90
+          delay: 10
+          when: generic_action in ['apply', 'rollback']
+          no_log: true
+
+        - name: Require the reload action itself to succeed
+          assert:
+            that:
+              - not (generic_reload_result.failed | default(false) | bool)
+              - generic_reload_result.rc | default(1) | int == 0
+            fail_msg: >-
+              Generic {{ generic_action }} failed on {{ inventory_hostname }};
+              rc={{ generic_reload_result.rc | default('unavailable') }}.
+              Retain backups in {{ generic_device_dir }} and inspect private async job
+              {{ generic_reload_job.ansible_job_id }} on this device.
+          when: generic_action in ['apply', 'rollback']
