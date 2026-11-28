@@ -202,6 +202,7 @@ EXAMPLES = '''
 
 DEFAULT_MTU = 0
 NUM_FP_VLANS_PER_FP = 4
+CSONIC_MAX_FP_LINKS = 31
 VM_SET_NAME_MAX_LEN = 8
 CMD_DEBUG_FNAME = "/tmp/csonic_network.cmds.%s.txt"
 
@@ -230,15 +231,24 @@ class CsonicNetwork(object):
         self.ctn_name = ctn_name
         self.vm_name = vm_name
         self.fp_mtu = fp_mtu
-        self.max_fp_num = max_fp_num
+        self.max_fp_num = int(max_fp_num)
         self.vm_offset = vm_offset
         self.mgmt_br_name = mgmt_br_name
         self.sonic_naming = sonic_naming
         self.bp_bridge = bp_bridge
         # Number of front-panel links this neighbor has (== number of topology
         # vlans for the VM). Multi-link (LAG) neighbors on T1-LAG/T2 need one
-        # front-panel interface per link.
+        # front-panel interface per link. Every requested link also requires an
+        # OVS bridge, and only max_fp_num bridges are created for each VM.
         self.num_fp_links = max(1, int(num_fp_links))
+        if self.num_fp_links > CSONIC_MAX_FP_LINKS:
+            raise ValueError(
+                "num_fp_links {} exceeds cSONiC maximum {} for {}".format(
+                    self.num_fp_links, CSONIC_MAX_FP_LINKS, self.vm_name))
+        if self.num_fp_links > self.max_fp_num:
+            raise ValueError(
+                "num_fp_links {} exceeds max_fp_num {} for {}".format(
+                    self.num_fp_links, self.max_fp_num, self.vm_name))
 
         self.pid = CsonicNetwork.get_pid(self.ctn_name)
         if self.pid is None:

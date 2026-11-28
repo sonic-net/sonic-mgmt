@@ -73,35 +73,46 @@ class CsonicTopoConverger:
         #
         # cSONiC exposes 32 injected ports; reserve one for the backplane. Each
         # pre-converged peer in the topology will become a single BGP instance
-        # running inside a VRF on a primary peer device.  Each VRF will require an
-        # downstream link to PTF/exabgp instance/other test infrastructure, and an
-        # upstream link the DUT.  This is achieved by creating a backplane interface
-        # on each primary peer that is a trunk interface, with each VRF
-        # containing a backplane SVI.  So, if the pre-converged peer topology
-        # requires more than 31 peers in a single BGP AS, we distribute them across
-        # multiple primary peers.
+        # running inside a VRF on a primary peer device.  Each VRF will require a
+        # downstream link to PTF/exabgp instance/other test infrastructure and one
+        # or more upstream links to the DUT.  This is achieved by creating a
+        # backplane interface on each primary peer that is a trunk interface, with
+        # each VRF containing a backplane SVI. Distribute peers by their actual
+        # front-panel link counts so no primary peer needs more than 31 links.
         config = self.topo["configuration"]
+        topology_vms = self.topo["topology"]["VMs"]
         cur_prime_devs = {}
-        dev_count = 0
+        cur_prime_fp_links = {}
         for device in config:
-            create_new_prime = False
             device_properties = config[device]["properties"]
+            device_labels = [
+                label for label in device_properties if label in labels
+            ]
+            if not device_labels:
+                continue
 
-            dev_count += 1
+            num_fp_links = len(topology_vms[device].get("vlans", []))
+            if num_fp_links > CSONIC_INTF_LIMIT:
+                raise ValueError(
+                    "cSONiC peer {} requires {} front-panel links; "
+                    "the maximum is {}".format(
+                        device, num_fp_links, CSONIC_INTF_LIMIT))
 
-            if dev_count > CSONIC_INTF_LIMIT:
-                create_new_prime = True
-                dev_count = 1
-
-            for label in device_properties:
-                if label in labels:
-                    if label not in cur_prime_devs or create_new_prime:
-                        cur_prime_devs[label] = device
-                        self.prime_devices.append(device)
-                    prime = cur_prime_devs[label]
-                    if prime not in self.prime_device_mapping:
-                        self.prime_device_mapping[prime] = []
-                    self.prime_device_mapping[prime].append(device)
+            for label in device_labels:
+                current_fp_links = cur_prime_fp_links.get(label, 0)
+                create_new_prime = (
+                    label not in cur_prime_devs or
+                    current_fp_links + num_fp_links > CSONIC_INTF_LIMIT
+                )
+                if create_new_prime:
+                    cur_prime_devs[label] = device
+                    cur_prime_fp_links[label] = 0
+                    self.prime_devices.append(device)
+                prime = cur_prime_devs[label]
+                if prime not in self.prime_device_mapping:
+                    self.prime_device_mapping[prime] = []
+                self.prime_device_mapping[prime].append(device)
+                cur_prime_fp_links[label] += num_fp_links
 
     def converge_vms(self) -> Dict[str, Union[int, str]]:
         '''
@@ -329,7 +340,7 @@ class CsonicTopoConverger:
         new_topo["convergence_data"] = self.converge_peers(interface_indexes, offsets)
 
         # After convergence, each prime cSONiC peer needs one front-panel
-        # interface per merged sub-peer (each connects to one DUT FP port via
+        # interface per merged VLAN/link (each connects to one DUT FP port via
         # one ``br-<vmname>-N`` OVS bridge). The default ``max_fp_num`` of 4
         # works for T0. Keep the backend-aware calculation here so future
         # cSONiC topology enablement cannot inherit cEOS's 127-port ceiling.
@@ -341,15 +352,21 @@ class CsonicTopoConverger:
         # root so the vm_set role bumps max_fp_num for the whole vm_set. The
         # override is applied in ``roles/vm_set/tasks/main.yml`` (common to
         # every action, including ``add_topo`` which actually creates the
-        # br-VM-N bridges) and ``roles/vm_set/tasks/start.yml``. Cap at
-        # CSONIC_INTF_LIMIT to stay within cSONiC's per-container interface
-        # ceiling, and never go below the default so single-vlan converged
-        # topologies keep the existing minimum.
+        # br-VM-N bridges) and ``roles/vm_set/tasks/start.yml``. Reject an
+        # over-capacity prime rather than silently clamping its bridge count;
+        # clamping only defers the failure until network wiring. Never go below
+        # the default so single-vlan converged topologies keep the existing
+        # minimum.
         max_prime_vlans = max(
             (len(vm.get("vlans", [])) for vm in new_topo["topology"]["VMs"].values()),
             default=0,
         )
-        required_fp_num = max(DEFAULT_MAX_FP_NUM, min(max_prime_vlans, CSONIC_INTF_LIMIT))
+        if max_prime_vlans > CSONIC_INTF_LIMIT:
+            raise ValueError(
+                "converged cSONiC prime requires {} front-panel links; "
+                "the maximum is {}".format(
+                    max_prime_vlans, CSONIC_INTF_LIMIT))
+        required_fp_num = max(DEFAULT_MAX_FP_NUM, max_prime_vlans)
         if required_fp_num > DEFAULT_MAX_FP_NUM:
             self.converged_topo["max_fp_num_provided"] = required_fp_num
 
