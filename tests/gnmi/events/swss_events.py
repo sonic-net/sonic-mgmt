@@ -50,6 +50,7 @@ def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, valida
         "if_state.json",
         "sonic-events-swss:if-state",
         tag,
+        start_listen_first=True,
     )
 
     asic_type = duthost.facts["asic_type"]

@@ -27,8 +27,22 @@ options:
     iterations:
         description:
             - Specify the maximum number of polling iterations
+            - In CPU readiness mode, require this many consecutive low-CPU samples
         required: false
         default: 12
+    process_name:
+        description:
+            - Exact process name to check in CPU readiness mode
+        required: false
+    cpu_threshold:
+        description:
+            - Maximum integer CPU percentage for every matching process
+        required: false
+    timeout:
+        description:
+            - Poll on the DUT until CPU readiness or this timeout in seconds
+            - Return the last iterations samples, including when readiness times out
+        required: false
 """
 
 MonitResult = namedtuple('MonitResult', ['processes', 'memory'])
@@ -58,7 +72,9 @@ def monit_process(module, interval, iterations):
             elif line.startswith('top'):
                 monit_results.append(MonitResult([], {}))
             elif line.startswith('KiB Mem'):
-                line_match = mem_re.match(line)
+                line_match = mem_re.match(line.strip())
+                if line_match is None:
+                    module.fail_json(msg="Unable to parse top memory summary: {}".format(line))
                 values = (line_match.group(_) for _ in mem_attrs)
                 memory = {k: int(v) for k, v in zip(mem_attrs, values)}
                 used_percent = memory['used'] * 100 / float(memory['total'])
@@ -78,22 +94,24 @@ def monit_process(module, interval, iterations):
         monit_results = monit_results[1:]
         return monit_results
 
-    def _monit_processes_with_psutil(interval, iterations):
+    def _monit_processes_with_psutil(interval, iterations, process_name=None):
         def _poll(interval):
             time.sleep(interval)
             processes = []
-            for proc in psutil.process_iter(['pid', 'name',
-                                             'cmdline',
-                                             'cpu_percent',
-                                             'memory_percent',
-                                             'status']):
-                processes.append(proc.info)
+            attrs = ['pid', 'name', 'cmdline', 'cpu_percent', 'memory_percent', 'status']
+            for proc in psutil.process_iter(['pid', 'name'] if process_name else attrs):
+                if process_name and proc.info['name'] != process_name:
+                    continue
+                try:
+                    processes.append(proc.as_dict(attrs) if process_name else proc.info)
+                except psutil.NoSuchProcess:
+                    module.warn("Process {} exited during CPU sampling".format(proc.pid))
             processes.sort(key=lambda p: p['cpu_percent'], reverse=True)
             return processes
 
         _poll(0)
-        monit_results = []
-        for _ in range(iterations):
+        count = 0
+        while iterations is None or count < iterations:
             processes = _poll(interval)
             _mem = psutil.virtual_memory()
             memory = {
@@ -102,13 +120,39 @@ def monit_process(module, interval, iterations):
                 "used": _mem.used / 1024,
                 "used_percent": _mem.percent,
             }
-            monit_results.append(MonitResult(processes, memory))
-        return monit_results
+            yield MonitResult(processes, memory)
+            count += 1
+
+    timeout = module.params.get("timeout")
+    if timeout is not None:
+        deadline = time.monotonic() + timeout
+        samples = []
+        consecutive = 0
+        process_name = module.params["process_name"]
+        sampler = _monit_processes_with_psutil(interval, None, process_name) if HAS_PSUTIL else None
+        while time.monotonic() < deadline:
+            if HAS_PSUTIL:
+                sample = next(sampler)
+            else:
+                readings = _monit_processes_with_top(module, interval, 1)
+                if len(readings) != 1:
+                    module.fail_json(msg="Expected one CPU sample from top, received {}".format(len(readings)))
+                sample = readings[0]
+            matching = [proc for proc in sample.processes if proc["name"] == process_name]
+            samples.append(MonitResult(matching, sample.memory))
+            samples = samples[-iterations:]
+            ready = bool(matching) and all(
+                int(float(proc["cpu_percent"])) <= module.params["cpu_threshold"] for proc in matching
+            )
+            consecutive = consecutive + 1 if ready else 0
+            if consecutive == iterations:
+                break
+        return dict(monit_results=samples, cpu_ready=consecutive == iterations)
 
     if HAS_PSUTIL:
-        return _monit_processes_with_psutil(interval, iterations)
+        return dict(monit_results=list(_monit_processes_with_psutil(interval, iterations)))
     else:
-        return _monit_processes_with_top(module, interval, iterations)
+        return dict(monit_results=_monit_processes_with_top(module, interval, iterations))
 
 
 def main():
@@ -116,14 +160,20 @@ def main():
         argument_spec=dict(
             delay_interval=dict(required=False, type=int, default=5),
             iterations=dict(require=False, type=int, default=6),
-        )
+            process_name=dict(required=False, type=str),
+            cpu_threshold=dict(required=False, type=int),
+            timeout=dict(required=False, type=int),
+        ),
+        required_together=[["process_name", "cpu_threshold", "timeout"]],
     )
     interval = module.params["delay_interval"]
     iterations = module.params["iterations"]
-    module.exit_json(
-        monit_results=monit_process(module, interval, iterations),
-        changed=False
-    )
+    if module.params["timeout"] is not None:
+        if (module.params["timeout"] <= 0 or interval <= 0 or iterations <= 0
+                or module.params["cpu_threshold"] < 0 or not module.params["process_name"]):
+            module.fail_json(msg="CPU readiness requires positive timeout, delay_interval and iterations, "
+                                 "a nonempty process_name and a nonnegative cpu_threshold")
+    module.exit_json(changed=False, **monit_process(module, interval, iterations))
 
 
 if __name__ == "__main__":

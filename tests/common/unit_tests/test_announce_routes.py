@@ -112,3 +112,103 @@ def test_multi_vrf_t0_isolates_csonic_next_hop_change(
         "::/0", v6_next_hops[0])
     assert generated["ARISTA02T1"]["ipv6"][0][0:2] == (
         "::/0", v6_next_hops[1])
+
+
+@pytest.mark.parametrize(
+    ("mode", "topo_name", "v4_next_hops", "v6_next_hops"),
+    [
+        ("csonic", "t1-lag", ("10.10.246.101", "10.10.246.103"),
+         ("fc0a::65", "fc0a::67")),
+        ("csonic", "t1", ("10.10.246.254", "10.10.246.254"),
+         ("fc0a::ff", "fc0a::ff")),
+        ("ceos", "t1-lag", ("10.10.246.254", "10.10.246.254"),
+         ("fc0a::ff", "fc0a::ff")),
+        ("ordinary", "t1-lag", ("10.10.246.254", "10.10.246.254"),
+         ("fc0a::ff", "fc0a::ff")),
+    ],
+)
+def test_t1_lag_pairs_csonic_ports_with_peer_next_hops_and_preserves_others(
+        monkeypatch, mode, topo_name, v4_next_hops, v6_next_hops):
+    announce_routes = _load_announce_routes()
+    applied = {}
+    monkeypatch.setattr(
+        announce_routes,
+        "change_routes",
+        lambda action, ptf_ip, port, routes: applied.setdefault(port, routes),
+    )
+    topo = {
+        "topo_is_multi_vrf": mode != "ordinary",
+        "topology": {"VMs": {
+            "ARISTA01T2": {"vm_offset": 0},
+            "ARISTA03T2": {"vm_offset": 1},
+        }},
+        "configuration_properties": {
+            "common": {
+                "podset_number": 0,
+                "enable_ipv4_routes_generation": True,
+                "enable_ipv6_routes_generation": True,
+            },
+            "spine": {"swrole": "spine"},
+        },
+        "configuration": {
+            "ARISTA01T2": {
+                "properties": ["common", "spine"],
+                "vips": {
+                    "ipv4": {
+                        "prefixes": ["192.0.2.0/24"],
+                        "asn": 65200,
+                    },
+                },
+            },
+            "ARISTA03T2": {"properties": ["common", "spine"]},
+        },
+        "convergence_data": {
+            "convergence_mapping": {
+                "ARISTA01T2": ["ARISTA01T2", "ARISTA03T2"],
+            },
+            "vm_offset_mapping": {
+                "ARISTA01T2": 0,
+                "ARISTA03T2": 1,
+            },
+            "ptf_backplane_addrs": {
+                "ARISTA01T2": {
+                    "ipv4": "10.10.246.101/31",
+                    "ipv6": "fc0a::65/127",
+                },
+                "ARISTA03T2": {
+                    "ipv4": "10.10.246.103/31",
+                    "ipv6": "fc0a::67/127",
+                },
+            },
+        },
+    }
+    if mode == "ordinary":
+        topo.pop("convergence_data")
+    elif mode == "csonic":
+        topo["convergence_data"]["vrf_name_mapping"] = {
+            "ARISTA01T2": "VrfARISTA01T2",
+            "ARISTA03T2": "VrfARISTA03T2",
+        }
+    generated = {}
+
+    announce_routes.fib_t1_lag(
+        topo,
+        "10.250.0.106",
+        topo_name,
+        action="announce",
+        topo_routes=generated,
+    )
+
+    assert generated["ARISTA01T2"]["ipv4"][0][0:2] == (
+        "0.0.0.0/0", v4_next_hops[0])
+    assert generated["ARISTA03T2"]["ipv4"][0][0:2] == (
+        "0.0.0.0/0", v4_next_hops[1])
+    assert generated["ARISTA01T2"]["ipv6"][0][0:2] == (
+        "::/0", v6_next_hops[0])
+    assert generated["ARISTA03T2"]["ipv6"][0][0:2] == (
+        "::/0", v6_next_hops[1])
+    vip = next(
+        route for routes in applied.values() for route in routes
+        if route[0] == "192.0.2.0/24"
+    )
+    assert vip[1] == v4_next_hops[0]

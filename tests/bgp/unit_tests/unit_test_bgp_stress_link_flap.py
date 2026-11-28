@@ -25,6 +25,13 @@ def _tbinfo(converged=False):
             },
         },
         "configuration": {
+            "ARISTA00T0": {
+                "properties": ["common"],
+                "bp_interface": {
+                    "ipv4": "10.10.246.27/24",
+                    "ipv6": "fc0a::1b/64",
+                },
+            },
             "ARISTA01T1": {
                 "properties": ["common"],
                 "bp_interface": {
@@ -39,10 +46,15 @@ def _tbinfo(converged=False):
             "topo_is_multi_vrf": True,
             "convergence_data": {
                 "vrf_name_mapping": {
+                    "ARISTA00T0": "VrfARISTA00T0",
                     "ARISTA01T1": "VrfARISTA01T1",
                     "ARISTA02T1": "VrfARISTA02T1",
                 },
                 "ptf_backplane_addrs": {
+                    "ARISTA00T0": {
+                        "ipv4": "10.10.246.99/31",
+                        "ipv6": "fc0a::63/127",
+                    },
                     "ARISTA01T1": {
                         "ipv4": "10.10.246.101/31",
                         "ipv6": "fc0a::65/127",
@@ -67,7 +79,7 @@ def test_ordinary_topology_keeps_shared_monitor_backplane():
     assert converged is False
 
 
-def test_converged_csonic_uses_one_reachable_point_to_point_backplane():
+def test_converged_csonic_uses_one_reachable_upstream_point_to_point_backplane():
     v4, v6, next_hops, converged = get_bgp_monitor_backplane(_tbinfo(converged=True))
     assert v4 == "10.10.246.101"
     assert v6 == "fc0a::65"

@@ -162,7 +162,12 @@ def get_bgp_monitor_backplane(tbinfo):
     if not ptf_backplanes:
         return ptf_bp_v4, ptf_bp_v6, spine_bp_addr, False
 
-    logical_peer = sorted(ptf_backplanes)[0]
+    upstream_peers = sorted(set(spine_bp_addr) & set(ptf_backplanes))
+    pytest_assert(
+        upstream_peers,
+        "No converged upstream backplane available for BGP Monitor",
+    )
+    logical_peer = upstream_peers[0]
     selected = ptf_backplanes[logical_peer]
 
     def _link_endpoints(prefix):
