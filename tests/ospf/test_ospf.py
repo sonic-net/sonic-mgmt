@@ -3,6 +3,8 @@ import logging
 import time
 import re
 
+from tests.ospf import vpp_helpers
+
 logger = logging.getLogger(__name__)
 
 pytestmark = [
@@ -67,6 +69,11 @@ def test_ospf_neighborship(ospf_setup, duthosts, rand_one_dut_hostname):
 
 
 def test_ospf_dynamic_routing(ospf_setup, duthosts, rand_one_dut_hostname, nbrhosts):
+    duthost = duthosts[rand_one_dut_hostname]
+    if vpp_helpers.is_vpp_ceos_setup(ospf_setup):
+        vpp_helpers.verify_dynamic_routing(ospf_setup, duthost)
+        return
+
     setup_info_nbr_addr = ospf_setup['nbr_addr']
     neigh_ip_addrs = list(setup_info_nbr_addr.values())
     duthost = duthosts[rand_one_dut_hostname]

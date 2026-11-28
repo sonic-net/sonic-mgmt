@@ -2,6 +2,8 @@ import pytest
 import logging
 import time
 
+from tests.ospf import vpp_helpers
+
 logger = logging.getLogger(__name__)
 
 pytestmark = [
@@ -10,34 +12,46 @@ pytestmark = [
 
 
 @pytest.fixture(scope="module")
-def start_ospfd(duthosts, rand_one_dut_hostname):
+def start_ospfd(duthosts, rand_one_dut_hostname, request, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
-    cmd = 'docker exec bgp bash -c "/usr/lib/frr/ospfd &"'
+    if not (
+        vpp_helpers.is_vpp_eos_requested(duthost, request)
+        and vpp_helpers.is_vpp_ceos_topology(tbinfo)
+    ):
+        cmd = 'docker exec bgp bash -c "/usr/lib/frr/ospfd &"'
 
-    for asic in duthost.asics:
-        if duthost.is_multi_asic:
-            duthost.shell(cmd.replace("bgp", f"bgp{asic.asic_index}", 1))
-        else:
-            duthost.shell(cmd)
+        for asic in duthost.asics:
+            if duthost.is_multi_asic:
+                duthost.shell(cmd.replace("bgp", f"bgp{asic.asic_index}", 1))
+            else:
+                duthost.shell(cmd)
 
 
 @pytest.fixture(scope="module")
-def start_bfdd(duthosts, rand_one_dut_hostname):
+def start_bfdd(duthosts, rand_one_dut_hostname, request, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
-    cmd = 'docker exec bgp bash -c "/usr/lib/frr/bfdd &"'
+    if not (
+        vpp_helpers.is_vpp_eos_requested(duthost, request)
+        and vpp_helpers.is_vpp_ceos_topology(tbinfo)
+    ):
+        cmd = 'docker exec bgp bash -c "/usr/lib/frr/bfdd &"'
 
-    for asic in duthost.asics:
-        if duthost.is_multi_asic:
-            duthost.shell(cmd.replace("bgp", f"bgp{asic.asic_index}", 1))
-        else:
-            duthost.shell(cmd)
+        for asic in duthost.asics:
+            if duthost.is_multi_asic:
+                duthost.shell(cmd.replace("bgp", f"bgp{asic.asic_index}", 1))
+            else:
+                duthost.shell(cmd)
 
 
 def test_ospf_with_bfd(ospf_Bfd_setup, duthosts, rand_one_dut_hostname,
                        start_ospfd, start_bfdd):
     setup_info_nbr_addr = ospf_Bfd_setup
-    neighbor_ip_addrs = setup_info_nbr_addr.keys()
     duthost = duthosts[rand_one_dut_hostname]
+    if vpp_helpers.is_vpp_ceos_setup(setup_info_nbr_addr):
+        vpp_helpers.verify_bfd_failure(setup_info_nbr_addr, duthost)
+        return
+
+    neighbor_ip_addrs = setup_info_nbr_addr.keys()
 
     # Configure OSPF on the DUT
     net_cmds = " ".join([f"-c 'network {str(ip_addr)}/31 area 0'" for ip_addr in neighbor_ip_addrs])

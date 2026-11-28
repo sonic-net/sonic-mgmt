@@ -6,6 +6,7 @@ import pytest
 import re
 from tests.common.config_reload import config_reload
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
+from tests.ospf import vpp_helpers
 import time
 
 
@@ -45,7 +46,15 @@ EOF
 
 
 @pytest.fixture(scope="module")
-def ospf_Bfd_setup(duthosts, rand_one_dut_hostname, nbrhosts, trap_copp_ospf, request):
+def ospf_Bfd_setup(duthosts, rand_one_dut_hostname, nbrhosts, trap_copp_ospf, request, tbinfo):
+    duthost = duthosts[rand_one_dut_hostname]
+    if vpp_helpers.is_vpp_eos_requested(duthost, request) and not vpp_helpers.is_vpp_ceos_topology(tbinfo):
+        pytest.skip("VPP with cEOS neighbors is qualified only on the standard t0 topology")
+    if vpp_helpers.is_vpp_ceos(duthost, request, nbrhosts, tbinfo):
+        with vpp_helpers.ospf_bfd_setup(duthost, nbrhosts, tbinfo) as setup_info:
+            yield setup_info
+        return
+
     if request.config.getoption("neighbor_type") not in ("sonic", "csonic"):
         pytest.skip("Neighbor type must be sonic")
 
@@ -127,6 +136,13 @@ def get_ospf_neighbor_interface(host):
 
 @pytest.fixture(scope='module')
 def ospf_setup(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo, request):
+    duthost = duthosts[rand_one_dut_hostname]
+    if vpp_helpers.is_vpp_eos_requested(duthost, request) and not vpp_helpers.is_vpp_ceos_topology(tbinfo):
+        pytest.skip("VPP with cEOS neighbors is qualified only on the standard t0 topology")
+    if vpp_helpers.is_vpp_ceos(duthost, request, nbrhosts, tbinfo):
+        with vpp_helpers.ospf_setup(duthost, nbrhosts, tbinfo) as setup_info:
+            yield setup_info
+        return
 
     # verify neighbors are type sonic
     if request.config.getoption("neighbor_type") not in ("sonic", "csonic"):
