@@ -1,0 +1,114 @@
+import re
+
+SC_ENABLED = 1
+
+# Command to get ASIC device (PCI) path on DUT
+ASIC_DETECT_GET_DEVICE_PATH_CMD = '/usr/bin/asic_detect/asic_detect.sh -p'
+
+SAI_PROFILE_FILE_NAME = "sai.profile"
+PLATFORM_FOLDER_PATH = "/usr/share/sonic/device/"
+SC_SAI_ATTRIBUTE_NAME = "SAI_INDEPENDENT_MODULE_MODE"
+
+SC_EEPROM_SPECIFICATION_KEY = "Specification compliance"
+SC_EEPROM_VENDOR_DATE_KEY = "Vendor Date Code\\(YYYY-MM-DD Lot\\)"
+SC_EEPROM_VENDOR_NAME_KEY = "Vendor Name"
+SC_EEPROM_VENDOR_OUI_KEY = "Vendor OUI"
+SC_EEPROM_VENDOR_PM_KEY = "Vendor PN"
+SC_EEPROM_VENDOR_REV_KEY = "Vendor Rev"
+SC_EEPROM_VENDOR_SN_KEY = "Vendor SN"
+
+SC_REDIS_SPECIFICATION_KEY = "specification_compliance"
+SC_REDIS_VENDOR_DATE_KEY = "vendor_date"
+SC_REDIS_VENDOR_NAME_KEY = "manufacturer"
+SC_REDIS_VENDOR_OUI_KEY = "vendor_oui"
+SC_REDIS_VENDOR_PM_KEY = "model"
+SC_REDIS_VENDOR_REV_KEY = "vendor_rev"
+SC_REDIS_VENDOR_SN_KEY = "serial"
+SC_REDIS_SFP_IDENTIFIER_KEY = "type"
+
+SC_TRANCEIVER_STATUS_MODULE_STATE = "Current module state"
+SC_TRANCEIVER_STATUS_REASON_FAULT = "Reason of entering the module fault state"
+SC_REDIS_TRANCEIVER_STATUS_MODULE_STATE = "module_state"
+SC_REDIS_TRANCEIVER_STATUS_REASON_FAULT = "module_fault_cause"
+
+EEPROM_CLI_KEYS = [
+    SC_EEPROM_SPECIFICATION_KEY,
+    SC_EEPROM_VENDOR_DATE_KEY,
+    SC_EEPROM_VENDOR_NAME_KEY,
+    SC_EEPROM_VENDOR_OUI_KEY,
+    SC_EEPROM_VENDOR_PM_KEY,
+    SC_EEPROM_VENDOR_REV_KEY,
+    SC_EEPROM_VENDOR_SN_KEY,
+]
+
+TRANCEIVER_CLI_KEYS = [
+    SC_TRANCEIVER_STATUS_MODULE_STATE,
+    SC_TRANCEIVER_STATUS_REASON_FAULT
+]
+
+EEPROM_TO_REDIS_KEY_MAP = {
+    SC_EEPROM_SPECIFICATION_KEY: SC_REDIS_SPECIFICATION_KEY,
+    SC_EEPROM_VENDOR_DATE_KEY: SC_REDIS_VENDOR_DATE_KEY,
+    SC_EEPROM_VENDOR_NAME_KEY: SC_REDIS_VENDOR_NAME_KEY,
+    SC_EEPROM_VENDOR_OUI_KEY: SC_REDIS_VENDOR_OUI_KEY,
+    SC_EEPROM_VENDOR_PM_KEY: SC_REDIS_VENDOR_PM_KEY,
+    SC_EEPROM_VENDOR_REV_KEY: SC_REDIS_VENDOR_REV_KEY,
+    SC_EEPROM_VENDOR_SN_KEY: SC_REDIS_VENDOR_SN_KEY
+}
+
+TRANSCEIVER_STATUS_TO_REDIS_KEY_MAP = {
+    SC_TRANCEIVER_STATUS_MODULE_STATE: SC_REDIS_TRANCEIVER_STATUS_MODULE_STATE,
+    SC_TRANCEIVER_STATUS_REASON_FAULT: SC_REDIS_TRANCEIVER_STATUS_REASON_FAULT
+}
+
+BER_EFFECTIVE_PHYSICAL_ERRORS = "Effective Physical Errors"
+BER_EFFECTIVE_PHYSICAL_BER = "Effective Physical BER"
+BER_ROW_PHYSICAL_ERRORS_PER_LANE = "Raw Physical Errors Per Lane"
+BER_RAW_PHYSICAL_BER = "Raw Physical BER"
+MLXLINK_COUNTERS_SECTION = "Physical Counters and BER Info"
+MLXLINK_LINK_DOWN_COUNTER = "Link Down Counter"
+MLXLINK_LINK_DOWN_COUNTER_RE = re.compile(
+    rf'^\s*{re.escape(MLXLINK_LINK_DOWN_COUNTER)}\s*:\s*(\d+)\s*$', re.MULTILINE)
+
+BER_KEY_MAP = {
+    BER_EFFECTIVE_PHYSICAL_ERRORS,
+    BER_EFFECTIVE_PHYSICAL_BER,
+    BER_ROW_PHYSICAL_ERRORS_PER_LANE,
+    BER_RAW_PHYSICAL_BER
+}
+
+PLATFORM_GENERATION = ['4280', '4700', '5600', '5610', '5640', '6600', '6810']
+
+CMD_INTERFACE_TRANSCEIVER = "show interface transceiver eeprom"
+CMD_SFPUTIL_EEPROM = "sudo sfputil show eeprom"
+CMD_INTERFACE_TRANSCEIVER_STATUS = "show interfaces transceiver status"
+CMD_REDIS_TRANSCEIVERS = {
+    "TRANSCEIVER_INFO": 'redis-cli -n 6 keys "TRANSCEIVER_INFO|*"',
+    "TRANSCEIVER_STATUS": 'redis-cli -n 6 keys "TRANSCEIVER_STATUS|*"'
+}
+
+MLXLINK_TOOL_ERRORS_RE = re.compile(r'(?:^|\n)Errors\s*\n-+\s*\n(.*)', re.DOTALL)
+_MLXLINK_ANSI_RE = re.compile(r'\x1b\[[0-9;]*m')
+MLXLINK_NO_HISTOGRAM_FOR_FEC = "No histogram info available for the current active FEC"
+MLXLINK_OPERATIONAL_FEC_RE = re.compile(r'^\s*FEC\s*:\s*(.+?)\s*$', re.MULTILINE)
+MLXLINK_FEC_NO_FEC = "no fec"
+MLXLINK_FEC_RS_FEC = "rs-fec"
+MLXLINK_FEC_FC_FEC = "fc-fec"
+MLXLINK_OPERATIONAL_INFO = "Operational Info"
+MLXLINK_CABLE_DUMP_PAGE_MARKER = "Page: 0x"
+MLXLINK_SC_NO_CABLE_ERROR = "No plugged cable detected"
+MLXLINK_SC_CABLE_DUMP_ACCESS_BLOCK_ERRORS = (
+    "Showing Module Info via PDDR raised the following exception",
+    "Failed to send access register: Register not supported",
+    "Dumping EEPROM pages raised the following exception",
+)
+MLXLINK_RX_FEC_HISTOGRAM_SECTION = "Histogram of FEC Errors"
+MLXLINK_RX_FEC_HISTOGRAM_HEADER_RE = re.compile(
+    r'^\s*Header\s*:\s*Range\s+Occurrences\s*$', re.MULTILINE)
+MLXLINK_RX_FEC_HISTOGRAM_BIN_RE = re.compile(
+    r'^\s*Bin\s+(\d+)\s*:\s*(\[\d+(?::\d+)?(?:\s*<=\s*X)?\])\s+(\d+)\s*$', re.MULTILINE)
+MLXLINK_SERDES_TX_SECTION = "Serdes Tuning Transmitter Info"
+MLXLINK_SERDES_TX_PARAMETERS_RE = re.compile(
+    r'^\s*Serdes TX parameters\s*:\s*(.+?)\s*$', re.MULTILINE)
+MLXLINK_SERDES_TX_LANE_RE = re.compile(
+    r'^\s*Lane\s+(\d+)\s*:\s*(.+?)\s*$', re.MULTILINE)
