@@ -39,6 +39,8 @@ This document describes the approach that can be taken for adding support for PV
 # Scope
 This document describes the high level details of SONiC management test-cases for PVST feature.
 
+The cases are implemented in `tests/stp/test_stp_pvst.py`. [STP-testplan.md](STP-testplan.md) covers the whole spanning-tree suite, PVST and MSTP.
+
 # Testing Strategy for PVST feature:
 Existing t0 topology will be used for developing the PVST test suite. A simplified version of the topology will be as shown above where the SONIC DUT ports will be connected to PTF.
 Following mechanisms will be used in the test script implementation
