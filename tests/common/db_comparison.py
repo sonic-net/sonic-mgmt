@@ -95,6 +95,13 @@ class DBType(Enum):
 # the full top-level key (e.g. `FOO|*` drops every `FOO|<suffix>` entry,
 # `FOO|bar` matches only that exact row).
 VOLATILE_TOP_LEVEL_KEYS = {
+    DBType.APPL: {
+        # The selected link-local interface varies across boots; fpmsyncd
+        # filters management interfaces, so the row can also be absent.
+        # Orchagent skips this directly connected prefix, so its presence or
+        # selected interface in APPL_DB does not affect ASIC forwarding.
+        "ROUTE_TABLE:fe80::/64",
+    },
     DBType.STATE: {
         # Summary row with only 'lastupdate'; no per-container content.
         "DOCKER_STATS|LastUpdateTime",
