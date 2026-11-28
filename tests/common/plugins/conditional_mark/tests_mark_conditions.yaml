@@ -5618,6 +5618,12 @@ span:
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000']"
 
+span/mirror_label/:
+  skip:
+    reason: "Mirror session label tests are written for hardware DUTs: the virtual switch has no mirror data plane."
+    conditions:
+      - "asic_type in ['vs']"
+
 span/test_erspan_sampling_truncation.py:
   skip:
     reason: "ERSPAN sampling/truncation tests are not supported on the current platform/topology."
