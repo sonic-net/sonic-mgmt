@@ -4,12 +4,13 @@ import posixpath
 import re
 import pytest
 from tests.common.devices.eos import EosHost
-from tests.bgp.bgp_helpers import get_routes_not_announced_to_bgpmon, remove_bgp_neighbors, restore_bgp_neighbors, \
-    initial_tsa_check_before_and_after_test
+from tests.bgp.bgp_helpers import BGPMON_CONFIG_FILE, get_routes_not_announced_to_bgpmon, remove_bgp_neighbors, \
+    restore_bgp_neighbors, initial_tsa_check_before_and_after_test
 from tests.common import config_reload
 from tests.common.config_reload import DEFAULT_GOLDEN_CONFIG_PATH
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_ASIC_ID
+from tests.common.fixtures.duthost_utils import _backup_and_restore_config_db
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
 from tests.common.utilities import is_ipv6_only_topology
@@ -21,16 +22,16 @@ from tests.bgp.traffic_checker import get_traffic_shift_state, check_tsa_persist
 from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE, TS_NO_NEIGHBORS
 
 pytestmark = [
-    pytest.mark.topology('t1', 'm1', 'c0', 'uma', 'lma')
+    pytest.mark.topology('t1', 'm1', 'c0', 'uma', 'lma', 'lt2')
 ]
 
 logger = logging.getLogger(__name__)
 
 
 @contextlib.contextmanager
-def _temporary_dma_maintenance_golden(duthost, topology, source_path):
-    """Yield reload kwargs for DMA-only golden maintenance config."""
-    if topology not in ("uma", "lma"):
+def _temporary_maintenance_golden(duthost, topology, source_path):
+    """Preserve golden overrides while enabling maintenance during reload."""
+    if topology not in ("uma", "lma", "lt2"):
         yield {}
         return
 
@@ -359,13 +360,21 @@ def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_h
             initial_tsa_check_before_and_after_test(duthosts)
 
 
+@pytest.fixture
+def restore_traffic_shift_config_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
+    if tbinfo["topo"]["type"] == "lt2":
+        yield from _backup_and_restore_config_db(duthosts[enum_rand_one_per_hwsku_frontend_hostname])
+    else:
+        yield
+
+
 @pytest.mark.disable_loganalyzer
 def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                                 ptfhost, nbrhosts, nbrhosts_to_dut, bgpmon_setup_teardown,
-                                                traffic_shift_community, tbinfo):
+                                                traffic_shift_community, tbinfo, restore_traffic_shift_config_db):
     """
     Test load_minigraph --traffic-shift-away
-    This covers the combined minigraph+golden maintenance path on DMA, not a -t override conflict check.
+    This covers the combined minigraph+golden maintenance path on DMA and LT2, not a -t override conflict check.
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -389,12 +398,22 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
         is_smartswitch = bool(
             duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch")
         )
-        is_override_config = is_smartswitch or topology in ("uma", "lma")
+        is_override_config = is_smartswitch or topology in ("uma", "lma", "lt2")
 
-        with _temporary_dma_maintenance_golden(
+        with _temporary_maintenance_golden(
                 duthost, topology, DEFAULT_GOLDEN_CONFIG_PATH) as golden_config:
             config_reload(duthost, config_source='minigraph', safe_reload=True, check_intf_up_ports=True,
                           traffic_shift_away=True, override_config=is_override_config, **golden_config)
+
+        if topology == "lt2":
+            # Minigraph reload removes the monitor fixture's secondary address and session.
+            connection = bgpmon_setup_teardown
+            asichost = duthost.asic_instance_from_namespace(connection["namespace"])
+            asichost.config_ip_intf(connection["local_intf"], connection["local_addr"], "add")
+            asichost.write_to_config_db(BGPMON_CONFIG_FILE)
+            peer_addr = connection["neighbor_addr"].split("/")[0]
+            pytest_assert(wait_until(60, 5, 0, duthost.check_bgp_session_state, [peer_addr]),
+                          "BGP monitor session did not recover after minigraph reload")
 
         # Verify DUT is in maintenance state.
         pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(duthost, "TSC no-stats")),
