@@ -39,6 +39,26 @@ def pytest_addoption(parser):
     dual_tor_io_group.addoption("--switchover_num_ports", type=int, default=8,
                                 help="Number of MUX ports to use in the bulk switchover impact test (default: 8).")
 
+    dual_tor_io_group.addoption("--server_subnet", type=str, default=None,
+                                help="Target the servers' addresses in this VLAN subnet instead of their "
+                                     "MUX_CABLE ones, e.g. '2001:db8:1000::1/64'. The subnet must already "
+                                     "be configured on the VLAN.")
+
+
+@pytest.fixture(scope="module")
+def server_subnet(request, duthosts):
+    """VLAN subnet whose server addresses the IO tests should target, or None."""
+    subnet = request.config.getoption("--server_subnet")
+    if not subnet:
+        return None
+
+    vlan_interfaces = duthosts[0].get_running_config_facts().get("VLAN_INTERFACE", {})
+    configured = {key for attrs in vlan_interfaces.values() for key in attrs}
+    if subnet not in configured:
+        pytest.skip("--server_subnet {} is not configured on the VLAN; configured keys: {}"
+                    .format(subnet, sorted(configured)))
+    return subnet
+
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_generate_tests(metafunc):
