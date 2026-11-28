@@ -3,12 +3,15 @@
 import ipaddress
 import json
 import os
+from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
+import yaml
 
 
 TEMPLATES_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEMPLATE_NAME = "configdb-csonic-converged.j2"
+CSONIC_TASKS_PATH = Path(TEMPLATES_DIR).parent / "tasks" / "csonic.yml"
 
 
 def _context():
@@ -95,6 +98,33 @@ def test_renders_flattened_vrfs_and_backplane_trunk():
         "VrfARISTA01T1|ipv4_unicast|10.10.246.0/24"] == {}
 
 
+def _add_single_link_peers(context, start, stop):
+    mapping = context["convergence_data"]["convergence_mapping"]["ARISTA01T1"]
+    vrfs = context["convergence_data"]["converged_peers"]["ARISTA01T1"]["vrf"]
+    vrf_names = context["convergence_data"]["vrf_name_mapping"]
+    ptf = context["convergence_data"]["ptf_backplane_addrs"]
+    for index in range(start, stop):
+        logical = "ARISTA{:02d}T1".format(index)
+        mapping.append(logical)
+        context["configuration"][logical] = {
+            "bgp": {"asn": 64600,
+                    "peers": {65100: ["10.0.0.{}".format(54 + index * 2)]}},
+        }
+        vrfs[logical] = {
+            "Vlan{}".format(1999 + index): {
+                "ipv4": "10.10.246.{}/31".format(96 + index * 2)},
+            "Ethernet{}".format(index): {
+                "ipv4": "10.0.0.{}/31".format(55 + index * 2)},
+            "Loopback{}".format(index): {
+                "ipv4": "100.1.0.{}/32".format(28 + index)},
+        }
+        vrf_names[logical] = "Vrf{}".format(logical)
+        ptf[logical] = {
+            "ipv4": "10.10.246.{}/31".format(97 + index * 2),
+            "vlan": 1999 + index,
+        }
+
+
 def test_t0_backplane_uses_canonical_sonic_vm_eth5_lanes():
     context = _context()
     mapping = context["convergence_data"]["convergence_mapping"]["ARISTA01T1"]
@@ -116,6 +146,38 @@ def test_t0_backplane_uses_canonical_sonic_vm_eth5_lanes():
         ptf[logical] = {"ipv4": "10.10.246.{}/31".format(97 + index * 2), "vlan": 1999 + index}
     cfg = _render_json(context)
     assert cfg["PORT"]["Ethernet5"]["lanes"] == "45,46,47,48"
+
+
+def test_t1_lag_prime_uses_canonical_lanes_through_backplane_eth17():
+    context = _context()
+    _add_single_link_peers(context, 3, 17)
+
+    cfg = _render_json(context)
+
+    assert len(cfg["PORT"]) == 17
+    assert cfg["PORT"]["Ethernet6"]["lanes"] == "41,42,43,44"
+    assert cfg["PORT"]["Ethernet16"]["lanes"] == "61,62,63,64"
+    assert cfg["PORT"]["Ethernet17"]["lanes"] == "69,70,71,72"
+    assert all(port["lanes"] for port in cfg["PORT"].values())
+
+
+def test_logical_bgp_readiness_is_t1_lag_only():
+    tasks = yaml.safe_load(CSONIC_TASKS_PATH.read_text())
+    task = next(
+        task for task in tasks
+        if task.get("name") == "Wait for every converged cSONiC logical BGP instance"
+    )
+    env = Environment(autoescape=True, undefined=StrictUndefined)
+    env.filters["bool"] = bool
+
+    def selected(topo, multi_vrf=True):
+        context = {"topo": topo, "topo_is_multi_vrf": multi_vrf}
+        return all(env.compile_expression(condition)(**context)
+                   for condition in task["when"])
+
+    assert selected("t1-lag")
+    assert not selected("t0")
+    assert not selected("t1-lag", multi_vrf=False)
 
 
 def test_enables_frrcfgd_and_builds_one_bgp_instance_per_vrf():
