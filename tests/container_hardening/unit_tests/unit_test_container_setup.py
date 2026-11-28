@@ -40,9 +40,9 @@ def test_block_device_prerequisite_classification(pytester, feature, features, r
         def shell(command, **kwargs):
             if command.startswith("docker ps"):
                 return {{"stdout_lines": [{feature!r}] if {running!r} else []}}
-            if "mount | grep" in command:
-                return {{"rc": 0, "stdout": "/dev/sda1"}}
-            if "'ls " in command:
+            if command.endswith(" mount"):
+                return {{"rc": 0, "stdout": "/dev/sda1 on /etc/hosts type ext4 (rw)"}}
+            if " ls " in command:
                 return {{"stdout": "/dev/sda1" if {exposed!r} else ""}}
             raise AssertionError("Unexpected command: " + command)
 
