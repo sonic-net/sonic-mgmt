@@ -1,4 +1,4 @@
-FROM ubuntu:jammy
+FROM ubuntu:resolute
 
 ARG DEBIAN_FRONTEND=noninteractive
 ENV TZ=US/Pacific
