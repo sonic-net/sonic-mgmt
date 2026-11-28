@@ -41,6 +41,16 @@ def restore_config_db(duthost):
     config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
 
 
+SYSTEMD_INIT_TIMEOUT_SECS = 600
+SYSTEMD_INIT_POLL_INTERVAL_SECS = 20
+
+
+def systemd_finished_initializing(duthost) -> bool:
+    state = duthost.shell("systemctl is-system-running",
+                          module_ignore_errors=True)["stdout"].strip()
+    return state not in ("initializing", "starting")
+
+
 @pytest.fixture(scope="module")
 def check_ntp_sync(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
@@ -127,6 +137,20 @@ def setup_mvrf(duthosts, rand_one_dut_hostname, localhost, check_ntp_sync,
     yield
 
     try:
+        # After this module's fast/warm-boot cases, systemd stays in
+        # 'starting' for several minutes (warmboot-finalizer gates
+        # multi-user.target) and hostcfgd defers acting on CONFIG_DB changes
+        # until systemd finishes initializing. A 'config vrf del mgmt' issued
+        # in that window is applied later, in the middle of
+        # restore_config_db()'s config reload, flapping eth0 and killing the
+        # SSH session carrying the reload command. Wait out the window so the
+        # VRF removal is applied here, where the connection loss is expected
+        # and handled.
+        if not wait_until(SYSTEMD_INIT_TIMEOUT_SECS, SYSTEMD_INIT_POLL_INTERVAL_SECS, 0,
+                          systemd_finished_initializing, duthost):
+            logger.warning("systemd did not finish initializing within {}s; "
+                           "proceeding with mgmt vrf teardown anyway".format(SYSTEMD_INIT_TIMEOUT_SECS))
+
         logger.info("Unconfigure  mgmt vrf")
         duthost.shell("sudo config vrf del mgmt", module_async=True)
         time.sleep(5)
