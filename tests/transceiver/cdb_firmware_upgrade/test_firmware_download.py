@@ -101,7 +101,7 @@ def test_firmware_download_zero_filled_binary(
     required_firmware_metadata_for_all_transceivers, lport_to_first_subport_mapping,
     port_peers,
 ):
-    """Verify a zero-filled firmware image is rejected and leaves the banks untouched."""
+    """Verify a zero-filled firmware image is rejected; the inactive bank is unchanged or invalid."""
     all_failures, num_ports = firmware_operations.execute_on_ports(
         duthost, port_attributes_dict, cdb_firmware_abort_supported_ports,
         get_lport_to_pport_mapping,

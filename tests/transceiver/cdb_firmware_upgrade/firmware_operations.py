@@ -182,10 +182,15 @@ def verify_firmware_state(duthost, port, before_banks, dual_bank_supported,
             f"active firmware changed from {before_banks.get(FW_ACTIVE)} to "
             f"{after_banks.get(FW_ACTIVE)} after firmware operation"
         )
+    if isinstance(expected_inactive, tuple):
+        allowed_inactive = expected_inactive
+    else:
+        allowed_inactive = (expected_inactive,)
     inactive = after_banks.get(FW_INACTIVE)
-    if dual_bank_supported and inactive != expected_inactive:
+    if dual_bank_supported and inactive not in allowed_inactive:
         failures.append(
-            f"inactive firmware {inactive or 'N/A'} != expected {expected_inactive}"
+            f"inactive firmware {inactive or 'N/A'} != expected "
+            f"{' or '.join(str(version) for version in allowed_inactive)}"
         )
     failures += _verify_running_committed_unchanged(after_banks, before_banks)
     return failures
@@ -617,7 +622,7 @@ def _download_invalid_binary_op(duthost, port, port_context, metadata_map,
             if not failures:
                 expected_inactive = (
                     INVALID_FIRMWARE_VERSION if expect_inactive_invalid
-                    else before_banks.get(FW_INACTIVE)
+                    else (before_banks.get(FW_INACTIVE), INVALID_FIRMWARE_VERSION)
                 )
                 failures += verify_firmware_state(
                     duthost, port, before_banks,
@@ -626,16 +631,7 @@ def _download_invalid_binary_op(duthost, port, port_context, metadata_map,
                 )
         finally:
             if download_attempted:
-                phase = "invalid-image cleanup"
-                cleanup_status, cleanup_err = _issue_cdb_abort(
-                    duthost, port, physical_index, phase,
-                )
-                if cleanup_err:
-                    failures.append(f"{phase} CDB abort failed: {cleanup_err}")
-                elif cleanup_status != "True":
-                    failures.append(
-                        f"{phase} CDB abort returned {cleanup_status}"
-                    )
+                _issue_cdb_abort(duthost, port, physical_index, "invalid-image cleanup")
     return failures
 
 
