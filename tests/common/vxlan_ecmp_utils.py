@@ -67,17 +67,14 @@ class Ecmp_Utils(object):
                                 ip address.
                 af : Address family : v4 or v6.
                 ttl_mode      : Decap TTL mode. Can be set to "pipe" or "uniform".
+                                If not set, the tunnel is created without ttl_mode
+                                and the platform's default decap TTL mode applies.
         '''
         if tunnel_name is None:
             tunnel_name = "tunnel_{}".format(af)
 
         if src_ip is None:
             src_ip = self.get_dut_loopback_address(duthost, minigraph_data, af)
-
-        # On cisco-8000, base topology IP-in-IP decap tunnels use pipe TTL mode.
-        # Auto-default to "pipe" so orchagent passes DECAP_TTL_MODE consistently.
-        if ttl_mode is None and duthost.facts.get("asic_type") == "cisco-8000":
-            ttl_mode = "pipe"
 
         ttl_entry = ""
         if ttl_mode:

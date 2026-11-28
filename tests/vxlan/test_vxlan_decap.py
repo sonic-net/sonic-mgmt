@@ -88,10 +88,6 @@ def generate_vxlan_config_files(duthost, mg_facts):
         "src_ip": loopback_ip,
         "dst_ip": VTEP2_IP
     }
-    # On cisco-8000, base topology IP-in-IP decap tunnels may already use pipe TTL mode.
-    # Set VXLAN decap ttl_mode to pipe so orchagent passes DECAP_TTL_MODE consistently.
-    if duthost.facts.get("asic_type") == "cisco-8000":
-        vxlan_tunnel_entry["ttl_mode"] = "pipe"
     vxlan_tunnel_cfg = {
         "VXLAN_TUNNEL": {
             "tlVxlan": vxlan_tunnel_entry
