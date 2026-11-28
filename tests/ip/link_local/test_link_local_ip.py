@@ -455,11 +455,15 @@ class TestLinkLocalIPacket:
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
         if rif_support:
             rif_counter_out = parse_rif_counters(duthost.command("show interfaces counters rif")["stdout_lines"])
+            rx_err = safe_int_counter(rif_counter_out[rif_rx_ifaces]["rx_err"]) if rif_rx_ifaces else 0
+            tx_err = sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if out_rif_ifaces else 0
+        else:
+            # No RIF counters exist on unsupported platforms; port counters still apply.
+            rx_err = 0
+            tx_err = 0
 
         # Rx counters Validations
         rx_drp = safe_int_counter(portstat_out[dut_rx_iface]["rx_drp"])
-        rx_err = safe_int_counter(rif_counter_out[rif_rx_ifaces]["rx_err"]) \
-            if rif_support and rif_rx_ifaces else 0
         pytest_assert(max(rx_drp, rx_err) <= PKT_NUM_ZERO,
                       f"Dropped packets in rx: rx_drp={rx_drp}, rx_err={rx_err}, expected both <= {PKT_NUM_ZERO}")
 
@@ -472,8 +476,6 @@ class TestLinkLocalIPacket:
         # Tx counters Validation
         tx_ok = sum_ifaces_counts(portstat_out, out_ifaces, "tx_ok")
         tx_drp = sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
-        tx_err = sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") \
-            if rif_support and out_rif_ifaces else 0
         pytest_assert(tx_ok >= PKT_NUM,
                       "Forwarded {} packets in tx, expected >= {}".format(tx_ok, PKT_NUM))
         pytest_assert(max(tx_drp, tx_err) <= PKT_NUM_ZERO,
