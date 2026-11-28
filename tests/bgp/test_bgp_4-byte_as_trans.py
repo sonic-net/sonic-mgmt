@@ -31,7 +31,7 @@ pytestmark = [
 
 @pytest.fixture(scope='module')
 def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_index, request):
-    # verify neighbors are type sonic
+    # verify neighbors are type sonic.
     if request.config.getoption("neighbor_type") != "sonic":
         pytest.skip("Neighbor type must be sonic")
     duthost = duthosts[enum_frontend_dut_hostname]
@@ -70,9 +70,14 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
             neigh_asn[v['description']] = v['remote AS']
             neighbors[v['description']] = nbrhosts[v['description']]["host"]
     if neighbors[neigh1].is_multi_asic:
-        neigh_cli_options = " -n " + neigh1.get_namespace_from_asic_id(asic_index)
+        neigh_cli_options = " -n " + neighbors[neigh1].get_namespace_from_asic_id(asic_index)
     else:
         neigh_cli_options = ''
+
+    if neighbors[neigh2].is_multi_asic:
+        neigh2_cli_options = " -n " + neighbors[neigh2].get_namespace_from_asic_id(asic_index)
+    else:
+        neigh2_cli_options = ''
 
     dut_ip_v4 = tbinfo['topo']['properties']['configuration'][neigh1]['bgp']['peers'][dut_asn][0]
     dut_ip_v6 = tbinfo['topo']['properties']['configuration'][neigh1]['bgp']['peers'][dut_asn][1]
@@ -104,6 +109,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
         'neighbors': neighbors,
         'cli_options': cli_options,
         'neigh_cli_options': neigh_cli_options,
+        'neigh2_cli_options': neigh2_cli_options,
         'dut_ip_v4': dut_ip_v4,
         'dut_ip_v6': dut_ip_v6,
         'neigh_ip_v4': neigh_ip_v4,
@@ -292,5 +298,6 @@ def test_4_byte_asn_translation(setup):
             logger.debug(v['description'])
             assert v['state'] == 'established'
 
-    cmd = 'vtysh -c "show bgp ipv4 all neighbors {}" received-routes'.format(setup['neigh_ipv4_network'])
+    cmd = 'vtysh{} -c "show bgp ipv4 all neighbors {}" received-routes'.format(
+        setup['neigh2_cli_options'], setup['neigh_ipv4_network'])
     logger.debug(setup['neigh2host'].shell(cmd, module_ignore_errors=True))
