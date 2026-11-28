@@ -78,6 +78,14 @@ class PygnmiClientCallError(PygnmiClientError):
     """Validation or RPC execution errors (bad args, server-side failures)."""
 
 
+def _close_silently(client: gNMIclient) -> None:
+    """Close a pygnmi client, ignoring errors; its close() raises if connect() never created a channel."""
+    try:
+        client.close()
+    except Exception as exc:
+        logger.debug("Ignoring gNMIclient close error: %s", exc)
+
+
 def _normalize_paths(paths: str | dict | Iterable) -> list:
     """
     Coerce a path argument into a list of path entries.
@@ -149,9 +157,12 @@ class PygnmiClient:
 
         Raises:
             PygnmiClientCallError: If mTLS mode is requested but cert paths are
-                missing or do not exist on disk.
+                missing or do not exist on disk, or if connect is True and the
+                initial capabilities probe fails with any other RPC error.
             PygnmiClientConnectionError: If connect is True and the initial
                 connection or mTLS handshake fails.
+            PygnmiClientTimeoutError: If connect is True and the initial
+                connection exceeds the configured deadline.
         """
         self.host = host
         self.port = port
@@ -166,8 +177,13 @@ class PygnmiClient:
         logger.info("Initialized PygnmiClient: host=%s, port=%s, plaintext=%s",
                     self.host, self.port, self.plaintext)
         if connect:
-            self._ensure_client()
-            self.close()
+            try:
+                self._ensure_client()
+            except (grpc.RpcError, grpc.FutureTimeoutError, gNMIException,
+                    TimeoutError, PygnmiClientError) as exc:
+                raise self._map_error(exc, "connect") from exc
+            finally:
+                self.close()
 
     def _validate_cert_paths(self) -> None:
         """
@@ -214,10 +230,26 @@ class PygnmiClient:
 
         Returns:
             The connected ``gNMIclient`` for this instance.
+
+        Raises:
+            PygnmiClientConnectionError: If pygnmi's connect() raises TypeError
+                because its capabilities() probe failed.
         """
         if self._client is None:
             client = self._build_client()
-            client.connect()
+            # pygnmi's connect() can raise after it has opened the channel.
+            try:
+                client.connect()
+            except TypeError as exc:
+                _close_silently(client)
+                # pygnmi's connect() tests `"supported_encodings" in` the result of its own
+                # capabilities() probe, which is None whenever pygnmi swallowed the probe's error.
+                raise PygnmiClientConnectionError(
+                    f"gnmi connect failed: {exc!r}; "
+                    "see the preceding pygnmi log messages for the underlying error") from exc
+            except BaseException:
+                _close_silently(client)
+                raise
             self._client = client
         return self._client
 
@@ -230,8 +262,12 @@ class PygnmiClient:
                 self._client = None
 
     def __enter__(self) -> "PygnmiClient":
-        """Open the channel and return the client for context-manager use."""
-        self._ensure_client()
+        """
+        Return the client for context-manager use.
+
+        Opens no channel: each call opens its own, and one held open across the
+        ``with`` body would break fork safety (see the class docstring).
+        """
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
@@ -255,12 +291,15 @@ class PygnmiClient:
         """
         if isinstance(exc, PygnmiClientError):
             return exc
+        # pygnmi wraps the RPC errors of capabilities()/get()/set() (and so of
+        # connect()'s probe); classify by the RPC status, but keep pygnmi's message.
+        rpc_error = exc.orig_exc if isinstance(exc, gNMIException) else exc
         if isinstance(exc, TimeoutError):
             return PygnmiClientTimeoutError(f"gnmi {op} timed out after {self.timeout}s: {exc}")
         if isinstance(exc, grpc.FutureTimeoutError):
-            return PygnmiClientConnectionError(f"gnmi {op} connection timed out: {exc}")
-        if isinstance(exc, grpc.RpcError):
-            code = exc.code()
+            return PygnmiClientConnectionError(f"gnmi {op} connection timed out after {self.timeout}s")
+        if isinstance(rpc_error, grpc.RpcError):
+            code = rpc_error.code()
             if code == grpc.StatusCode.DEADLINE_EXCEEDED:
                 return PygnmiClientTimeoutError(f"gnmi {op} timed out: {exc}")
             if code in (grpc.StatusCode.UNAVAILABLE, grpc.StatusCode.UNAUTHENTICATED):
@@ -283,15 +322,23 @@ class PygnmiClient:
         Raises:
             PygnmiClientConnectionError: If the target is unreachable or mTLS fails.
             PygnmiClientTimeoutError: If the RPC exceeds the configured deadline.
-            PygnmiClientCallError: If the server returns an error.
+            PygnmiClientCallError: If the server returns an error, or pygnmi
+                returns no response.
         """
         try:
-            return self._ensure_client().capabilities()
+            result = self._ensure_client().capabilities()
         except (grpc.RpcError, grpc.FutureTimeoutError, gNMIException,
                 TimeoutError, PygnmiClientError) as exc:
             raise self._map_error(exc, "capabilities") from exc
         finally:
             self.close()
+        # pygnmi swallows non-RPC errors (and empty responses) with a bare except
+        # and returns None; the root cause is only in pygnmi's own log output.
+        if result is None:
+            raise PygnmiClientCallError(
+                "gnmi capabilities returned no response; "
+                "see the preceding pygnmi log messages for the underlying error")
+        return result
 
     def get(self, paths: str | dict | Iterable,
             datatype: GetDataType = GetDataType.ALL,
@@ -354,8 +401,8 @@ class PygnmiClient:
             results).
 
         Raises:
-            PygnmiClientCallError: If none of update/replace/delete is provided
-                or the server returns an error.
+            PygnmiClientCallError: If none of update/replace/delete is provided,
+                the server returns an error, or pygnmi cannot parse the response.
             PygnmiClientConnectionError: If the target is unreachable or mTLS fails.
             PygnmiClientTimeoutError: If the RPC exceeds the configured deadline.
         """
@@ -363,13 +410,19 @@ class PygnmiClient:
             raise PygnmiClientCallError("set requires at least one of update, replace, delete")
         try:
             gc = self._ensure_client()
-            return gc.set(update=update, replace=replace, delete=delete,
-                          prefix=prefix, encoding=str(encoding), target=target)
+            result = gc.set(update=update, replace=replace, delete=delete,
+                            prefix=prefix, encoding=str(encoding), target=target)
         except (grpc.RpcError, grpc.FutureTimeoutError, gNMIException,
                 TimeoutError, PygnmiClientError) as exc:
             raise self._map_error(exc, "set") from exc
         finally:
             self.close()
+        # pygnmi returns None when it cannot parse the SetResponse.
+        if result is None:
+            raise PygnmiClientCallError(
+                "gnmi set returned an unparseable SetResponse; "
+                "see the preceding pygnmi log messages")
+        return result
 
     # --- subscribe (connection binding + bounded collection) -----------------
 
