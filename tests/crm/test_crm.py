@@ -36,7 +36,8 @@ FDB_CLEAR_TIMEOUT = 20
 ROUTE_COUNTER_POLL_TIMEOUT = 15
 CRM_COUNTER_TOLERANCE = 2
 ACL_TABLE_NAME = "DATAACL"
-CRM_THRESHOLD_LOG_TIMEOUT = CRM_UPDATE_TIME * 3
+# The wait returns as soon as the message is seen; with a slow syncd it took up to ~18s.
+CRM_THRESHOLD_LOG_TIMEOUT = CRM_UPDATE_TIME * 6
 
 RESTORE_CMDS = {"test_crm_route": [],
                 "test_crm_nexthop": [],
@@ -284,6 +285,21 @@ def get_acl_tbl_key(asichost):
     return "CRM:ACL_TABLE_STATS:{0}".format(oid.replace("oid:", ""))
 
 
+def _threshold_margin(counter, exceeded):
+    """
+    How far to place a used/free threshold from the counter value just read: 10% of it, at
+    least 5. 'exceeded' thresholds go below the counter, so there it is capped to keep the
+    low threshold non-negative.
+
+    The counter can move before crmd's next poll (route/ECMP/neighbour churn; on Broadcom the
+    IPv4 neighbour 'available' also drops as other entries, e.g. IPv6 neighbours, fill the
+    shared host table while IPv4 'used' stays flat). A threshold set exactly on the value read
+    is then missed and nothing gets logged.
+    """
+    margin = max(5, counter // 10)
+    return min(margin, max(0, counter - 1)) if exceeded else margin
+
+
 @contextmanager
 def disable_swss_syslog_rate_limit(duthost, asichost):
     """Prevent SWSS threshold messages from being dropped during CRM verification."""
@@ -470,6 +486,9 @@ def verify_thresholds(duthost, asichost, **kwargs):
                 loganalyzer.expect_regex = [EXPECT_CLEAR]
 
         kwargs['crm_used'], kwargs['crm_avail'] = get_crm_stats(kwargs['crm_cmd'], duthost)
+        # The percentage templates ignore th_margin.
+        counter = kwargs['crm_used'] if key.endswith("_used") else kwargs['crm_avail']
+        kwargs['th_margin'] = _threshold_margin(counter, key.startswith("exceeded"))
         cmd = template.render(**kwargs)
 
         wait_for_threshold_log(loganalyzer, duthost, asichost, cmd)
