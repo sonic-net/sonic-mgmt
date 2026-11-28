@@ -7,10 +7,12 @@ Tests Password Hardening Feature:
 
 import logging
 import re
+import shlex
 import pytest
 import datetime
 import six
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.dut_utils import creds_on_dut
 from . import passw_hardening_utils
 
 pytestmark = [
@@ -168,6 +170,20 @@ def review_one_policy_with_user(duthost, passw_hardening_ob, passw_test, passw_b
                       .format(passw_hardening_utils.USERNAME_ONE_POLICY, passw_bad_test, passw_exp_error))
 
 
+def get_dut_login_user(duthost):
+    """ Resolve the non-root admin account used to log in to the DUT.
+
+        Most inventories only declare the admin account through the group level
+        'sonicadmin_user' variable, so fall back to it when the host does not define
+        its own 'ansible_user'.
+    """
+    host = duthost.host.options['inventory_manager'].get_host(duthost.hostname)
+    login_user = host.vars.get('ansible_user') if host else None
+    if not login_user:
+        login_user = creds_on_dut(duthost).get('sonicadmin_user')
+    return login_user
+
+
 def verify_age_flow(duthost, passw_hardening_ob, expected_login_error):
     login_response = ''
 
@@ -189,15 +205,23 @@ def verify_age_flow(duthost, passw_hardening_ob, expected_login_error):
     # verify Age configuration in Linux files
     compare_passw_age_in_pam_dir(duthost, passw_hardening_ob, passw_hardening_utils.USERNAME_AGE)
 
-    # login expecting to require passw change
-    user_age_cmd = 'echo {} | sudo -S su {}'.format(passw_test, passw_hardening_utils.USERNAME_AGE)
+    # Run su from the non-root SSH login user so PAM authenticates the test user.
+    login_user = get_dut_login_user(duthost)
+    pytest_assert(login_user and login_user != 'root',
+                  "Password-aging validation requires a non-root login user, but neither a host level "
+                  "'ansible_user' nor a group level 'sonicadmin_user' resolved to one")
+    su_cmd = "printf '%s\\n' {} | timeout 10 su -c true {}".format(
+        shlex.quote(passw_test),
+        shlex.quote(passw_hardening_utils.USERNAME_AGE)
+    )
+    user_age_cmd = 'runuser -u {} -- sh -c {}'.format(
+        shlex.quote(login_user),
+        shlex.quote(su_cmd)
+    )
     login_cmd = duthost.shell(user_age_cmd, module_ignore_errors=True)
 
-    # test login results
-    if 'Warning' in expected_login_error:  # expiration warning time case, the cmd is not failing
-        login_response = login_cmd['stdout']
-    else:  # expiration time case the cmd is failing
-        login_response = login_cmd['stderr']
+    # PAM messages may be emitted on stdout or stderr depending on the distro/PAM stack.
+    login_response = '{}\n{}'.format(login_cmd.get('stdout', ''), login_cmd.get('stderr', ''))
     pytest_assert(expected_login_error in login_response,
                   "Fail: the username='{}' could login by error, expected_login_error={} , but got this msg={}".format(
                       passw_hardening_utils.USERNAME_AGE, expected_login_error, login_response))
