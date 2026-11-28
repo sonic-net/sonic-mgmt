@@ -2817,6 +2817,13 @@ generic_config_updater/test_eth_interface.py::test_toggle_pfc_asym:
       - "hwsku in ['Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8', 'Mellanox-SN5640-C512S2',
                            'Mellanox-SN5640-C448O16']"
 
+generic_config_updater/test_eth_interface.py::test_toggle_pfc_asym\[(.*-)?on\]$:
+  regex: true
+  skip:
+    reason: "Asymmetric PFC is not supported on this platform, the SAI rejects SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL_MODE"
+    conditions:
+      - "platform in ['x86_64-nexthop_5010-r0']"
+
 generic_config_updater/test_eth_interface.py::test_update_speed:
   skip:
     reason: 'Skip this script due to this not being a production scenario and misleading StateDB output for valid speed'
