@@ -25,7 +25,7 @@ from tests.common.gu_utils import rollback_or_reload
 from tests.common.gu_utils import is_valid_platform_and_version
 
 pytestmark = [
-    pytest.mark.asic('cisco-8000', 'mellanox', 'marvell-teralynx'),
+    pytest.mark.asic('cisco-8000', 'mellanox', 'marvell-teralynx', 'broadcom'),
     pytest.mark.topology('any'),
 ]
 
