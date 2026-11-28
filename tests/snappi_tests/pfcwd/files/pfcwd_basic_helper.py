@@ -31,6 +31,8 @@ WARM_UP_TRAFFIC_DUR = 1
 DATA_PKT_SIZE = 1024
 SNAPPI_POLL_DELAY_SEC = 2
 DEVIATION = 0.3
+# Slack kept between the modelled worst-case Data Flow 1 loss and its lower bound.
+LOSS_MARGIN = 0.05
 UDP_PORT_START = 5000
 # Keep poll well below detection_time so a sub-detection pause can't trip pfcwd in one poll.
 PFCWD_POLL_INTERVAL_MS = 100
@@ -120,8 +122,15 @@ def run_pfcwd_basic_test(api,
         warm_up_traffic_delay_sec = 0
 
         if trigger_pfcwd:
-            """ Large enough to trigger PFC watchdog """
-            pfc_storm_dur_sec = ceil(detect_time_sec + poll_interval_sec + 0.1)
+            # The first poll after storm onset sees ON2OFF move and does not qualify; the
+            # detect plugin then needs at least two qualifying polls (sonic-swss#4881).
+            detect_polls = max(2, ceil(round(detect_time_sec / poll_interval_sec, 6)))
+            worst_detect_sec = (detect_polls + 1) * poll_interval_sec
+            # Data Flow 1 is forwarded until detection, so size the storm to keep that
+            # undetected head within DEVIATION (less a margin) of Data Flow 1's duration.
+            undetected_sec = worst_detect_sec - restore_time_sec / 2
+            pfc_storm_dur_sec = max(ceil(detect_time_sec + poll_interval_sec + 0.1),
+                                    ceil(round(undetected_sec / (DEVIATION - LOSS_MARGIN), 6)))
 
             flow1_delay_sec = restore_time_sec / 2 + WARM_UP_TRAFFIC_DUR
             flow1_dur_sec = pfc_storm_dur_sec
