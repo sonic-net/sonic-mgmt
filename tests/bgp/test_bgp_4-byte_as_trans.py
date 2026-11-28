@@ -16,6 +16,7 @@ import logging
 import pytest
 import time
 import textfsm
+from tests.bgp.bgp_helpers import get_topo_lldp_neighbors
 from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
@@ -43,9 +44,9 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
         cli_options = ''
 
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
-    neigh1 = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()[1]
-    neigh2 = duthost.shell("show lldp table")['stdout'].split("\n")[5].split()[1]
-
+    lldp_neighbors = get_topo_lldp_neighbors(duthost, nbrhosts, count=3)
+    neigh1 = lldp_neighbors[0]["neigh_name"]
+    neigh2 = lldp_neighbors[2]["neigh_name"]
     neighbors = dict()
     skip_hosts = duthost.get_asic_namespace_list()
     bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
@@ -79,7 +80,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
 
     dut_ip_bgp_sum = duthost.shell('show ip bgp summary')['stdout']
     neigh_ip_bgp_sum = nbrhosts[neigh1]["host"].shell('show ip bgp summary')['stdout']
-    neigh2_ip_bgp_sum = nbrhosts[neigh1]["host"].shell('show ip bgp summary')['stdout']
+    neigh2_ip_bgp_sum = nbrhosts[neigh2]["host"].shell('show ip bgp summary')['stdout']
     with open(bgp_id_textfsm) as template:
         fsm = textfsm.TextFSM(template)
         dut_bgp_id = fsm.ParseText(dut_ip_bgp_sum)[0][0]

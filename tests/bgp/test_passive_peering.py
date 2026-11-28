@@ -11,7 +11,7 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.bgp import get_vtysh_cmd_for_asic
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import wait_until
-from tests.bgp.bgp_helpers import eos_bgp_neighbor_config_parents
+from tests.bgp.bgp_helpers import eos_bgp_neighbor_config_parents, get_topo_lldp_neighbors
 
 logger = logging.getLogger(__name__)
 
@@ -55,10 +55,10 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_front_end_hostname, request):
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
     confed_asn = duthost.get_bgp_confed_asn()
 
-    lldp_table = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()
-    neigh_name = lldp_table[1]
-    dut_int = lldp_table[0]
-    neigh_int = lldp_table[2]
+    lldp_neighbor = get_topo_lldp_neighbors(duthost, nbrhosts)[0]
+    neigh_name = lldp_neighbor["neigh_name"]
+    dut_int = lldp_neighbor["dut_int"]
+    neigh_int = lldp_neighbor["neigh_int"]
     if duthost.is_multi_asic:
         asic_index = duthost.get_port_asic_instance(dut_int).asic_index
     else:
