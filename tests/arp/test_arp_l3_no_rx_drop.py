@@ -14,6 +14,9 @@ This is incorrect behaviour: an ARP request/reply or IPv6 Neighbor
 Solicitation/Advertisement received on a routed port is a normal
 control-plane packet and must not increment any drop counter.
 Spurious RX_DRP increments pollute telemetry and monitoring.
+
+Use the resolved peer MAC in test packets so ARP/NDP learning does not
+overwrite the live uplink neighbor with a synthetic MAC.
 """
 
 import json
@@ -88,7 +91,7 @@ def _resolve_l3_interfaces(mg_facts, port_index_map):
 @pytest.fixture(scope="module")
 def l3_intf_setup(duthosts, rand_one_dut_hostname, tbinfo):
     """
-    Identify routed L3 interfaces (IPv4 and IPv6) and PTF ports.
+    Identify routed L3 interfaces, resolved peer MACs, and PTF ports.
     """
     duthost = duthosts[rand_one_dut_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -112,6 +115,22 @@ def l3_intf_setup(duthosts, rand_one_dut_hostname, tbinfo):
             ipv6_intf = intf
         if ipv4_intf and ipv6_intf:
             break
+
+    _skip_if_virtual(duthost)
+    for intf in (ipv4_intf, ipv6_intf):
+        if intf is None or intf.get("peer_addr") is None:
+            continue
+        ns = get_namespace_for_interface(duthost, intf["phy_port"])
+        arptable = duthost.switch_arptable(namespace=ns)["ansible_facts"]["arptable"]
+        ip_version = "v6" if ":" in intf["addr"] else "v4"
+        neighbor = arptable[ip_version].get(intf["peer_addr"], {})
+        pytest_assert(
+            neighbor.get("macaddress") and neighbor.get("interface") == intf["logical_port"],
+            "No resolved {} peer {} on {} (namespace={})".format(
+                ip_version, intf["peer_addr"], intf["logical_port"], ns
+            )
+        )
+        intf["peer_mac"] = neighbor["macaddress"]
 
     setup_info = {
         "duthost": duthost,
@@ -286,7 +305,7 @@ class TestArpL3NoRxDrop:
             pytest.skip("No peer address for {}".format(dut_port))
 
         pkt = build_arp_request(
-            src_mac="00:11:22:33:44:55",
+            src_mac=intf["peer_mac"],
             src_ip=peer_addr,
             dst_ip=intf["addr"],
             dst_mac="ff:ff:ff:ff:ff:ff"
@@ -316,7 +335,7 @@ class TestArpL3NoRxDrop:
             pytest.skip("No peer address for {}".format(dut_port))
 
         pkt = build_arp_reply(
-            src_mac="00:11:22:33:44:55", src_ip=peer_addr,
+            src_mac=intf["peer_mac"], src_ip=peer_addr,
             dst_mac=dut_mac, dst_ip=intf["addr"]
         )
         _send_and_verify_no_drop(
@@ -343,7 +362,7 @@ class TestArpL3NoRxDrop:
             pytest.skip("No peer address for {}".format(dut_port))
 
         pkt = build_ns_packet(
-            src_mac="00:11:22:33:44:55",
+            src_mac=intf["peer_mac"],
             src_ip=peer_addr,
             target_ip=intf["addr"]
         )
@@ -372,7 +391,7 @@ class TestArpL3NoRxDrop:
             pytest.skip("No peer address for {}".format(dut_port))
 
         pkt = build_na_packet(
-            src_mac="00:11:22:33:44:55",
+            src_mac=intf["peer_mac"],
             src_ip=peer_addr,
             dst_mac=dut_mac,
             dst_ip=intf["addr"]
