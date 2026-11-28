@@ -4,6 +4,7 @@ import ipaddress
 import binascii
 import os
 import logging
+import time
 
 # Packet Test Framework imports
 import ptf
@@ -13,6 +14,7 @@ from ptf import config
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
 import scapy.all as scapy2
+import threading
 from threading import Thread
 
 logger = logging.getLogger(__name__)
@@ -143,6 +145,7 @@ class DHCPTest(DataplaneBaseTest):
 
         self.hostname = self.test_params['hostname']
         self.verified_option82 = False
+        self.sniffer_threads = []
 
         if 'other_client_port' in self.test_params:
             self.other_client_port = ast.literal_eval(
@@ -343,7 +346,11 @@ class DHCPTest(DataplaneBaseTest):
         return packet
 
     def tearDown(self):
-        DataplaneBaseTest.tearDown(self)
+        try:
+            for thread in self.sniffer_threads:
+                thread.join()
+        finally:
+            DataplaneBaseTest.tearDown(self)
 
     """
      Packet generation functions/wrappers
@@ -939,9 +946,38 @@ class DHCPTest(DataplaneBaseTest):
                 if self.option82 in pkt_options:
                     self.verified_option82 = True
 
-    def Sniffer(self, iface):
+    def Sniffer(self, iface, ready_event=None):
+        # Scapy calls this only after capture socket setup, not merely when this
+        # worker thread has started.
         scapy2.sniff(iface=iface, filter="udp and (port 67 or 68)",
-                     prn=self.pkt_callback, store=0, timeout=5)
+                     prn=self.pkt_callback, store=0, timeout=5,
+                     started_callback=ready_event.set if ready_event is not None else None)
+
+    def start_sniffers_and_wait(self):
+        """Start sniffer threads on all server ports and wait for them to be ready.
+
+        This avoids a race condition where packets could be sent before the
+        sniffer BPF socket is bound, causing missed packets and flaky failures.
+        """
+        events = []
+        threads = []
+        deadline = time.monotonic() + 2
+        for interface_index in self.server_port_indices:
+            ready = threading.Event()
+            events.append(ready)
+            t1 = Thread(target=self.Sniffer, args=(
+                "eth"+str(interface_index), ready))
+            t1.start()
+            threads.append(t1)
+            self.sniffer_threads.append(t1)
+        # Use one startup budget so earlier captures do not expire while waiting
+        # up to two seconds separately for each remaining interface.
+        for interface_index, ready in zip(self.server_port_indices, events):
+            self.assertTrue(ready.wait(timeout=max(0, deadline - time.monotonic())),
+                            "DHCP capture did not become ready on eth{}".format(interface_index))
+        self.assertTrue(time.monotonic() <= deadline and all(thread.is_alive() for thread in threads),
+                        "DHCP capture stopped or startup deadline expired before sending packets")
+        return threads
 
     # Verify that the DHCP relay actually received and relayed the DHCPDISCOVER message to all of
     # its known DHCP servers. We also verify that the relay inserted Option 82 information in the
@@ -1272,10 +1308,7 @@ class DHCPTest(DataplaneBaseTest):
         else:
             # Start sniffer process for each server port to capture DHCP packet
             # and then verify option 82
-            for interface_index in self.server_port_indices:
-                t1 = Thread(target=self.Sniffer, args=(
-                    "eth"+str(interface_index),))
-                t1.start()
+            self.start_sniffers_and_wait()
 
             self.client_send_discover(
                 self.dest_mac_address, self.client_udp_src_port)
@@ -1346,10 +1379,7 @@ class DHCPInvalidChecksumTest(DHCPTest):
     def runTest(self):
         # Start sniffer process for each server port to capture DHCP packet
         # and then verify option 82
-        for interface_index in self.server_port_indices:
-            t1 = Thread(target=self.Sniffer, args=(
-                "eth"+str(interface_index),))
-            t1.start()
+        self.start_sniffers_and_wait()
 
         self.client_send_discover(
             self.dest_mac_address, self.client_udp_src_port)
