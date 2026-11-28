@@ -25,7 +25,7 @@ from ptf.mask import Mask
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until, check_msg_in_syslog, get_plt_wait_time
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
-from tests.common.utilities import find_duthost_on_role
+from tests.common.utilities import find_duthost_on_role, is_neighbor_of_type
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 from tests.common.mellanox_data import get_chip_type
 from tests.common.macsec.macsec_helper import MACSEC_INFO
@@ -122,7 +122,7 @@ def gen_setup_information(dutHost, downStreamDutHost, upStreamDutHost, tbinfo, t
         for dut_port, neigh in list(mg_facts["minigraph_neighbors"].items()):
             pytest_assert(topo_type in UPSTREAM_NEIGHBOR_MAP and
                           topo_type in DOWNSTREAM_NEIGHBOR_MAP, "Unsupported topo")
-            if UPSTREAM_NEIGHBOR_MAP[topo_type] in neigh["name"].lower():
+            if is_neighbor_of_type(neigh["name"].lower(), UPSTREAM_NEIGHBOR_MAP[topo_type], tbinfo):
                 upstream_ports_namespace_map[neigh['namespace']].append(dut_port)
                 upstream_ports_namespace.add(neigh['namespace'])
                 upstream_neigh_namespace_map[neigh['namespace']].add(neigh["name"])

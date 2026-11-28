@@ -72,6 +72,7 @@ from tests.common.utilities import safe_filename
 from tests.common.utilities import flush_permanent_neighbors
 from tests.common.utilities import get_duts_from_host_pattern
 from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type, file_exists_on_dut
+from tests.common.utilities import is_neighbor_of_type
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node, create_duthost_console, creds_on_dut, \
     select_proxy_env, \
     is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus, is_macsec_capable_node, \
@@ -2909,7 +2910,7 @@ def enum_upstream_dut_hostname(duthosts, tbinfo):
         minigraph_facts = a_dut.get_extended_minigraph_facts(tbinfo)
         minigraph_neighbors = minigraph_facts['minigraph_neighbors']
         for key, value in minigraph_neighbors.items():
-            if upstream_nbr_type in value['name']:
+            if is_neighbor_of_type(value['name'], upstream_nbr_type, tbinfo):
                 return a_dut.hostname
 
     pytest.fail("Did not find a dut in duthosts that for topo type {} that has upstream nbr type {}".

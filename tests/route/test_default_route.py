@@ -9,7 +9,7 @@ from tests.common.storage_backend.backend_utils import skip_test_module_over_bac
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.constants import ISOLATED_T2_TOPO_PREFIX
 from tests.common.utilities import wait_until
-from tests.common.utilities import find_duthost_on_role
+from tests.common.utilities import find_duthost_on_role, is_neighbor_of_type
 from tests.common.utilities import get_upstream_neigh_type, get_all_upstream_neigh_type
 from tests.common.utilities import is_ipv6_only_topology
 from tests.common.helpers.syslog_helpers import is_mgmt_vrf_enabled
@@ -40,12 +40,12 @@ def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
     return None
 
 
-def is_in_neighbor(neigh_types, neigh_name):
+def is_in_neighbor(neigh_types, neigh_name, tbinfo):
     """
     Check if the neighbor name is in the list of neighbor types
     """
     for neigh_type in neigh_types:
-        if neigh_type in neigh_name:
+        if is_neighbor_of_type(neigh_name, neigh_type, tbinfo):
             return True
     return False
 
@@ -80,7 +80,7 @@ def get_upstream_neigh(tb, device_neigh_metadata, af, nexthops):
         return upstream_neighbors
 
     for neigh_name, neigh_cfg in list(topo_cfg_facts.items()):
-        if not is_in_neighbor(neigh_types, neigh_name):
+        if not is_in_neighbor(neigh_types, neigh_name, tb):
             continue
         if 't0-isolated' in tb['topo']['name'] and "PT" not in neigh_name:
             # For t0-isolated topology, PT0 default routes will be preferred over T1 neighbors,
@@ -111,7 +111,7 @@ def get_uplink_ns(tbinfo, bgp_name_to_ns_mapping, device_neigh_metadata):
     neigh_types = get_default_route_all_upstream_neigh_type(tbinfo)
     asics = set()
     for name, asic in list(bgp_name_to_ns_mapping.items()):
-        if not is_in_neighbor(neigh_types, name):
+        if not is_in_neighbor(neigh_types, name, tbinfo):
             continue
         if 'T3' in neigh_types and device_neigh_metadata[name]['type'] == 'AZNGHub':
             continue

@@ -28,7 +28,7 @@ from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr     # no
 from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG, DEFAULT_NAMESPACE
 from tests.common.utilities import get_plt_wait_time, wait_until, check_msg_in_syslog
 from tests.common.utilities import get_all_upstream_neigh_type, get_all_downstream_neigh_type
-from tests.common.utilities import get_upstream_neigh_type
+from tests.common.utilities import get_upstream_neigh_type, is_neighbor_of_type
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa: F401
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.interface_utils import check_all_interface_information
@@ -312,7 +312,7 @@ def get_t2_info(duthosts, tbinfo):
             mg_facts = duthost.get_extended_minigraph_facts(tbinfo, namespace)
             for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
                 port_id = mg_facts["minigraph_ptf_indices"][interface]
-                if upstream_neigh_type in neighbor["name"]:
+                if is_neighbor_of_type(neighbor["name"], upstream_neigh_type, tbinfo):
                     upstream_ports_per_dut[namespace].append(interface)
                     upstream_port_ids.append(port_id)
                     upstream_port_id_to_router_mac_map[port_id] = router_mac
