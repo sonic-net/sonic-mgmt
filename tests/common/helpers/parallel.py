@@ -9,6 +9,13 @@ import tempfile
 import threading
 import time
 import traceback
+import re
+from contextlib import contextmanager
+from contextvars import ContextVar
+from collections.abc import Mapping, MutableMapping
+from ansible.errors import AnsibleConnectionFailure
+from pytest_ansible.errors import AnsibleConnectionFailure as PytestAnsibleConnectionFailure
+from tests.common.errors import RunAnsibleModuleFail
 from multiprocessing import Process, Manager, Pipe, TimeoutError
 from multiprocessing.pool import ThreadPool
 from ansible.executor.process.worker import WorkerProcess
@@ -18,6 +25,134 @@ from psutil import wait_procs
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 
 logger = logging.getLogger(__name__)
+
+
+# Opt in only around sanity check invocation, never around fixture setup. Context
+# locality avoids changing concurrent/non-sanity callers of parallel_run.
+_sanity_worker_check = ContextVar("sanity_worker_check", default=None)
+
+
+class SanityWorkerError(Exception):
+    """Safe, pickleable worker evidence; no exception strings or traceback locals."""
+
+    def __init__(self, failures, results):
+        super().__init__(failures, results)
+        self.failures = failures
+        self.results = results
+
+    def __str__(self):
+        return "Sanity workers failed: {}".format(self.failures)
+
+
+@contextmanager
+def sanity_worker_context(check_item):
+    token = _sanity_worker_check.set(check_item)
+    try:
+        yield
+    finally:
+        _sanity_worker_check.reset(token)
+
+
+class _PublishedResults(MutableMapping):
+    """Per-worker view of existing Manager data with independent write evidence."""
+
+    def __init__(self, results, published, worker_name):
+        self.results = results
+        self.published = published
+        self.worker_name = worker_name
+
+    def __getitem__(self, key):
+        return self.results[key]
+
+    def __setitem__(self, key, value):
+        self.results[key] = value
+        keys = list(self.published.get(self.worker_name, []))
+        if key not in keys:
+            keys.append(key)
+        self.published[self.worker_name] = keys
+
+    def __delitem__(self, key):
+        del self.results[key]
+
+    def __iter__(self):
+        return iter(self.results.keys())
+
+    def __len__(self):
+        return len(self.results)
+
+
+def _is_operational_module_result(result):
+    if not isinstance(result, Mapping):
+        return False
+    # This exact Ansible metadata sentinel is not a module traceback. Anything
+    # else in exception remains an execution/programming error, even with rc.
+    if result.get('exception') not in (None, '', '(traceback unavailable)'):
+        return False
+    if result.get('unreachable') is True:
+        return True
+    if isinstance(result.get('results'), list):
+        records = result['results']
+        return bool(records) and all(_is_command_result(record) for record in records) and any(
+            record['rc'] != 0 for record in records)
+    return _is_command_result(result) and result['rc'] != 0
+
+
+def _is_command_result(result):
+    return (isinstance(result, Mapping) and type(result.get('rc')) is int and
+            isinstance(result.get('cmd'), (str, list)) and bool(result['cmd']) and
+            result.get('exception') in (None, '', '(traceback unavailable)'))
+
+
+def _safe_worker_frames(formatted_traceback):
+    """Extract headers only; never return code, messages, locals or root paths."""
+    allowed = (
+        'tests/common/helpers/parallel.py',
+        'tests/common/plugins/sanity_check/checks.py',
+        'tests/common/plugins/sanity_check/__init__.py',
+        'tests/common/devices/base.py',
+        'tests/common/devices/sonic.py',
+        'tests/common/devices/sonic_asic.py',
+        'tests/common/devices/multi_asic.py',
+    )
+    if not isinstance(formatted_traceback, str) or len(formatted_traceback) > 16384:
+        return []
+    frames = []
+    for line in formatted_traceback.splitlines()[:128]:
+        if len(line) > 512:
+            continue
+        match = re.fullmatch(r'  File "([^"\r\n]+)", line ([1-9][0-9]{0,6}), in ([A-Za-z_][A-Za-z0-9_]{0,63})', line)
+        if match is None:
+            continue
+        filename, number, function = match.groups()
+        # Reject traversal/backslashes/ambiguous repeated repository segments.
+        # Only explicit known suffixes can shed an absolute deployment prefix.
+        if '\\' in filename or '..' in filename.split('/') or filename.count('tests/') != 1:
+            continue
+        relative = filename[filename.index('tests/'):]
+        if relative not in allowed or not (filename == relative or filename.endswith('/' + relative)):
+            continue
+        frames.append({'file': relative, 'line': int(number), 'function': function})
+    return frames[-8:]
+
+
+def _sanity_worker_failure(check_item, hostname, worker_exception):
+    error = worker_exception[0] if worker_exception else None
+    operational = isinstance(error, (AnsibleConnectionFailure, PytestAnsibleConnectionFailure))
+    if isinstance(error, RunAnsibleModuleFail):
+        operational = _is_operational_module_result(error.results)
+    failure = {
+        "check_item": check_item,
+        "host": hostname,
+        "exception_type": type(error).__name__,
+        "operational": operational,
+        "error_msg": ("DUT command or connection failed" if operational
+                      else "Unexpected worker failure; inspect worker traceback"),
+    }
+    if not operational:
+        frames = _safe_worker_frames(worker_exception[1] if worker_exception and len(worker_exception) == 2 else None)
+        failure['diagnostic_frames'] = frames
+        failure['diagnostic_status'] = 'available' if frames else 'unavailable'
+    return failure
 
 
 def patch_ansible_worker_process():
@@ -112,19 +247,27 @@ class SonicProcess(Process):
     def is_running(self):
         return self.is_alive()
 
-    @property
-    def exception(self):
-        """Read exception data once and close parent-side pipe."""
+    def read_exception(self, final=False):
+        """Keep a live empty pipe pending; finalize only payload or terminal read."""
         if not self._exception_read:
+            received = False
             try:
                 if self._pconn.poll():
                     self._exception = self._pconn.recv()
+                    received = True
             except (EOFError, OSError):
-                pass
+                # An ended/broken pipe is terminal, not a reusable pending read.
+                received = True
             finally:
-                self._pconn.close()
-                self._exception_read = True
+                if received or final:
+                    self._pconn.close()
+                    self._exception_read = True
         return self._exception
+
+    @property
+    def exception(self):
+        """Preserve the legacy one-shot read/close behavior for other callers."""
+        return self.read_exception(final=True)
 
 
 def parallel_run(
@@ -152,6 +295,16 @@ def parallel_run(
             spawned processes.
     """
     nodes = [node for node in nodes_list]
+    sanity_check = _sanity_worker_check.get()
+    completed_results = {}
+    completed_workers = set()
+    timed_out_workers = set()
+    retained_workers = {}
+
+    def collect_cleanup_exception(worker, final=False):
+        payload = worker.read_exception(final=final)
+        if payload is not None:
+            failed_processes[worker.name] = {'exit_code': worker.exitcode, 'exception': payload}
 
     # Callback API for wait_procs
     def on_terminate(worker):
@@ -167,9 +320,13 @@ def parallel_run(
                 'Found processes still running: {}. Try to kill them.'.format(str(running_processes))
             )
             for p in running_processes:
+                if sanity_check is not None:
+                    collect_cleanup_exception(p)
                 # If sanity check process is killed, it still has init results.
                 # set its failed to True.
-                if init_result:
+                if sanity_check is not None:
+                    timed_out_workers.add(p.name)
+                elif init_result:
                     init_result['failed'] = True
                     results[list(results.keys())[0]] = init_result
                 else:
@@ -188,7 +345,9 @@ def parallel_run(
                     )
 
     workers = []
-    results = Manager().dict()
+    manager = Manager()
+    results = manager.dict()
+    published = manager.dict() if sanity_check is not None else None
     start_time = datetime.datetime.now()
     tasks_done = 0
     total_tasks = len(nodes)
@@ -197,6 +356,7 @@ def parallel_run(
         len(nodes)/float(concurrent_tasks)
     ) if timeout else None
     failed_processes = {}
+    worker_hosts = {}
 
     # Before spawning the child process, ensure current thread is
     # holding the logging handler locks to avoid deadlock in child process.
@@ -217,14 +377,18 @@ def parallel_run(
             # For sanity check process, initial results in case of timeout.
             if init_result:
                 init_result["host"] = node.hostname
-                results[node.hostname] = init_result
+                results[node.hostname] = dict(init_result) if sanity_check is not None else init_result
             kwargs['node'] = node
-            kwargs['results'] = results
             process_name = "{}--{}".format(target.__name__, node)
+            kwargs['results'] = (_PublishedResults(results, published, process_name)
+                                 if sanity_check is not None else results)
             worker = SonicProcess(
                         name=process_name, target=target, args=args,
                         kwargs=kwargs
                     )
+            if sanity_check is not None:
+                worker_hosts[process_name] = getattr(node, "hostname", None)
+                retained_workers[process_name] = worker
             worker.start()
             tasks_running += 1
             logger.debug('Started process {} running target "{}"'.format(
@@ -244,13 +408,32 @@ def parallel_run(
         # Therefore, explicitly check the processes exception to prevent any error miss.
         logger.info("Force read exception regardless of whether the process exited normally.")
         for worker in gone + alive:
-            worker_exception = worker.exception  # Force-read to prevent pipe hangs
+            worker_exception = (worker.read_exception(final=worker in gone) if sanity_check is not None
+                                else worker.exception)  # Drain available payload without closing a live empty pipe
             if worker_exception is not None:
                 logger.info(f"Process {worker.name} has exception, is_alive={worker.is_running()}, record the error.")
                 failed_processes[worker.name] = {
                     'exit_code': worker.exitcode,
                     'exception': worker_exception
                 }
+
+        if sanity_check is not None:
+            for worker in gone:
+                if worker.name not in failed_processes and worker.exitcode == 0:
+                    keys = published.get(worker.name, [])
+                    hostname = worker_hosts[worker.name]
+                    if not keys or (hostname is not None and hostname not in keys):
+                        # Exit status is not publication. Do not accept the
+                        # parent-prefilled placeholder as evidence from a DUT.
+                        failed_processes[worker.name] = {'exit_code': 0, 'exception': None, 'missing_result': True}
+                    else:
+                        completed_workers.add(worker.name)
+                        for key in keys:
+                            completed_results[key] = results[key]
+                elif worker.name not in failed_processes:
+                    # Nonzero exit without transported exception is unexpected,
+                    # not a successful completion or guessed DUT condition.
+                    failed_processes[worker.name] = {'exit_code': worker.exitcode, 'exception': None}
 
         if len(gone) == 0:
             logger.debug("all processes have timedout")
@@ -268,10 +451,14 @@ def parallel_run(
             logger.error('Process {} is alive, force terminate it.'.format(
                 worker.name
             ))
+            if sanity_check is not None:
+                collect_cleanup_exception(worker)
             worker.terminate()
             # If sanity check process is killed, it still has init results.
             # set its failed to True.
-            if init_result:
+            if sanity_check is not None:
+                timed_out_workers.add(worker.name)
+            elif init_result:
                 init_result['failed'] = True
                 results[list(results.keys())[0]] = init_result
             else:
@@ -283,8 +470,40 @@ def parallel_run(
     # force terminate any workers still running
     force_terminate(workers, init_result)
 
+    if sanity_check is not None:
+        # A live empty read can precede publication during timeout cleanup.
+        # Keep references even after the active list was cleared and prefer any
+        # actual exception payload over a synthesized operational timeout.
+        for name, worker in retained_workers.items():
+            if name not in completed_workers and not failed_processes.get(name, {}).get('exception'):
+                collect_cleanup_exception(worker, final=not worker.is_alive())
+
     # if we have failed processes, we should log the exception and exit code
     # of each Process and fail
+    if sanity_check is not None:
+        failures = []
+        for name, process in failed_processes.items():
+            failure = _sanity_worker_failure(sanity_check, worker_hosts.get(name), process.get('exception'))
+            if process.get('missing_result'):
+                failure.update(exception_type='MissingWorkerResult',
+                               error_msg='DUT check worker exited without publishing a result')
+            failures.append(failure)
+        # Only workers observed exited successfully contribute completed data.
+        # A terminated peer's failed=False initial record is never a PASS.
+        unfinished = set(worker_hosts) - completed_workers - set(failed_processes)
+        unfinished.update(timed_out_workers - set(failed_processes))
+        timeout_hosts = [worker_hosts[name] for name in unfinished]
+        timeout_hosts.extend(getattr(node, 'hostname', None) for node in nodes)
+        for hostname in timeout_hosts:
+            failures.append({
+                'check_item': sanity_check, 'host': hostname, 'exception_type': 'WorkerTimeout',
+                'operational': True, 'error_msg': 'DUT check worker did not complete before termination',
+            })
+        if failures:
+            raise SanityWorkerError(failures, completed_results)
+        # Keep original neighbor keys/values, but only actual published data.
+        return completed_results
+
     if len(list(failed_processes.keys())):
         for process_name, process in list(failed_processes.items()):
             p_exitcode = ""

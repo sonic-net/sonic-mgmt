@@ -6,8 +6,10 @@ from contextlib import contextmanager
 import pytest
 
 from collections import defaultdict
+from collections.abc import Mapping
 
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
+from tests.common.helpers.parallel import SanityWorkerError, sanity_worker_context
 from tests.common.helpers.parallel_utils import ParallelCoordinator, ParallelStatus
 from tests.common.plugins.sanity_check import constants
 from tests.common.plugins.sanity_check import checks
@@ -123,6 +125,16 @@ def print_logs(duthosts, ptfhost, print_dual_tor_logs=False, check_ptf_mgmt=True
 def filter_check_items(tbinfo, duthosts, check_items):
     filtered_check_items = copy.deepcopy(check_items)
 
+    # Iteration refreshes DutHosts.nodes and cached subsets after a parallel
+    # stage transition. Read target subsets only after that actual roster refresh.
+    active_hosts = list(duthosts)
+    frontend_checks = ('check_interfaces', 'check_bgp', 'check_bfd_up_count')
+    if any(item in filtered_check_items for item in frontend_checks):
+        if not duthosts.frontend_nodes:
+            filtered_check_items = [item for item in filtered_check_items if item not in frontend_checks]
+    if 'check_mac_entry_count' in filtered_check_items and not duthosts.supervisor_nodes:
+        filtered_check_items.remove('check_mac_entry_count')
+
     # ignore interface, BGP, and orchagent checks for BMC topology
     if tbinfo["topo"]["type"] == "bmc":
         for item in ["check_interfaces", "check_bgp", "check_orchagent_usage"]:
@@ -145,7 +157,7 @@ def filter_check_items(tbinfo, duthosts, check_items):
     if 'ft2' in tbinfo['topo']['name'] or \
         'lt2' in tbinfo['topo']['name'] or \
             't2' not in tbinfo['topo']['name'] or \
-            _is_voq_chassis(duthosts):
+            _is_voq_chassis(active_hosts):
         if 'check_bfd_up_count' in filtered_check_items:
             filtered_check_items.remove('check_bfd_up_count')
         if 'check_mac_entry_count' in filtered_check_items:
@@ -154,17 +166,75 @@ def filter_check_items(tbinfo, duthosts, check_items):
     return filtered_check_items
 
 
+def _validate_check_result(result):
+    # Only the generic collector contract, not per-check payload schemas.
+    if (not isinstance(result, Mapping) or type(result.get('failed')) is not bool or
+            not isinstance(result.get('check_item'), str) or not result['check_item'].strip()):
+        raise ValueError("Sanity check returned an invalid result record")
+    if result['check_item'] == 'operational_exception' and (
+            not isinstance(result.get('host'), str) or not result['host'].strip() or
+            not isinstance(result.get('check_fixture'), str) or not result['check_fixture'].strip()):
+        raise ValueError("Operational sanity result has no valid host/check attribution")
+    return result
+
+
 def do_checks(request, check_items, *args, **kwargs):
     check_results = []
     for item in check_items:
-        check_fixture = request.getfixturevalue(item)
-        results = check_fixture(*args, **kwargs)
-        logger.debug("check results of each item {}".format(results))
-        if results and isinstance(results, list):
-            check_results.extend(results)
-        elif results:
-            check_results.append(results)
+        try:
+            # Fixture lookup/setup is NOT a DUT check invocation and must never
+            # be classified as an operational device failure.
+            check_fixture = request.getfixturevalue(item)
+            with sanity_worker_context(item):
+                try:
+                    results = check_fixture(*args, **kwargs)
+                except SanityWorkerError as error:
+                    # Validate each completed peer before extending so a later
+                    # malformed record cannot discard already validated evidence.
+                    for completed in error.results.values():
+                        check_results.append(_validate_check_result(completed))
+                    if not error.failures:
+                        raise
+                    for failure in error.failures:
+                        if (not isinstance(failure, Mapping) or type(failure.get('operational')) is not bool or
+                                not isinstance(failure.get('host'), str) or not failure['host'].strip() or
+                                not isinstance(failure.get('check_item'), str) or not failure['check_item'].strip()):
+                            raise ValueError("Invalid sanity worker failure attribution") from error
+                    if not all(failure['operational'] for failure in error.failures):
+                        raise
+                    results = [dict(
+                        failure,
+                        failed=True,
+                        # Keep fixture *** separately. The existing adaptive
+                        # fallback for this unavailable check is reboot, not a
+                        # schema-specific service/interface repair.
+                        check_item="operational_exception",
+                        check_fixture=failure['check_item'],
+                    ) for failure in error.failures]
+            logger.debug("check results of each item %s", results)
+            if not results:
+                raise ValueError("Sanity check {} returned no result".format(item))
+            for result in results if isinstance(results, list) else [results]:
+                check_results.append(_validate_check_result(result))
+        except (Exception, pytest.fail.Exception) as error:
+            # Retain earlier structured evidence without converting programming
+            # errors, fixture errors or unmarked pytest failures into recovery.
+            error.sanity_check_results = list(check_results)
+            error.sanity_check_fixture = item
+            logger.error("Sanity check %s aborted (%s); preceding results: %s", item,
+                         type(error).__name__, json.dumps(check_results, default=fallback_serializer))
+            raise
     return check_results
+
+
+def _run_sanity_checks(request, check_items, stage, **kwargs):
+    try:
+        return do_checks(request, check_items, stage=stage, **kwargs)
+    except (Exception, pytest.fail.Exception):
+        key = "pre_sanity_check_failed" if stage == STAGE_PRE_TEST else "post_sanity_check_failed"
+        request.config.cache.set(key, True)
+        add_custom_msg(request, "{}.{}".format(DUT_CHECK_NAMESPACE, key), True)
+        raise
 
 
 @pytest.fixture(scope="module")
@@ -331,7 +401,13 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
 
         # Workaround for pytest requirement.
         # Each possibly used check fixture must be executed in setup phase. Otherwise there could be teardown error.
-        request.getfixturevalue(item)
+        try:
+            request.getfixturevalue(item)
+        except (Exception, pytest.fail.Exception):
+            # Up-front fixture setup cannot be recovered as a DUT check failure.
+            request.config.cache.set("pre_sanity_check_failed", True)
+            add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.pre_sanity_check_failed", True)
+            raise
 
     if not skip_pre_sanity and pre_check_items:
         logger.info("Start pre-test sanity checks")
@@ -342,7 +418,7 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
         dual_tor = 'dualtor' in tbinfo['topo']['name']
         print_logs(duthosts, ptfhost, print_dual_tor_logs=dual_tor)
 
-        check_results = do_checks(request, pre_check_items, stage=STAGE_PRE_TEST)
+        check_results = _run_sanity_checks(request, pre_check_items, stage=STAGE_PRE_TEST)
         logger.debug("Pre-test sanity check results:\n%s" %
                      json.dumps(check_results, indent=4, default=fallback_serializer))
 
@@ -354,7 +430,6 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
                 pt_assert(False, "!!!!!!!!!!!!!!!!Pre-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"
                           .format(json.dumps(failed_results, indent=4, default=fallback_serializer)))
             else:
-                nbr_hosts = request.getfixturevalue('nbrhosts')
                 recover_on_sanity_check_failure(ptfhost, duthosts, failed_results, fanouthosts, localhost, nbr_hosts,
                                                 pre_check_items, recover_method, request, tbinfo, STAGE_PRE_TEST)
 
@@ -367,21 +442,10 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
     if not post_check:
         logger.info("No post-test check is required. Done post-test sanity check")
     else:
+        post_check_results = []
         if post_check_items:
             logger.info("Start post-test sanity check")
-            try:
-                post_check_results = do_checks(request, post_check_items, stage=STAGE_POST_TEST)
-            except Exception as e:
-                logger.error(
-                    "Post-test sanity check crashed (DUT may be unreachable): %s", repr(e)
-                )
-                request.config.cache.set("post_sanity_check_failed", True)
-                add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.post_sanity_check_failed", True)
-                pt_assert(
-                    False,
-                    "!!!!!!!!!!!!!!!! Post-test sanity check crashed: !!!!!!!!!!!!!!!!\n{}".format(repr(e))
-                )
-                return
+            post_check_results = _run_sanity_checks(request, post_check_items, stage=STAGE_POST_TEST)
             logger.debug("Post-test sanity check results:\n%s" %
                          json.dumps(post_check_results, indent=4, default=fallback_serializer))
 
@@ -393,8 +457,6 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
                 pt_assert(False, "!!!!!!!!!!!!!!!! Post-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"
                           .format(json.dumps(post_failed_results, indent=4, default=fallback_serializer)))
             else:
-                if not nbr_hosts:
-                    nbr_hosts = request.getfixturevalue('nbrhosts')
                 recover_on_sanity_check_failure(ptfhost, duthosts, post_failed_results, fanouthosts, localhost,
                                                 nbr_hosts, post_check_items, recover_method, request, tbinfo,
                                                 STAGE_POST_TEST)
@@ -412,7 +474,11 @@ def recover_on_sanity_check_failure(ptfhost, duthosts, failed_results, fanouthos
         sanity_failed_cache_key = "post_sanity_check_failed"
         recovery_failed_cache_key = "post_sanity_recovery_failed"
 
+    logger.warning("Original %s sanity failures before recovery: %s", sanity_check_stage,
+                   json.dumps(failed_results, default=fallback_serializer))
     try:
+        if nbrhosts is None:
+            nbrhosts = request.getfixturevalue('nbrhosts')
         dut_failed_results = defaultdict(list)
         infra_recovery_actions = []
         for failed_result in failed_results:
@@ -437,27 +503,23 @@ def recover_on_sanity_check_failure(ptfhost, duthosts, failed_results, fanouthos
                 recover(ptfhost, duthosts[dut_name], localhost, fanouthosts, nbrhosts, tbinfo, dut_results,
                         recover_method)
 
-    except BaseException as e:
-        request.config.cache.set(sanity_failed_cache_key, True)
-        add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.{recovery_failed_cache_key}", True)
-
-        logger.error(f"Recovery of sanity check failed with exception: {repr(e)}")
-        pt_assert(
-            False,
-            f"!!!!!!!!!!!!!!!! Recovery of sanity check failed !!!!!!!!!!!!!!!!"
-            f"Exception: {repr(e)}"
-        )
-    logger.info("Run sanity check again after recovery")
-    new_check_results = do_checks(request, check_items, stage=sanity_check_stage, after_recovery=True)
-    logger.debug(f"{sanity_check_stage} sanity check after recovery results: \n%s" %
-                 json.dumps(new_check_results, indent=4, default=fallback_serializer))
-    new_failed_results = [result for result in new_check_results if result['failed']]
-    if new_failed_results:
-        request.config.cache.set(sanity_failed_cache_key, True)
-        add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.{recovery_failed_cache_key}", True)
-        pt_assert(False,
+        logger.info("Run sanity check again after recovery")
+        new_check_results = _run_sanity_checks(request, check_items, stage=sanity_check_stage, after_recovery=True)
+        logger.debug(f"{sanity_check_stage} sanity check after recovery results: \n%s" %
+                     json.dumps(new_check_results, indent=4, default=fallback_serializer))
+        new_failed_results = [result for result in new_check_results if result['failed']]
+        pt_assert(not new_failed_results,
                   f"!!!!!!!!!!!!!!!! {sanity_check_stage} sanity check after recovery failed: !!!!!!!!!!!!!!!!\n"
                   f"{json.dumps(new_failed_results, indent=4, default=fallback_serializer)}")
+    except (Exception, pytest.fail.Exception) as error:
+        request.config.cache.set(sanity_failed_cache_key, True)
+        add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.{recovery_failed_cache_key}", True)
+        logger.error("Sanity recovery/verification failed (%s); original failures: %s",
+                     type(error).__name__, json.dumps(failed_results, default=fallback_serializer))
+        # Keep the actual dispatch/verification traceback, not a second assertion
+        # containing repr(error), which can dump Ansible command output/secrets.
+        error.sanity_original_failures = failed_results
+        raise
     # Record recovery success
     add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.{recovery_failed_cache_key}", False)
 
