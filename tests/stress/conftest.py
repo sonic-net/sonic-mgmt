@@ -5,12 +5,18 @@ import pytest
 
 from tests.common import config_reload
 from tests.common.utilities import wait_until
-from utils import get_crm_resource_status, check_queue_status, sleep_to_wait
+from utils import (
+    get_crm_route_counts,
+    check_queue_status,
+    sleep_to_wait,
+    get_topo_scale_factor,
+    wait_crm_route_counts_settled,
+    CRM_SETTLE_TIME,
+)
 
 CRM_POLLING_INTERVAL = 1
 CRM_DEFAULT_POLL_INTERVAL = 300
 MAX_WAIT_TIME = 120
-ROUTE_STABLE_SAMPLES = 5
 
 logger = logging.getLogger(__name__)
 
@@ -56,10 +62,19 @@ def withdraw_and_announce_existing_routes(duthosts, localhost, tbinfo, enum_rand
     ptf_ip = tbinfo["ptf_ip"]
     topo_name = tbinfo["topo"]["name"]
 
-    announced_route_counts = (
-        get_crm_resource_status(duthost, "ipv4_route", "used", namespace),
-        get_crm_resource_status(duthost, "ipv6_route", "used", namespace),
-    )
+    # Scale BGP-drain timeout and post-withdraw settle by topology peer count;
+    # defaults are tuned for ~5-peer mintopo and are too short for maxtopo
+    # (~50 peers), where the SAI/HW pipeline is still draining when the
+    # baseline is sampled. See test_announce_withdraw_route for context.
+    scale = get_topo_scale_factor(tbinfo)
+
+    settle_time = CRM_SETTLE_TIME * scale
+    # The counts before the withdraw are the announced target for the loop and the ceiling the withdrawn
+    # baseline has to drop below.
+    announced_route_counts = get_crm_route_counts(duthost, namespace)
+    if announced_route_counts is None:
+        pytest.fail("CRM did not report route counts before the withdraw")
+    logger.info("CRM route used before withdraw: ipv4 {} ipv6 {}".format(*announced_route_counts))
 
     def restore_routes():
         logger.info("announce existing ipv4 and ipv6 routes")
@@ -67,48 +82,37 @@ def withdraw_and_announce_existing_routes(duthosts, localhost, tbinfo, enum_rand
             topo_name=topo_name, ptf_ip=ptf_ip, action="announce", path="../ansible/")
 
         wait_until(
-            MAX_WAIT_TIME,
+            MAX_WAIT_TIME * scale,
             CRM_POLLING_INTERVAL,
             0,
             lambda: check_queue_status(duthost, "outq") is True,
         )
         sleep_to_wait(CRM_POLLING_INTERVAL * 5)
-        logger.info("ipv4 route used {}".format(
-            get_crm_resource_status(duthost, "ipv4_route", "used", namespace)))
-        logger.info("ipv6 route used {}".format(
-            get_crm_resource_status(duthost, "ipv6_route", "used", namespace)))
+        logger.info("route used after re-announce: {}".format(get_crm_route_counts(duthost, namespace)))
 
     request.addfinalizer(restore_routes)
 
     logger.info("withdraw existing ipv4 and ipv6 routes")
     localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="withdraw", path="../ansible/")
 
-    result = wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "inq") is True)
+    result = wait_until(MAX_WAIT_TIME * scale, CRM_POLLING_INTERVAL, 0,
+                        lambda: check_queue_status(duthost, "inq") is True)
     if not result:
         logger.warning("Failed to process all withdraw requests in {} seconds".format(MAX_WAIT_TIME))
 
-    stable_samples = 0
-    ipv4_route_used_before = get_crm_resource_status(duthost, "ipv4_route", "used", namespace)
-    ipv6_route_used_before = get_crm_resource_status(duthost, "ipv6_route", "used", namespace)
-
-    def routes_stable():
-        nonlocal ipv4_route_used_before, ipv6_route_used_before, stable_samples
-        prior_stable_samples = stable_samples
-        stable_samples = 0
-        ipv4_route_used_now = get_crm_resource_status(duthost, "ipv4_route", "used", namespace)
-        ipv6_route_used_now = get_crm_resource_status(duthost, "ipv6_route", "used", namespace)
-        ipv4_stable = ipv4_route_used_now == ipv4_route_used_before
-        ipv6_stable = ipv6_route_used_now == ipv6_route_used_before
-        stable_samples = prior_stable_samples + 1 if ipv4_stable and ipv6_stable else 0
-        ipv4_route_used_before = ipv4_route_used_now
-        ipv6_route_used_before = ipv6_route_used_now
-        return stable_samples >= ROUTE_STABLE_SAMPLES
-
-    full_wait_time = MAX_WAIT_TIME + CRM_POLLING_INTERVAL * 100
-    result = wait_until(full_wait_time, CRM_POLLING_INTERVAL, CRM_POLLING_INTERVAL, routes_stable)
-    if not result:
-        pytest.fail("Routes failed to withdraw in {} seconds".format(full_wait_time))
-
+    # Require the counts to drop below the pre-withdraw reading as well as settle. Stillness is not enough:
+    # on a topology with many peers a prefix is learnt from all of them, so its route entry stays until the
+    # last path is withdrawn, and the counts sit flat near the full table for minutes. A vs DUT has no ASIC,
+    # so its counts are not held to the pre-withdraw reading and only need to settle.
+    full_wait_time = (MAX_WAIT_TIME + CRM_POLLING_INTERVAL * 100) * scale
+    below = announced_route_counts if duthost.facts["asic_type"] != "vs" else None
+    baseline = wait_crm_route_counts_settled(duthost, namespace, full_wait_time, settle_time, below=below)
+    if baseline is None:
+        if below is None:
+            pytest.fail("CRM route counts did not settle within {} seconds".format(full_wait_time))
+        pytest.fail("CRM route counts did not settle below the pre-withdraw counts ipv4 {} ipv6 {} "
+                    "within {} seconds".format(below[0], below[1], full_wait_time))
+    ipv4_route_used_before, ipv6_route_used_before = baseline
     logger.info("ipv4 route used {}".format(ipv4_route_used_before))
     logger.info("ipv6 route used {}".format(ipv6_route_used_before))
 
