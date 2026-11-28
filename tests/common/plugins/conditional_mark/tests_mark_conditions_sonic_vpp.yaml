@@ -4,17 +4,6 @@
 #######################################
 #######################################
 
-#######################################
-#####           ACL               #####
-#######################################
-acl/test_stress_acl.py::test_acl_add_del_stress:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 arp/test_neighbor_mac_aging.py:
   skip:
     reason: "Flaky on the KVM t0-vpp PR testbed, likely from host CPU oversubscription"
