@@ -1435,7 +1435,10 @@ def fib_t2_lag(topo, ptf_ip, action="announce", topo_routes=None):
                 t1_vms[dut_index] = list()
             t1_vms[dut_index].append(key)
 
-        if 'T3' in key or ('FRH' in key or 'URH' in key or 'RWA' in key):  # Temporarily map DRH to T2 routes
+        # FW4 core neighbors (AristaT2xx and AristaFwaXX) do not use the T3 naming convention.
+        is_fw4_core = 'core' in vm_properties and re.match(r'Arista(?:T2|Fwa)\d+$', key) is not None
+        if 'T3' in key or is_fw4_core \
+                or ('FRH' in key or 'URH' in key or 'RWA' in key):  # Temporarily map DRH to T2 routes
             if dut_index not in t3_vms:
                 t3_vms[dut_index] = list()
             t3_vms[dut_index].append(key)

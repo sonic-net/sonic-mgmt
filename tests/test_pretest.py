@@ -14,6 +14,7 @@ from collections import defaultdict
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
+from tests.common import config_reload
 from tests.common.helpers.dut_utils import verify_features_state
 from tests.common.platform.bmc_utils import assert_bmc_clock_in_sync
 from tests.common.utilities import wait_until
@@ -754,12 +755,56 @@ def test_backend_acl_load(duthosts, enum_dut_hostname, tbinfo):
 
 
 # This one is special. It is public, but we need to ensure that it is the last one executed in pre-test.
-def test_generate_running_golden_config(duthosts):
-    """
-    Generate running golden config after pre test.
-    """
+def test_generate_running_golden_config(duthosts, tbinfo):
+    """Generate the test baseline after FW4 reload defaults have converged."""
+    fw4 = "fw4" in tbinfo["topo"]["name"]
 
     def generate_running_golden_config(dut):
+        if fw4:
+            # load_minigraph overrides and config reload do not materialize
+            # identical defaults. Exercise the reload path once before taking
+            # the baseline, rather than relearning it after each test module.
+            dut.shell("config save -y")
+            config_reload(dut, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+            scopes = [None] + (["asic{}".format(i) for i in range(dut.facts["num_asic"])]
+                               if dut.is_multi_asic else [])
+
+            def read_configs():
+                configs = {}
+                for scope in scopes:
+                    ns_arg = " -n {}".format(scope) if scope else ""
+                    configs[scope] = json.loads(dut.shell(
+                        "sonic-cfggen{} -d --print-data".format(ns_arg), verbose=False)["stdout"])
+                return configs
+
+            previous = None
+            equal_samples = 0
+            stable = None
+
+            def configs_converged():
+                nonlocal previous, equal_samples, stable
+                current = read_configs()
+                equal_samples = equal_samples + 1 if current == previous else 0
+                previous = current
+                if equal_samples >= 2:
+                    stable = current
+                    return True
+                return False
+
+            pytest_assert(wait_until(180, 10, 0, configs_converged),
+                          "FW4 CONFIG_DB did not converge before baseline capture")
+            # Persist the same converged state so the next reload cannot
+            # restore the incomplete pre-convergence startup configuration.
+            dut.shell("config save -y")
+            pytest_assert(read_configs() == stable, "FW4 CONFIG_DB changed while saving baseline")
+            for scope, config in stable.items():
+                suffix = scope[4:] if scope else ""
+                path = "/etc/sonic/running_golden_config{}.json".format(suffix)
+                dut.copy(content=json.dumps(config, indent=4) + "\n", dest=path + ".tmp", verbose=False)
+                dut.shell("mv {}.tmp {}".format(path, path))
+            logger.info("FW4 running golden configuration captured after reload convergence")
+            return
+
         dut.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")
         if dut.is_multi_asic:
             for asic_index in range(0, dut.facts.get('num_asic')):
