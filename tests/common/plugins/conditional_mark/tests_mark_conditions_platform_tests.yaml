@@ -19,6 +19,15 @@ platform_tests/api/test_bmc.py:
       - "'bmc' in topo_type"
 
 #######################################
+#####     api/test_bmc_os.py      #####
+#######################################
+platform_tests/api/test_bmc_os.py:
+  skip:
+    reason: "Not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
+#######################################
 #####      api/test_chassis.py    #####
 #######################################
 platform_tests/api/test_chassis.py::TestChassisApi::test_components:
