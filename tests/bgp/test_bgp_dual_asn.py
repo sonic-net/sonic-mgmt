@@ -173,16 +173,16 @@ class BgpDualAsn:
             str(
                 ipaddress.IPv4Address(
                     random.randint(
-                        int(self.peer_subnets[0].network_address),
-                        int(self.peer_subnets[0].broadcast_address),
+                        int(self.peer_subnets[0].network_address) + 1,
+                        int(self.peer_subnets[0].broadcast_address) - 1,
                     )
                 )
             ),
             str(
                 ipaddress.IPv4Address(
                     random.randint(
-                        int(self.peer_subnets[1].network_address),
-                        int(self.peer_subnets[1].broadcast_address),
+                        int(self.peer_subnets[1].network_address) + 1,
+                        int(self.peer_subnets[1].broadcast_address) - 1,
                     )
                 )
             ),
