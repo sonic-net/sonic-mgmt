@@ -90,7 +90,8 @@ def check_sonic_version(duthost, target_version):
         "Upgrade sonic failed: target={} current={}".format(target_version, current_version)
 
 
-def install_sonic(duthost, image_url, tbinfo, skip_platform_check=False):
+def install_sonic(duthost, image_url, tbinfo, skip_platform_check=False, config_source="config_db"):
+    """Install an image using saved JSON unless an explicit minigraph rebuild is requested."""
     new_route_added = False
     if urlparse(image_url).scheme in ('http', 'https',):
         mg_gwaddr = duthost.get_extended_minigraph_facts(tbinfo).get("minigraph_mgmt_interface", {}).get("gwaddr")
@@ -106,7 +107,7 @@ def install_sonic(duthost, image_url, tbinfo, skip_platform_check=False):
             duthost.shell("ip route replace default via {}".format(mg_gwaddr), module_ignore_errors=True)
             new_route_added = True
         res = duthost.reduce_and_add_sonic_images(
-            new_image_url=image_url, skip_platform_check=skip_platform_check)
+            new_image_url=image_url, skip_platform_check=skip_platform_check, config_source=config_source)
     else:
         out = duthost.command("df -BM --output=avail /host", module_ignore_errors=True)["stdout"]
         avail = int(out.split('\n')[1][:-1])
@@ -122,7 +123,7 @@ def install_sonic(duthost, image_url, tbinfo, skip_platform_check=False):
         logger.info("Image exists locally. Copying the image {} into the device path {}".format(image_url, save_as))
         duthost.copy(src=image_url, dest=save_as)
         res = duthost.reduce_and_add_sonic_images(
-            save_as=save_as, skip_platform_check=skip_platform_check)
+            save_as=save_as, skip_platform_check=skip_platform_check, config_source=config_source)
 
     # if the new default mgmt-gateway route was added, remove it. This is done so that
     # default route src address matches Loopback0 address
