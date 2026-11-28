@@ -1,4 +1,5 @@
 import binascii
+import io
 import logging
 import pytest
 import paramiko
@@ -100,21 +101,47 @@ def change_and_wait_aaa_config_update(duthost, command, last_timestamp=None, tim
     pytest_assert(exist, "Not found aaa config update log: {}".format(command))
 
 
-def ssh_run_command(ssh_client, command, expect_exit_code=0, verify=False):
-    stdin, stdout, stderr = ssh_client.exec_command(command, timeout=TIMEOUT_LIMIT)
-    exit_code = stdout.channel.recv_exit_status()
+def ssh_run_command(ssh_client, command, expect_exit_code=0, verify=False, timeout=TIMEOUT_LIMIT):
+    stdin, stdout, stderr = ssh_client.exec_command(command, timeout=timeout)
+    channel = stdout.channel
+    out_chunks = []
+    err_chunks = []
+    deadline = time.monotonic() + timeout
+    exit_code = None
+
+    def drain_streams():
+        while channel.recv_ready():
+            out_chunks.append(channel.recv(65535))
+        while channel.recv_stderr_ready():
+            err_chunks.append(channel.recv_stderr(65535))
+
+    def time_left():
+        return max(0.0, deadline - time.monotonic())
+
+    def command_complete():
+        nonlocal exit_code
+        drain_streams()
+        if exit_code is None and channel.exit_status_ready():
+            exit_code = channel.recv_exit_status()
+        return exit_code is not None and not channel.recv_ready() and not channel.recv_stderr_ready()
+
+    if not wait_until(time_left(), 0.1, 0, command_complete):
+        channel.close()
+        pytest.fail("Command timed out after {}s: {}".format(timeout, command))
+
+    channel.close()
+
+    out_data = b"".join(out_chunks)
+    err_data = b"".join(err_chunks)
     if verify is True:
-        if exit_code != expect_exit_code:
-            # This if-block is here so that stdout.readlines() and
-            # stderr.readlines() get evaluated if and only if the exit code
-            # doesn't match the expected exit code. If they do match, and they
-            # do get evaluated, then the state of the object will be different,
-            # which will cause issues for other functions that use those
-            # objects.
-            pytest.fail(
-                f"Command: '{command}' failed with exit code: {exit_code}, "
-                f"stdout: {stdout.readlines()}, stderr: {stderr.readlines()}")
-    return exit_code, stdout, stderr
+        pytest_assert(
+            exit_code == expect_exit_code,
+            "Command: '{}' failed with exit code: {}, stdout: {}, stderr: {}".format(
+                command, exit_code,
+                out_data.decode('utf-8', errors='replace'),
+                err_data.decode('utf-8', errors='replace')))
+    return exit_code, io.StringIO(out_data.decode('utf-8', errors='replace')), \
+        io.StringIO(err_data.decode('utf-8', errors='replace'))
 
 
 def ssh_connect_remote_retry(remote_ip, remote_username, remote_password, duthost):
@@ -131,6 +158,9 @@ def ssh_connect_remote_retry(remote_ip, remote_username, remote_password, duthos
 
         time.sleep(1)
         retry_count -= 1
+
+    raise paramiko.ssh_exception.AuthenticationException(
+        "Failed to connect to {} as {} after retries".format(remote_ip, remote_username))
 
 
 def duthost_shell_with_unreachable_retry(duthost, command):
