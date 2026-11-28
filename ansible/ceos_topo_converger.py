@@ -5,7 +5,8 @@ in the topology
 '''
 
 from copy import deepcopy
-from ipaddress import ip_address
+from ipaddress import ip_address, ip_interface
+from pathlib import Path
 from typing import Dict, List, Union
 import yaml
 import sys
@@ -144,6 +145,16 @@ class SonicTopoConverger:
         ptf_bp_addr_offset = 101
         base_v4_addr = "10.10.246.0"
         base_v6_addr = "fc0a::"
+        defaults_file = Path(__file__).parent / "group_vars" / "vm_host" / "main.yml"
+        with defaults_file.open(encoding="utf-8") as defaults:
+            vm_host_vars = yaml.safe_load(defaults)
+        common_config = self.topo["configuration_properties"].get("common", {})
+        reserved_bp_addrs = {
+            ip_interface(vm_host_vars[key]).ip for key in ("ptf_bp_ip", "ptf_bp_ipv6")
+        } | {
+            ip_interface(common_config[key]).ip
+            for key in ("nhipv4", "nhipv6") if key in common_config
+        }
         for prime_dev, peer_list in self.prime_device_mapping.items():
             intf_counter_base = 1
             eth_intf_index = 1
@@ -212,6 +223,15 @@ class SonicTopoConverger:
                     vrf[lo_intf] = deepcopy(peer_intfs["Loopback0"])
 
                 new_peers[prime_dev]["vrf"][vrf_name] = vrf
+
+                # Neither endpoint may reuse a parent-backplane or legacy next-hop address.
+                while any(
+                    ip_address(self.modify_l3_address(base, addr_offset)) in reserved_bp_addrs
+                    for base in (base_v4_addr, base_v6_addr)
+                    for addr_offset in (peer_bp_addr_offset, ptf_bp_addr_offset)
+                ):
+                    peer_bp_addr_offset += 2
+                    ptf_bp_addr_offset += 2
 
                 bp_addr_data = {}
                 if "ipv4" in peer["bp_interface"]:
