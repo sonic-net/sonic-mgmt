@@ -391,7 +391,7 @@ def setup_IPv6_SLB_connection(rand_selected_dut, ptfhost, prepare_vlan_subnet_te
     logger.info("Configured route to from PTF to DUT on PTF interface {}".format(ptf_interface))
     ptfhost.shell("ip -6 addr add {}/{} dev {}".format(peer_addr, str(vlan_ipv6_subnet.prefixlen), ptf_interface))
     ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (local_addr, router_mac, ptf_interface))
-    ptfhost.shell("ip -6 route add %s/%s dev %s" % (local_addr, str(128), ptf_interface))
+    ptfhost.shell("ip -6 route replace %s/%s dev %s" % (local_addr, str(128), ptf_interface))
 
     # setup BGP connection between SLB on PTF host and DUT
     dut_asn = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']['minigraph_bgp_asn']
