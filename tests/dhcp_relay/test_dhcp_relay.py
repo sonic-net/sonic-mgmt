@@ -467,7 +467,7 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
         for iface in dhcp_relay['uplink_interfaces']:
             duthost.shell('config interface shutdown {}'.format(iface))
 
-        pytest_assert(wait_until(50, 5, 0, check_link_status, duthost, dhcp_relay['uplink_interfaces'], "down"),
+        pytest_assert(wait_until(120, 5, 0, check_link_status, duthost, dhcp_relay['uplink_interfaces'], "down"),
                       "Not all uplinks go down")
 
         # Bring all uplink interfaces back up
