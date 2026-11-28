@@ -100,6 +100,28 @@ def check_sonic_bgp_facts(hostname, host):
         return "neighbor {} bgp not configured correctly".format(hostname)
 
 
+def get_health_check_neighbors(nei_meta, nbrhosts, dut_type):
+    """Keep only primary cEOS peers for multi-VRF topologies."""
+    selected = []
+    for name, metadata in nei_meta.items():
+        if metadata['type'] in ['SmartCable', 'Server', 'Asic'] or metadata['type'] == dut_type:
+            # Smart cable doesn't respond to snmp, it doesn't have BGP session either.
+            # DualToR has the peer ToR listed in device as well. If the device type
+            # is the same as testing DUT, then it is the peer.
+            # The server neighbors need to be skipped too.
+            # Skip if the neigbhor is asic as well.
+            continue
+
+        neighbor = nbrhosts[name]
+        is_multi_vrf = isinstance(neighbor['host'], EosHost) and neighbor.get('is_multi_vrf_peer', False)
+        # VRF peers share a cEOS VM, management IP, SNMP agent, and EOS facts.
+        # BGP is checked with "vrf all", so only the primary peer needs checking.
+        if not is_multi_vrf or name == neighbor['multi_vrf_data']['primary_host']:
+            selected.append((name, metadata))
+
+    return selected
+
+
 def test_neighbors_health(duthosts, localhost, nbrhosts, eos, sonic, enum_frontend_dut_hostname):
     """Check each neighbor device health"""
 
@@ -114,15 +136,8 @@ def test_neighbors_health(duthosts, localhost, nbrhosts, eos, sonic, enum_fronte
     if "localhost" in dev_meta and "type" in dev_meta["localhost"]:
         dut_type = dev_meta["localhost"]["type"]
 
-    for k, v in list(nei_meta.items()):
-        if v['type'] in ['SmartCable', 'Server', 'Asic'] or dut_type == v['type']:
-            # Smart cable doesn't respond to snmp, it doesn't have BGP session either.
-            # DualToR has the peer ToR listed in device as well. If the device type
-            # is the same as testing DUT, then it is the peer.
-            # The server neighbors need to be skipped too.
-            # Skip if the neigbhor is asic as well.
-            continue
-
+    neighbors = get_health_check_neighbors(nei_meta, nbrhosts, dut_type)
+    for k, v in neighbors:
         nbrhost = nbrhosts[k]['host']
 
         if isinstance(nbrhost, EosHost):
