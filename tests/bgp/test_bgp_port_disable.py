@@ -105,8 +105,9 @@ def test_zebra_uid(duthost):
     uid_output = duthost.shell(uid_command)["stdout"].strip()
     if not uid_output:
         pytest.fail("Failed to get zebra uid")
-    pytest_assert(uid_output == FRR_USER_UID, "uid output = {} are not equal to expected zebra uid = {}"
-                  .format(uid_output, FRR_USER_UID))
+    for uid in uid_output.splitlines():
+        pytest_assert(uid == FRR_USER_UID, "uid output = {} is not equal to expected zebra uid = {}"
+                      .format(uid, FRR_USER_UID))
 
 
 def test_daemon_tcp_port_access_restrictions(duthost):
