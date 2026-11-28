@@ -29,7 +29,8 @@ SUPPORTED_PLATFORMS = [
     "x86_64-nvidia",
     "x86_64-88_lc0_36fh_m-r0",
     "nexthop",
-    "marvell"
+    "marvell",
+    "nokia_ixr7220"
 ]
 
 
