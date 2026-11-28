@@ -1884,7 +1884,6 @@ class SnmpFactsCollector:
             self._collect_lldp_rem(),
             self._collect_lldp_rem_man_addr(),
             self._collect_dell_cpu(),
-            self._collect_sys_mem(),
             self._collect_swap(),
             self._collect_cisco_pfc_if(),
             self._collect_cisco_pfc_priority(),
@@ -1893,6 +1892,8 @@ class SnmpFactsCollector:
             self._collect_ip_route(),
             self._collect_fdb()
         )
+        # Sample dynamic memory after the slower walks so it is fresh on return.
+        await self._collect_sys_mem()
 
 
 async def main(module):
