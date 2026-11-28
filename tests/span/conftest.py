@@ -23,6 +23,9 @@ from erspan_helpers import (   # noqa F401
     MIRROR_GRE_METADATA_LEN,
     remove_mirror_session,
     create_erspan_session_config,
+    config_db_key_exists,
+    sample_bindings,
+    wait_for_sample_binding,
 )
 
 logger = logging.getLogger(__name__)
@@ -235,12 +238,23 @@ def _get_routed_candidates(ip_interfaces, minigraph, status, config):
     return disjoint
 
 
+def _kernel_routes(duthost, prefix):
+    '''Return the kernel routes for `prefix`, with the gateway and device of a nexthop object filled in.'''
+    routes = json.loads(duthost.shell('ip -j -4 route show exact {}'.format(prefix))['stdout'])
+    for route in routes:
+        if 'nhid' in route and 'dev' not in route:
+            nexthops = json.loads(duthost.shell('ip -j nexthop show id {}'.format(route['nhid']))['stdout'])
+            if len(nexthops) == 1 and 'group' not in nexthops[0]:
+                route.update({key: nexthops[0][key] for key in ('gateway', 'dev') if key in nexthops[0]})
+    return routes
+
+
 def _add_route(duthost, cleanup, prefix, nexthop, interface):
     '''Reuse matching FRR/kernel routes; clean up only new routes.
 
     FRR may retain routes absent from the kernel while next hops are unresolved.
     '''
-    existing = json.loads(duthost.shell('ip -j -4 route show exact {}'.format(prefix))['stdout'])
+    existing = _kernel_routes(duthost, prefix)
     command = 'ip route {} {} {}'.format(prefix, nexthop, interface)
     running = duthost.shell('vtysh -c "show running-config"')['stdout']
     configured = [line.strip() for line in running.splitlines()
@@ -261,7 +275,7 @@ def _add_route(duthost, cleanup, prefix, nexthop, interface):
         duthost.command('vtysh -c "configure terminal" -c "{}"'.format(command))
 
     def installed():
-        routes = json.loads(duthost.shell('ip -j -4 route show exact {}'.format(prefix))['stdout'])
+        routes = _kernel_routes(duthost, prefix)
         return _route_matches(routes, prefix, nexthop, interface)
 
     _pytest_assert(wait_until(30, 1, 0, installed),
@@ -411,8 +425,23 @@ def sampling_direction(request, erspan_capabilities):
     return direction
 
 
+@pytest.fixture(scope='module')
+def sampled_mirror_cli(rand_selected_dut):
+    if rand_selected_dut.is_multi_asic:
+        pytest.skip('ERSPAN sampling session setup currently requires a single-ASIC DUT')
+    result = rand_selected_dut.command('config mirror_session sample --help', module_ignore_errors=True)
+    output = result['stderr'] + result['stdout']
+    if result['rc'] and "No such command 'sample'" in output:
+        pytest.skip('Image does not support per-port sampled ERSPAN')
+    _pytest_assert(result['rc'] == 0, output)
+    if config_db_key_exists(rand_selected_dut, 'SFLOW|global'):
+        pytest.skip('Sampled bindings require SFLOW|global to be absent, even when disabled')
+    if sample_bindings(rand_selected_dut):
+        pytest.skip('Preserving pre-existing sampled mirror bindings')
+
+
 @pytest.fixture
-def mirror_session_cleanup(duthosts, rand_one_dut_hostname):
+def mirror_session_cleanup(duthosts, rand_one_dut_hostname, sampled_mirror_cli):
     '''Register mirror-session names for guaranteed removal at teardown.
 
     A lightweight alternative to per-test try/finally remove_mirror_session boilerplate for
@@ -425,6 +454,8 @@ def mirror_session_cleanup(duthosts, rand_one_dut_hostname):
     session_names = []
 
     def register(session_name):
+        if config_db_key_exists(duthost, 'MIRROR_SESSION|' + session_name):
+            pytest.skip('Preserving existing mirror session {}'.format(session_name))
         session_names.append(session_name)
         return session_name
 
@@ -482,6 +513,29 @@ def erspan_ports(duthosts, rand_one_dut_hostname, tbinfo):
 
 
 @pytest.fixture(scope="module")
+def erspan_lag_source(duthosts, rand_one_dut_hostname, tbinfo, erspan_ports):
+    '''Select a routed PortChannel source that shares no port with the collector path.
+
+    Prefers the PortChannel with the most members. RX probes to it are discarded on the
+    DUT, so its peer does not need to be reachable.
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    asic = duthost.asic_instance()
+    ip_interfaces = asic.show_ip_interface()['ansible_facts']['ip_interfaces']
+    minigraph = duthost.get_extended_minigraph_facts(tbinfo)
+    status = duthost.show_interface(command='status')['ansible_facts']['int_status']
+    config = duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
+    collector = set(erspan_ports['gre_egress']['members'])
+    lags = [p for p in _get_routed_candidates(ip_interfaces, minigraph, status, config)
+            if p['l3_interface'].startswith('PortChannel') and not collector.intersection(p['members'])]
+    if not lags:
+        pytest.skip('Test requires a routed PortChannel source')
+    lag = max(lags, key=lambda p: len(p['members']))
+    lag['router_mac'] = duthost.get_dut_iface_mac(lag['l3_interface']).strip()
+    return lag
+
+
+@pytest.fixture(scope="module")
 def setup_erspan_route(duthosts, rand_one_dut_hostname, erspan_ports):
     '''Route mirrors and TX probes through existing peers; discard RX originals.'''
     duthost = duthosts[rand_one_dut_hostname]
@@ -495,9 +549,9 @@ def setup_erspan_route(duthosts, rand_one_dut_hostname, erspan_ports):
 
 
 @pytest.fixture
-def erspan_session(request, duthosts, rand_one_dut_hostname, erspan_ports):
+def erspan_session(request, duthosts, rand_one_dut_hostname, erspan_ports, mirror_session_cleanup):
     '''
-    Create and teardown an ERSPAN mirror session with optional sample_rate/truncate_size.
+    Create and teardown an export and source binding with a sample rate and optional truncation.
 
     Usage:
         @pytest.mark.parametrize('erspan_session', [{'sample_rate': 256}], indirect=True)
@@ -505,7 +559,7 @@ def erspan_session(request, duthosts, rand_one_dut_hostname, erspan_ports):
     '''
     duthost = duthosts[rand_one_dut_hostname]
     params = getattr(request, 'param', {}) or {}
-    sample_rate = params.get('sample_rate')
+    sample_rate = params['sample_rate']
     truncate_size = params.get('truncate_size')
     src_port = erspan_ports['source']['name']
     direction = params.get('direction', ERSPAN_DEFAULT_DIRECTION)
@@ -514,11 +568,9 @@ def erspan_session(request, duthosts, rand_one_dut_hostname, erspan_ports):
         pytest.skip('TX/BOTH ERSPAN dataplane tests require a single-member routed mirror source')
     metadata_len = request.getfixturevalue('erspan_gre_metadata_len')
     # Check eligibility before configuring routes.
+    mirror_session_cleanup(ERSPAN_SESSION_NAME)
     request.getfixturevalue('setup_erspan_route')
-    request.addfinalizer(lambda: remove_mirror_session(duthost, ERSPAN_SESSION_NAME))
 
-    # create_erspan_session_config pre-cleans any leftover same-named session, then
-    # creates it with the requested direction / sampling / truncation parameters.
     logger.info(
         "Creating ERSPAN session %s on %s (direction=%s, sample_rate=%s, truncate_size=%s)",
         ERSPAN_SESSION_NAME, src_port, direction, sample_rate, truncate_size)
@@ -566,9 +618,11 @@ def erspan_session(request, duthosts, rand_one_dut_hostname, erspan_ports):
         ready,
         "Mirror session {} not active or monitor_port not in {}; STATE_DB: {}".format(
             ERSPAN_SESSION_NAME, sorted(expected_monitors), state_dump))
+    wait_for_sample_binding(duthost, src_port, direction)
 
     yield {
         'session_name': ERSPAN_SESSION_NAME,
+        'source_port': src_port,
         'source_index': erspan_ports['source']['index'],
         'gre_egress_indices': collector['indices'],
         'tx_ingress_index': erspan_ports['tx_ingress']['index'],
