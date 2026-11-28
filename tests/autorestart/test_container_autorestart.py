@@ -660,39 +660,38 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
     critical_proceses, bgp_check = postcheck_critical_processes_status(
         duthost, feature_autorestart_states, up_bgp_neighbors
     )
-    if not critical_proceses:
-        processes_status = duthost.all_critical_process_status()
-        for cname, procs in list(processes_status.items()):
-            if procs["status"] is False or len(procs["exited_critical_process"]) > 0:
-                logger.info("Post-check: container '{}' has exited critical processes: {}"
-                            .format(cname, procs["exited_critical_process"]))
-    if not bgp_check:
-        bgp_neigh = duthost.get_bgp_neighbors()
-        down_sessions = {ip: info['state'] for ip, info in list(bgp_neigh.items()) if info['state'] != 'established'}
-        logger.info("Post-check: BGP sessions not established: {}".format(down_sessions))
     if not (critical_proceses and bgp_check):
         # Capture diagnostic state BEFORE config_reload, otherwise all sessions
         # will appear established in the error message after recovery.
         failed_check = "[Critical Process] " if not critical_proceses else ""
         failed_check += "[BGP] " if not bgp_check else ""
-        bgp_failures = [
-            {x: v['state']}
-            for x, v in list(duthost.get_bgp_neighbors().items())
-            if v['state'] != 'established'
-        ]
-        processes_status = duthost.all_critical_process_status()
-        pstatus = [
-            {
-                k: {
-                    "status": v["status"],
-                    "exited_critical_process": v["exited_critical_process"]
-                }
-            } for k, v in list(processes_status.items()) if v[
-                "status"
-            ] is False and len(v["exited_critical_process"]) > 0
-        ]
-
-        reload_and_restore_autorestart(duthost)
+        # The DUT must be reloaded even if querying a broken DUT raises.
+        try:
+            processes_status = duthost.all_critical_process_status()
+            if not critical_proceses:
+                for cname, procs in list(processes_status.items()):
+                    if procs["status"] is False or len(procs["exited_critical_process"]) > 0:
+                        logger.info("Post-check: container '{}' has exited critical processes: {}"
+                                    .format(cname, procs["exited_critical_process"]))
+            pstatus = [
+                {
+                    k: {
+                        "status": v["status"],
+                        "exited_critical_process": v["exited_critical_process"]
+                    }
+                } for k, v in list(processes_status.items()) if v[
+                    "status"
+                ] is False and len(v["exited_critical_process"]) > 0
+            ]
+            bgp_failures = [
+                {x: v['state']}
+                for x, v in list(duthost.get_bgp_neighbors().items())
+                if v['state'] != 'established'
+            ]
+            if not bgp_check:
+                logger.info("Post-check: BGP sessions not established: {}".format(bgp_failures))
+        finally:
+            reload_and_restore_autorestart(duthost)
 
         if (duthost.get_facts().get("modular_chassis") and
                 duthost.facts["asic_type"] == "cisco-8000" and
