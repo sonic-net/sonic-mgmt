@@ -107,6 +107,9 @@ all:
         ptf-01:
           ansible_host: 10.250.0.102
           ansible_hostv6: fec0::ffff:afa:2
+        ptf-l2tri:
+          ansible_host: 10.250.0.130
+          ansible_hostv6: fec0::ffff:afb:30
         ptf-02:
           ansible_host: 10.250.0.106
           ansible_hostv6: fec0::ffff:afa:6
