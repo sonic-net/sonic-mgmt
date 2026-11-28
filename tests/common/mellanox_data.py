@@ -23,6 +23,7 @@ LOSSY_ONLY_HWSKUS = ['Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8', 'Mellan
                      'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C508O1X2', 'Mellanox-SN5640-O128X2',
                      "Mellanox-SN4280-O4X96"]
 NO_QOS_HWSKUS = []
+SIMX_UNSUPPORTED_PLATFORM_EMULATION = ['x86_64-mlnx_msn2700_simx-r0', 'x86_64-nvidia_sn4280_simx-r0']
 
 PSU_CAPABILITIES = [
     ['psu{}_curr', 'psu{}_curr_in', 'psu{}_power', 'psu{}_power_in', 'psu{}_volt', 'psu{}_volt_in', 'psu{}_volt_out'],
