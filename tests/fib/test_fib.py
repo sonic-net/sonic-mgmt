@@ -26,6 +26,7 @@ from tests.common.fixtures.fib_utils import (  # noqa: F401
     single_fib_for_duts,
     get_fib_info,
     get_t2_fib_info_per_asic,
+    is_multi_asic_isolated,
     merge_fib_infos,
     gen_fib_info_file,
     )
@@ -258,22 +259,29 @@ def get_port_and_portchannel_members(port_name, all_port_indices, duts_minigraph
     return ptf_ports_to_filter
 
 
-def collect_fib_info(duthosts, duts_running_config_facts, duts_minigraph_facts, tbinfo, request):
-    """Return ordered FIB snapshots: one per DUT, or one per ASIC for T2."""
+def collect_fib_info(duthosts, duts_running_config_facts, duts_minigraph_facts, tbinfo, request, per_asic=False):
+    """Return ordered FIB snapshots: one per DUT, or one per ASIC for T2.
+
+    With per_asic, return one snapshot per ASIC of the single DUT, in running config facts order.
+    """
     duts_config_facts = duts_running_config_facts
     testname = request.node.name
     fib_infos = []
     if tbinfo['topo']['type'] != "t2":
         for duthost in duthosts:
-            fib_info = get_fib_info(
-                duthost, duts_config_facts[duthost.hostname], duts_minigraph_facts[duthost.hostname], testname
+            dut_fib_infos = get_fib_info(
+                duthost, duts_config_facts[duthost.hostname], duts_minigraph_facts[duthost.hostname], testname,
+                per_asic=per_asic
             )
-            if 'test_basic_fib' in testname and 'backend' in tbinfo['topo']['name']:
-                # if it is a storage backend topology(bt0 or bt1) and testcase is test_basic_fib
-                # add a default route as failover in the prefix matching
-                fib_info['0.0.0.0/0'] = []
-                fib_info['::/0'] = []
-            fib_infos.append(fib_info)
+            if not per_asic:
+                dut_fib_infos = [dut_fib_infos]
+            for fib_info in dut_fib_infos:
+                if 'test_basic_fib' in testname and 'backend' in tbinfo['topo']['name']:
+                    # if it is a storage backend topology(bt0 or bt1) and testcase is test_basic_fib
+                    # add a default route as failover in the prefix matching
+                    fib_info['0.0.0.0/0'] = []
+                    fib_info['::/0'] = []
+                fib_infos.append(fib_info)
     else:
         return get_t2_fib_info_per_asic(duthosts, duts_config_facts, duts_minigraph_facts, testname)
 
@@ -297,10 +305,11 @@ def gen_fib_info_files(ptfhost, fib_infos, tbinfo, request):
     return files
 
 
-def fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts, tbinfo, request):
+def fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts, tbinfo, request,
+                                per_asic=False):
     """Get FIB info from the DUTs and store it in files on the PTF host."""
     fib_infos = collect_fib_info(
-        duthosts, duts_running_config_facts, duts_minigraph_facts, tbinfo, request
+        duthosts, duts_running_config_facts, duts_minigraph_facts, tbinfo, request, per_asic=per_asic
     )
     return gen_fib_info_files(ptfhost, fib_infos, tbinfo, request)
 
@@ -413,8 +422,15 @@ def test_basic_fib(duthosts, ptfhost, tbinfo, ipv4, ipv6, mtu,
     if 'dualtor' in updated_tbinfo['topo']['name']:
         wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')
 
+    fib_asic_indexes = None
+    if tbinfo['topo']['type'] != "t2" and len(duthosts) == 1:
+        dut_cfg_facts = duts_running_config_facts[duthosts[0].hostname]
+        if is_multi_asic_isolated(duthosts[0], dut_cfg_facts):
+            # The ASICs are not connected, so each ASIC can only forward with its own routes and ports
+            fib_asic_indexes = [asic_index for asic_index, _ in dut_cfg_facts]
+
     fib_files = fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
-                                            tbinfo, request)
+                                            tbinfo, request, per_asic=fib_asic_indexes is not None)
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     switch_type = duthosts[0].facts.get('switch_type')
 
@@ -436,8 +452,9 @@ def test_basic_fib(duthosts, ptfhost, tbinfo, ipv4, ipv6, mtu,
         "fib_test.FibTest",
         platform_dir="ptftests",
         params={
-            # Test at most 3 DUTs
-            "fib_info_files": fib_files[:3],
+            # Test at most 3 DUTs, or all the ASICs of a DUT with per-ASIC FIBs
+            "fib_info_files": fib_files if fib_asic_indexes else fib_files[:3],
+            "fib_asic_indexes": fib_asic_indexes,
             "ptf_test_port_map": ptf_test_port_map_active_active(
                 ptfhost, updated_tbinfo, duthosts, mux_server_url,
                 duts_running_config_facts, duts_minigraph_facts,
