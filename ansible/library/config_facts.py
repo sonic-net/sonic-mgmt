@@ -114,7 +114,7 @@ def create_maps(config, namespace):
 
 
 def get_running_config(module, namespace):
-    cmd = "sonic-cfggen -d --print-data"
+    cmd = "sonic-cfggen -d --redis-unix-socket --print-data"
     if namespace:
         cmd += " -n {}".format(namespace)
     rt, out, err = module.run_command(cmd)

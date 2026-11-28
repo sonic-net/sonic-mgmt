@@ -1027,7 +1027,7 @@
           block:
           - name: Set Ethernet508 subport for Mellanox-SN5640-C508O1X2 uneven port 64 breakout
             become: true
-            shell: sonic-db-cli CONFIG_DB hset "PORT|Ethernet508" subport 2
+            shell: sonic-db-cli -s --authenticate CONFIG_DB hset "PORT|Ethernet508" subport 2
 
           - name: Save subport configuration
             become: true
@@ -1046,7 +1046,7 @@
 
         - name: remove DSCP_TO_TC_MAP for {{ hwsku }}. Some platform doesn't support this configuration
           become: true
-          shell: redis-cli -n 4 del "DSCP_TO_TC_MAP|AZURE"
+          shell: sonic-db-cli -s --authenticate CONFIG_DB del "DSCP_TO_TC_MAP|AZURE"
           when:
           - hwsku is defined
           - hwsku == 'cisco-8101-p4-32x100-vs'
@@ -1189,7 +1189,7 @@
         become: true
         shell: |
           for pc in PortChannel1 PortChannel3 PortChannel4 PortChannel6; do
-            for ip in $(redis-cli -n 4 keys "PORTCHANNEL_INTERFACE|$pc|*" | cut -d'|' -f3); do
+            for ip in $(sonic-db-cli -s CONFIG_DB keys "PORTCHANNEL_INTERFACE|$pc|*" | cut -d'|' -f3); do
               echo "Removing $pc $ip"
               config interface ip remove $pc $ip || true
             done

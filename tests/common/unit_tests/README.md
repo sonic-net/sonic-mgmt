@@ -102,6 +102,19 @@ unchanged propagation of `SystemExit`, `KeyboardInterrupt`, and `pytest.exit`.
 Mixed-group coverage also checks independent same-scope finalizers and errors
 raised before the group, so completing ancestor scopes alone is not sufficient.
 
+
+## Ansible Redis callers
+
+`unit_test_ansible_redis_callers.py` checks the configured native endpoints used
+by neighbour and ECN tasks and the named commands used for parallel BGP updates.
+It renders the changed task snippets and runs the BGP shell command with a fake
+CLI. These checks do not run the affected playbooks on a switch.
+
+```bash
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/unit_test_ansible_redis_callers.py -q
+```
+
 ## gNMI AAA TLS reuse
 
 ```bash
