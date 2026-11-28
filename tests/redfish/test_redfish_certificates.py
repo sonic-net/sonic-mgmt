@@ -23,6 +23,7 @@ Groups:
 Classes that disturb the device restore it before finishing, through a
 restore fixture, so they can run in any order.
 """
+from contextlib import contextmanager
 import logging
 import ssl
 import subprocess
@@ -31,6 +32,9 @@ import time
 import pytest
 import requests
 
+from tests.redfish.certificate_cleanup import (
+    expected_ready, restore_expected_config, restore_local_generation, _local_intact,
+)
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.redfish.redfish_utils import (
@@ -79,6 +83,7 @@ from tests.redfish.redfish_utils import (
     STAGED_SERVER_PEM,
     STAGING_POLL,
     STAGING_STAMP,
+    STAGING_TIMEOUT,
     supervisor,
     syslog_line_count,
     unprovision,
@@ -195,53 +200,100 @@ def ignore_expected_refusals(loganalyzer):
             loganalyzer[hostname].ignore_regex.extend(EXPECTED_REFUSALS)
 
 
+@contextmanager
+def _profile_certificate_cleanup(profile):
+    """Measure the existing cleanup boundary, including failed cleanup.
+
+    The same timer is retained for baseline/candidate comparison, including
+    inspection and fallback. It does not infer remote operation counts.
+    """
+    started = time.monotonic()
+    completed = False
+    try:
+        yield
+        completed = True
+    finally:
+        logger.info("Redfish certificate cleanup profile=%s completed=%s seconds=%.6f",
+                    profile, completed, time.monotonic() - started)
+
+
+def _restore_certificate_profile(duthost, certs, profile):
+    """Skip only a fully verified clean state; keep the established fallback.
+
+    Counters below count helper invocations, NOT inferred remote operations or
+    completed restarts. Actual shell/copy dispatches remain in the runner log.
+    """
+    expected = certs["cleanup_expected"]
+    metrics = {"checks": 0, "inspection_calls": 0, "auth_calls": 0, "check_seconds": 0.0,
+               "delivery_calls": 0, "config_restore_calls": 0, "watcher_start_calls": 0,
+               "restart_calls": 0, "recreate_calls": 0, "local_replacements": 0}
+    clean = False
+    try:
+        clean = expected_ready(duthost, expected, metrics)
+        if clean:
+            restore_local_generation(expected, metrics)
+            return
+        if profile == "watcher" and program_state(duthost, WATCHER) != "RUNNING":
+            metrics["watcher_start_calls"] += 1
+            supervisor(duthost, "start", WATCHER)
+            pytest_assert(wait_for_program(duthost, WATCHER, "RUNNING"),
+                          "Redfish cleanup watcher did not start")
+        if profile == "configuration":
+            metrics["config_restore_calls"] += 1
+            restore_expected_config(duthost, expected)
+        pytest_assert(_local_intact(expected), "Frozen Redfish cleanup artifacts changed")
+        metrics["delivery_calls"] += 1
+        restore_delivered_certs(duthost, expected["dir"])
+        if profile == "configuration":
+            metrics["restart_calls"] += 1
+            pytest_assert(restart_service(duthost), "Redfish cleanup service did not restart")
+        if profile == "container":
+            metrics["recreate_calls"] += 1
+            recreate_container(duthost)
+            pytest_assert(wait_for_program(duthost, "bmcweb", "RUNNING"),
+                          "Redfish cleanup container did not become ready")
+        pytest_assert(wait_until(STAGING_TIMEOUT, STAGING_POLL, 0,
+                                 expected_ready, duthost, expected, metrics, False),
+                      "Redfish cleanup could not verify expected provisioned state")
+        restore_local_generation(expected, metrics)
+    except Exception:
+        # Do not publish arbitrary remote failure payloads in teardown reports.
+        raise AssertionError("Redfish certificate cleanup failed ({})".format(profile)) from None
+    finally:
+        logger.info("Redfish certificate cleanup profile=%s clean=%s observed_helper_calls=%s",
+                    profile, clean, metrics)
+
+
 @pytest.fixture
 def good_certs_after_test(bmc_duthost, bmc_tls_certs):
-    """Put a valid trio back and wait for it to be applied."""
+    """Put a valid trio back and verify the full provisioned state."""
     yield
-    restore_delivered_certs(bmc_duthost, bmc_tls_certs["dir"])
-    wait_for_staging(bmc_duthost)
+    with _profile_certificate_cleanup("certificates"):
+        _restore_certificate_profile(bmc_duthost, bmc_tls_certs, "certificates")
 
 
 @pytest.fixture
 def healthy_watcher_after_test(bmc_duthost, bmc_tls_certs):
     """Leave the watcher running and the device in sync."""
     yield
-    if program_state(bmc_duthost, WATCHER) != "RUNNING":
-        supervisor(bmc_duthost, "start", WATCHER)
-        wait_for_program(bmc_duthost, WATCHER, "RUNNING")
-    restore_delivered_certs(bmc_duthost, bmc_tls_certs["dir"])
-    wait_for_staging(bmc_duthost)
+    with _profile_certificate_cleanup("watcher"):
+        _restore_certificate_profile(bmc_duthost, bmc_tls_certs, "watcher")
 
 
 @pytest.fixture
 def provisioned_on_session_port(bmc_duthost, bmc_tls_certs):
-    """Leave the device provisioned, in sync, on the port the session started on.
-
-    The trusted names are put back too: a test that clears REDFISH|certs takes
-    client_crt_cname with it, and the restart below is what applies it.
-    """
+    """Restore the owned configuration, including exact port presence."""
     yield
-    restore_session_port(bmc_duthost, bmc_tls_certs["port"])
-    db_set(bmc_duthost, "CONFIG_DB", REDFISH_CERTS_TABLE,
-           server_crt=DELIVERED_SERVER_CRT,
-           server_key=DELIVERED_SERVER_KEY,
-           ca_crt=DELIVERED_CA_CRT,
-           client_crt_cname=CLIENT_CN)
-    restore_delivered_certs(bmc_duthost, bmc_tls_certs["dir"])
-    restart_service(bmc_duthost)
-    wait_for_staging(bmc_duthost)
+    with _profile_certificate_cleanup("configuration"):
+        _restore_certificate_profile(bmc_duthost, bmc_tls_certs, "configuration")
 
 
 @pytest.fixture
 def provisioned_after_test(bmc_duthost, bmc_tls_certs):
     """Restore the provisioned, serving state after a destructive case."""
     yield
-    logger.info("Restoring the provisioned state")
-    restore_delivered_certs(bmc_duthost, bmc_tls_certs["dir"])
-    recreate_container(bmc_duthost)
-    wait_for_program(bmc_duthost, "bmcweb", "RUNNING")
-    wait_for_staging(bmc_duthost)
+    with _profile_certificate_cleanup("container"):
+        _restore_certificate_profile(bmc_duthost, bmc_tls_certs, "container")
 
 
 class TestRedfishCertProvisioning:
